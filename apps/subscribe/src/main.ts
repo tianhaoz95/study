@@ -1,4 +1,5 @@
-import { db } from './firebase.ts'
+import { db, initAnalytics } from './firebase.ts'
+initAnalytics()
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const HOME_URL = import.meta.env.VITE_HOME_URL ?? '#'
