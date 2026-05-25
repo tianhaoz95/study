@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   output: 'static',
-  site: 'https://your-blog.web.app',
+  site: 'https://heji-study-blog.web.app',
   build: {
     assets: '_assets',
   },
