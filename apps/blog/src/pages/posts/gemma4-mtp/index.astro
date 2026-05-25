@@ -1,0 +1,1179 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="How Gemma 4's Multi-Token Prediction Works | AI/ML Deep Dives"
+  description="A deep dive into Gemma4 Assistant: KV sharing, centroid-based vocab prediction, and bidirectional attention — with animated, annotated visualizations."
+  crumb="How Gemma 4's MTP Works"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+
+/* ── Two-column layout ─────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:1fr 560px;align-items:start;max-width:1700px;margin:0 auto}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panel ──────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'⟳';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Generation comparison ──────────────────────────────── */
+.gen-cmp{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin:1.75rem 0}
+.gen-col{background:var(--card);padding:1.25rem}
+.gen-col h4{font-size:.72rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-bottom:1rem;font-family:var(--ff-mono)}
+.gen-col.ar h4{color:var(--muted2)}
+.gen-col.mtp h4{color:var(--cyan)}
+.tok-stream{display:flex;flex-wrap:wrap;gap:.3rem;min-height:72px}
+.tok{display:inline-flex;align-items:center;padding:.18rem .55rem;border-radius:4px;font-family:var(--ff-mono);font-size:.76rem;font-weight:500;opacity:0;transform:translateY(5px);transition:opacity .25s,transform .25s}
+.tok.show{opacity:1;transform:none}
+.ar-col .tok{background:var(--card2);border:1px solid var(--border-hi);color:var(--text2)}
+.mtp-col .b1.tok{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);color:var(--purple-l)}
+.mtp-col .b2.tok{background:var(--cyan-dim);border:1px solid rgba(6,182,212,.3);color:var(--cyan)}
+.mtp-col .b3.tok{background:var(--green-dim);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.gen-stat-row{display:flex;gap:1.25rem;margin-top:1rem;padding-top:.875rem;border-top:1px solid var(--border)}
+.gen-stat{font-size:.72rem;color:var(--muted)}
+.gen-stat strong{display:block;font-size:1rem;font-weight:700;margin-bottom:.05rem}
+.ar .gen-stat strong{color:var(--muted2)}
+.mtp .gen-stat strong{color:var(--cyan)}
+
+/* ── Accept / Reject ────────────────────────────────────── */
+.ar-demo{display:flex;flex-direction:column;gap:1rem;margin:1.5rem 0}
+.ar-row{display:flex;align-items:center;gap:.5rem}
+.ar-label{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);width:72px;flex-shrink:0;font-family:var(--ff-mono)}
+.ar-tok{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .7rem;border-radius:6px;font-family:var(--ff-mono);font-size:.78rem;font-weight:500;transition:all .4s}
+.ar-tok.pending{background:var(--card2);border:1px solid var(--border-hi);color:var(--muted2)}
+.ar-tok.accepted{background:var(--green-dim);border:1px solid rgba(16,185,129,.4);color:var(--green)}
+.ar-tok.rejected{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.ar-tok .badge{font-size:.6rem;font-weight:700}
+
+/* ── Attention grid ─────────────────────────────────────── */
+.attn-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.5rem 0}
+.attn-col h4{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.75rem;text-align:center;font-family:var(--ff-mono)}
+.attn-col.causal-col h4{color:var(--muted2)}
+.attn-col.bidir-col h4{color:var(--cyan)}
+.attn-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.acell{aspect-ratio:1;border-radius:2px;transition:background .4s}
+.acell.on-c{background:rgba(139,92,246,.75)}
+.acell.off{background:rgba(255,255,255,.04)}
+.acell.on-b{background:rgba(6,182,212,.75)}
+
+/* ── Viz targets (clickable SVG regions) ────────────────── */
+.vt{cursor:pointer;outline:none}
+.vt:focus rect,.vt:hover rect{opacity:.85}
+.vt.active rect:not(.vt-bg){stroke:var(--amber)!important;stroke-width:2!important}
+.vt-glow{filter:drop-shadow(0 0 8px rgba(245,158,11,.5))}
+
+/* ── Centroid viz ───────────────────────────────────────── */
+.centroid-stage{position:relative}
+.centroid-btn{display:inline-flex;align-items:center;gap:.5rem;font-size:.75rem;font-family:var(--ff-mono);color:var(--cyan);background:var(--cyan-dim);border:1px solid rgba(6,182,212,.3);border-radius:6px;padding:.35rem .85rem;cursor:pointer;transition:all .2s;margin-top:.875rem}
+.centroid-btn:hover{background:rgba(6,182,212,.2)}
+
+/* ── PLE diagram ────────────────────────────────────────── */
+.ple-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.ple-table th,.ple-table td{font-size:.72rem;font-family:var(--ff-mono);padding:.5rem .75rem;border-bottom:1px solid var(--border)}
+.ple-table th{background:var(--surface);color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.ple-table td:first-child{color:var(--muted2);width:80px}
+.ple-table td:nth-child(2){color:var(--text2)}
+.ple-table td:last-child{color:var(--purple-l)}
+.ple-table tr:last-child td{border-bottom:none}
+.ple-table tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);margin:0 0;padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);margin:0 0;padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);margin:0 0;padding:0 1.1rem}
+/* Syntax */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){.post-grid{grid-template-columns:1fr}.code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}.cs-body{max-height:480px}}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.gen-cmp{grid-template-columns:1fr}.attn-wrap{grid-template-columns:1fr}}
+</style>
+
+<!-- ════════════════════════════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Gemma 4</span>
+    <span class="tag tag-cyan">Multi-Token Prediction</span>
+    <span class="tag tag-cyan">Speculative Decoding</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>How Gemma 4's Multi-Token<br>Prediction Works</h1>
+  <p class="lead">
+    Gemma 4 ships a compact <em>assistant model</em> that drafts multiple tokens per step — then the large backbone verifies them in a single parallel pass. This post tears apart the implementation: KV sharing, centroid-based vocabulary prediction, and bidirectional attention, with animated, code-annotated diagrams.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 24, 2026</span>
+    <span>~15 min read</span>
+    <span>Source: <code>transformers/models/gemma4_assistant</code></span>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════ GRID -->
+<div class="post-grid">
+
+<!-- ══════════════════════════════════ ARTICLE ══════════════════ -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────── §1 The Problem -->
+<section id="s-intro" data-code="intro">
+<div class="section-no">01 — The Problem</div>
+<h2>Why standard generation is slow</h2>
+<p>
+  Large language models generate text <strong>one token at a time</strong>. Every new token requires a full forward pass through all N layers. On a 2B-parameter model that is fast; on a 27B model it becomes the throughput bottleneck. Because each token depends on the previous one, generation is inherently serial.
+</p>
+<p>
+  <strong>Multi-Token Prediction (MTP)</strong> — also called speculative decoding — breaks this constraint by running a lightweight <em>draft model</em> in parallel with the main model. The draft model proposes several tokens at once; the backbone verifies them all in a single pass. Accepted tokens are kept; rejected ones are discarded and the backbone corrects from that point. Net throughput gain: typically 2–4×.
+</p>
+
+<div class="gen-cmp">
+  <div class="gen-col ar">
+    <h4>Autoregressive (standard)</h4>
+    <div class="tok-stream ar-col" id="ar-stream">
+      <span class="tok" data-delay="0">The</span>
+      <span class="tok" data-delay="600">capital</span>
+      <span class="tok" data-delay="1200">of</span>
+      <span class="tok" data-delay="1800">France</span>
+      <span class="tok" data-delay="2400">is</span>
+      <span class="tok" data-delay="3000">Paris</span>
+      <span class="tok" data-delay="3600">.</span>
+    </div>
+    <div class="gen-stat-row ar">
+      <div class="gen-stat"><strong>1×</strong>baseline speed</div>
+      <div class="gen-stat"><strong>7</strong>forward passes</div>
+    </div>
+  </div>
+  <div class="gen-col mtp">
+    <h4>Multi-Token Prediction</h4>
+    <div class="tok-stream mtp-col" id="mtp-stream">
+      <span class="tok b1" data-delay="0">The</span>
+      <span class="tok b1" data-delay="80">capital</span>
+      <span class="tok b1" data-delay="160">of</span>
+      <span class="tok b2" data-delay="700">France</span>
+      <span class="tok b2" data-delay="780">is</span>
+      <span class="tok b2" data-delay="860">Paris</span>
+      <span class="tok b3" data-delay="1400">.</span>
+    </div>
+    <div class="gen-stat-row mtp">
+      <div class="gen-stat"><strong>~3×</strong>typical speedup</div>
+      <div class="gen-stat"><strong>2–3</strong>backbone passes</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">💡</span>
+  <span>The draft model must be <em>extremely fast</em> — otherwise the overhead of drafting cancels the parallel-verification win. Gemma 4's assistant achieves this by reusing the backbone's KV cache and operating at a much smaller hidden dimension.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §2 Architecture -->
+<section id="s-arch" data-code="architecture">
+<div class="section-no">02 — Architecture</div>
+<h2>The two-model system</h2>
+<p>
+  The system consists of <code>Gemma4ForCausalLM</code> (the backbone) and <code>Gemma4AssistantForCausalLM</code> (the draft model). The backbone runs a standard forward pass and exposes its <strong>last-layer key-value states</strong> via <code>shared_kv_states</code>. The assistant reads these states to draft tokens without recomputing attention from scratch.
+</p>
+<p>Click any component below to see its source code in the sidebar.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">architecture-overview.svg</span>
+    <span class="vp-hint">Click components to view code</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 490" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Main backbone box -->
+      <rect x="8" y="8" width="644" height="170" rx="8" fill="rgba(139,92,246,.06)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+      <text x="18" y="28" font-size="9" fill="#8b5cf6" font-weight="600" letter-spacing="1" text-anchor="start">MAIN BACKBONE</text>
+      <text x="18" y="42" font-size="11" fill="#e2e8f0" font-weight="600">Gemma4ForCausalLM</text>
+      <text x="492" y="42" font-size="9" fill="#64748b">d_model = 1536</text>
+
+      <!-- Embed sub-box -->
+      <g class="vt" id="vt-embed" data-target="architecture:embed" tabindex="0" role="button">
+        <rect x="22" y="56" width="195" height="38" rx="5" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+        <text x="119" y="71" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="600">ScaledWordEmbedding</text>
+        <text x="119" y="84" font-size="8" fill="#64748b" text-anchor="middle">+ Per-Layer Embeddings (PLE)</text>
+      </g>
+
+      <!-- Transformer layers -->
+      <g class="vt" id="vt-layers" data-target="architecture:layers" tabindex="0" role="button">
+        <rect x="228" y="56" width="240" height="38" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+        <text x="348" y="71" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="600">Transformer Layers</text>
+        <text x="348" y="84" font-size="8" fill="#64748b" text-anchor="middle">full_attn + sliding_window</text>
+      </g>
+
+      <!-- LM Head -->
+      <g class="vt" id="vt-lmhead" data-target="architecture:lmhead" tabindex="0" role="button">
+        <rect x="479" y="56" width="170" height="38" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+        <text x="564" y="71" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="600">LM Head</text>
+        <text x="564" y="84" font-size="8" fill="#64748b" text-anchor="middle">Linear(1536→vocab_size)</text>
+      </g>
+
+      <!-- KV cache box -->
+      <g class="vt" id="vt-kvcache" data-target="kv-sharing:cache" tabindex="0" role="button">
+        <rect x="22" y="112" width="607" height="38" rx="5" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+        <text x="325" y="127" font-size="9" fill="#10b981" text-anchor="middle" font-weight="600">shared_kv_states</text>
+        <text x="325" y="140" font-size="8" fill="#64748b" text-anchor="middle">dict["full_attention" | "sliding_attention"] → (key, value) tensors  ← exposed to assistant</text>
+      </g>
+
+      <!-- Connector zone arrows -->
+      <line x1="200" y1="186" x2="200" y2="268" stroke="rgba(16,185,129,.4)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="460" y1="186" x2="460" y2="268" stroke="rgba(16,185,129,.4)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="196,264 200,272 204,264" fill="rgba(16,185,129,.6)"/>
+      <polygon points="456,264 460,272 464,264" fill="rgba(16,185,129,.6)"/>
+      <!-- Flowing dots on connector -->
+      <circle class="flow-dot fd1" cx="200" cy="200" r="3" fill="#10b981" opacity=".9"/>
+      <circle class="flow-dot fd2" cx="460" cy="210" r="3" fill="#10b981" opacity=".9"/>
+      <text x="290" y="232" font-size="8" fill="#10b981" text-anchor="middle" font-style="italic">shared_kv_states passed to assistant</text>
+
+      <!-- Assistant box -->
+      <rect x="8" y="272" width="644" height="202" rx="8" fill="rgba(6,182,212,.05)" stroke="rgba(6,182,212,.35)" stroke-width="1.5"/>
+      <text x="18" y="292" font-size="9" fill="#06b6d4" font-weight="600" letter-spacing="1">DRAFT MODEL</text>
+      <text x="18" y="306" font-size="11" fill="#e2e8f0" font-weight="600">Gemma4AssistantForCausalLM</text>
+      <text x="480" y="306" font-size="9" fill="#64748b">d_model = 768</text>
+
+      <!-- pre_projection -->
+      <g class="vt" id="vt-preprojection" data-target="projections:pre" tabindex="0" role="button">
+        <rect x="22" y="316" width="165" height="44" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+        <text x="104" y="333" font-size="9" fill="#06b6d4" text-anchor="middle" font-weight="600">pre_projection</text>
+        <text x="104" y="347" font-size="8" fill="#64748b" text-anchor="middle">Linear(2×1536 → 768)</text>
+        <text x="104" y="358" font-size="7.5" fill="#94a3b8" text-anchor="middle">concat backbone hid</text>
+      </g>
+
+      <!-- Arrow pre → transformer -->
+      <line x1="187" y1="338" x2="205" y2="338" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="202,334.5 208,338 202,341.5" fill="rgba(6,182,212,.6)"/>
+
+      <!-- Transformer -->
+      <g class="vt" id="vt-asst-layers" data-target="kv-sharing:forward" tabindex="0" role="button">
+        <rect x="210" y="316" width="235" height="44" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+        <text x="327" y="333" font-size="9" fill="#06b6d4" text-anchor="middle" font-weight="600">Transformer Layers</text>
+        <text x="327" y="347" font-size="8" fill="#64748b" text-anchor="middle">uses shared_kv_states</text>
+        <text x="327" y="358" font-size="7.5" fill="#94a3b8" text-anchor="middle">bidirectional attention</text>
+      </g>
+
+      <!-- Arrow transformer → post -->
+      <line x1="445" y1="338" x2="462" y2="338" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="459,334.5 465,338 459,341.5" fill="rgba(6,182,212,.6)"/>
+
+      <!-- post_projection -->
+      <g class="vt" id="vt-postprojection" data-target="projections:post" tabindex="0" role="button">
+        <rect x="466" y="316" width="175" height="44" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+        <text x="553" y="333" font-size="9" fill="#06b6d4" text-anchor="middle" font-weight="600">post_projection</text>
+        <text x="553" y="347" font-size="8" fill="#64748b" text-anchor="middle">Linear(768 → 1536)</text>
+        <text x="553" y="358" font-size="7.5" fill="#94a3b8" text-anchor="middle">back to backbone dim</text>
+      </g>
+
+      <!-- MaskedEmbedder -->
+      <g class="vt" id="vt-masked" data-target="centroid:embedder" tabindex="0" role="button">
+        <rect x="22" y="378" width="220" height="44" rx="5" fill="rgba(245,158,11,.07)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+        <text x="132" y="395" font-size="9" fill="#f59e0b" text-anchor="middle" font-weight="600">MaskedEmbedder</text>
+        <text x="132" y="409" font-size="8" fill="#64748b" text-anchor="middle">centroid-based vocab pred</text>
+        <text x="132" y="420" font-size="7.5" fill="#94a3b8" text-anchor="middle">if use_ordered_embeddings</text>
+      </g>
+
+      <!-- Draft output -->
+      <text x="325" y="456" font-size="9" fill="#06b6d4" text-anchor="middle" font-style="italic">draft logits → speculative decoding verification by backbone</text>
+      <line x1="325" y1="474" x2="325" y2="485" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+      <polygon points="321,481 325,488 329,481" fill="rgba(6,182,212,.6)"/>
+    </svg>
+  </div>
+</div>
+
+<div class="callout callout-tip">
+  <span class="callout-icon">⚡</span>
+  <span>The assistant's transformer is much <em>smaller</em> than the backbone (fewer layers, smaller hidden dim). It is fast enough that drafting 3–4 tokens costs less than one backbone forward pass.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §3 KV Sharing -->
+<section id="s-kv" data-code="kv-sharing">
+<div class="section-no">03 — KV Sharing</div>
+<h2>Reusing the backbone's attention states</h2>
+<p>
+  The key insight: the assistant does not need its own KV cache. Instead, it <strong>borrows the backbone's last-layer key-value tensors</strong>. The backbone's <code>Gemma4TextModel.forward()</code> returns a <code>shared_kv_states</code> dict whenever <code>return_shared_kv_states=True</code>. The assistant receives this dict and passes it through all its layers.
+</p>
+<p>
+  Since the assistant shares KV from <em>all</em> layers (the config forces <code>num_kv_shared_layers = num_hidden_layers</code>), it never computes its own key/value projections — saving roughly half the attention FLOPS.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">kv-sharing-flow.svg</span>
+    <span class="vp-hint">Animated data flow</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg id="kv-svg" viewBox="0 0 660 300" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Backbone layers (left column) -->
+      <text x="10" y="20" font-size="9" fill="#8b5cf6" font-weight="600" letter-spacing=".8">BACKBONE LAYERS</text>
+      <g id="bb-layers">
+        <rect x="8" y="28" width="180" height="28" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+        <text x="98" y="46" font-size="8.5" fill="#a78bfa" text-anchor="middle">Layer 0  [full_attn]</text>
+        <rect x="8" y="64" width="180" height="28" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+        <text x="98" y="82" font-size="8.5" fill="#a78bfa" text-anchor="middle">Layer 1  [sliding]</text>
+        <rect x="8" y="100" width="180" height="28" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+        <text x="98" y="118" font-size="8.5" fill="#64748b" text-anchor="middle">...</text>
+        <rect x="8" y="136" width="180" height="28" rx="4" fill="rgba(139,92,246,.14)" stroke="rgba(139,92,246,.45)" stroke-width="1.2"/>
+        <text x="98" y="151" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="600">Layer N-1  [full_attn]</text>
+        <text x="98" y="162" font-size="7.5" fill="#10b981" text-anchor="middle">← KV exposed here</text>
+      </g>
+
+      <!-- shared_kv_states box (center) -->
+      <rect x="240" y="90" width="180" height="70" rx="6" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.35)" stroke-width="1.5"/>
+      <text x="330" y="116" font-size="8.5" fill="#10b981" text-anchor="middle" font-weight="600">shared_kv_states</text>
+      <text x="330" y="130" font-size="7.5" fill="#64748b" text-anchor="middle">"full_attention":</text>
+      <text x="330" y="141" font-size="7.5" fill="#64748b" text-anchor="middle">  (key, value)</text>
+      <text x="330" y="152" font-size="7.5" fill="#64748b" text-anchor="middle">"sliding_attention": ...</text>
+
+      <!-- arrows backbone → shared_kv -->
+      <line x1="188" y1="150" x2="238" y2="128" stroke="rgba(16,185,129,.5)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="234,125 240,131 238,122" fill="rgba(16,185,129,.7)"/>
+
+      <!-- Assistant layers (right column) -->
+      <text x="470" y="20" font-size="9" fill="#06b6d4" font-weight="600" letter-spacing=".8">ASSISTANT LAYERS</text>
+      <g id="asst-layers">
+        <rect x="472" y="28" width="180" height="28" rx="4" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.2)" stroke-width="1"/>
+        <text x="562" y="43" font-size="8.5" fill="#06b6d4" text-anchor="middle">Layer 0</text>
+        <text x="562" y="54" font-size="7.5" fill="#64748b" text-anchor="middle">uses shared KV</text>
+        <rect x="472" y="64" width="180" height="28" rx="4" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.2)" stroke-width="1"/>
+        <text x="562" y="79" font-size="8.5" fill="#06b6d4" text-anchor="middle">Layer 1</text>
+        <text x="562" y="90" font-size="7.5" fill="#64748b" text-anchor="middle">uses shared KV</text>
+        <rect x="472" y="100" width="180" height="28" rx="4" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.2)" stroke-width="1"/>
+        <text x="562" y="118" font-size="8.5" fill="#64748b" text-anchor="middle">...</text>
+        <rect x="472" y="136" width="180" height="28" rx="4" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+        <text x="562" y="151" font-size="8.5" fill="#06b6d4" text-anchor="middle">Layer M-1</text>
+        <text x="562" y="162" font-size="7.5" fill="#64748b" text-anchor="middle">uses shared KV</text>
+      </g>
+
+      <!-- arrows shared_kv → assistant -->
+      <line x1="420" y1="128" x2="470" y2="128" stroke="rgba(6,182,212,.4)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="467,124.5 473,128 467,131.5" fill="rgba(6,182,212,.6)"/>
+
+      <!-- Animated flow dots along both arrows -->
+      <circle class="kv-dot" r="3.5" fill="#10b981">
+        <animateMotion dur="2s" repeatCount="indefinite" path="M 188,150 L 238,128"/>
+      </circle>
+      <circle class="kv-dot" r="3.5" fill="#06b6d4">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="1s" path="M 420,128 L 470,128"/>
+      </circle>
+
+      <!-- Config note -->
+      <rect x="8" y="220" width="644" height="50" rx="6" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.15)" stroke-width="1"/>
+      <text x="22" y="240" font-size="8.5" fill="#a78bfa" font-weight="600">Config enforcement:</text>
+      <text x="22" y="253" font-size="8" fill="#64748b">text_config.num_kv_shared_layers = text_config.num_hidden_layers  ← ALL layers share KV, no exceptions</text>
+      <text x="22" y="264" font-size="8" fill="#64748b">use_cache = False  ← assistant never builds its own KV cache</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Why this works</h3>
+<p>
+  Normal attention needs K and V computed from the <em>current sequence context</em>. By borrowing the backbone's K/V, the assistant effectively sees the full context the backbone has built up — without paying to recompute it. The assistant only runs its own Q projection to attend over the borrowed K/V.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §4 Projections -->
+<section id="s-proj" data-code="projections">
+<div class="section-no">04 — Projections</div>
+<h2>Bridging two hidden dimensions</h2>
+<p>
+  The backbone runs at <code>d_model = 1536</code>; the assistant runs at a smaller <code>hidden_size</code> (e.g. 768). Two projection layers bridge the gap.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">projection-pipeline.svg</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Step 1: backbone hidden states -->
+      <rect x="8" y="30" width="130" height="50" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="73" y="51" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="600">backbone hidden</text>
+      <text x="73" y="64" font-size="8" fill="#64748b" text-anchor="middle">[B, L, 1536]</text>
+      <text x="73" y="76" font-size="7.5" fill="#64748b" text-anchor="middle">current token</text>
+
+      <!-- Arrow concat -->
+      <text x="160" y="57" font-size="8" fill="#64748b" text-anchor="middle">concat</text>
+      <text x="160" y="68" font-size="7.5" fill="#64748b" text-anchor="middle">↕</text>
+
+      <!-- Step 2: concatenated (2 × backbone) -->
+      <rect x="8" y="95" width="130" height="32" rx="5" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.2)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="73" y="112" font-size="7.5" fill="#64748b" text-anchor="middle">prev backbone hidden</text>
+      <text x="73" y="123" font-size="7.5" fill="#64748b" text-anchor="middle">[B, L, 1536]</text>
+
+      <!-- Arrow to pre_proj -->
+      <line x1="138" y1="81" x2="198" y2="81" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <polygon points="195,77.5 201,81 195,84.5" fill="rgba(6,182,212,.7)"/>
+      <text x="168" y="74" font-size="7.5" fill="#06b6d4" text-anchor="middle">→</text>
+      <text x="168" y="96" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,3072]</text>
+
+      <!-- pre_projection -->
+      <g class="vt" data-target="projections:pre" tabindex="0" role="button">
+        <rect x="200" y="56" width="135" height="50" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.35)" stroke-width="1.2"/>
+        <text x="267" y="76" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">pre_projection</text>
+        <text x="267" y="89" font-size="8" fill="#64748b" text-anchor="middle">Linear</text>
+        <text x="267" y="100" font-size="8" fill="#64748b" text-anchor="middle">3072 → 768</text>
+      </g>
+
+      <!-- Arrow to transformer -->
+      <line x1="335" y1="81" x2="370" y2="81" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <polygon points="367,77.5 373,81 367,84.5" fill="rgba(6,182,212,.7)"/>
+      <text x="352" y="75" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,768]</text>
+
+      <!-- Transformer block -->
+      <rect x="372" y="40" width="120" height="82" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)" stroke-width="1"/>
+      <text x="432" y="72" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">Transformer</text>
+      <text x="432" y="85" font-size="8" fill="#64748b" text-anchor="middle">N layers</text>
+      <text x="432" y="96" font-size="7.5" fill="#64748b" text-anchor="middle">bidirectional</text>
+      <text x="432" y="107" font-size="7.5" fill="#64748b" text-anchor="middle">shared KV</text>
+
+      <!-- Arrow to post_proj -->
+      <line x1="492" y1="81" x2="526" y2="81" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <polygon points="523,77.5 529,81 523,84.5" fill="rgba(6,182,212,.7)"/>
+      <text x="509" y="75" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,768]</text>
+
+      <!-- post_projection -->
+      <g class="vt" data-target="projections:post" tabindex="0" role="button">
+        <rect x="528" y="56" width="125" height="50" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.35)" stroke-width="1.2"/>
+        <text x="590" y="76" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">post_projection</text>
+        <text x="590" y="89" font-size="8" fill="#64748b" text-anchor="middle">Linear</text>
+        <text x="590" y="100" font-size="8" fill="#64748b" text-anchor="middle">768 → 1536</text>
+      </g>
+
+      <!-- Output note -->
+      <text x="590" y="140" font-size="7.5" fill="#64748b" text-anchor="middle">[B, L, 1536]</text>
+      <text x="590" y="152" font-size="7.5" fill="#a78bfa" text-anchor="middle">back to backbone dim</text>
+      <text x="590" y="165" font-size="7.5" fill="#64748b" text-anchor="middle">returned as hidden_states</text>
+
+      <!-- Dimension labels at bottom -->
+      <text x="8" y="190" font-size="8" fill="#64748b">* The concat (→3072) is the two backbone hidden states at consecutive positions — allowing the assistant to see token transition context.</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The <code>pre_projection</code> concatenates two backbone hidden states (current + previous position context) and compresses to the assistant's smaller dimension. After the assistant's transformer, <code>post_projection</code> expands back to backbone dimension so the returned <code>last_hidden_state</code> can seamlessly integrate with the backbone.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §5 Centroid Vocab -->
+<section id="s-centroid" data-code="centroid">
+<div class="section-no">05 — Efficient Vocabulary</div>
+<h2>Centroid-based token prediction</h2>
+<p>
+  Computing logits over a 256K-token vocabulary requires a <code>Linear(768, 256000)</code> matrix multiply — expensive for a small draft model. <code>Gemma4AssistantMaskedEmbedder</code> avoids this by <strong>clustering vocabulary tokens into centroids</strong> and only scoring the top-K clusters.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">centroid-vocab.svg</span>
+    <span class="vp-hint">Replay animation</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg id="centroid-svg" viewBox="0 0 660 340" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+
+      <!-- Step labels -->
+      <text x="8" y="16" font-size="8.5" fill="#64748b" font-weight="600">① Score 2048 centroids</text>
+      <text x="165" y="16" font-size="8.5" fill="#64748b" font-weight="600">② Top-K=32</text>
+      <text x="280" y="16" font-size="8.5" fill="#64748b" font-weight="600">③ Gather 32×128=4096 tokens</text>
+      <text x="500" y="16" font-size="8.5" fill="#64748b" font-weight="600">④ Scatter logits</text>
+
+      <!-- Step 1: hidden → centroids -->
+      <rect x="8" y="25" width="80" height="36" rx="4" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.3)"/>
+      <text x="48" y="40" font-size="8" fill="#a78bfa" text-anchor="middle">hidden</text>
+      <text x="48" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,768]</text>
+
+      <line x1="88" y1="43" x2="108" y2="43" stroke="rgba(139,92,246,.4)" stroke-width="1.2"/>
+      <polygon points="105,40 111,43 105,46" fill="rgba(139,92,246,.6)"/>
+
+      <rect x="110" y="25" width="90" height="36" rx="4" fill="rgba(139,92,246,.06)" stroke="rgba(139,92,246,.2)"/>
+      <text x="155" y="40" font-size="8" fill="#a78bfa" text-anchor="middle">centroids()</text>
+      <text x="155" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">Linear(768→2048)</text>
+
+      <!-- Centroid dots grid (all 2048, shown as small grid) -->
+      <g id="centroid-all" transform="translate(8,75)">
+        <!-- 32×16 grid of small dots representing all 2048 centroids -->
+        <text x="0" y="-5" font-size="7.5" fill="#64748b">All 2048 centroids:</text>
+      </g>
+      <!-- Draw mini centroid dots -->
+      <g id="centroid-dots" transform="translate(8,80)">
+        <!-- Will be drawn by JS -->
+      </g>
+
+      <!-- Arrow to Step 2: top-K selection -->
+      <line x1="210" y1="43" x2="232" y2="43" stroke="rgba(245,158,11,.5)" stroke-width="1.2"/>
+      <polygon points="229,40 235,43 229,46" fill="rgba(245,158,11,.7)"/>
+
+      <!-- top-K box -->
+      <rect x="234" y="25" width="90" height="36" rx="4" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)"/>
+      <text x="279" y="40" font-size="8" fill="#f59e0b" text-anchor="middle">topk(k=32)</text>
+      <text x="279" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">of 2048</text>
+
+      <!-- Selected centroids highlight box -->
+      <rect x="234" y="73" width="90" height="36" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.25)" stroke-dasharray="3,2"/>
+      <text x="279" y="88" font-size="8" fill="#f59e0b" text-anchor="middle">32 centroids</text>
+      <text x="279" y="101" font-size="7.5" fill="#94a3b8" text-anchor="middle">selected  (1.6%)</text>
+
+      <!-- Arrow to Step 3: gather -->
+      <line x1="324" y1="43" x2="346" y2="43" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <polygon points="343,40 349,43 343,46" fill="rgba(6,182,212,.7)"/>
+
+      <!-- Gather box -->
+      <rect x="348" y="25" width="120" height="36" rx="4" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.25)"/>
+      <text x="408" y="40" font-size="8" fill="#06b6d4" text-anchor="middle">gather lm_head rows</text>
+      <text x="408" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">4096 rows of 768</text>
+
+      <!-- Token budget box -->
+      <rect x="348" y="73" width="120" height="36" rx="4" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.22)" stroke-dasharray="3,2"/>
+      <text x="408" y="88" font-size="8" fill="#06b6d4" text-anchor="middle">32 × 128 = 4096</text>
+      <text x="408" y="101" font-size="7.5" fill="#94a3b8" text-anchor="middle">tokens evaluated</text>
+
+      <!-- vs full vocab label -->
+      <text x="408" y="120" font-size="7.5" fill="#5c6370" text-anchor="middle">vs 256,000 for full LM head</text>
+      <text x="408" y="132" font-size="8" fill="#10b981" text-anchor="middle" font-weight="600">→ 98.4% computation saved</text>
+
+      <!-- Dot product -->
+      <line x1="468" y1="43" x2="490" y2="43" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <polygon points="487,40 493,43 487,46" fill="rgba(16,185,129,.7)"/>
+      <rect x="492" y="25" width="90" height="36" rx="4" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.25)"/>
+      <text x="537" y="40" font-size="8" fill="#10b981" text-anchor="middle">dot product</text>
+      <text x="537" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,4096]</text>
+
+      <!-- Scatter back -->
+      <line x1="582" y1="43" x2="604" y2="43" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <polygon points="601,40 607,43 601,46" fill="rgba(16,185,129,.7)"/>
+      <rect x="606" y="25" width="50" height="36" rx="4" fill="rgba(16,185,129,.06)" stroke="rgba(16,185,129,.25)"/>
+      <text x="631" y="40" font-size="7.5" fill="#10b981" text-anchor="middle">scatter_</text>
+      <text x="631" y="53" font-size="7.5" fill="#64748b" text-anchor="middle">[B,L,V]</text>
+
+      <!-- Vocab histogram visualization -->
+      <text x="8" y="168" font-size="8.5" fill="#64748b" font-weight="600">Vocabulary space  [vocab_size = 256K]:</text>
+      <rect x="8" y="177" width="644" height="28" rx="4" fill="rgba(255,255,255,.02)" stroke="var(--border)"/>
+      <!-- Dimmed full vocab bar -->
+      <rect x="8" y="177" width="644" height="28" rx="4" fill="rgba(255,255,255,.03)"/>
+      <!-- Highlighted selected tokens (4096/256000 * 644 ≈ 10.3 px wide) -->
+      <rect id="vocab-highlight" x="200" y="180" width="10" height="22" rx="2" fill="rgba(245,158,11,.6)"/>
+      <text x="214" y="194" font-size="7.5" fill="#f59e0b">← 4096 tokens scored</text>
+      <rect x="8" y="177" width="644" height="28" rx="4" fill="none" stroke="var(--border-hi)" stroke-width=".5"/>
+
+      <!-- token_ordering buffer explanation -->
+      <rect x="8" y="220" width="644" height="75" rx="6" fill="rgba(139,92,246,.04)" stroke="rgba(139,92,246,.15)"/>
+      <text x="22" y="238" font-size="8.5" fill="#a78bfa" font-weight="600">token_ordering buffer:</text>
+      <text x="22" y="252" font-size="8" fill="#64748b">token_ordering = tensor of shape [vocab_size]  — maps centroid_id * 128 + local_idx → global_vocab_idx</text>
+      <text x="22" y="265" font-size="8" fill="#64748b">This buffer is learned during training to group semantically similar tokens together under the same centroid.</text>
+      <text x="22" y="278" font-size="8" fill="#64748b">At inference time it is fixed — just an index lookup to find the 128 token positions belonging to each selected centroid.</text>
+    </svg>
+    <button class="centroid-btn" id="centroid-replay">↺ Replay animation</button>
+  </div>
+</div>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">🔬</span>
+  <span>With <code>num_centroids=2048</code> and <code>top_k=32</code>, the assistant evaluates 32 × 128 = <strong>4,096 tokens</strong> instead of the full vocabulary of ~256K — a <strong>98.4% reduction</strong> in logit computation.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §6 Bidirectional Attention -->
+<section id="s-attn" data-code="attention">
+<div class="section-no">06 — Bidirectional Attention</div>
+<h2>Why the assistant uses bidirectional masks</h2>
+<p>
+  Standard causal LM attention masks ensure each position can only attend to positions at or before it (lower-triangular mask). But the assistant does not need to be causal — it sees the entire draft sequence at once and uses the backbone's KV as context. Bidirectional attention lets it refine token embeddings with both left and right context.
+</p>
+<p>
+  There's a subtle implementation detail for sliding-window attention (SWA): the backbone's SWA uses a <em>past-looking</em> window, but the assistant's bidirectional mask is created with a <em>future-looking</em> perspective by default. The code compensates by <strong>flipping the SWA mask on the KV axis</strong>.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">attention-masks.svg</span>
+  </div>
+  <div class="vp-body">
+    <div class="attn-wrap">
+      <div class="attn-col causal-col">
+        <h4>Causal (backbone)</h4>
+        <div class="attn-grid" id="causal-grid"></div>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;text-align:center">Each token sees only past tokens.<br>Standard autoregressive mask.</p>
+      </div>
+      <div class="attn-col bidir-col">
+        <h4>Bidirectional (assistant)</h4>
+        <div class="attn-grid" id="bidir-grid"></div>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;text-align:center">All tokens attend to all others.<br>Backbone KV provides causal context.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §7 Full Loop -->
+<section id="s-loop" data-code="full-loop">
+<div class="section-no">07 — The Full Loop</div>
+<h2>Putting it all together</h2>
+<p>
+  At generation time, HuggingFace's <code>model.generate()</code> orchestrates the speculative decoding loop automatically when <code>assistant_model</code> is provided. The backbone and assistant alternate: assistant drafts a batch, backbone verifies, accepted tokens are committed, and the loop continues.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">generation-loop.svg — Accept / Reject</span>
+    <span class="vp-hint">Auto-playing</span>
+  </div>
+  <div class="vp-body">
+    <div class="ar-demo" id="ar-demo">
+      <div class="ar-row">
+        <span class="ar-label">Draft</span>
+        <span class="ar-tok" id="at0"> is</span>
+        <span class="ar-tok" id="at1"> Paris</span>
+        <span class="ar-tok" id="at2">,</span>
+        <span class="ar-tok" id="at3"> the</span>
+        <span class="ar-tok" id="at4"> most</span>
+      </div>
+      <div class="ar-row">
+        <span class="ar-label">Verify</span>
+        <span class="ar-tok pending" id="vt0"> is</span>
+        <span class="ar-tok pending" id="vt1"> Paris</span>
+        <span class="ar-tok pending" id="vt2">,</span>
+        <span class="ar-tok pending" id="vt3"> the</span>
+        <span class="ar-tok pending" id="vt4"> most</span>
+      </div>
+      <div class="ar-row" style="margin-top:.25rem">
+        <span class="ar-label" style="color:var(--green)">Accept</span>
+        <span class="ar-tok" id="acc0" style="opacity:0"> is <span class="badge"></span></span>
+        <span class="ar-tok" id="acc1" style="opacity:0"> Paris <span class="badge"></span></span>
+        <span class="ar-tok" id="acc2" style="opacity:0">, <span class="badge"></span></span>
+      </div>
+      <div class="ar-row">
+        <span class="ar-label" style="color:var(--red)">Reject</span>
+        <span class="ar-tok" id="rej3" style="opacity:0"> the <span class="badge"></span></span>
+        <span class="ar-tok" style="opacity:0;font-size:.7rem;color:var(--muted)" id="rej-note">(backbone corrects from here)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  After the first rejected token, all subsequent draft tokens are discarded and the backbone generates the correct continuation. In this example, 3 tokens are accepted and 1 is rejected — still a net 3× gain over pure autoregressive generation.
+</p>
+
+<div class="callout callout-tip">
+  <span class="callout-icon">🚀</span>
+  <span>Use it with: <code>model.generate(inputs, assistant_model=assistant, max_new_tokens=200)</code>. No other changes required — HuggingFace handles the entire speculative decoding loop.</span>
+</div>
+</section>
+
+</article>
+
+<!-- ══════════════════════════════════ CODE SIDEBAR ══════════════ -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-file" id="cs-file">configuration_gemma4_assistant.py</div>
+    <div class="cs-section-title" id="cs-title">Configuration</div>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">config</button>
+    <button class="cs-tab" data-panel="architecture">__init__</button>
+    <button class="cs-tab" data-panel="kv-sharing">forward()</button>
+    <button class="cs-tab" data-panel="projections">projections</button>
+    <button class="cs-tab" data-panel="centroid">embedder</button>
+    <button class="cs-tab" data-panel="attention">masks</button>
+    <button class="cs-tab" data-panel="full-loop">usage</button>
+  </div>
+  <div class="cs-body" id="cs-body">
+    <!-- Panels injected by JS -->
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<!-- ════════════════════════════════════════════════════ SCRIPT -->
+<script>
+// ── Syntax highlighter ────────────────────────────────────────────
+function hl(raw) {
+  let s = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // comments first (before anything else)
+  s = s.replace(/(#[^\n]*)/g, '<span class="cmt">$1</span>');
+  // strings
+  s = s.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"[^"\n]*"|'[^'\n]*')/g,
+    (m, _, offset, str) => str.slice(0,offset).includes('<span class="cmt">') ? m : `<span class="str">${m}</span>`);
+  // keywords
+  s = s.replace(/\b(def|class|return|if|else|elif|for|while|import|from|None|True|False|not|and|or|in|is|with|as|self|try|except|raise|pass|super|isinstance)\b/g,'<span class="kw">$1</span>');
+  // type-ish
+  s = s.replace(/\b(int|str|bool|float|dict|list|tuple|torch|nn|F|Optional)\b/g,'<span class="cls">$1</span>');
+  // numbers
+  s = s.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="num">$1</span>');
+  // function names before (
+  s = s.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,'<span class="fn">$1</span>');
+  return s;
+}
+
+// ── Code panel definitions ─────────────────────────────────────────
+// Format: array of {text, cls} where cls: ''|'hl-p'|'hl-c'|'hl-g'
+const PANELS = {
+
+intro: {
+  file: 'configuration_gemma4_assistant.py',
+  title: 'Configuration',
+  lines: [
+`class Gemma4AssistantConfig(PreTrainedConfig):`,
+`    # Hidden size of the target backbone`,{c:'hl-p',t:`    backbone_hidden_size: int = 1536`},
+`    `,
+`    # Vocabulary clustering params`,{c:'hl-c',t:`    num_centroids: int = 2048`},{c:'hl-c',t:`    centroid_intermediate_top_k: int = 32`},
+`    use_ordered_embeddings: bool = False`,
+`    tie_word_embeddings: bool = True`,
+`    `,
+`    def __post_init__(self, **kwargs):`,
+`        # Force ALL layers to share KV — no new cache`,{c:'hl-g',t:`        if not self.text_config.num_kv_shared_layers:`},{c:'hl-g',t:`            self.text_config.num_kv_shared_layers = (`},{c:'hl-g',t:`                self.text_config.num_hidden_layers`},{c:'hl-g',t:`            )`},
+`    `,
+`    def validate_architecture(self):`,
+`        # Enforces: ALL layers must share KV`,
+`        if text_config.num_kv_shared_layers != \\`,
+`                text_config.num_hidden_layers:`,
+`            raise ValueError("All layers must share KV")`,
+  ]
+},
+
+architecture: {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'Model Initialization',
+  lines: [
+`class Gemma4AssistantForCausalLM(`,
+`        Gemma4AssistantPreTrainedModel,`,
+`        GenerationMixin):`,
+`    `,
+`    def __init__(self, config):`,
+`        super().__init__(config)`,
+`        text_cfg = config.get_text_config()`,
+`        `,
+`        self.vocab_size      = text_cfg.vocab_size`,{c:'hl-c',t:`        self.hidden_size     = text_cfg.hidden_size   # 768`},{c:'hl-p',t:`        self.backbone_hidden_size = \\`},{c:'hl-p',t:`            config.backbone_hidden_size               # 1536`},
+`        `,
+`        # Smaller transformer (draft model)`,
+`        self.model = AutoModel.from_config(text_cfg)`,
+`        self.lm_head = nn.Linear(`,
+`            self.hidden_size, self.vocab_size, bias=False`,
+`        )`,
+`        `,
+`        # Projection bridge: backbone ↔ assistant dim`,{c:'hl-c',t:`        self.pre_projection = nn.Linear(`},{c:'hl-c',t:`            2 * self.backbone_hidden_size,  # 3072`},{c:'hl-c',t:`            self.hidden_size,               # 768`},{c:'hl-c',t:`            bias=False`},{c:'hl-c',t:`        )`},{c:'hl-p',t:`        self.post_projection = nn.Linear(`},{c:'hl-p',t:`            self.hidden_size,               # 768`},{c:'hl-p',t:`            self.backbone_hidden_size,      # 1536`},{c:'hl-p',t:`            bias=False`},{c:'hl-p',t:`        )`},
+`        `,
+`        # Optional: efficient vocab via centroids`,{c:'hl-g',t:`        if config.use_ordered_embeddings:`},{c:'hl-g',t:`            self.masked_embedding = \\`},{c:'hl-g',t:`                Gemma4AssistantMaskedEmbedder(config)`},
+  ]
+},
+
+'kv-sharing': {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'forward() — KV Sharing',
+  lines: [
+`def forward(`,
+`    self,`,
+`    input_ids=None,          # unused`,{c:'hl-c',t:`    inputs_embeds=None,      # [B, L, 1536]`},{c:'hl-g',t:`    shared_kv_states=None,   # from backbone last layer`},
+`    position_ids=None,`,
+`    attention_mask=None,`,
+`    use_cache=None,          # unused`,
+`    **kwargs,`,
+`):`,
+`    if inputs_embeds is None or shared_kv_states is None:`,
+`        raise ValueError("Both required")`,
+`    `,
+`    # Compress: [B,L,3072] → [B,L,768]`,{c:'hl-c',t:`    inputs_embeds = self.pre_projection(inputs_embeds)`},
+`    `,
+`    # Build bidirectional attention masks`,
+`    masks = self.create_attention_masks(`,
+`        inputs_embeds, attention_mask, shared_kv_states`,
+`    )`,
+`    `,
+`    # Run transformer, REUSE backbone KV`,{c:'hl-g',t:`    outputs = self.model(`},{c:'hl-g',t:`        inputs_embeds=inputs_embeds,`},{c:'hl-g',t:`        attention_mask=masks,`},{c:'hl-g',t:`        shared_kv_states=shared_kv_states,  # ← key`},{c:'hl-g',t:`        use_cache=False,                    # ← no new KV`},{c:'hl-g',t:`        **kwargs,`},{c:'hl-g',t:`    )`},
+`    `,
+`    # Expand: [B,L,768] → [B,L,1536]`,{c:'hl-p',t:`    projected = self.post_projection(`},{c:'hl-p',t:`        outputs.last_hidden_state`},{c:'hl-p',t:`    )`},
+`    `,
+`    # Logits: efficient centroid path or full LM head`,
+`    if self.config.use_ordered_embeddings:`,
+`        logits = self.masked_embedding(`,
+`            outputs.last_hidden_state,`,
+`            self.lm_head.weight`,
+`        )`,
+`    else:`,
+`        logits = self.lm_head(outputs.last_hidden_state)`,
+`    `,
+`    return Gemma4AssistantOutput(`,
+`        last_hidden_state=projected,`,
+`        logits=logits,`,
+`    )`,
+  ]
+},
+
+projections: {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'Projection Layers',
+  lines: [
+`# In __init__:`,
+`# backbone_hidden_size (H_bb) = 1536`,
+`# hidden_size          (H_a)  = 768`,
+``,{c:'hl-c',t:`self.pre_projection = nn.Linear(`},{c:'hl-c',t:`    2 * H_bb,   # 3072  ← concat of 2 backbone states`},{c:'hl-c',t:`    H_a,        # 768`},{c:'hl-c',t:`    bias=False`},{c:'hl-c',t:`)`},{c:'hl-p',t:`self.post_projection = nn.Linear(`},{c:'hl-p',t:`    H_a,        # 768`},{c:'hl-p',t:`    H_bb,       # 1536`},{c:'hl-p',t:`    bias=False`},{c:'hl-p',t:`)`},
+``,
+`# In forward():`,
+`#`,
+`# inputs_embeds shape coming IN: [B, L, 3072]`,
+`# (two backbone hidden states concatenated)`,{c:'hl-c',t:`x = self.pre_projection(inputs_embeds)`},
+`# x: [B, L, 768]  ← assistant works here`,
+``,
+`outputs = self.model(inputs_embeds=x, ...)`,
+`# outputs.last_hidden_state: [B, L, 768]`,
+``,{c:'hl-p',t:`projected = self.post_projection(`},{c:'hl-p',t:`    outputs.last_hidden_state`},{c:'hl-p',t:`)`},
+`# projected: [B, L, 1536]  ← back to backbone space`,
+`# returned as Gemma4AssistantOutput.last_hidden_state`,
+`# ↑ used by backbone for speculative decoding verify`,
+  ]
+},
+
+centroid: {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'MaskedEmbedder.forward()',
+  lines: [
+`class Gemma4AssistantMaskedEmbedder(nn.Module):`,
+``,
+`    def __init__(self, config):`,
+`        self.num_centroids  = config.num_centroids         # 2048`,
+`        self.top_k          = config.centroid_intermediate_top_k  # 32`,
+`        self.vocab_size     = text_config.vocab_size       # ~256K`,
+`        self.per_centroid   = vocab_size // num_centroids  # 128`,
+`        self.centroids = nn.Linear(hidden_size, num_centroids)`,
+`        self.token_ordering = buffer of shape [vocab_size]`,
+``,
+`    def forward(self, hidden_states, lm_head_weight):`,
+`        B, L = hidden_states.shape[:2]`,
+``,
+`        # Step 1: score all 2048 centroids`,{c:'hl-p',t:`        c_logits = self.centroids(hidden_states)  # [B,L,2048]`},
+``,
+`        # Step 2: pick top-K=32 centroids`,{c:'hl-p',t:`        _, top_k_idx = torch.topk(`},{c:'hl-p',t:`            c_logits, k=self.top_k, dim=-1  # [B,L,32]`},{c:'hl-p',t:`        )`},
+``,
+`        # Step 3: map centroids → 128 token positions each`,{c:'hl-c',t:`        ordering = self.token_ordering.view(`},{c:'hl-c',t:`            self.num_centroids, self.per_centroid  # [2048,128]`},{c:'hl-c',t:`        )`},{c:'hl-c',t:`        selected = ordering[top_k_idx]  # [B,L,32,128]`},
+``,
+`        # Step 4: gather 4096 lm_head rows (not all 256K)`,{c:'hl-c',t:`        flat = selected.reshape(-1)`},{c:'hl-c',t:`        embeddings = lm_head_weight[flat].view(`},{c:'hl-c',t:`            B, L, self.top_k * self.per_centroid,  # 4096`},{c:'hl-c',t:`            self.hidden_size`},{c:'hl-c',t:`        )`},
+``,
+`        # Step 5: efficient dot products for 4096 tokens`,{c:'hl-g',t:`        logits = (hidden_states.unsqueeze(-2) @`},{c:'hl-g',t:`                  embeddings.transpose(-1,-2)).squeeze(-2)`},{c:'hl-g',t:`        # shape: [B, L, 4096]`},
+``,
+`        # Step 6: scatter into full vocab (rest = mask_value)`,{c:'hl-g',t:`        out = torch.full((B,L,self.vocab_size), logits.min()-1.0)`},{c:'hl-g',t:`        idx = selected.view(B, L, -1)                  # [B,L,4096]`},{c:'hl-g',t:`        return out.scatter_(dim=-1, index=idx, src=logits)`},
+  ]
+},
+
+attention: {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'create_attention_masks()',
+  lines: [
+`def create_attention_masks(`,
+`    self, inputs_embeds, attn_mask, shared_kv_states`,
+`):`,
+`    """Assistant uses BIDIRECTIONAL masks."""`,
+``,
+`    # Backbone KV last-layer hidden states`,{c:'hl-p',t:`    enc_full = shared_kv_states["full_attention"][0][:,0]`},{c:'hl-p',t:`    enc_swa  = shared_kv_states["sliding_attention"][0][:,0]`},
+``,
+`    sliding_mask = attn_mask`,
+`    if attn_mask is not None:`,
+`        # Trim to valid KV length for full attn`,
+`        attn_mask = attn_mask[:, :enc_full.shape[1]]`,
+``,
+`        # SWA: take last window_size entries`,
+`        # Flip → switch future-perspective to past-perspective`,{c:'hl-c',t:`        sliding_mask = attn_mask[`},{c:'hl-c',t:`            :, -enc_swa.shape[1]:`},{c:'hl-c',t:`        ].flip(dims=(1,))`},
+``,
+`    # Full attention: bidirectional (ALL tokens see ALL)`,{c:'hl-g',t:`    full_mask = create_bidirectional_mask(`},{c:'hl-g',t:`        config=self.config,`},{c:'hl-g',t:`        inputs_embeds=inputs_embeds,`},{c:'hl-g',t:`        attention_mask=attn_mask,`},{c:'hl-g',t:`        encoder_hidden_states=enc_full,`},{c:'hl-g',t:`    )`},
+``,
+`    # Sliding window: bidirectional within window`,
+`    swa_mask = create_bidirectional_sliding_window_mask(`,
+`        config=self.config, inputs_embeds=inputs_embeds,`,
+`        attention_mask=sliding_mask,`,
+`        encoder_hidden_states=enc_swa,`,
+`    )`,
+``,
+`    # Flip SWA mask on kv-axis: future → past perspective`,{c:'hl-c',t:`    if swa_mask is not None:`},{c:'hl-c',t:`        swa_mask = swa_mask.flip(dims=(-1,))`},
+``,
+`    return {`,
+`        "full_attention":     full_mask,`,
+`        "sliding_attention":  swa_mask,`,
+`    }`,
+  ]
+},
+
+'full-loop': {
+  file: 'usage_example.py',
+  title: 'Usage — Speculative Decoding',
+  lines: [
+`from transformers import (`,
+`    AutoTokenizer,`,
+`    Gemma4ForCausalLM,`,
+`    Gemma4AssistantForCausalLM,`,
+`)`,
+``,{c:'hl-p',t:`model = Gemma4ForCausalLM.from_pretrained(`},{c:'hl-p',t:`    "google/gemma-4-e2b-it"`},{c:'hl-p',t:`)`},{c:'hl-c',t:`assistant = Gemma4AssistantForCausalLM.from_pretrained(`},{c:'hl-c',t:`    "google/gemma-4-e2b-it-assistant"`},{c:'hl-c',t:`)`},
+`tokenizer = AutoTokenizer.from_pretrained(`,
+`    "google/gemma-4-e2b-it"`,
+`)`,
+``,
+`prompt = "The capital of France is"`,
+`inputs = tokenizer(prompt, return_tensors="pt")`,
+``,
+`# Speculative decoding: assistant drafts,`,
+`# backbone verifies — ~2-4x faster`,{c:'hl-g',t:`output_ids = model.generate(`},{c:'hl-g',t:`    inputs.input_ids,`},{c:'hl-g',t:`    assistant_model=assistant,  # ← MTP`},{c:'hl-g',t:`    max_new_tokens=100,`},{c:'hl-g',t:`    do_sample=False,`},{c:'hl-g',t:`)`},
+``,
+`print(tokenizer.decode(`,
+`    output_ids[0],`,
+`    skip_special_tokens=True`,
+`))`,
+`# Output: "The capital of France is Paris."`,
+`# Wall-clock: ~3x faster than model.generate()`,
+`# without assistant_model`,
+  ]
+},
+
+};
+
+// ── Render a panel ─────────────────────────────────────────────────
+function renderPanel(id) {
+  const p = PANELS[id];
+  if (!p) return '';
+  const html = p.lines.map(entry => {
+    const cls = (typeof entry === 'object') ? entry.c : '';
+    const txt = (typeof entry === 'object') ? entry.t : entry;
+    return `<span class="cs-line ${cls}">${hl(txt)}</span>`;
+  }).join('\n');
+  return `<pre class="cs-pre">${html}</pre>`;
+}
+
+// ── Build sidebar panels ────────────────────────────────────────────
+function buildSidebar() {
+  const body = document.getElementById('cs-body');
+  body.innerHTML = Object.keys(PANELS).map(id =>
+    `<div class="cs-panel" id="panel-${id}">${renderPanel(id)}</div>`
+  ).join('');
+}
+
+// ── Activate a panel ────────────────────────────────────────────────
+function activatePanel(id) {
+  // Update tabs
+  document.querySelectorAll('.cs-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.panel === id);
+  });
+  // Update panels
+  document.querySelectorAll('.cs-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `panel-${id}`);
+  });
+  // Update header
+  const p = PANELS[id];
+  if (p) {
+    document.getElementById('cs-file').textContent = p.file;
+    document.getElementById('cs-title').textContent = p.title;
+  }
+  // Scroll to first highlight
+  const activePanel = document.getElementById(`panel-${id}`);
+  if (activePanel) {
+    const firstHl = activePanel.querySelector('.hl-p,.hl-c,.hl-g');
+    if (firstHl) {
+      const body = document.getElementById('cs-body');
+      body.scrollTo({ top: firstHl.offsetTop - 40, behavior: 'smooth' });
+    } else {
+      document.getElementById('cs-body').scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+}
+
+// ── Map section id → panel id ────────────────────────────────────────
+const SECTION_MAP = {
+  's-intro':    'intro',
+  's-arch':     'architecture',
+  's-kv':       'kv-sharing',
+  's-proj':     'projections',
+  's-centroid': 'centroid',
+  's-attn':     'attention',
+  's-loop':     'full-loop',
+};
+
+// ── Init on DOM ready ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  buildSidebar();
+  activatePanel('intro');
+
+  // Tab clicks
+  document.querySelectorAll('.cs-tab').forEach(btn => {
+    btn.addEventListener('click', () => activatePanel(btn.dataset.panel));
+  });
+
+  // Viz target clicks
+  document.querySelectorAll('[data-target]').forEach(el => {
+    el.addEventListener('click', () => {
+      const [panelId] = el.dataset.target.split(':');
+      activatePanel(panelId);
+      // Highlight this element
+      document.querySelectorAll('.vt').forEach(v => v.classList.remove('active'));
+      el.classList.add('active');
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+    });
+  });
+
+  // IntersectionObserver — auto-update sidebar on scroll
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const panelId = SECTION_MAP[entry.target.id];
+        if (panelId) activatePanel(panelId);
+      }
+    });
+  }, { threshold: 0.35 });
+
+  document.querySelectorAll('section[id]').forEach(s => observer.observe(s));
+
+  // ── Generation comparison animation ──────────────────────────────
+  function runGenAnimation() {
+    document.querySelectorAll('.ar-col .tok, .mtp-col .tok').forEach(t => {
+      t.classList.remove('show');
+    });
+    document.querySelectorAll('.tok').forEach(tok => {
+      const delay = parseInt(tok.dataset.delay || 0);
+      setTimeout(() => tok.classList.add('show'), delay + 200);
+    });
+  }
+  runGenAnimation();
+  setInterval(runGenAnimation, 5500);
+
+  // ── Attention grid ────────────────────────────────────────────────
+  const SIZE = 8;
+  function buildGrid(id, type) {
+    const g = document.getElementById(id);
+    if (!g) return;
+    g.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const cell = document.createElement('div');
+        let cls = '';
+        if (type === 'causal') cls = c <= r ? 'acell on-c' : 'acell off';
+        else cls = 'acell on-b';
+        cell.className = cls;
+        g.appendChild(cell);
+      }
+    }
+  }
+  buildGrid('causal-grid', 'causal');
+  buildGrid('bidir-grid', 'bidir');
+
+  // ── Centroid replay ────────────────────────────────────────────────
+  const centroidReplay = document.getElementById('centroid-replay');
+  const centroidSvg = document.getElementById('centroid-svg');
+  if (centroidReplay && centroidSvg) {
+    let animInterval = null;
+    function runCentroidAnim() {
+      if (animInterval) clearInterval(animInterval);
+      const vocabHighlight = document.getElementById('vocab-highlight');
+      if (!vocabHighlight) return;
+      let x = 8;
+      const target = 198; // random position within 644px wide bar
+      animInterval = setInterval(() => {
+        if (x < target) { x += 8; vocabHighlight.setAttribute('x', x); }
+        else clearInterval(animInterval);
+      }, 16);
+    }
+    centroidReplay.addEventListener('click', runCentroidAnim);
+    // auto-run on load
+    setTimeout(runCentroidAnim, 1500);
+  }
+
+  // ── Accept/Reject animation ────────────────────────────────────────
+  const arToks = ['at0','at1','at2','at3','at4'];
+  const verifyToks = ['vt0','vt1','vt2','vt3','vt4'];
+  const acceptToks = ['acc0','acc1','acc2'];
+  const rejectToks = ['rej3'];
+
+  function runARAnimation() {
+    // Reset
+    verifyToks.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.className = 'ar-tok pending'; el.style.opacity = '1'; }
+    });
+    [...acceptToks, ...rejectToks].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = '0';
+    });
+    const rejNote = document.getElementById('rej-note');
+    if (rejNote) rejNote.style.opacity = '0';
+
+    // Accept first 3
+    ['vt0','vt1','vt2'].forEach((id, i) => {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'ar-tok accepted';
+        const acc = document.getElementById(`acc${i}`);
+        if (acc) {
+          acc.className = 'ar-tok accepted';
+          acc.style.opacity = '1';
+          const badge = acc.querySelector('.badge');
+          if (badge) badge.textContent = ' ✓';
+        }
+      }, 800 + i * 400);
+    });
+
+    // Reject 4th
+    setTimeout(() => {
+      const el = document.getElementById('vt3');
+      if (el) el.className = 'ar-tok rejected';
+      const rej = document.getElementById('rej3');
+      if (rej) {
+        rej.className = 'ar-tok rejected';
+        rej.style.opacity = '1';
+        const badge = rej.querySelector('.badge');
+        if (badge) badge.textContent = ' ✗';
+      }
+      const rejNote = document.getElementById('rej-note');
+      if (rejNote) rejNote.style.opacity = '1';
+      // Dim remaining
+      document.getElementById('vt4').style.opacity = '.3';
+    }, 2400);
+  }
+
+  // Run animation when section is near visible
+  const arSection = document.getElementById('s-loop');
+  if (arSection) {
+    const arObs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        runARAnimation();
+        setInterval(runARAnimation, 5000);
+        arObs.disconnect();
+      }
+    }, { threshold: 0.3 });
+    arObs.observe(arSection);
+  }
+});
+</script>
+
+</BaseLayout>
