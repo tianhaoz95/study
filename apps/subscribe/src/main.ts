@@ -1,11 +1,12 @@
 import { db, initAnalytics } from './firebase.ts'
+import { initUI, t } from './ui.ts'
 initAnalytics()
+initUI()
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const HOME_URL = import.meta.env.VITE_HOME_URL ?? '#'
 const BLOG_URL = import.meta.env.VITE_BLOG_URL ?? '#'
 
-// Wire up nav/footer links
 function setLink(id: string, href: string) {
   const el = document.getElementById(id) as HTMLAnchorElement | null
   if (el) el.href = href
@@ -14,7 +15,6 @@ setLink('nav-home',     HOME_URL)
 setLink('nav-blog',     BLOG_URL)
 setLink('success-blog', BLOG_URL)
 
-// ── UI state machine ──────────────────────────────────────────
 type Screen = 'signup' | 'loading' | 'success'
 
 function show(screen: Screen) {
@@ -29,15 +29,14 @@ function show(screen: Screen) {
   }
 }
 
-function setLoading(label: string) {
+function setLoading() {
   show('loading')
   const el = document.getElementById('loading-label')
-  if (el) el.textContent = label
+  if (el) el.textContent = t('loading-label')
 }
 
-// ── Firestore save (best-effort) ──────────────────────────────
 async function saveSubscription(email: string) {
-  if (!db) return           // no Firebase config — skip silently
+  if (!db) return
   try {
     await setDoc(doc(db, 'subscriptions', email.toLowerCase()), {
       email: email.toLowerCase(),
@@ -45,18 +44,16 @@ async function saveSubscription(email: string) {
       subscribedAt: serverTimestamp(),
     }, { merge: true })
   } catch {
-    // Firestore write failed — swallow, still show success to user
+    // swallow — still show success
   }
 }
 
-// ── Success display ───────────────────────────────────────────
 function showSuccess(email: string) {
   const el = document.getElementById('success-email')
   if (el) el.textContent = email
   show('success')
 }
 
-// ── Email form ────────────────────────────────────────────────
 const emailForm  = document.getElementById('email-form')  as HTMLFormElement | null
 const emailInput = document.getElementById('email-input') as HTMLInputElement | null
 const btnSubmit  = document.getElementById('btn-submit')  as HTMLButtonElement | null
@@ -77,16 +74,13 @@ function setFieldError(msg: string | null) {
 emailForm?.addEventListener('submit', async (e) => {
   e.preventDefault()
   const email = emailInput?.value.trim() ?? ''
-
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    setFieldError('Please enter a valid email address.')
+    setFieldError(t('error-email'))
     return
   }
   setFieldError(null)
-
   if (btnSubmit) btnSubmit.disabled = true
-  setLoading('Subscribing…')
-
+  setLoading()
   await saveSubscription(email)
   showSuccess(email)
 })

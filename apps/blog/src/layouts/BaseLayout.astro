@@ -15,6 +15,9 @@ const { title, description = 'AI/ML Deep Dives — interactive explorations of f
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content={description} />
   <title>{title}</title>
+  <script is:inline>
+    (function(){var t=localStorage.getItem('heji-theme')||'dark';document.documentElement.dataset.theme=t;})();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -22,14 +25,19 @@ const { title, description = 'AI/ML Deep Dives — interactive explorations of f
 <body>
 
 <nav class="site-nav">
-  <a class="nav-brand" href="/">AI/ML Deep Dives</a>
+  <a class="nav-brand" href="/" data-i18n="nav-brand">AI/ML Deep Dives</a>
   {crumb && <>
     <span class="nav-sep">/</span>
     <span class="nav-crumb">{crumb}</span>
   </>}
   <div class="nav-actions">
-    <a class="nav-link" href="/">Posts</a>
-    <a class="nav-link" href="#">About</a>
+    <a class="nav-link" href="/" data-i18n="nav-posts">Posts</a>
+    <a class="nav-link" href="#" data-i18n="nav-about">About</a>
+    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">
+      <svg id="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="btn-icon" id="lang-toggle" aria-label="Toggle language">中</button>
   </div>
 </nav>
 
@@ -52,6 +60,73 @@ const { title, description = 'AI/ML Deep Dives — interactive explorations of f
 <script>
   import { initAnalytics } from '../lib/firebase';
   initAnalytics();
+</script>
+
+<script>
+  type Theme = 'dark' | 'light';
+  type Lang  = 'en' | 'zh';
+  const THEME_KEY = 'heji-theme';
+  const LANG_KEY  = 'heji-lang';
+  const HTML = document.documentElement;
+
+  const i18n: Record<Lang, Record<string, string>> = {
+    en: {
+      'nav-brand':    'AI/ML Deep Dives',
+      'nav-posts':    'Posts',
+      'nav-about':    'About',
+      'hero-eyebrow': 'Personal Research Blog',
+      'hero-title':   'Exploring the frontier of AI & ML',
+      'hero-desc':    'Deep dives into research papers, model architectures, and open-source implementations — with interactive visualizations and annotated source code.',
+      'section-latest': 'Latest Posts',
+      'post-badge':   '★ Latest',
+      'post-read':    '~15 min read',
+      'blog-footer':  'Built with curiosity. Source on GitHub.',
+    },
+    zh: {
+      'nav-brand':    'AI/ML 深度解析',
+      'nav-posts':    '文章',
+      'nav-about':    '关于',
+      'hero-eyebrow': '个人研究博客',
+      'hero-title':   '探索 AI & ML 的前沿',
+      'hero-desc':    '深入解析研究论文、模型架构与开源实现——配合交互式可视化和注释源码。',
+      'section-latest': '最新文章',
+      'post-badge':   '★ 最新',
+      'post-read':    '~15 分钟阅读',
+      'blog-footer':  '用好奇心构建，代码开源于 GitHub。',
+    },
+  };
+
+  function applyTheme(theme: Theme) {
+    HTML.dataset.theme = theme;
+    const sun  = document.getElementById('icon-sun');
+    const moon = document.getElementById('icon-moon');
+    if (sun)  (sun as HTMLElement).style.display  = theme === 'light' ? 'none' : '';
+    if (moon) (moon as HTMLElement).style.display = theme === 'dark'  ? 'none' : '';
+    localStorage.setItem(THEME_KEY, theme);
+  }
+
+  function applyLang(lang: Lang) {
+    HTML.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {
+      const val = i18n[lang][el.dataset.i18n!];
+      if (val != null) el.textContent = val;
+    });
+    const btn = document.getElementById('lang-toggle');
+    if (btn) btn.textContent = lang === 'zh' ? 'EN' : '中';
+    localStorage.setItem(LANG_KEY, lang);
+  }
+
+  const savedTheme = (localStorage.getItem(THEME_KEY) || 'dark') as Theme;
+  const savedLang  = (localStorage.getItem(LANG_KEY)  || 'en')  as Lang;
+  applyTheme(savedTheme);
+  applyLang(savedLang);
+
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    applyTheme((HTML.dataset.theme as Theme) === 'dark' ? 'light' : 'dark');
+  });
+  document.getElementById('lang-toggle')?.addEventListener('click', () => {
+    applyLang((localStorage.getItem(LANG_KEY) || 'en') === 'en' ? 'zh' : 'en');
+  });
 </script>
 
 </body>
