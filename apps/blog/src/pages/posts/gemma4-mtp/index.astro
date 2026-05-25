@@ -118,6 +118,18 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 /* Syntax */
 .kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
 
+/* ── Compare table ──────────────────────────────────────── */
+.compare-table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.8rem;border-radius:8px;overflow:hidden}
+.compare-table th{background:var(--surface);padding:.55rem .75rem;text-align:left;font-size:.68rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.compare-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:top;font-size:.82rem;color:var(--muted2);line-height:1.6}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table tr:hover td{background:rgba(255,255,255,.018)}
+.compare-table .rl{color:var(--text2);font-weight:600;font-size:.72rem;white-space:nowrap;font-family:var(--ff-mono)}
+.compare-table .eagle{color:var(--amber)}
+.compare-table .ds{color:var(--green)}
+.compare-table .gemma{color:var(--purple-l)}
+.compare-table .key{color:var(--cyan);font-weight:600}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media(max-width:1100px){.post-grid{grid-template-columns:1fr}.code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}.cs-body{max-height:480px}}
 @media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.gen-cmp{grid-template-columns:1fr}.attn-wrap{grid-template-columns:1fr}}
@@ -205,7 +217,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <div class="section-no">02 — Architecture</div>
 <h2>The two-model system</h2>
 <p>
-  The system consists of <code>Gemma4ForCausalLM</code> (the backbone) and <code>Gemma4AssistantForCausalLM</code> (the draft model). The backbone runs a standard forward pass and exposes its <strong>last-layer key-value states</strong> via <code>shared_kv_states</code>. The assistant reads these states to draft tokens without recomputing attention from scratch.
+  The system consists of <code>Gemma4ForCausalLM</code> (the backbone) and <code>Gemma4AssistantForCausalLM</code> (the draft model). The backbone runs a standard forward pass and writes the K/V states from its <strong>last non-sharing layer of each attention type</strong> into <code>shared_kv_states</code>. The assistant reads those two tensors to draft tokens without recomputing attention from scratch.
 </p>
 <p>Click any component below to see its source code in the sidebar.</p>
 
@@ -325,10 +337,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <div class="section-no">03 — KV Sharing</div>
 <h2>Reusing the backbone's attention states</h2>
 <p>
-  The key insight: the assistant does not need its own KV cache. Instead, it <strong>borrows the backbone's last-layer key-value tensors</strong>. The backbone's <code>Gemma4TextModel.forward()</code> returns a <code>shared_kv_states</code> dict whenever <code>return_shared_kv_states=True</code>. The assistant receives this dict and passes it through all its layers.
+  The key insight: the assistant does not need its own KV cache. Instead, it reads a <strong>shared dict of K/V tensors — one pair per attention type</strong> — that the backbone's last non-sharing layers wrote. The backbone's <code>Gemma4TextModel.forward()</code> populates <code>shared_kv_states</code> and returns it when <code>return_shared_kv_states=True</code>. The assistant receives this dict and every one of its layers looks up K/V by type: <code>shared_kv_states[self.layer_type]</code>.
 </p>
 <p>
-  Since the assistant shares KV from <em>all</em> layers (the config forces <code>num_kv_shared_layers = num_hidden_layers</code>), it never computes its own key/value projections — saving roughly half the attention FLOPS.
+  Since the assistant config forces <code>num_kv_shared_layers = num_hidden_layers</code>, every assistant layer is a KV-sharing layer — none of them allocate K or V projections at all. The assistant's layer count (e.g., 4) is completely independent of the backbone's (e.g., 26); what matters is that both models share the same <code>layer_types</code> sequence.
 </p>
 
 <div class="vp">
@@ -347,9 +359,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <text x="98" y="82" font-size="8.5" fill="#a78bfa" text-anchor="middle">Layer 1  [sliding]</text>
         <rect x="8" y="100" width="180" height="28" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
         <text x="98" y="118" font-size="8.5" fill="#64748b" text-anchor="middle">...</text>
-        <rect x="8" y="136" width="180" height="28" rx="4" fill="rgba(139,92,246,.14)" stroke="rgba(139,92,246,.45)" stroke-width="1.2"/>
-        <text x="98" y="151" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="600">Layer N-1  [full_attn]</text>
-        <text x="98" y="162" font-size="7.5" fill="#10b981" text-anchor="middle">← KV exposed here</text>
+        <rect x="8" y="136" width="180" height="28" rx="4" fill="rgba(139,92,246,.14)" stroke="rgba(245,158,11,.5)" stroke-width="1.2"/>
+        <text x="98" y="151" font-size="8.5" fill="#f59e0b" text-anchor="middle" font-weight="600">last non-sharing full_attn</text>
+        <text x="98" y="162" font-size="7.5" fill="#10b981" text-anchor="middle">← store_full_length_kv = True</text>
       </g>
 
       <!-- shared_kv_states box (center) -->
@@ -404,11 +416,336 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <p>
   Normal attention needs K and V computed from the <em>current sequence context</em>. By borrowing the backbone's K/V, the assistant effectively sees the full context the backbone has built up — without paying to recompute it. The assistant only runs its own Q projection to attend over the borrowed K/V.
 </p>
+
+<h3>Which layers, exactly?</h3>
+<p>
+  There is no 1:1 layer mapping. The assistant can have 4 layers while the backbone has 26 — that is by design, because <code>shared_kv_states</code> contains exactly <strong>two K/V pairs</strong>, keyed by attention <em>type</em>, not by layer index.
+</p>
+<p>
+  Here is the actual mechanism. The backbone designates its last <code>num_kv_shared_layers</code> layers as "KV-sharing layers" — they don't compute K or V at all. Among the preceding non-sharing layers, the code (<code>modular_gemma4.py</code> lines 978–983) identifies the <strong>last non-sharing layer of each attention type</strong> and marks it <code>store_full_length_kv = True</code>. When those layers run, they write into the dict:
+</p>
+<ul>
+  <li>Last non-sharing <strong>full_attention</strong> layer → <code>shared_kv_states["full_attention"] = (K, V)</code></li>
+  <li>Last non-sharing <strong>sliding_attention</strong> layer → <code>shared_kv_states["sliding_attention"] = (K, V)</code></li>
+</ul>
+<p>
+  That's it — two tensors total, regardless of how many layers the backbone has. Every KV-sharing layer, both the backbone's own tail and every assistant layer, then does a single type-keyed lookup (line 1031):
+</p>
+<div class="callout callout-insight" style="margin:.75rem 0">
+  <span class="callout-icon" style="font-family:var(--ff-mono);font-size:.82rem;margin-right:.3rem">→</span>
+  <span><code>key_states, value_states = shared_kv_states[self.layer_type]</code></span>
+</div>
+<p>
+  Two assistant layers of the same type (e.g., two <code>sliding_attn</code> layers) consume the <em>exact same K/V tensor</em>. The backbone's last <code>num_kv_shared_layers</code> layers are identical in structure to the assistant's layers — both are just KV-sharing layers running over the same frozen context.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">kv-source-diagram.svg</span>
+    <span class="vp-hint">Two tensors, type-keyed lookup</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 300" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Column headers -->
+      <text x="10" y="16" font-size="9" fill="#8b5cf6" font-weight="600" letter-spacing=".8">BACKBONE  (e.g. 26 layers)</text>
+      <text x="454" y="16" font-size="9" fill="#06b6d4" font-weight="600" letter-spacing=".8">ASSISTANT  (e.g. 4 layers)</text>
+
+      <!-- Early non-sharing layers (bulk) -->
+      <rect x="8" y="22" width="204" height="22" rx="3" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.12)"/>
+      <text x="110" y="37" font-size="7.5" fill="#64748b" text-anchor="middle">layers 0 … k-3  —  normal self-attn, compute own K/V</text>
+
+      <!-- Last non-sharing sliding_attn layer -->
+      <rect x="8" y="52" width="204" height="32" rx="3" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.5)" stroke-width="1.3"/>
+      <text x="110" y="67" font-size="8.5" fill="#f59e0b" text-anchor="middle" font-weight="600">layer k-2  ·  sliding_attn</text>
+      <text x="110" y="79" font-size="7.5" fill="#64748b" text-anchor="middle">store_full_length_kv = True</text>
+
+      <!-- Last non-sharing full_attn layer -->
+      <rect x="8" y="92" width="204" height="32" rx="3" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.5)" stroke-width="1.3"/>
+      <text x="110" y="107" font-size="8.5" fill="#10b981" text-anchor="middle" font-weight="600">layer k-1  ·  full_attn</text>
+      <text x="110" y="119" font-size="7.5" fill="#64748b" text-anchor="middle">store_full_length_kv = True</text>
+
+      <!-- KV-sharing boundary -->
+      <line x1="8" y1="132" x2="212" y2="132" stroke="rgba(139,92,246,.35)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="110" y="143" font-size="7.5" fill="#8b5cf6" text-anchor="middle" font-style="italic">first_kv_shared_layer_idx = N - num_kv_shared_layers</text>
+
+      <!-- Backbone tail KV-sharing layers -->
+      <rect x="8" y="150" width="204" height="30" rx="3" fill="rgba(139,92,246,.09)" stroke="rgba(139,92,246,.28)"/>
+      <text x="110" y="164" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">layers k … N-1  —  is_kv_shared_layer</text>
+      <text x="110" y="177" font-size="7.5" fill="#64748b" text-anchor="middle">also use shared_kv_states[self.layer_type]</text>
+
+      <!-- shared_kv_states box (center) -->
+      <rect x="242" y="58" width="172" height="66" rx="6" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.45)" stroke-width="1.5"/>
+      <text x="328" y="76" font-size="8.5" fill="#10b981" text-anchor="middle" font-weight="600">shared_kv_states</text>
+      <text x="328" y="91" font-size="7.5" fill="#f59e0b" text-anchor="middle">"sliding_attention":  (K, V)</text>
+      <text x="328" y="105" font-size="7.5" fill="#10b981" text-anchor="middle">"full_attention":      (K, V)</text>
+      <text x="328" y="117" font-size="7" fill="#475569" text-anchor="middle">exactly 2 entries total</text>
+
+      <!-- Arrows: layers → dict -->
+      <line x1="212" y1="68" x2="240" y2="82" stroke="rgba(245,158,11,.65)" stroke-width="1.4"/>
+      <polygon points="237,79 243,84 246,77" fill="rgba(245,158,11,.85)"/>
+      <line x1="212" y1="108" x2="240" y2="97" stroke="rgba(16,185,129,.65)" stroke-width="1.4"/>
+      <polygon points="237,100 243,95 240,91" fill="rgba(16,185,129,.85)"/>
+
+      <!-- 4 assistant layers -->
+      <rect x="452" y="22" width="200" height="28" rx="3" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)"/>
+      <text x="552" y="36" font-size="8" fill="#f59e0b" text-anchor="middle" font-weight="600">asst layer 0  ·  sliding_attn</text>
+      <text x="552" y="47" font-size="7" fill="#64748b" text-anchor="middle">shared_kv_states["sliding_attention"]</text>
+
+      <rect x="452" y="58" width="200" height="28" rx="3" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)"/>
+      <text x="552" y="72" font-size="8" fill="#10b981" text-anchor="middle" font-weight="600">asst layer 1  ·  full_attn</text>
+      <text x="552" y="83" font-size="7" fill="#64748b" text-anchor="middle">shared_kv_states["full_attention"]</text>
+
+      <rect x="452" y="94" width="200" height="28" rx="3" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)"/>
+      <text x="552" y="108" font-size="8" fill="#f59e0b" text-anchor="middle" font-weight="600">asst layer 2  ·  sliding_attn</text>
+      <text x="552" y="119" font-size="7" fill="#64748b" text-anchor="middle">shared_kv_states["sliding_attention"]  ← same as layer 0</text>
+
+      <rect x="452" y="130" width="200" height="28" rx="3" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)"/>
+      <text x="552" y="144" font-size="8" fill="#10b981" text-anchor="middle" font-weight="600">asst layer 3  ·  full_attn</text>
+      <text x="552" y="155" font-size="7" fill="#64748b" text-anchor="middle">shared_kv_states["full_attention"]   ← same as layer 1</text>
+
+      <!-- Arrows: dict → assistant layers -->
+      <line x1="414" y1="84" x2="450" y2="84" stroke="rgba(245,158,11,.5)" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <polygon points="447,80.5 453,84 447,87.5" fill="rgba(245,158,11,.7)"/>
+      <line x1="414" y1="97" x2="450" y2="97" stroke="rgba(16,185,129,.5)" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <polygon points="447,93.5 453,97 447,100.5" fill="rgba(16,185,129,.7)"/>
+      <!-- Dashed repeat arrows (same tensor reused) -->
+      <line x1="414" y1="84" x2="450" y2="108" stroke="rgba(245,158,11,.28)" stroke-width="1" stroke-dasharray="3,4"/>
+      <line x1="414" y1="97" x2="450" y2="144" stroke="rgba(16,185,129,.28)" stroke-width="1" stroke-dasharray="3,4"/>
+
+      <!-- Source code note -->
+      <rect x="8" y="196" width="644" height="44" rx="5" fill="rgba(139,92,246,.04)" stroke="rgba(139,92,246,.15)"/>
+      <text x="22" y="212" font-size="8.5" fill="#a78bfa" font-weight="600">Source  (modular_gemma4.py):</text>
+      <text x="22" y="225" font-size="8" fill="#64748b">line 981:   store_full_length_kv = not is_kv_shared_layer and layer_idx == last-index-of-this-type-in-non-sharing-region</text>
+      <text x="22" y="237" font-size="8" fill="#64748b">line 1031:  if is_kv_shared_layer:  key_states, value_states = shared_kv_states[self.layer_type]</text>
+
+      <!-- Assistant config note -->
+      <rect x="8" y="248" width="644" height="30" rx="5" fill="rgba(6,182,212,.04)" stroke="rgba(6,182,212,.15)"/>
+      <text x="22" y="262" font-size="8" fill="#06b6d4" font-weight="600">Assistant config:</text>
+      <text x="120" y="262" font-size="8" fill="#64748b">num_kv_shared_layers = num_hidden_layers  →  ALL assistant layers are KV-sharing  (no own K/V at any layer)</text>
+      <text x="22" y="273" font-size="7.5" fill="#475569">assistant num_hidden_layers is independent of backbone  ·  only layer_type pattern must be compatible</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Q-only cross-attention</h3>
+<p>
+  Structurally this is identical to <strong>encoder–decoder cross-attention</strong>: Q comes from one stream (the assistant's hidden state), K and V come from another (the backbone's frozen context). The backbone is the "encoder" that has already processed the full prompt; the assistant is a lightweight "decoder" that attends into that encoded memory to draft new tokens.
+</p>
+<p>
+  The FLOP saving is direct: K and V projections together account for ⅔ of the QKV projection cost in standard self-attention. Removing them across all N layers — plus eliminating the assistant's own KV memory allocation — makes the drafter dramatically cheaper per forward pass than even a naive small model with its own attention would be.
+</p>
+
+<h3>Contrast: EAGLE-3 and DeepSeek MTP</h3>
+<p>
+  These three designs represent the three main bets on how a draft model should access backbone context. The differences run deeper than engineering choices — they reflect fundamentally different views on <em>where the useful signal lives</em>.
+</p>
+
+<table class="compare-table">
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th class="eagle">EAGLE-3</th>
+      <th class="ds">DeepSeek MTP</th>
+      <th class="gemma">Gemma 4 MTP</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rl">Backbone → drafter</td>
+      <td class="eagle">Hidden states from selected backbone layers injected at drafter input</td>
+      <td class="ds">Shared token embedding + LM head only; last hidden state passed between sequential modules</td>
+      <td class="gemma key">K/V tensors from <em>every</em> backbone layer, one-to-one per drafter layer</td>
+    </tr>
+    <tr>
+      <td class="rl">K/V source</td>
+      <td class="eagle">Drafter computes its own K/V from its hidden state (full self-attention)</td>
+      <td class="ds">Each MTP module computes its own K/V (full self-attention within the module)</td>
+      <td class="gemma key">Borrowed directly from backbone — no W_K or W_V in the drafter at all</td>
+    </tr>
+    <tr>
+      <td class="rl">Attention mask</td>
+      <td class="eagle">Causal — drafter generates one token at a time</td>
+      <td class="ds">Causal within each sequential module</td>
+      <td class="gemma">Bidirectional — all draft tokens see each other; backbone K/V provides causal history</td>
+    </tr>
+    <tr>
+      <td class="rl">Draft structure</td>
+      <td class="eagle">Parallel single-pass over all draft positions</td>
+      <td class="ds">Sequential depth-wise: module 1→t+1, module 2→t+2, module 3→t+3</td>
+      <td class="gemma">Parallel single-pass over all draft positions</td>
+    </tr>
+    <tr>
+      <td class="rl">Vocab prediction</td>
+      <td class="eagle">Full LM head (tied with backbone)</td>
+      <td class="ds">Full LM head (shared output projection)</td>
+      <td class="gemma">Centroid-based: 32 of 2048 clusters → 4096 tokens scored (98.4% savings)</td>
+    </tr>
+    <tr>
+      <td class="rl">Core bet</td>
+      <td class="eagle">Backbone features are a rich enough signal at the input level</td>
+      <td class="ds">Depth-wise decomposition: each extra token is one extra transformer layer of compute</td>
+      <td class="gemma">The backbone's K/V cache <em>is</em> the context — use it directly, skip all re-encoding</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">🔑</span>
+  <span>The sharpest contrast: EAGLE-3 shares <em>hidden state features</em> (intermediate representations) but still computes its own K/V. DeepSeek shares only <em>embedding weights</em>. Gemma 4 shares the actual <em>K/V number arrays</em> the backbone computed — so the drafter's attention layers never touch the prompt at all.</span>
+</div>
 </section>
 
-<!-- ─────────────────────────────────── §4 Projections -->
+<!-- ─────────────────────────────────── §4 Drafter Internals -->
+<section id="s-drafter" data-code="drafter-arch">
+<div class="section-no">04 — Drafter Internals</div>
+<h2>Inside one assistant transformer layer</h2>
+<p>
+  The assistant's transformer is structurally almost identical to the backbone's — same RMSNorm, same GatedMLP (SwiGLU), same residual connections — with one surgical difference: <strong>the attention sub-layer has no K or V projection matrices</strong>. When each layer runs its attention, it looks up (K, V) by its own layer type: <code>shared_kv_states[self.layer_type]</code>.
+</p>
+<p>
+  Below is the full data flow: the pipeline overview at the top shows where the assistant sits end-to-end, and the expanded view shows exactly what happens inside one transformer layer.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">drafter-layer-internals.svg</span>
+    <span class="vp-hint">Pipeline + single-layer zoom</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 400" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- ── Pipeline overview ── -->
+      <text x="10" y="14" font-size="8.5" fill="#64748b" font-weight="600">Full pipeline:</text>
+      <!-- backbone hiddens -->
+      <rect x="8" y="20" width="90" height="34" rx="4" fill="rgba(139,92,246,.09)" stroke="rgba(139,92,246,.3)"/>
+      <text x="53" y="34" font-size="7.5" fill="#a78bfa" text-anchor="middle">backbone h</text>
+      <text x="53" y="46" font-size="7" fill="#64748b" text-anchor="middle">[B,L,3072]</text>
+      <line x1="98" y1="37" x2="114" y2="37" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <polygon points="111,33.5 117,37 111,40.5" fill="rgba(6,182,212,.7)"/>
+      <!-- pre_proj -->
+      <rect x="116" y="20" width="88" height="34" rx="4" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.3)"/>
+      <text x="160" y="34" font-size="7.5" fill="#06b6d4" text-anchor="middle">pre_proj</text>
+      <text x="160" y="46" font-size="7" fill="#64748b" text-anchor="middle">3072→768</text>
+      <line x1="204" y1="37" x2="220" y2="37" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <polygon points="217,33.5 223,37 217,40.5" fill="rgba(6,182,212,.7)"/>
+      <!-- Transformer × N -->
+      <rect x="222" y="20" width="116" height="34" rx="4" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.22)"/>
+      <text x="280" y="34" font-size="7.5" fill="#06b6d4" text-anchor="middle">Transformer × N</text>
+      <text x="280" y="46" font-size="7" fill="#64748b" text-anchor="middle">Q-only attn · bidir</text>
+      <!-- backbone KV arrow into transformer -->
+      <line x1="280" y1="8" x2="280" y2="20" stroke="rgba(16,185,129,.6)" stroke-width="1.2" stroke-dasharray="4,3"/>
+      <text x="310" y="12" font-size="7" fill="#10b981">backbone K/V (all N layers)</text>
+      <line x1="338" y1="37" x2="354" y2="37" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <polygon points="351,33.5 357,37 351,40.5" fill="rgba(6,182,212,.7)"/>
+      <!-- post_proj -->
+      <rect x="356" y="20" width="88" height="34" rx="4" fill="rgba(245,158,11,.07)" stroke="rgba(245,158,11,.25)"/>
+      <text x="400" y="34" font-size="7.5" fill="#f59e0b" text-anchor="middle">post_proj</text>
+      <text x="400" y="46" font-size="7" fill="#64748b" text-anchor="middle">768→1536</text>
+      <line x1="444" y1="37" x2="460" y2="37" stroke="rgba(245,158,11,.5)" stroke-width="1.2"/>
+      <polygon points="457,33.5 463,37 457,40.5" fill="rgba(245,158,11,.7)"/>
+      <!-- MaskedEmbed -->
+      <rect x="462" y="20" width="100" height="34" rx="4" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.25)"/>
+      <text x="512" y="34" font-size="7.5" fill="#10b981" text-anchor="middle">MaskedEmbedder</text>
+      <text x="512" y="46" font-size="7" fill="#64748b" text-anchor="middle">draft logits</text>
+
+      <!-- ── Single layer zoom ── -->
+      <text x="10" y="74" font-size="9" fill="#06b6d4" font-weight="600">Zoom — one assistant transformer layer  (layer i):</text>
+      <rect x="8" y="80" width="644" height="302" rx="8" fill="rgba(6,182,212,.025)" stroke="rgba(6,182,212,.22)" stroke-width="1.2"/>
+
+      <!-- h_in label -->
+      <text x="22" y="98" font-size="8" fill="#475569" font-style="italic">h_in  [B, L, 768]  ← from previous layer</text>
+      <!-- h_in box -->
+      <rect x="22" y="102" width="110" height="28" rx="4" fill="rgba(6,182,212,.09)" stroke="rgba(6,182,212,.3)"/>
+      <text x="77" y="120" font-size="8" fill="#06b6d4" text-anchor="middle">h_in [B,L,768]</text>
+      <!-- down to RMSNorm -->
+      <line x1="77" y1="130" x2="77" y2="144" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="73,140 77,147 81,140" fill="rgba(6,182,212,.6)"/>
+      <!-- RMSNorm 1 -->
+      <rect x="22" y="146" width="110" height="24" rx="4" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.1)"/>
+      <text x="77" y="162" font-size="8" fill="#94a3b8" text-anchor="middle">RMSNorm</text>
+      <!-- down to Q proj -->
+      <line x1="77" y1="170" x2="77" y2="184" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="73,180 77,187 81,180" fill="rgba(6,182,212,.6)"/>
+      <!-- Q proj - key highlighted box -->
+      <rect x="22" y="186" width="110" height="28" rx="4" fill="rgba(6,182,212,.18)" stroke="rgba(6,182,212,.55)" stroke-width="1.4"/>
+      <text x="77" y="203" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">Q = h · W_Q</text>
+      <!-- No K/V note -->
+      <text x="22" y="232" font-size="8" fill="rgba(239,68,68,.8)">no W_K  ·  no W_V</text>
+      <text x="22" y="244" font-size="7.5" fill="#475569">(these weight matrices</text>
+      <text x="22" y="256" font-size="7.5" fill="#475569"> simply don't exist)</text>
+
+      <!-- Q arrow right to attention -->
+      <line x1="132" y1="200" x2="236" y2="200" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <polygon points="233,196.5 239,200 233,203.5" fill="rgba(6,182,212,.7)"/>
+      <text x="184" y="195" font-size="7.5" fill="#06b6d4" text-anchor="middle">Q</text>
+
+      <!-- shared_kv_states lookup box at top right -->
+      <rect x="316" y="88" width="204" height="40" rx="5" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.35)" stroke-width="1.2"/>
+      <text x="418" y="103" font-size="8.5" fill="#10b981" text-anchor="middle" font-weight="600">shared_kv_states[self.layer_type]</text>
+      <text x="418" y="118" font-size="7.5" fill="#64748b" text-anchor="middle">"full_attention" or "sliding_attention"</text>
+      <!-- K arrow down-left to attention -->
+      <line x1="380" y1="128" x2="300" y2="185" stroke="rgba(16,185,129,.6)" stroke-width="1.3"/>
+      <polygon points="299,182 301,188 305,183" fill="rgba(16,185,129,.8)"/>
+      <text x="326" y="154" font-size="7.5" fill="#10b981">K  [B,S,n_heads,d_head]</text>
+      <!-- V arrow down to attention -->
+      <line x1="476" y1="128" x2="395" y2="185" stroke="rgba(16,185,129,.6)" stroke-width="1.3"/>
+      <polygon points="393,182 396,188 400,183" fill="rgba(16,185,129,.8)"/>
+      <text x="462" y="158" font-size="7.5" fill="#10b981">V  [B,S,n_heads,d_head]</text>
+
+      <!-- Attention block -->
+      <rect x="240" y="186" width="196" height="46" rx="5" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.3"/>
+      <text x="338" y="207" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="600">Attention(Q, K, V)</text>
+      <text x="338" y="222" font-size="7.5" fill="#64748b" text-anchor="middle">softmax(QKᵀ/√d) · V  ·  bidir mask</text>
+
+      <!-- residual add after attn -->
+      <line x1="436" y1="209" x2="472" y2="209" stroke="rgba(139,92,246,.5)" stroke-width="1.2"/>
+      <polygon points="469,205.5 475,209 469,212.5" fill="rgba(139,92,246,.7)"/>
+      <circle cx="486" cy="209" r="11" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <text x="486" y="213.5" font-size="11" fill="#94a3b8" text-anchor="middle">+</text>
+      <!-- residual line from h_in -->
+      <line x1="77" y1="116" x2="614" y2="116" stroke="rgba(255,255,255,.06)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="614" y1="116" x2="614" y2="360" stroke="rgba(255,255,255,.06)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="497" y1="209" x2="514" y2="209" stroke="rgba(139,92,246,.4)" stroke-width="1.2"/>
+      <polygon points="511,205.5 517,209 511,212.5" fill="rgba(139,92,246,.6)"/>
+      <!-- RMSNorm 2 -->
+      <rect x="516" y="196" width="80" height="24" rx="4" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.1)"/>
+      <text x="556" y="212" font-size="8" fill="#94a3b8" text-anchor="middle">RMSNorm</text>
+      <!-- down to FFN -->
+      <line x1="556" y1="220" x2="556" y2="244" stroke="rgba(139,92,246,.4)" stroke-width="1.2"/>
+      <polygon points="552,240 556,247 560,240" fill="rgba(139,92,246,.6)"/>
+      <!-- GatedMLP / FFN -->
+      <rect x="490" y="246" width="136" height="40" rx="5" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)" stroke-width="1.2"/>
+      <text x="558" y="264" font-size="9" fill="#f59e0b" text-anchor="middle" font-weight="600">GatedMLP (SwiGLU)</text>
+      <text x="558" y="278" font-size="7.5" fill="#64748b" text-anchor="middle">intermediate_size expansion</text>
+      <!-- down from FFN -->
+      <line x1="558" y1="286" x2="558" y2="308" stroke="rgba(245,158,11,.4)" stroke-width="1.2"/>
+      <polygon points="554,304 558,311 562,304" fill="rgba(245,158,11,.6)"/>
+      <!-- residual add after FFN -->
+      <circle cx="558" cy="320" r="11" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <text x="558" y="324.5" font-size="11" fill="#94a3b8" text-anchor="middle">+</text>
+      <line x1="614" y1="320" x2="569" y2="320" stroke="rgba(255,255,255,.06)" stroke-width="1" stroke-dasharray="3,3"/>
+      <!-- h_out -->
+      <line x1="558" y1="331" x2="558" y2="354" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="554,350 558,357 562,350" fill="rgba(6,182,212,.6)"/>
+      <rect x="494" y="356" width="130" height="22" rx="4" fill="rgba(6,182,212,.09)" stroke="rgba(6,182,212,.3)"/>
+      <text x="559" y="371" font-size="8" fill="#06b6d4" text-anchor="middle">h_out  [B, L, 768]  → layer i+1</text>
+
+      <!-- Note on Q/K/V dimensions -->
+      <text x="22" y="288" font-size="7.5" fill="#475569">S = full prompt length (backbone context)</text>
+      <text x="22" y="300" font-size="7.5" fill="#475569">L = draft length  (typically 3–7 tokens)</text>
+      <text x="22" y="312" font-size="7.5" fill="#475569">Q attends over the entire backbone prefix</text>
+      <text x="22" y="324" font-size="7.5" fill="#475569">despite being only L tokens itself</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The draft sequence length L (3–7 tokens) is far shorter than the backbone's full context S. Because K and V span the full S-length backbone context, each draft token's Q vector attends over the entire prefix in one shot — without the assistant ever having read that prefix.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §5 Projections -->
 <section id="s-proj" data-code="projections">
-<div class="section-no">04 — Projections</div>
+<div class="section-no">05 — Projections</div>
 <h2>Bridging two hidden dimensions</h2>
 <p>
   The backbone runs at <code>d_model = 1536</code>; the assistant runs at a smaller <code>hidden_size</code> (e.g. 768). Two projection layers bridge the gap.
@@ -486,13 +823,13 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 </div>
 
 <p>
-  The <code>pre_projection</code> concatenates two backbone hidden states (current + previous position context) and compresses to the assistant's smaller dimension. After the assistant's transformer, <code>post_projection</code> expands back to backbone dimension so the returned <code>last_hidden_state</code> can seamlessly integrate with the backbone.
+  The <code>pre_projection</code> concatenates two consecutive backbone hidden states and compresses them to the assistant's smaller working dimension. The <code>post_projection</code> expands back to 1536 for one specific reason: <strong>the backbone's <code>lm_head</code> is <code>Linear(1536 → vocab_size)</code></strong> — it is the verification head during speculative decoding, and it only accepts inputs in the backbone's dimension. The assistant's <code>last_hidden_state</code> (after <code>post_projection</code>) is fed directly into that same <code>lm_head</code> to compute the reference logits for acceptance/rejection checking. Without this projection, the shapes would be incompatible and the backbone could not re-use its own output head to verify drafts.
 </p>
 </section>
 
 <!-- ─────────────────────────────────── §5 Centroid Vocab -->
 <section id="s-centroid" data-code="centroid">
-<div class="section-no">05 — Efficient Vocabulary</div>
+<div class="section-no">06 — Efficient Vocabulary</div>
 <h2>Centroid-based token prediction</h2>
 <p>
   Computing logits over a 256K-token vocabulary requires a <code>Linear(768, 256000)</code> matrix multiply — expensive for a small draft model. <code>Gemma4AssistantMaskedEmbedder</code> avoids this by <strong>clustering vocabulary tokens into centroids</strong> and only scoring the top-K clusters.
@@ -609,7 +946,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 <!-- ─────────────────────────────────── §6 Bidirectional Attention -->
 <section id="s-attn" data-code="attention">
-<div class="section-no">06 — Bidirectional Attention</div>
+<div class="section-no">07 — Bidirectional Attention</div>
 <h2>Why the assistant uses bidirectional masks</h2>
 <p>
   Standard causal LM attention masks ensure each position can only attend to positions at or before it (lower-triangular mask). But the assistant does not need to be causal — it sees the entire draft sequence at once and uses the backbone's KV as context. Bidirectional attention lets it refine token embeddings with both left and right context.
@@ -641,7 +978,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 <!-- ─────────────────────────────────── §7 Full Loop -->
 <section id="s-loop" data-code="full-loop">
-<div class="section-no">07 — The Full Loop</div>
+<div class="section-no">08 — The Full Loop</div>
 <h2>Putting it all together</h2>
 <p>
   At generation time, HuggingFace's <code>model.generate()</code> orchestrates the speculative decoding loop automatically when <code>assistant_model</code> is provided. The backbone and assistant alternate: assistant drafts a batch, backbone verifies, accepted tokens are committed, and the loop continues.
@@ -707,6 +1044,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     <button class="cs-tab active" data-panel="intro">config</button>
     <button class="cs-tab" data-panel="architecture">__init__</button>
     <button class="cs-tab" data-panel="kv-sharing">forward()</button>
+    <button class="cs-tab" data-panel="drafter-arch">attn layer</button>
     <button class="cs-tab" data-panel="projections">projections</button>
     <button class="cs-tab" data-panel="centroid">embedder</button>
     <button class="cs-tab" data-panel="attention">masks</button>
@@ -799,7 +1137,7 @@ architecture: {
   lines: [
 `def forward(`,
 `    self,`,
-`    input_ids=None,          # unused`,{c:'hl-c',t:`    inputs_embeds=None,      # [B, L, 1536]`},{c:'hl-g',t:`    shared_kv_states=None,   # from backbone last layer`},
+`    input_ids=None,          # unused`,{c:'hl-c',t:`    inputs_embeds=None,      # [B, L, 1536]`},{c:'hl-g',t:`    shared_kv_states=None,   # dict: layer_type → (K, V)  (2 entries)`},
 `    position_ids=None,`,
 `    attention_mask=None,`,
 `    use_cache=None,          # unused`,
@@ -835,6 +1173,42 @@ architecture: {
   ]
 },
 
+'drafter-arch': {
+  file: 'modeling_gemma4_assistant.py',
+  title: 'Assistant Attention — Q only',
+  lines: [
+`# Gemma4AssistantAttention.forward() — simplified`,
+`# Critical difference vs normal self-attention:`,
+`# K and V are NOT computed here — they come from`,
+`# the backbone via shared_kv_states.`,
+``,
+`def forward(`,
+`    self,`,
+`    hidden_states,    # [B, L, 768]  assistant stream`,{c:'hl-g',t:`    shared_kv,        # (K, V) tensors for THIS layer`},
+`    attention_mask,   # bidirectional mask`,
+`):`,
+`    B, L, _ = hidden_states.shape`,
+``,
+`    # ── ONLY Q is projected from assistant state ──`,{c:'hl-c',t:`    q = self.q_proj(hidden_states)  # [B,L,n_heads,d_head]`},
+`    # self.k_proj and self.v_proj do not exist`,
+``,
+`    # ── K and V borrowed from backbone layer i ──`,{c:'hl-g',t:`    k, v = shared_kv                # each [B,S,n_heads,d_head]`},
+`    # S = full prompt length; L = draft length (3-7)`  ,
+`    # Q attends over the entire backbone prefix`,
+``,
+`    # ── Standard scaled dot-product attention ──`,
+`    scale = math.sqrt(self.head_dim)`,{c:'hl-p',t:`    attn = (q @ k.transpose(-1,-2)) / scale  # [B,L,n_heads,S]`},
+`    attn = attn + attention_mask  # bidirectional — no causal mask`,
+`    attn = F.softmax(attn, dim=-1)`,{c:'hl-p',t:`    out  = attn @ v               # [B,L,n_heads,d_head]`},
+``,
+`    return self.o_proj(out.reshape(B, L, -1))`,
+``,
+`# ── FLOPs saved vs full self-attention (per layer) ──`,
+`# Normal: Q, K, V each Linear(768→768) = 3 × 768² ops`,
+`# Assistant: only Q                    = 1 × 768² ops`,{c:'hl-g',t:`# → saves ~2/3 of QKV projection FLOPs across all N layers`},
+  ]
+},
+
 projections: {
   file: 'modeling_gemma4_assistant.py',
   title: 'Projection Layers',
@@ -854,8 +1228,9 @@ projections: {
 `# outputs.last_hidden_state: [B, L, 768]`,
 ``,{c:'hl-p',t:`projected = self.post_projection(`},{c:'hl-p',t:`    outputs.last_hidden_state`},{c:'hl-p',t:`)`},
 `# projected: [B, L, 1536]  ← back to backbone space`,
-`# returned as Gemma4AssistantOutput.last_hidden_state`,
-`# ↑ used by backbone for speculative decoding verify`,
+`# WHY 1536? backbone.lm_head = Linear(1536 → vocab_size)`,
+`# Verification step calls backbone.lm_head(projected)`,
+`# to get reference logits — shapes MUST match.`,
   ]
 },
 
@@ -967,7 +1342,7 @@ function renderPanel(id) {
     const cls = (typeof entry === 'object') ? entry.c : '';
     const txt = (typeof entry === 'object') ? entry.t : entry;
     return `<span class="cs-line ${cls}">${hl(txt)}</span>`;
-  }).join('\n');
+  }).join('');
   return `<pre class="cs-pre">${html}</pre>`;
 }
 
@@ -1013,6 +1388,7 @@ const SECTION_MAP = {
   's-intro':    'intro',
   's-arch':     'architecture',
   's-kv':       'kv-sharing',
+  's-drafter':  'drafter-arch',
   's-proj':     'projections',
   's-centroid': 'centroid',
   's-attn':     'attention',

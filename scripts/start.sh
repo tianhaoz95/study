@@ -43,6 +43,11 @@ cleanup() {
 
 trap cleanup INT TERM
 
+# Clear any stale processes on the dev ports before starting
+for port in 4321 4322 4323; do
+  lsof -ti ":$port" 2>/dev/null | xargs kill -KILL 2>/dev/null || true
+done
+
 # Helper: install deps if node_modules is missing, then start dev server
 start_app() {
   local app_dir="$1"
