@@ -1,22 +1,20 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
+import { initializeApp } from 'firebase/app'
+import { getAnalytics } from 'firebase/analytics'
 
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDSeTPnu6jCQsAyzrfCag_G_PmgGLJ1dus",
+  authDomain: "heji-study.firebaseapp.com",
+  projectId: "heji-study",
+  storageBucket: "heji-study.firebasestorage.app",
+  messagingSenderId: "738449356267",
+  appId: "1:738449356267:web:84170c6793a17a90d395ae",
+  measurementId: "G-WXHVJNXNTX",
 }
 
-let app: FirebaseApp | null = null
-let auth: Auth | null = null
+export const app = initializeApp(firebaseConfig)
 
-// Only initialize if config is present (allows running without .env)
-if (firebaseConfig.apiKey) {
-  app = initializeApp(firebaseConfig)
-  auth = getAuth(app)
+export function initAnalytics() {
+  if (typeof window !== 'undefined') {
+    return getAnalytics(app)
+  }
 }
-
-export { auth }

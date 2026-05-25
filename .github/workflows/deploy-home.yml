@@ -1,0 +1,44 @@
+name: Deploy Home
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/home/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/deploy-home.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/home/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/home
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/home
+        env:
+          VITE_BLOG_URL: https://heji-study-blog.web.app
+          VITE_SUBSCRIBE_URL: https://heji-study-subscribe.web.app
+          VITE_GITHUB_URL: https://github.com/tianhaoz95/study
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting:heji-study --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

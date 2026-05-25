@@ -1,3 +1,6 @@
+import { initAnalytics } from './firebase'
+initAnalytics()
+
 const BLOG_URL      = import.meta.env.VITE_BLOG_URL      ?? '#'
 const SUBSCRIBE_URL = import.meta.env.VITE_SUBSCRIBE_URL  ?? '#'
 const GITHUB_URL    = import.meta.env.VITE_GITHUB_URL     ?? 'https://github.com'
