@@ -1,5 +1,177 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+const BATCH = 20;
+
+interface Post {
+  href: string;
+  badge?: string;
+  tags: { text: string; cls: string }[];
+  title: string;
+  desc: string;
+  date: string;
+  read: string;
+}
+
+const latestPosts: Post[] = [
+  {
+    href: '/posts/representation-autoencoders-v2/',
+    badge: '★ Latest',
+    tags: [
+      { text: 'Diffusion Models', cls: 'tag-purple' },
+      { text: 'Image Generation', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'RAEv2: 10× Faster Image Generation with Smarter Encoder Layers',
+    desc: 'Three elegant insights — summing the last K encoder layers for a free reconstruction-generation trade-off, combining RAE with REPA (they\'re complementary, not redundant), and reusing the REPA head for internal guidance with no extra model or forward pass — cut diffusion training from 800 to 80 epochs while setting a new state-of-the-art gFID of 1.06.',
+    date: 'May 26, 2026',
+    read: '~10 min read',
+  },
+  {
+    href: '/posts/bitter-lesson-data-filtering/',
+    tags: [
+      { text: 'Data Curation', cls: 'tag-purple' },
+      { text: 'Scaling Laws', cls: 'tag-cyan' },
+      { text: 'Pretraining', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'A Bitter Lesson for Data Filtering',
+    desc: 'Filtering training data to keep only "high-quality" content is almost universally assumed to be necessary. Stanford researchers challenge this: with enough compute and large enough models, unfiltered Common Crawl outperforms every standard filter — and models even benefit from shuffled-word junk. Interactive crossover charts show exactly when and why the ranking flips.',
+    date: 'May 26, 2026',
+    read: '~14 min read',
+  },
+  {
+    href: '/posts/dynamo-llm/',
+    tags: [
+      { text: 'LLM Serving', cls: 'tag-purple' },
+      { text: 'Energy Efficiency', cls: 'tag-cyan' },
+      { text: 'Systems', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'DynamoLLM: Cutting 53% of LLM Serving Energy Without Touching Accuracy',
+    desc: 'Current LLM clusters run every request — from "Hello!" to a 4,000-token code review — at TP8 max-frequency, wasting 3× energy on short requests. DynamoLLM routes requests to per-type pools with tuned tensor parallelism and GPU frequency, saving 53% energy, 38% CO₂, and 61% cost while meeting all latency SLOs. Interactive energy landscape shows how the optimal config shifts completely across request types.',
+    date: 'May 26, 2026',
+    read: '~14 min read',
+  },
+  {
+    href: '/posts/opd-failure-modes/',
+    tags: [
+      { text: 'LLM Training', cls: 'tag-purple' },
+      { text: 'Distillation', cls: 'tag-cyan' },
+      { text: 'RLVR', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'The Many Faces of On-Policy Distillation: Pitfalls, Mechanisms, and Fixes',
+    desc: 'On-policy distillation can catastrophically collapse or silently fail depending on three subtle traps: prefix mismatch (teacher accuracy drops 62%→46%), biased TopK gradients (causes training collapse), and a structural OPSD limitation where instance-specific PI averages to a weak policy. Interactive visualizations show each failure mode and the fixes that resolve them.',
+    date: 'May 26, 2026',
+    read: '~14 min read',
+  },
+  {
+    href: '/posts/fast-blt/',
+    tags: [
+      { text: 'Byte-Level LMs', cls: 'tag-purple' },
+      { text: 'Diffusion Generation', cls: 'tag-cyan' },
+      { text: 'Speculative Decoding', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'Fast Byte Latent Transformer: Generating Multiple Bytes at Once',
+    desc: 'BLT-D adds block-wise diffusion to byte-level language models — instead of one byte at a time, the decoder unmasks an entire block in parallel, cutting memory bandwidth by up to 92%. BLT-S and BLT-DV add speculative verification for lossless or near-lossless quality at 52–77% lower bandwidth.',
+    date: 'May 26, 2026',
+    read: '~15 min read',
+  },
+  {
+    href: '/posts/gated-deltanet-2/',
+    tags: [
+      { text: 'Linear Attention', cls: 'tag-purple' },
+      { text: 'Recurrent LLMs', cls: 'tag-cyan' },
+      { text: 'Delta Rule', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'Gated DeltaNet-2: Untying Erase and Write in Linear Attention',
+    desc: 'Every delta-rule recurrent model (DeltaNet, KDA) uses a single scalar to control both erasing stale memory and writing new content. Gated DeltaNet-2 (NVIDIA, 2026) splits these into independent channel-wise gates, improving multi-key retrieval accuracy by 35% over KDA at 4K context while preserving efficient chunkwise training.',
+    date: 'May 26, 2026',
+    read: '~10 min read',
+  },
+  {
+    href: '/posts/oscar-int2-kv-cache/',
+    tags: [
+      { text: 'Quantization', cls: 'tag-purple' },
+      { text: 'LLM Serving', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'OSCAR: 2-bit KV Cache Without the Accuracy Cliff',
+    desc: 'How attention-aware covariance rotations make INT2 KV-cache quantization both accurate and deployable — closing the BF16 accuracy gap to 3.78 points on Qwen3 while delivering 8× memory reduction and 3–7× throughput gains in production SGLang serving.',
+    date: 'May 26, 2025',
+    read: '~12 min read',
+  },
+  {
+    href: '/posts/cola-dlm/',
+    tags: [
+      { text: 'Diffusion Language Models', cls: 'tag-purple' },
+      { text: 'Continuous Latent Space', cls: 'tag-cyan' },
+      { text: 'Flow Matching', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'Cola DLM: When Diffusion Stops Recovering Tokens and Starts Thinking in Latents',
+    desc: 'Cola DLM (ByteDance Seed, 2026) separates text generation into global semantic organization — a block-causal DiT running flow matching over compressed latent blocks — and local token realization via a conditional decoder. It outperforms matched 2B AR and LLaDA baselines at 2000 EFLOPs on reasoning tasks, while exposing a fundamental PPL-vs-generation mismatch in continuous latent models.',
+    date: 'May 26, 2026',
+    read: '~18 min read',
+  },
+  {
+    href: '/posts/ptrm/',
+    tags: [
+      { text: 'Tiny Recursive Model', cls: 'tag-purple' },
+      { text: 'Test-Time Compute', cls: 'tag-cyan' },
+      { text: 'Latent-Space Reasoning', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'A 7M-Param Model That Beats GPT-5 at Reasoning Puzzles',
+    desc: 'PTRM (Probabilistic Tiny Recursive Model) injects Gaussian noise into a 7M-parameter model\'s hidden state, runs K parallel guesses, and lets the model pick its own best answer — scoring 91.2% on pencil puzzles vs 55.1% for a 7-LLM ensemble, at 0.0001× the cost. A visual deep-dive into latent basins, width vs depth scaling, and the Q-head trick.',
+    date: 'May 26, 2026',
+    read: '~16 min read',
+  },
+  {
+    href: '/posts/elf-continuous-dlm/',
+    tags: [
+      { text: 'Diffusion Language Models', cls: 'tag-purple' },
+      { text: 'Flow Matching', cls: 'tag-cyan' },
+      { text: 'Continuous Embeddings', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'ELF: Continuous Diffusion for Language Finally Works',
+    desc: 'How Embedded Language Flows (MIT, 2026) beats leading discrete diffusion models using 10× fewer training tokens — by staying in continuous embedding space for the entire denoising trajectory and discretizing only at the final step. With animated flow visualizations and pseudocode walkthroughs.',
+    date: 'May 26, 2026',
+    read: '~18 min read',
+  },
+  {
+    href: '/posts/speculative-decoding-compare/',
+    tags: [
+      { text: 'Speculative Decoding', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+      { text: 'Comparison', cls: 'tag-purple' },
+    ],
+    title: 'Speculative Decoding Methods Compared',
+    desc: 'Side-by-side comparison of six speculative decoding systems — EAGLE-3, DeepSeek MTP, DFlash, P-EAGLE, DART, and Gemma 4 MTP. Pick any two to compare: backbone access signal, draft architecture, inference cost, and core tradeoffs.',
+    date: 'May 26, 2026',
+    read: '~10 min read',
+  },
+  {
+    href: '/posts/gemma4-mtp/',
+    tags: [
+      { text: 'Gemma 4', cls: 'tag-purple' },
+      { text: 'Multi-Token Prediction', cls: 'tag-cyan' },
+      { text: 'Speculative Decoding', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: "How Gemma 4's Multi-Token Prediction Works",
+    desc: 'A deep dive into the Gemma4 Assistant architecture: KV sharing between the backbone and draft model, centroid-based vocabulary prediction, and bidirectional attention masks — with animated visualizations and annotated source code.',
+    date: 'May 24, 2026',
+    read: '~15 min read',
+  },
+];
+
+const initialPosts = latestPosts.slice(0, BATCH);
+const deferredPosts = latestPosts.slice(BATCH);
 ---
 <BaseLayout title="AI/ML Deep Dives">
 <style>
@@ -154,6 +326,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     font-size: .9rem;
     max-width: 680px;
   }
+  #posts-sentinel {
+    height: 1px;
+  }
   footer {
     border-top: 1px solid var(--border);
     padding: 1.75rem 2rem;
@@ -191,196 +366,107 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   <div class="section-rule" style="margin-top:2.5rem"><h2 data-i18n="section-latest">Latest Posts</h2></div>
 
-  <a class="post-card" href="/posts/representation-autoencoders-v2/">
-    <div class="post-featured-badge" data-i18n="post-badge">★ Latest</div>
-    <div class="tags">
-      <span class="tag tag-purple">Diffusion Models</span>
-      <span class="tag tag-cyan">Image Generation</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>RAEv2: 10× Faster Image Generation with Smarter Encoder Layers</h3>
-    <p>Three elegant insights — summing the last K encoder layers for a free reconstruction-generation trade-off, combining RAE with REPA (they're complementary, not redundant), and reusing the REPA head for internal guidance with no extra model or forward pass — cut diffusion training from 800 to 80 epochs while setting a new state-of-the-art gFID of 1.06.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~10 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/bitter-lesson-data-filtering/">
-    <div class="tags">
-      <span class="tag tag-purple">Data Curation</span>
-      <span class="tag tag-cyan">Scaling Laws</span>
-      <span class="tag tag-cyan">Pretraining</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>A Bitter Lesson for Data Filtering</h3>
-    <p>Filtering training data to keep only "high-quality" content is almost universally assumed to be necessary. Stanford researchers challenge this: with enough compute and large enough models, unfiltered Common Crawl outperforms every standard filter — and models even benefit from shuffled-word junk. Interactive crossover charts show exactly when and why the ranking flips.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~14 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/dynamo-llm/">
-    <div class="tags">
-      <span class="tag tag-purple">LLM Serving</span>
-      <span class="tag tag-cyan">Energy Efficiency</span>
-      <span class="tag tag-cyan">Systems</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>DynamoLLM: Cutting 53% of LLM Serving Energy Without Touching Accuracy</h3>
-    <p>Current LLM clusters run every request — from "Hello!" to a 4,000-token code review — at TP8 max-frequency, wasting 3× energy on short requests. DynamoLLM routes requests to per-type pools with tuned tensor parallelism and GPU frequency, saving 53% energy, 38% CO₂, and 61% cost while meeting all latency SLOs. Interactive energy landscape shows how the optimal config shifts completely across request types.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~14 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/opd-failure-modes/">
-    <div class="tags">
-      <span class="tag tag-purple">LLM Training</span>
-      <span class="tag tag-cyan">Distillation</span>
-      <span class="tag tag-cyan">RLVR</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>The Many Faces of On-Policy Distillation: Pitfalls, Mechanisms, and Fixes</h3>
-    <p>On-policy distillation can catastrophically collapse or silently fail depending on three subtle traps: prefix mismatch (teacher accuracy drops 62%→46%), biased TopK gradients (causes training collapse), and a structural OPSD limitation where instance-specific PI averages to a weak policy. Interactive visualizations show each failure mode and the fixes that resolve them.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~14 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/fast-blt/">
-    <div class="tags">
-      <span class="tag tag-purple">Byte-Level LMs</span>
-      <span class="tag tag-cyan">Diffusion Generation</span>
-      <span class="tag tag-cyan">Speculative Decoding</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>Fast Byte Latent Transformer: Generating Multiple Bytes at Once</h3>
-    <p>BLT-D adds block-wise diffusion to byte-level language models — instead of one byte at a time, the decoder unmasks an entire block in parallel, cutting memory bandwidth by up to 92%. BLT-S and BLT-DV add speculative verification for lossless or near-lossless quality at 52–77% lower bandwidth.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~15 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/gated-deltanet-2/">
-    <div class="tags">
-      <span class="tag tag-purple">Linear Attention</span>
-      <span class="tag tag-cyan">Recurrent LLMs</span>
-      <span class="tag tag-cyan">Delta Rule</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>Gated DeltaNet-2: Untying Erase and Write in Linear Attention</h3>
-    <p>Every delta-rule recurrent model (DeltaNet, KDA) uses a single scalar to control both erasing stale memory and writing new content. Gated DeltaNet-2 (NVIDIA, 2026) splits these into independent channel-wise gates, improving multi-key retrieval accuracy by 35% over KDA at 4K context while preserving efficient chunkwise training.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~10 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/oscar-int2-kv-cache/">
-    <div class="tags">
-      <span class="tag tag-purple">Quantization</span>
-      <span class="tag tag-cyan">LLM Serving</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>OSCAR: 2-bit KV Cache Without the Accuracy Cliff</h3>
-    <p>How attention-aware covariance rotations make INT2 KV-cache quantization both accurate and deployable — closing the BF16 accuracy gap to 3.78 points on Qwen3 while delivering 8× memory reduction and 3–7× throughput gains in production SGLang serving.</p>
-    <div class="post-meta">
-      <span>May 26, 2025</span>
-      <span data-i18n="post-read">~12 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/cola-dlm/">
-    <div class="tags">
-      <span class="tag tag-purple">Diffusion Language Models</span>
-      <span class="tag tag-cyan">Continuous Latent Space</span>
-      <span class="tag tag-cyan">Flow Matching</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>Cola DLM: When Diffusion Stops Recovering Tokens and Starts Thinking in Latents</h3>
-    <p>Cola DLM (ByteDance Seed, 2026) separates text generation into global semantic organization — a block-causal DiT running flow matching over compressed latent blocks — and local token realization via a conditional decoder. It outperforms matched 2B AR and LLaDA baselines at 2000 EFLOPs on reasoning tasks, while exposing a fundamental PPL-vs-generation mismatch in continuous latent models.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~18 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/ptrm/">
-    <div class="tags">
-      <span class="tag tag-purple">Tiny Recursive Model</span>
-      <span class="tag tag-cyan">Test-Time Compute</span>
-      <span class="tag tag-cyan">Latent-Space Reasoning</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>A 7M-Param Model That Beats GPT-5 at Reasoning Puzzles</h3>
-    <p>PTRM (Probabilistic Tiny Recursive Model) injects Gaussian noise into a 7M-parameter model's hidden state, runs K parallel guesses, and lets the model pick its own best answer — scoring 91.2% on pencil puzzles vs 55.1% for a 7-LLM ensemble, at 0.0001× the cost. A visual deep-dive into latent basins, width vs depth scaling, and the Q-head trick.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~16 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/elf-continuous-dlm/">
-    <div class="tags">
-      <span class="tag tag-purple">Diffusion Language Models</span>
-      <span class="tag tag-cyan">Flow Matching</span>
-      <span class="tag tag-cyan">Continuous Embeddings</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>ELF: Continuous Diffusion for Language Finally Works</h3>
-    <p>How Embedded Language Flows (MIT, 2026) beats leading discrete diffusion models using 10× fewer training tokens — by staying in continuous embedding space for the entire denoising trajectory and discretizing only at the final step. With animated flow visualizations and pseudocode walkthroughs.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~18 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/speculative-decoding-compare/">
-    <div class="tags">
-      <span class="tag tag-cyan">Speculative Decoding</span>
-      <span class="tag tag-green">Interactive</span>
-      <span class="tag tag-purple">Comparison</span>
-    </div>
-    <h3>Speculative Decoding Methods Compared</h3>
-    <p>Side-by-side comparison of six speculative decoding systems — EAGLE-3, DeepSeek MTP, DFlash, P-EAGLE, DART, and Gemma 4 MTP. Pick any two to compare: backbone access signal, draft architecture, inference cost, and core tradeoffs.</p>
-    <div class="post-meta">
-      <span>May 26, 2026</span>
-      <span data-i18n="post-read">~10 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
-
-  <a class="post-card" href="/posts/gemma4-mtp/">
-    <div class="tags">
-      <span class="tag tag-purple">Gemma 4</span>
-      <span class="tag tag-cyan">Multi-Token Prediction</span>
-      <span class="tag tag-cyan">Speculative Decoding</span>
-      <span class="tag tag-green">Interactive</span>
-    </div>
-    <h3>How Gemma 4's Multi-Token Prediction Works</h3>
-    <p>A deep dive into the Gemma4 Assistant architecture: KV sharing between the backbone and draft model, centroid-based vocabulary prediction, and bidirectional attention masks — with animated visualizations and annotated source code.</p>
-    <div class="post-meta">
-      <span>May 24, 2026</span>
-      <span data-i18n="post-read">~15 min read</span>
-      <span class="post-arrow">→</span>
-    </div>
-  </a>
+  <div id="posts-list">
+    {initialPosts.map(post => (
+      <a class="post-card" href={post.href}>
+        {post.badge && <div class="post-featured-badge" data-i18n="post-badge">{post.badge}</div>}
+        <div class="tags">
+          {post.tags.map(t => (
+            <span class={`tag ${t.cls}`}>{t.text}</span>
+          ))}
+        </div>
+        <h3>{post.title}</h3>
+        <p>{post.desc}</p>
+        <div class="post-meta">
+          <span>{post.date}</span>
+          <span data-i18n="post-read">{post.read}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>
+    ))}
+    <div id="posts-sentinel"></div>
+  </div>
 </section>
+
+{deferredPosts.length > 0 && (
+  <script type="application/json" id="deferred-posts" set:html={JSON.stringify(deferredPosts)} />
+)}
 
 <footer data-i18n="blog-footer">Built with curiosity. Source on GitHub.</footer>
 </BaseLayout>
+
+<script>
+  const sentinel = document.getElementById('posts-sentinel');
+  const dataEl   = document.getElementById('deferred-posts');
+  if (!sentinel || !dataEl) {
+    // nothing to lazy-load
+  } else {
+    const CHUNK = 20;
+    const posts: Array<{
+      href: string;
+      badge?: string;
+      tags: { text: string; cls: string }[];
+      title: string;
+      desc: string;
+      date: string;
+      read: string;
+    }> = JSON.parse(dataEl.textContent!);
+    const list = document.getElementById('posts-list')!;
+    let idx = 0;
+
+    function esc(s: string) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function buildCard(p: typeof posts[0]): string {
+      const badge = p.badge
+        ? `<div class="post-featured-badge" data-i18n="post-badge">${esc(p.badge)}</div>`
+        : '';
+      const tags = p.tags
+        .map(t => `<span class="tag ${esc(t.cls)}">${esc(t.text)}</span>`)
+        .join('');
+      return `<a class="post-card" href="${esc(p.href)}">
+        ${badge}
+        <div class="tags">${tags}</div>
+        <h3>${esc(p.title)}</h3>
+        <p>${esc(p.desc)}</p>
+        <div class="post-meta">
+          <span>${esc(p.date)}</span>
+          <span data-i18n="post-read">${esc(p.read)}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>`;
+    }
+
+    function applyCurrentLang(container: HTMLElement) {
+      const lang = localStorage.getItem('heji-lang') || 'en';
+      if (lang !== 'zh') return;
+      const zhRead = '~15 分钟阅读';
+      const zhBadge = '★ 最新';
+      container.querySelectorAll<HTMLElement>('[data-i18n="post-read"]').forEach(el => {
+        el.textContent = zhRead;
+      });
+      container.querySelectorAll<HTMLElement>('[data-i18n="post-badge"]').forEach(el => {
+        el.textContent = zhBadge;
+      });
+    }
+
+    const observer = new IntersectionObserver(entries => {
+      if (!entries[0].isIntersecting) return;
+      const chunk = posts.slice(idx, idx + CHUNK);
+      if (chunk.length === 0) { observer.disconnect(); return; }
+      idx += chunk.length;
+
+      const tmp = document.createElement('div');
+      tmp.innerHTML = chunk.map(buildCard).join('');
+      applyCurrentLang(tmp);
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      list.insertBefore(frag, sentinel);
+
+      if (idx >= posts.length) observer.disconnect();
+    }, { rootMargin: '300px' });
+
+    observer.observe(sentinel);
+  }
+</script>
