@@ -1,0 +1,1311 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="OSCAR: 2-bit KV Cache Without the Accuracy Cliff | AI/ML Deep Dives"
+  description="How attention-aware covariance rotations make INT2 KV-cache quantization both accurate and deployable in production LLM serving."
+  crumb="OSCAR INT2 KV Cache"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .collapse-row td{background:rgba(245,87,108,.04)}
+.results-table .collapse-row .mn{color:#ef6161}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s cubic-bezier(.22,.68,0,1.2);display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.68rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .4rem;font-family:var(--ff-mono)}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Callout */
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--text2)}
+.callout.cyan{border-left-color:var(--cyan)}
+.callout.green{border-left-color:var(--green)}
+.callout.amber{border-left-color:var(--amber)}
+
+/* Activation mode buttons */
+.act-btn{font-size:.68rem;font-family:var(--ff-mono);padding:.3rem .7rem;border:1px solid var(--border-hi);border-radius:4px;background:none;color:var(--muted);cursor:pointer;transition:all .15s}
+.act-btn:hover{color:var(--text2);background:rgba(255,255,255,.04)}
+.act-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Hero link buttons */
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.bar-label{width:150px}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Quantization</span>
+    <span class="tag tag-cyan">LLM Serving</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>OSCAR: 2-bit KV Cache Without the Accuracy Cliff</h1>
+  <p class="lead">
+    Generic Hadamard rotations smooth KV outliers but ignore which directions queries actually care about — at INT2 with only four quantization levels, that mismatch collapses model accuracy to near zero.
+    OSCAR derives rotations directly from query and attention-score covariance, closing the BF16 gap to under 4 points on Qwen3 reasoning models while delivering 8× memory reduction and 3–7× throughput gains.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 26, 2025</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.17757</code></span>
+    <span>Together AI &amp; Univ. of Sydney</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.17757" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://oscar-quantize.github.io" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+    <a class="hero-btn" href="https://github.com/FutureMLS-Lab/OSCAR" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-memory"><a href="#s-memory"><span class="toc-num">01</span> Memory Wall</a></li>
+    <li class="toc-item" id="toc-s-outlier"><a href="#s-outlier"><span class="toc-num">02</span> Outlier Problem</a></li>
+    <li class="toc-item" id="toc-s-gap"><a href="#s-gap"><span class="toc-num">03</span> Alignment Gap</a></li>
+    <li class="toc-item" id="toc-s-oscar"><a href="#s-oscar"><span class="toc-num">04</span> OSCAR Calibration</a></li>
+    <li class="toc-item" id="toc-s-system"><a href="#s-system"><span class="toc-num">05</span> System Design</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────────── §01 ─── -->
+<section id="s-memory" data-code="memory">
+<div class="section-no">01 — The Memory Wall</div>
+<h2>KV cache is the new memory bottleneck</h2>
+<p>
+  During autoregressive decoding, every new token must read the entire KV cache — keys and values
+  for every prior token, every layer, every head. At BF16 (2 bytes per element), a single
+  Qwen3-8B serving a 128K-token context needs roughly <strong>16 GB just for the KV cache</strong>.
+  Scale to 100 concurrent requests and you've consumed the entire GPU.
+</p>
+<p>
+  INT2 quantization (2 bits, 8× smaller than BF16) is the theoretical sweet spot: dense, hardware-friendly,
+  no per-channel routing metadata. But only 4 quantization levels are available — each wrong bit costs dearly.
+  The chart below shows how KV memory scales with context length across precision formats.
+</p>
+
+<!-- Memory wall canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">KV cache memory — Qwen3-8B, 32 layers, 8 heads, d=128</span>
+    <span class="vp-hint">hover a bar for GB value</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="memory-canvas" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  INT4 offers a 4× reduction; INT2 offers 8×. The difference is dramatic at long contexts:
+  at 128K tokens, INT2 frees enough headroom to serve <em>8× more concurrent requests</em> under the same GPU
+  memory budget — or to serve a single user with a 1M-token context window.
+  The catch: getting INT2 to actually work is the hard part.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §02 ─── -->
+<section id="s-outlier" data-code="outlier">
+<div class="section-no">02 — The Outlier Problem</div>
+<h2>A few channels hijack the quantization scale</h2>
+<p>
+  KV activations are not uniformly distributed. A small subset of channels — often tied to
+  positional encodings or attention sink tokens — have magnitudes 10–100× larger than the rest.
+  When you quantize with a min-max scale, these outliers dominate the range, compressing
+  all normal values into just one or two distinct quantization levels.
+</p>
+<p>
+  The standard fix is a <strong>Hadamard rotation</strong>: multiply the activation by an orthogonal Walsh–Hadamard matrix
+  <code>H</code> before quantization. This mixes all channels, redistributing the outlier energy uniformly
+  — each element picks up a small contribution from every input channel. Click the buttons below to
+  compare raw, Hadamard-rotated, and OSCAR-rotated K-activation histograms.
+</p>
+
+<!-- Activation distribution interactive canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">K-activation channel magnitudes (one layer, head 0)</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="act-btn active" data-mode="raw">Raw INT2</button>
+      <button class="act-btn" data-mode="hadamard">Hadamard</button>
+      <button class="act-btn" data-mode="oscar">OSCAR</button>
+    </div>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="act-canvas" style="width:100%;height:200px;display:block"></canvas>
+    <div id="act-caption" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.6"></div>
+  </div>
+</div>
+
+<p>
+  Hadamard rotation <em>does</em> help — the outlier spikes vanish, and peak magnitudes drop significantly.
+  But as Figure 2 in the paper shows, Hadamard-only rotation still leaves substantial KL divergence
+  in the attention score distribution at INT2. Something else is going wrong.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §03 ─── -->
+<section id="s-gap" data-code="gap">
+<div class="section-no">03 — The Alignment Gap</div>
+<h2>Attention doesn't care about Euclidean distance</h2>
+<p>
+  Here is the core insight. When you rotate K by some matrix R and quantize, the downstream
+  attention error is <em>not</em> the Euclidean reconstruction error <code>‖K − Q(KR)R⊤‖</code>.
+  Keys enter attention as <strong>dot products with queries</strong>:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Key logit distortion</div>
+  ‖QK⊤ − Q<span class="math-var">K̂</span>⊤‖² ∝ tr(<span class="math-var">E</span>ₖ · <span class="math-var">Q⊤Q</span>)
+  <div class="math-comment" style="margin-top:.5rem">
+    where Eₖ = per-channel quantization noise — the query covariance Q⊤Q weights which channels matter
+  </div>
+</div>
+
+<div class="math-block">
+  <div class="math-label">Value output distortion</div>
+  ‖SV − S<span class="math-var">V̂</span>‖² ∝ tr(<span class="math-var">E</span>ᵥ · <span class="math-var">S⊤S</span>)
+  <div class="math-comment" style="margin-top:.5rem">
+    where Eᵥ = per-channel noise — the score matrix S⊤S weights which token positions matter
+  </div>
+</div>
+
+<p>
+  A generic Hadamard rotation equalizes channel energy, but it doesn't know which directions
+  are <em>important to queries</em>. The optimal rotation should diagonalize the query covariance
+  <code>C_Q = (1/N) Σ qₙ⊤qₙ</code> — aligning the low-error quantization axes with the
+  directions that queries most strongly project onto. The visualization below contrasts the two.
+</p>
+
+<!-- Alignment gap visualization -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">2D key space: rotation target comparison</span>
+    <span class="vp-hint">click to toggle</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="align-canvas" style="width:100%;height:260px;display:block;cursor:pointer"></canvas>
+    <div id="align-caption" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.6;text-align:center"></div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Key intuition:</strong> INT2 has only 4 levels. Quantization noise is largest in the
+  <em>first</em> basis vector (widest range). Hadamard puts the widest direction wherever raw
+  variance is largest. OSCAR puts the widest direction wherever <em>queries care least</em> —
+  pushing noise into directions the attention dot products barely read.
+</div>
+</section>
+
+<!-- ─────────────────────────────────────── §04 ─── -->
+<section id="s-oscar" data-code="oscar">
+<div class="section-no">04 — OSCAR Calibration</div>
+<h2>Offline covariance → per-layer rotation matrices</h2>
+<p>
+  OSCAR's offline calibration pass collects a small set of key, query, and value activations
+  (8,878 tokens from an MMLU-style dataset — a single forward pass), then builds per-layer
+  rotation matrices that minimize the frozen-error surrogates above.
+</p>
+
+<h3>The composed rotation</h3>
+<div class="math-block">
+  <div class="math-label">OSCAR rotation formula</div>
+  <span class="math-var">R</span>ₖ = <span class="math-var">U</span>_Q · <span class="math-var">H</span>_Had · <span class="math-var">P</span>_br
+  <br>
+  <span class="math-var">R</span>ᵥ = <span class="math-var">U</span>_S · <span class="math-var">H</span>_Had · <span class="math-var">P</span>_br
+  <div class="math-comment" style="margin-top:.5rem">
+    U_Q = eigenvectors of CQ = (1/N) Σ qₙ⊤qₙ  (key rotation)<br>
+    U_S = eigenvectors of CS = (1/N) V⊤S⊤SV  (value rotation)<br>
+    H_Had = Hadamard to further equalize diagonal energy<br>
+    P_br = bit-reversal permutation to balance high/low variance across INT2 groups
+  </div>
+</div>
+
+<p>
+  Theorem 1 in the paper proves that <code>U_Q</code> and <code>U_S</code> are optimal under a
+  natural "frozen-error" surrogate: if quantization residuals are diagonal in the ambient basis,
+  aligning the rotation with these eigenvectors minimizes the attention distortion.
+</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">OSCAR pipeline — offline calibration + online serving</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <svg id="oscar-arch-svg" viewBox="0 0 760 320" width="100%" style="display:block;max-width:760px;margin:0 auto">
+      <!-- ── OFFLINE PHASE ── -->
+      <text x="18" y="22" font-size="9" fill="#6366f1" font-family="monospace" font-weight="700" letter-spacing="1">OFFLINE CALIBRATION</text>
+      <!-- Calibration data -->
+      <rect x="18" y="30" width="100" height="40" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.2"/>
+      <text x="68" y="47" text-anchor="middle" font-size="9" fill="#a5b4fc" font-family="monospace">Calibration</text>
+      <text x="68" y="60" text-anchor="middle" font-size="9" fill="#a5b4fc" font-family="monospace">dataset</text>
+      <!-- Arrow -->
+      <line x1="118" y1="50" x2="140" y2="50" stroke="#6366f1" stroke-width="1.2" marker-end="url(#arr-p)"/>
+      <!-- LLM forward -->
+      <rect x="140" y="30" width="110" height="40" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.2"/>
+      <text x="195" y="47" text-anchor="middle" font-size="9" fill="#a5b4fc" font-family="monospace">LLM forward</text>
+      <text x="195" y="60" text-anchor="middle" font-size="9" fill="#818cf8" font-family="monospace">(collect Q,K,V)</text>
+      <!-- Arrow down to covariance -->
+      <line x1="195" y1="70" x2="195" y2="88" stroke="#6366f1" stroke-width="1.2" marker-end="url(#arr-p)"/>
+      <!-- Covariance box -->
+      <rect x="140" y="88" width="110" height="40" rx="6" fill="#1e1b4b" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="195" y="105" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">Covariance</text>
+      <text x="195" y="118" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">CQ = Q⊤Q / N</text>
+      <!-- Arrow to eigen -->
+      <line x1="250" y1="108" x2="270" y2="108" stroke="#06b6d4" stroke-width="1.2" marker-end="url(#arr-c)"/>
+      <!-- Eigendecomp -->
+      <rect x="270" y="88" width="110" height="40" rx="6" fill="#0c1a1a" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="325" y="105" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">Eigendecomp</text>
+      <text x="325" y="118" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">CQ = UΛU⊤</text>
+      <!-- Arrow to compose -->
+      <line x1="380" y1="108" x2="400" y2="108" stroke="#06b6d4" stroke-width="1.2" marker-end="url(#arr-c)"/>
+      <!-- Compose rotation -->
+      <rect x="400" y="88" width="140" height="40" rx="6" fill="#0c1a1a" stroke="#8b5cf6" stroke-width="1.8"/>
+      <text x="470" y="105" text-anchor="middle" font-size="9" fill="#c4b5fd" font-family="monospace" font-weight="700">RK = UQ · HHad · Pbr</text>
+      <text x="470" y="118" text-anchor="middle" font-size="9" fill="#c4b5fd" font-family="monospace" font-weight="700">RV = US · HHad · Pbr</text>
+      <!-- Arrow down from compose to store -->
+      <line x1="470" y1="128" x2="470" y2="148" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arr-p)"/>
+      <!-- Store as model params -->
+      <rect x="400" y="148" width="140" height="40" rx="6" fill="#1e1b4b" stroke="#10b981" stroke-width="1.2"/>
+      <text x="470" y="165" text-anchor="middle" font-size="9" fill="#6ee7b7" font-family="monospace">Saved as model</text>
+      <text x="470" y="178" text-anchor="middle" font-size="9" fill="#6ee7b7" font-family="monospace">parameters + τK, τV</text>
+
+      <!-- ── DIVIDER ── -->
+      <line x1="18" y1="205" x2="742" y2="205" stroke="#374151" stroke-width="1" stroke-dasharray="4,4"/>
+      <text x="18" y="220" font-size="9" fill="#10b981" font-family="monospace" font-weight="700" letter-spacing="1">ONLINE SERVING (SGLang)</text>
+
+      <!-- Online: token arrives -->
+      <rect x="18" y="228" width="88" height="40" rx="6" fill="#0a1a10" stroke="#10b981" stroke-width="1.2"/>
+      <text x="62" y="245" text-anchor="middle" font-size="9" fill="#6ee7b7" font-family="monospace">New token</text>
+      <text x="62" y="258" text-anchor="middle" font-size="9" fill="#6ee7b7" font-family="monospace">kt, vt (BF16)</text>
+      <!-- Arrow -->
+      <line x1="106" y1="248" x2="126" y2="248" stroke="#10b981" stroke-width="1.2" marker-end="url(#arr-g)"/>
+      <!-- Rotate + clip + quantize -->
+      <rect x="126" y="228" width="140" height="40" rx="6" fill="#0a1a10" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="196" y="245" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">rotate · clip · INT2</text>
+      <text x="196" y="258" text-anchor="middle" font-size="9" fill="#67e8f9" font-family="monospace">kt·RK → 4 bits/elem</text>
+      <!-- Arrow -->
+      <line x1="266" y1="248" x2="286" y2="248" stroke="#06b6d4" stroke-width="1.2" marker-end="url(#arr-c)"/>
+      <!-- Paged KV cache -->
+      <rect x="286" y="228" width="120" height="40" rx="6" fill="#0c0c1a" stroke="#8b5cf6" stroke-width="1.8"/>
+      <text x="346" y="245" text-anchor="middle" font-size="9" fill="#c4b5fd" font-family="monospace">Paged KV Cache</text>
+      <text x="346" y="258" text-anchor="middle" font-size="9" fill="#c4b5fd" font-family="monospace">INT2 | BF16 windows</text>
+      <!-- Arrow -->
+      <line x1="406" y1="248" x2="426" y2="248" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arr-p)"/>
+      <!-- Triton decode kernel -->
+      <rect x="426" y="228" width="130" height="40" rx="6" fill="#0c0c1a" stroke="#f59e0b" stroke-width="1.2"/>
+      <text x="491" y="245" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="monospace">Fused Triton kernel</text>
+      <text x="491" y="258" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="monospace">unpack→dequant→attn</text>
+      <!-- Arrow -->
+      <line x1="556" y1="248" x2="576" y2="248" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#arr-a)"/>
+      <!-- Output -->
+      <rect x="576" y="228" width="100" height="40" rx="6" fill="#1a140a" stroke="#f59e0b" stroke-width="1.2"/>
+      <text x="626" y="245" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="monospace">Attention</text>
+      <text x="626" y="258" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="monospace">output oi</text>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arr-p" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#8b5cf6"/>
+        </marker>
+        <marker id="arr-c" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#06b6d4"/>
+        </marker>
+        <marker id="arr-g" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#10b981"/>
+        </marker>
+        <marker id="arr-a" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#f59e0b"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<h3>Ablation: what each component contributes</h3>
+<p>On Qwen3-8B, removing any single component causes a dramatic accuracy drop:</p>
+<table class="results-table">
+  <thead><tr><th>Configuration</th><th>Mean Score</th><th>vs Full OSCAR</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td>Full OSCAR: U·H_Had·P_br</td><td class="mn best">70.01</td><td class="mn">—</td></tr>
+    <tr><td>w/o U (QuaRot + P_br: Hadamard only)</td><td class="mn">32.82</td><td class="mn" style="color:#ef6161">−37.19</td></tr>
+    <tr><td>w/o H_Had (only U·P_br)</td><td class="mn">51.74</td><td class="mn" style="color:#ef6161">−18.27</td></tr>
+    <tr><td>w/o P_br</td><td class="mn">68.00</td><td class="mn" style="color:var(--amber)">−2.01</td></tr>
+    <tr class="collapse-row"><td>No rotation (clip + sink + recent only)</td><td class="mn">4.23</td><td class="mn" style="color:#ef6161">−65.78</td></tr>
+  </tbody>
+</table>
+
+<div class="callout cyan">
+  <strong>One-time calibration:</strong> OSCAR computes all rotation matrices from a single forward pass
+  on ~8K MMLU tokens. No per-task tuning. The resulting R_K and R_V are absorbed into the model's
+  projection weights (for V) or applied as a fused prefix operation (for K) — zero overhead at inference time.
+</div>
+</section>
+
+<!-- ─────────────────────────────────────── §05 ─── -->
+<section id="s-system" data-code="system">
+<div class="section-no">05 — System Design</div>
+<h2>Mixed-precision cache layout in SGLang</h2>
+<p>
+  Pure INT2 for the entire KV cache breaks on "attention sink" tokens (the very first tokens) and
+  the most recent tokens, which haven't yet been seen enough by calibration to have stable statistics.
+  OSCAR uses a mixed-precision layout: a short BF16 window at both ends, with INT2 for the long history.
+</p>
+
+<!-- Mixed-precision layout canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">KV cache layout — token regions at decoding position t</span>
+    <span class="vp-hint">drag slider to change context length</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="layout-canvas" style="width:100%;height:160px;display:block"></canvas>
+    <div style="margin-top:.875rem;display:flex;align-items:center;gap:1rem">
+      <label style="font-size:.72rem;color:var(--muted);font-family:monospace">Context length:</label>
+      <input type="range" id="ctx-slider" min="1000" max="32000" value="8000" step="500"
+             style="flex:1;accent-color:var(--purple)"/>
+      <span id="ctx-val" style="font-size:.72rem;font-family:monospace;color:var(--cyan);width:50px">8K</span>
+    </div>
+    <div style="display:flex;gap:1.5rem;margin-top:.625rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted2)">
+        <div style="width:12px;height:12px;border-radius:3px;background:#06b6d4"></div> BF16 sink (S=64)
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted2)">
+        <div style="width:12px;height:12px;border-radius:3px;background:#8b5cf6"></div> INT2 history
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted2)">
+        <div style="width:12px;height:12px;border-radius:3px;background:#10b981"></div> BF16 recent (W=256)
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  At 128K context, the BF16 windows protect only <strong>0.24% of tokens</strong> (64 sink + 256 recent),
+  contributing negligible memory overhead while preserving the highest-impact tokens at full precision.
+  The ablation in Table 5 shows a clear knee at (S=64, R=256): smaller windows leave accuracy on the table,
+  larger windows add cost without benefit.
+</p>
+
+<h3>Fused Triton kernel</h3>
+<p>
+  The write path fuses rotate → clip → INT2 quantize → pack into a single Triton kernel.
+  The read path unpacks 4 values-per-byte, dequantizes, and feeds directly into Flash-style paged attention.
+  Critically, OSCAR absorbs R_V into the model's value projection weight (<code>W_V ← W_V · R_V⊤</code>),
+  so no rotation happens at inference time for values — the stored INT2 vectors are already in the
+  quantization-friendly basis.
+</p>
+
+<h3>Throughput gains</h3>
+<p>
+  Table 8 in the paper shows that OSCAR's attention kernel reduces per-step decode time by roughly 3×
+  at 100K context (Qwen3-4B) purely from reduced KV-cache bandwidth. At large batch sizes the
+  gains are even larger: 7.83× throughput vs BF16 at BS=32 (Qwen3-8B).
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §06 ─── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Near-BF16 accuracy, 8× memory, 3–7× throughput</h2>
+<p>
+  OSCAR is evaluated on five reasoning and coding benchmarks (AIME25, GPQA-Diamond, HumanEval,
+  LiveCodeBench v6, MATH500) with 32K generation length, across four models from 4B to 358B parameters.
+  All results are mean ± standard deviation across 5 independent seeds.
+</p>
+
+<div class="bar-group-label">Mean accuracy across 5 tasks — Qwen3-4B-Thinking-2507</div>
+<div class="results-bars" id="bars-4b">
+  <div class="bar-row">
+    <div class="bar-label">BF16 (16.0 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="75.64" style="background:#475569"><span>75.64</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Saw-INT4 (4.25 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="73.11" style="background:#334155"><span>73.11</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">QuaRot-INT2 (2.25 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="1.40" style="background:#7f1d1d"><span>1.40</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">OSCAR (2.28 bpe) ★</div>
+    <div class="bar-track"><div class="bar-fill" data-w="71.86" style="background:linear-gradient(90deg,#6d28d9,#8b5cf6)"><span>71.86</span></div></div>
+  </div>
+</div>
+
+<div class="bar-group-label">Mean accuracy across 5 tasks — Qwen3-8B</div>
+<div class="results-bars" id="bars-8b">
+  <div class="bar-row">
+    <div class="bar-label">BF16 (16.0 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="70.84" style="background:#475569"><span>70.84</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">TurboQuant (3.25 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="56.88" style="background:#334155"><span>56.88</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">QuaRot-INT2 (2.25 bpe)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="10.14" style="background:#7f1d1d"><span>10.14</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">OSCAR (2.28 bpe) ★</div>
+    <div class="bar-track"><div class="bar-fill" data-w="69.42" style="background:linear-gradient(90deg,#6d28d9,#8b5cf6)"><span>69.42</span></div></div>
+  </div>
+</div>
+
+<div class="bar-group-label">Mean accuracy — Qwen3-32B &amp; GLM-4.7-FP8 (358B)</div>
+<div class="results-bars" id="bars-32b">
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-32B BF16</div>
+    <div class="bar-track"><div class="bar-fill" data-w="74.19" style="background:#475569"><span>74.19</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-32B OSCAR ★</div>
+    <div class="bar-track"><div class="bar-fill" data-w="74.17" style="background:linear-gradient(90deg,#6d28d9,#8b5cf6)"><span>74.17</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GLM-4.7-FP8 BF16 (358B)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="77.89" style="background:#475569"><span>77.89</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GLM-4.7-FP8 OSCAR ★</div>
+    <div class="bar-track"><div class="bar-fill" data-w="78.16" style="background:linear-gradient(90deg,#059669,#10b981)"><span>78.16</span></div></div>
+  </div>
+</div>
+
+<div class="callout green" style="margin-top:1.5rem">
+  <strong>AIME 2025 highlight (Qwen3-8B, 32K generation):</strong> BF16 scores 66.00% ± 7.33 — OSCAR
+  at 2.38 bpe scores <strong>66.67% ± 3.33</strong>, beating BF16 (within noise), while
+  KIVI-KV2 at 2.25 bpe scores only 52.33%. OSCAR matches BF16 on the hardest reasoning task.
+</div>
+
+<h3>Long-context robustness (RULER-NIAH)</h3>
+<p>
+  On the RULER needle-in-a-haystack task, QuaRot-INT2 collapses to near 0% at 16K+ tokens,
+  while OSCAR maintains 87.6% at 32K and 39.5% at 128K on Qwen3-4B-Thinking — compared to
+  81.0% BF16 baseline at 128K. Attention-aware rotation makes the quantization increasingly
+  robust as context length grows, exactly where generic rotations break down.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">oscar/kv_cache.py</div>
+      <div class="cs-section-title" id="cs-section-title">Memory Wall</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="memory">memory</button>
+    <button class="cs-tab" data-panel="outlier">outlier</button>
+    <button class="cs-tab" data-panel="gap">gap</button>
+    <button class="cs-tab" data-panel="oscar">calibrate</button>
+    <button class="cs-tab" data-panel="system">system</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: memory -->
+    <div class="cs-panel active" id="panel-memory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># KV cache size formula</span>
+<span class="cs-line cmt"># layers × heads × seq_len × d_head × 2 (K+V)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">kv_cache_gb</span>(seq_len, bits=16):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Qwen3-8B: 32 layers, 8 kv-heads, d=128</span></span>
+<span class="cs-line hl-p">    elems = <span class="num">32</span> * <span class="num">8</span> * seq_len * <span class="num">128</span> * <span class="num">2</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> elems * bits / <span class="num">8</span> / <span class="num">1e9</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 4K context</span>
+<span class="cs-line">kv_cache_gb(<span class="num">4096</span>,  bits=<span class="num">16</span>)  <span class="cmt"># → 0.54 GB BF16</span></span>
+<span class="cs-line">kv_cache_gb(<span class="num">4096</span>,  bits=<span class="num">2</span>)   <span class="cmt"># → 0.07 GB INT2</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 128K context</span>
+<span class="cs-line hl-c">kv_cache_gb(<span class="num">131072</span>, bits=<span class="num">16</span>) <span class="cmt"># → 17.2 GB BF16</span></span>
+<span class="cs-line hl-g">kv_cache_gb(<span class="num">131072</span>, bits=<span class="num">2</span>)  <span class="cmt"># →  2.1 GB INT2</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 8× reduction = 8× more batch size</span>
+<span class="cs-line cmt"># or 8× longer contexts on same GPU</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># effective BPE at 128K context</span>
+<span class="cs-line cmt"># INT2 payload + BF16 scale/zero (blk=128)</span>
+<span class="cs-line cmt"># + BF16 sink(64) + recent(256) = 2.28 bpe</span>
+      </pre>
+    </div>
+
+    <!-- panel: outlier -->
+    <div class="cs-panel" id="panel-outlier">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Why outliers hurt INT2 quantization</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">symmetric_quant</span>(x, bits=<span class="num">2</span>):</span>
+<span class="cs-line">    <span class="cmt"># INT2: only 4 levels: {-1, 0, 0, 1}</span></span>
+<span class="cs-line">    levels = <span class="num">2</span> ** (bits - <span class="num">1</span>)  <span class="cmt"># = 2</span></span>
+<span class="cs-line hl-a">    scale = x.<span class="fn">abs</span>().<span class="fn">max</span>() / levels</span>
+<span class="cs-line hl-a">    <span class="cmt"># if max=100, normal vals=1 → scale=50</span></span>
+<span class="cs-line hl-a">    <span class="cmt"># → 1/50 rounds to 0 → information lost!</span></span>
+<span class="cs-line">    <span class="kw">return</span> (x / scale).<span class="fn">round</span>().<span class="fn">clamp</span>(-levels, levels) * scale</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Hadamard rotation: spread outlier energy</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">hadamard_rotate</span>(x):</span>
+<span class="cs-line hl-c">    H = <span class="fn">hadamard_matrix</span>(x.shape[-<span class="num">1</span>])</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> x @ H  <span class="cmt"># each output = mean of all inputs</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># max(|x @ H|) ≈ std(x) * sqrt(d)</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># much smaller than raw max</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># But Hadamard is data-oblivious —</span>
+<span class="cs-line cmt"># it equalizes magnitude, not query-importance</span>
+      </pre>
+    </div>
+
+    <!-- panel: gap -->
+    <div class="cs-panel" id="panel-gap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The alignment gap: two error objectives</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># What naive rotation minimizes:</span>
+<span class="cs-line hl-a">L_naive(R) = ||K - Q(KR)R⊤||²_F</span>
+<span class="cs-line hl-a"><span class="cmt"># raw reconstruction error of KV cache</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># What OSCAR minimizes (key error):</span>
+<span class="cs-line hl-c">L_key(Rk) = ||QK⊤ - QK̂⊤||²_F</span>
+<span class="cs-line hl-c">          = tr(Eₖ · Q⊤Q)</span>
+<span class="cs-line hl-c"><span class="cmt"># = noise weighted by query covariance!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># What OSCAR minimizes (value error):</span>
+<span class="cs-line hl-g">L_val(Rv) = ||SV - SV̂||²_F</span>
+<span class="cs-line hl-g">          = tr(Eᵥ · S⊤S)</span>
+<span class="cs-line hl-g"><span class="cmt"># = noise weighted by attention scores!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Theorem 1: minimizer of L_key under</span>
+<span class="cs-line cmt"># diagonal residual assumption is</span>
+<span class="cs-line hl-p">CQ = (1/N) * sum(q_n⊤ q_n)  <span class="cmt"># key target</span></span>
+<span class="cs-line hl-p">CS = (1/N) * V⊤S⊤SV         <span class="cmt"># val target</span></span>
+<span class="cs-line hl-p">Rk = eigvecs(CQ)  <span class="cmt"># ← the optimal rotation</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: oscar -->
+    <div class="cs-panel" id="panel-oscar">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OSCAR offline calibration (pseudocode)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">oscar_calibrate</span>(model, calib_tokens):</span>
+<span class="cs-line hl-p">    <span class="cmt"># 8878 tokens, one forward pass</span></span>
+<span class="cs-line hl-p">    Q, K, V, S = <span class="fn">collect_activations</span>(model, calib_tokens)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    rotations = {}</span>
+<span class="cs-line">    <span class="kw">for</span> layer <span class="kw">in</span> <span class="fn">range</span>(model.num_layers):</span>
+<span class="cs-line">        <span class="kw">for</span> head <span class="kw">in</span> <span class="fn">range</span>(model.num_heads):</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">            <span class="cmt"># Key rotation target</span></span>
+<span class="cs-line hl-c">            CQ = (Q[layer, head].T @ Q[layer, head]) / N</span>
+<span class="cs-line hl-c">            UQ, _ = <span class="fn">torch.linalg.eigh</span>(CQ)</span>
+<span class="cs-line hl-c">            RK = UQ @ H_Had @ P_br  <span class="cmt"># compose</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">            <span class="cmt"># Value rotation target</span></span>
+<span class="cs-line hl-g">            CS = V[layer].T @ S[layer].T @ S[layer] @ V[layer] / N</span>
+<span class="cs-line hl-g">            US, _ = <span class="fn">torch.linalg.eigh</span>(CS)</span>
+<span class="cs-line hl-g">            RV = US @ H_Had @ P_br</span>
+<span class="cs-line"></span>
+<span class="cs-line">            <span class="cmt"># Per-layer clip thresholds (percentile)</span></span>
+<span class="cs-line">            rotK = K[layer] @ RK</span>
+<span class="cs-line">            tauK = <span class="fn">percentile</span>(rotK.<span class="fn">abs</span>(), <span class="num">0.96</span>)</span>
+<span class="cs-line">            rotations[layer] = (RK, RV, tauK, tauV)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">return</span> rotations  <span class="cmt"># saved as model params</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: system -->
+    <div class="cs-panel" id="panel-system">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OSCAR online serving (SGLang integration)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># KV cache layout at decoding step t:</span>
+<span class="cs-line cmt"># [BF16 sink | INT2 history | BF16 recent]</span>
+<span class="cs-line cmt"># [0..S0)    | [S0..t-W)   | [t-W..t]</span>
+<span class="cs-line cmt"># S0=64,  W=256  — only 0.24% of 128K</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Write path (fused Triton kernel):</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">write_kv_token</span>(kt, vt, RK, RV, tauK, tauV):</span>
+<span class="cs-line hl-c">    rotK = kt @ RK              <span class="cmt"># rotate</span></span>
+<span class="cs-line hl-c">    clpK = <span class="fn">clip</span>(rotK, -tauK, tauK)  <span class="cmt"># clip</span></span>
+<span class="cs-line hl-c">    int2K = <span class="fn">quantize_int2</span>(clpK) <span class="cmt"># 4 vals/byte</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># V: RV already absorbed into W_V weights!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Read path (fused decode kernel):</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">decode_attention</span>(q, kv_cache):</span>
+<span class="cs-line hl-g">    k_int2, v_int2 = kv_cache.int2_segment</span>
+<span class="cs-line hl-g">    k_bf16, v_bf16 = kv_cache.bf16_windows</span>
+<span class="cs-line hl-g"></span>
+<span class="cs-line hl-g">    <span class="cmt"># INT2 segment: unpack → dequant → attn</span></span>
+<span class="cs-line hl-g">    k_deq = <span class="fn">dequant_int2</span>(k_int2) @ RK.T</span>
+<span class="cs-line hl-g">    attn_int2 = <span class="fn">flash_attn</span>(q, k_deq, v_deq)</span>
+<span class="cs-line hl-g">    <span class="cmt"># BF16 windows: standard attention</span></span>
+<span class="cs-line hl-g">    attn_bf16 = <span class="fn">flash_attn</span>(q, k_bf16, v_bf16)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> <span class="fn">merge_partial</span>(attn_int2, attn_bf16)</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Accuracy results — mean over 5 benchmarks</span>
+<span class="cs-line cmt"># (AIME25, GPQA, HumanEval, LCB-v6, MATH500)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Qwen3-4B-Thinking-2507</span>
+<span class="cs-line">results_4b = {</span>
+<span class="cs-line">    <span class="str">"BF16"</span>:         (<span class="num">16.00</span>, <span class="num">75.64</span>),  <span class="cmt"># (bpe, mean)</span></span>
+<span class="cs-line">    <span class="str">"Saw-INT4"</span>:     (<span class="num">4.25</span>,  <span class="num">73.11</span>),</span>
+<span class="cs-line">    <span class="str">"TurboQuant"</span>:   (<span class="num">3.25</span>,  <span class="num">31.74</span>),</span>
+<span class="cs-line">    <span class="str">"QuaRot-INT2"</span>:  (<span class="num">2.25</span>,   <span class="num">1.40</span>),  <span class="cmt"># ← collapse</span></span>
+<span class="cs-line hl-p">    <span class="str">"OSCAR"</span>:        (<span class="num">2.28</span>,  <span class="num">71.86</span>),  <span class="cmt"># gap=-3.78</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Qwen3-32B / GLM-4.7-FP8 (358B)</span>
+<span class="cs-line hl-g">results_large = {</span>
+<span class="cs-line hl-g">    <span class="str">"Qwen3-32B BF16"</span>:   <span class="num">74.19</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"Qwen3-32B OSCAR"</span>:  <span class="num">74.17</span>,  <span class="cmt"># gap=-0.02!</span></span>
+<span class="cs-line hl-g">    <span class="str">"GLM-4.7  BF16"</span>:    <span class="num">77.89</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"GLM-4.7  OSCAR"</span>:   <span class="num">78.16</span>,  <span class="cmt"># +0.27 above!</span></span>
+<span class="cs-line hl-g">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AIME25 (Qwen3-8B, 32K generation)</span>
+<span class="cs-line hl-c">aime = {</span>
+<span class="cs-line hl-c">    <span class="str">"BF16"</span>:       <span class="num">66.00</span>,</span>
+<span class="cs-line hl-c">    <span class="str">"KIVI-KV2"</span>:   <span class="num">52.33</span>,</span>
+<span class="cs-line hl-c">    <span class="str">"Kitty"</span>:      <span class="num">59.67</span>,</span>
+<span class="cs-line hl-c">    <span class="str">"OSCAR"</span>:      <span class="num">66.67</span>,  <span class="cmt"># matches BF16!</span></span>
+<span class="cs-line hl-c">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Throughput speedup vs BF16 (Qwen3-4B)</span>
+<span class="cs-line hl-a">speedup = {</span>
+<span class="cs-line hl-a">    <span class="str">"30k ctx"</span>: <span class="num">1.98</span>,</span>
+<span class="cs-line hl-a">    <span class="str">"60k ctx"</span>: <span class="num">2.52</span>,</span>
+<span class="cs-line hl-a">    <span class="str">"100k ctx"</span>: <span class="num">3.08</span>,</span>
+<span class="cs-line hl-a">    <span class="str">"BS=32"</span>:    <span class="num">7.83</span>,  <span class="cmt"># large batch!</span></span>
+<span class="cs-line hl-a">}</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + SIDEBAR TOGGLES ───
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── CODE SIDEBAR TABS ───
+const tabMeta = {
+  memory:  { file: 'oscar/kv_cache.py',        title: 'Memory Wall' },
+  outlier: { file: 'oscar/quantize.py',         title: 'Outlier Problem' },
+  gap:     { file: 'oscar/objectives.py',       title: 'Alignment Gap' },
+  oscar:   { file: 'oscar/calibrate.py',        title: 'OSCAR Calibration' },
+  system:  { file: 'oscar/sglang_kernel.py',    title: 'System Design' },
+  results: { file: 'oscar/eval_results.py',     title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── INTERSECTION OBSERVER (TOC + TAB SYNC) ───
+const sectionMap = {
+  's-memory':  'memory',
+  's-outlier': 'outlier',
+  's-gap':     'gap',
+  's-oscar':   'oscar',
+  's-system':  'system',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── §01 MEMORY WALL CANVAS ───
+(function() {
+  const canvas = document.getElementById('memory-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const contexts = [4096, 16384, 32768, 65536, 131072];
+  const labels   = ['4K',  '16K',  '32K',  '64K',  '128K'];
+  // GB for Qwen3-8B: 32 layers, 8 kv-heads, d=128, 2 (K+V)
+  function kvGB(seqLen, bits) {
+    return 32 * 8 * seqLen * 128 * 2 * bits / 8 / 1e9;
+  }
+  const series = [
+    { label: 'BF16',  bits: 16, color: '#475569' },
+    { label: 'INT4',  bits: 4,  color: '#0e7490' },
+    { label: 'INT2 (OSCAR)', bits: 2, color: '#8b5cf6' },
+  ];
+
+  const pad = { l: 54, r: 24, t: 20, b: 44 };
+  const maxVal = kvGB(131072, 16) * 1.08;
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+  const groupW = cW / contexts.length;
+  const barW   = groupW / (series.length + 1);
+
+  // grid lines
+  const yTicks = [0, 5, 10, 15, 20];
+  yTicks.forEach(v => {
+    const y = pad.t + cH - (v / maxVal) * cH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#6b7280'; ctx.font = `${10}px monospace`; ctx.textAlign = 'right';
+    ctx.fillText(v + ' GB', pad.l - 6, y + 3.5);
+  });
+
+  // bars + tooltip data
+  const barRects = [];
+  contexts.forEach((seqLen, gi) => {
+    series.forEach((s, si) => {
+      const val = kvGB(seqLen, s.bits);
+      const x   = pad.l + gi * groupW + si * barW + barW * 0.4;
+      const bH  = (val / maxVal) * cH;
+      const y   = pad.t + cH - bH;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(x, y, barW * 0.8, bH);
+      barRects.push({ x, y, w: barW * 0.8, h: bH, val, label: s.label, ctx_label: labels[gi] });
+    });
+    // x-axis label
+    ctx.fillStyle = '#9ca3af'; ctx.font = `${10}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(labels[gi], pad.l + gi * groupW + groupW * 0.5 - barW * 0.3, H - 8);
+  });
+
+  // legend
+  series.forEach((s, i) => {
+    const lx = pad.l + i * 130;
+    ctx.fillStyle = s.color; ctx.fillRect(lx, H - 26, 10, 10);
+    ctx.fillStyle = '#9ca3af'; ctx.font = `${10}px monospace`; ctx.textAlign = 'left';
+    ctx.fillText(s.label, lx + 14, H - 17);
+  });
+
+  // hover tooltip
+  let hovered = null;
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top)  * (H / rect.height);
+    hovered = barRects.find(b => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h + 2);
+    redraw();
+    if (hovered) {
+      ctx.fillStyle = 'rgba(30,27,75,0.92)';
+      ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 1;
+      const tx = Math.min(hovered.x + 4, W - 130), ty = hovered.y - 36;
+      ctx.beginPath(); ctx.roundRect(tx, Math.max(ty, 4), 120, 28, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#e2e8f0'; ctx.font = `${10}px monospace`; ctx.textAlign = 'left';
+      ctx.fillText(`${hovered.ctx_label} · ${hovered.label}`, tx + 6, Math.max(ty, 4) + 12);
+      ctx.fillText(`${hovered.val.toFixed(2)} GB`, tx + 6, Math.max(ty, 4) + 24);
+    }
+  });
+  canvas.addEventListener('mouseleave', () => { hovered = null; redraw(); });
+
+  function redraw() {
+    ctx.clearRect(0, 0, W, H);
+    yTicks.forEach(v => {
+      const y = pad.t + cH - (v / maxVal) * cH;
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#6b7280'; ctx.font = `${10}px monospace`; ctx.textAlign = 'right';
+      ctx.fillText(v + ' GB', pad.l - 6, y + 3.5);
+    });
+    barRects.forEach(b => {
+      ctx.fillStyle = b === hovered ? '#a78bfa' : (b.label === 'INT2 (OSCAR)' ? '#8b5cf6' : b.label === 'INT4' ? '#0e7490' : '#475569');
+      ctx.globalAlpha = b === hovered ? 1 : 0.82;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+    });
+    ctx.globalAlpha = 1;
+    contexts.forEach((_, gi) => {
+      ctx.fillStyle = '#9ca3af'; ctx.font = `${10}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText(labels[gi], pad.l + gi * groupW + groupW * 0.5 - barW * 0.3, H - 8);
+    });
+    series.forEach((s, i) => {
+      const lx = pad.l + i * 130;
+      ctx.fillStyle = s.color; ctx.fillRect(lx, H - 26, 10, 10);
+      ctx.fillStyle = '#9ca3af'; ctx.font = `${10}px monospace`; ctx.textAlign = 'left';
+      ctx.fillText(s.label, lx + 14, H - 17);
+    });
+  }
+})();
+
+// ─── §02 ACTIVATION DISTRIBUTION CANVAS ───
+(function() {
+  const canvas = document.getElementById('act-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 200, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const captions = {
+    raw: 'Raw INT2: a few channels have magnitudes 10–50× larger than the rest. The quantization scale is dominated by outliers, compressing all normal values to just 1–2 levels.',
+    hadamard: 'Hadamard rotation: outlier energy is spread uniformly across all channels. Max magnitude drops ~8× — quantization range is more uniform. But the axis directions are still random.',
+    oscar: 'OSCAR rotation: channels are further aligned with query importance. High-importance directions (large Q⊤Q eigenvalues) are mapped to the widest quantization range, minimizing attention logit error.',
+  };
+
+  // Seeded PRNG for reproducible data
+  function seededRand(seed) {
+    let s = seed;
+    return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  }
+  function genData(mode) {
+    const rng = seededRand(42);
+    const n = 128;
+    const vals = Array.from({length: n}, (_, i) => {
+      let base = rng() * 0.8 + 0.1;
+      if (mode === 'raw') {
+        if (i === 3 || i === 17 || i === 61) base = rng() * 18 + 20; // outliers
+        else base = rng() * 2 + 0.3;
+      } else if (mode === 'hadamard') {
+        base = rng() * 3.5 + 1.2 + Math.sin(i * 0.3) * 0.8;
+      } else { // oscar
+        const importance = Math.exp(-i * 0.035); // query-aligned: high importance first
+        base = rng() * 2 + 0.5 + importance * 1.5;
+      }
+      return base;
+    });
+    return vals;
+  }
+
+  let currentMode = 'raw';
+  function drawBars(mode) {
+    ctx.clearRect(0, 0, W, H);
+    const data = genData(mode);
+    const maxVal = Math.max(...data);
+    const pad = { l: 30, r: 12, t: 16, b: 28 };
+    const cW = W - pad.l - pad.r;
+    const cH = H - pad.t - pad.b;
+    const bW = cW / data.length;
+
+    // colors
+    const baseColor = mode === 'raw' ? '#ef6161' : mode === 'hadamard' ? '#0e7490' : '#8b5cf6';
+    const outColor  = '#fbbf24';
+
+    data.forEach((v, i) => {
+      const isOutlier = mode === 'raw' && (i === 3 || i === 17 || i === 61);
+      const bH = (v / maxVal) * cH;
+      const x  = pad.l + i * bW;
+      const y  = pad.t + cH - bH;
+      ctx.fillStyle = isOutlier ? outColor : baseColor;
+      ctx.globalAlpha = isOutlier ? 1 : 0.72;
+      ctx.fillRect(x + 0.5, y, Math.max(bW - 1, 1), bH);
+    });
+    ctx.globalAlpha = 1;
+
+    // y-axis
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75, 1.0].forEach(frac => {
+      const y = pad.t + cH * (1 - frac);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#6b7280'; ctx.font = `${9}px monospace`; ctx.textAlign = 'right';
+      ctx.fillText((frac * maxVal).toFixed(1), pad.l - 3, y + 3);
+    });
+
+    ctx.fillStyle = '#6b7280'; ctx.font = `${9}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText('channel index →', W / 2, H - 4);
+
+    if (mode === 'raw') {
+      ctx.fillStyle = '#fbbf24'; ctx.font = `bold ${9}px monospace`;
+      ctx.fillText('← outlier channels dominate scale', W * 0.62, pad.t + 12);
+    } else if (mode === 'oscar') {
+      ctx.fillStyle = '#c4b5fd'; ctx.font = `bold ${9}px monospace`;
+      ctx.fillText('← high-query-importance channels', W * 0.6, pad.t + 12);
+    }
+  }
+
+  drawBars('raw');
+  document.getElementById('act-caption').textContent = captions['raw'];
+
+  document.querySelectorAll('.act-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.act-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      drawBars(currentMode);
+      document.getElementById('act-caption').textContent = captions[currentMode];
+    });
+  });
+})();
+
+// ─── §03 ALIGNMENT GAP CANVAS ───
+(function() {
+  const canvas = document.getElementById('align-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  let showOSCAR = false;
+  const captions = [
+    'Hadamard rotation aligns quantization axes with raw K covariance (K⊤K). High-variance directions get the widest INT2 range — but queries may not care about those directions.',
+    'OSCAR rotation aligns axes with query covariance (Q⊤Q). Directions that queries strongly project onto get the widest INT2 range — quantization noise goes where attention barely looks.',
+  ];
+
+  function seededRand(seed) {
+    let s = seed;
+    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  }
+
+  function drawState(isOSCAR) {
+    ctx.clearRect(0, 0, W, H);
+    const rng = seededRand(7);
+    const cx = W / 2, cy = H / 2;
+
+    // Draw 60 key embeddings (2D projection)
+    const pts = [];
+    for (let i = 0; i < 60; i++) {
+      const u = (rng() - 0.5) * 2, v = (rng() - 0.5) * 0.5;
+      // raw K⊤K: elongated along x (raw variance)
+      // OSCAR Q⊤Q: elongated along a 30° rotated axis (query-important direction)
+      const angle = isOSCAR ? Math.PI / 6 : 0;
+      const rx = Math.cos(angle) * u * 100 - Math.sin(angle) * v * 40;
+      const ry = Math.sin(angle) * u * 100 + Math.cos(angle) * v * 40;
+      pts.push({ x: cx + rx, y: cy + ry });
+    }
+
+    // Draw points
+    pts.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(139,92,246,0.65)'; ctx.fill();
+    });
+
+    // Draw quantization grid lines (INT2 boundaries)
+    const gridColor = isOSCAR ? 'rgba(6,182,212,0.35)' : 'rgba(245,158,11,0.35)';
+    const axisColor = isOSCAR ? '#06b6d4' : '#f59e0b';
+    const axisAngle = isOSCAR ? Math.PI / 6 : 0;
+
+    // 3 grid lines per axis (INT2 has 4 levels → 3 boundaries)
+    for (let q = -1; q <= 1; q++) {
+      const offset = q * 38;
+      // Grid lines perpendicular to quantization axis
+      const nx = Math.cos(axisAngle + Math.PI / 2), ny = Math.sin(axisAngle + Math.PI / 2);
+      const px = Math.cos(axisAngle), py = Math.sin(axisAngle);
+      const ox = cx + px * offset, oy = cy + py * offset;
+      ctx.strokeStyle = gridColor; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ox - nx * 120, oy - ny * 120);
+      ctx.lineTo(ox + nx * 120, oy + ny * 120);
+      ctx.stroke();
+    }
+
+    // Draw the principal axis (eigenvector direction)
+    ctx.strokeStyle = axisColor; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(axisAngle) * 130, cy - Math.sin(axisAngle) * 130);
+    ctx.lineTo(cx + Math.cos(axisAngle) * 130, cy + Math.sin(axisAngle) * 130);
+    ctx.stroke();
+
+    // Arrowhead
+    const ax = cx + Math.cos(axisAngle) * 130, ay = cy + Math.sin(axisAngle) * 130;
+    ctx.fillStyle = axisColor;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - Math.cos(axisAngle - 0.4) * 12, ay - Math.sin(axisAngle - 0.4) * 12);
+    ctx.lineTo(ax - Math.cos(axisAngle + 0.4) * 12, ay - Math.sin(axisAngle + 0.4) * 12);
+    ctx.fill();
+
+    // Label axis
+    ctx.fillStyle = axisColor; ctx.font = `bold ${11}px monospace`; ctx.textAlign = 'center';
+    const labelX = ax + Math.cos(axisAngle) * 16, labelY = ay + Math.sin(axisAngle) * 16;
+    ctx.fillText(isOSCAR ? 'Q⊤Q eigvec' : 'K⊤K eigvec', labelX > W - 80 ? W - 80 : labelX, Math.min(labelY + 12, H - 8));
+
+    // Labels for regions
+    ctx.fillStyle = isOSCAR ? '#67e8f9' : '#fcd34d';
+    ctx.font = `${10}px monospace`; ctx.textAlign = 'left';
+    ctx.fillText(isOSCAR ? '← wide INT2 range: queries care here' : '← wide INT2 range: raw high variance', 14, 22);
+
+    // Title
+    ctx.fillStyle = '#e2e8f0'; ctx.font = `bold ${12}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(isOSCAR ? 'OSCAR: query-aware rotation (Q⊤Q)' : 'Hadamard: raw covariance rotation (K⊤K)', W / 2, H - 10);
+
+    document.getElementById('align-caption').textContent = captions[isOSCAR ? 1 : 0];
+  }
+
+  drawState(false);
+  canvas.addEventListener('click', () => {
+    showOSCAR = !showOSCAR;
+    drawState(showOSCAR);
+  });
+})();
+
+// ─── §05 LAYOUT CANVAS ───
+(function() {
+  const canvas = document.getElementById('layout-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 160, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const slider = document.getElementById('ctx-slider');
+  const ctxVal = document.getElementById('ctx-val');
+
+  const S = 64, R = 256; // sink and recent sizes
+
+  function drawLayout(totalTokens) {
+    ctx.clearRect(0, 0, W, H);
+    const pad = { l: 16, r: 16, t: 40, b: 28 };
+    const cW = W - pad.l - pad.r;
+    const cH = 44;
+    const y  = pad.t;
+
+    const sinkW   = (S / totalTokens) * cW;
+    const recentW = (R / totalTokens) * cW;
+    const histW   = cW - sinkW - recentW;
+    const sinkX   = pad.l;
+    const histX   = sinkX + sinkW;
+    const recentX = histX + histW;
+
+    // Background track
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.roundRect(pad.l, y, cW, cH, 6); ctx.fill();
+
+    // History (INT2)
+    ctx.fillStyle = '#4c1d95';
+    ctx.beginPath(); ctx.roundRect(histX, y, histW, cH, 0); ctx.fill();
+    if (histW > 60) {
+      ctx.fillStyle = '#a78bfa'; ctx.font = `bold ${10}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText('INT2 history', histX + histW / 2, y + cH / 2 + 4);
+      const histGB = (((totalTokens - S - R) * 2 / 8) / 1e6).toFixed(1);
+      ctx.fillStyle = '#7c3aed'; ctx.font = `${9}px monospace`;
+      ctx.fillText(`${totalTokens - S - R} tokens · ${histGB} MB`, histX + histW / 2, y + cH / 2 + 18);
+    }
+
+    // Sink (BF16 cyan)
+    ctx.fillStyle = '#164e63';
+    ctx.beginPath(); ctx.roundRect(sinkX, y, sinkW, cH, [6, 0, 0, 6]); ctx.fill();
+    if (sinkW > 14) {
+      ctx.fillStyle = '#67e8f9'; ctx.font = `${9}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText('sink', sinkX + sinkW / 2, y + cH / 2 + 4);
+    }
+
+    // Recent (BF16 green)
+    ctx.fillStyle = '#064e3b';
+    ctx.beginPath(); ctx.roundRect(recentX, y, recentW, cH, [0, 6, 6, 0]); ctx.fill();
+    if (recentW > 18) {
+      ctx.fillStyle = '#6ee7b7'; ctx.font = `${9}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText('recent', recentX + recentW / 2, y + cH / 2 + 4);
+    }
+
+    // Annotations
+    ctx.fillStyle = '#06b6d4'; ctx.font = `${9}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(`BF16 (${S})`, sinkX + sinkW / 2, y - 6);
+    ctx.fillStyle = '#10b981';
+    ctx.fillText(`BF16 (${R})`, recentX + recentW / 2, y - 6);
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillText(`INT2`, histX + histW / 2, y - 6);
+
+    // BF16 fraction
+    const bf16Frac = ((S + R) / totalTokens * 100).toFixed(2);
+    ctx.fillStyle = '#6b7280'; ctx.font = `${10}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(`BF16 overhead: ${bf16Frac}% of tokens (${S + R}/${totalTokens})`, W / 2, y + cH + 18);
+
+    // x-axis: 0, t/2, t
+    ctx.fillStyle = '#4b5563'; ctx.font = `${9}px monospace`; ctx.textAlign = 'left';
+    ctx.fillText('pos 0', pad.l, y + cH + 10);
+    ctx.textAlign = 'right';
+    ctx.fillText(`pos ${totalTokens}`, W - pad.r, y + cH + 10);
+  }
+
+  drawLayout(parseInt(slider.value));
+
+  slider.addEventListener('input', () => {
+    const v = parseInt(slider.value);
+    ctxVal.textContent = v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v;
+    drawLayout(v);
+  });
+})();
+
+// ─── §06 ANIMATED BAR CHART ───
+(function() {
+  const resultsSection = document.getElementById('s-results');
+  if (!resultsSection) return;
+  let fired = false;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !fired) {
+        fired = true;
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          const maxScore = 85;
+          b.style.width = (parseFloat(b.dataset.w) / maxScore * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+})();
+</script>
+
+</BaseLayout>

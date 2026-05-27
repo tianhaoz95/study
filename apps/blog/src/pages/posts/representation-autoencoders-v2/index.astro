@@ -1,0 +1,1273 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="RAEv2: 10× Faster Image Generation with Smarter Encoder Layers | AI/ML Deep Dives"
+  description="How three elegant insights — multi-layer encoder summation, complementary RAE+REPA training, and free internal guidance — make diffusion training 10× faster."
+  crumb="RAEv2: Representation Autoencoders"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* K-layer selector */
+.k-btn-row{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.k-btn{padding:.35rem .8rem;border-radius:6px;font-size:.74rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.k-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.k-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);font-weight:700}
+#k-canvas{display:block;width:100%;height:280px;border-radius:8px;background:var(--card2)}
+.k-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-top:.875rem}
+.k-stat{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem}
+.k-stat-label{font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.07em}
+.k-stat-val{font-size:1.2rem;font-weight:700;font-family:var(--ff-mono)}
+.k-stat-val.rfid{color:var(--cyan)}
+.k-stat-val.gfid{color:var(--purple-l)}
+.k-stat-val.verdict{color:var(--green);font-size:.85rem}
+
+/* Complementary mechanism scatter */
+#comp-canvas{display:block;width:100%;height:300px;border-radius:8px;background:var(--card2)}
+.comp-tabs{display:flex;gap:.5rem;margin-bottom:.875rem}
+.comp-tab{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.comp-tab.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Guidance comparison */
+.guidance-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.875rem;margin:1.25rem 0}
+.guidance-card{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:1rem}
+.guidance-card.bad{border-color:rgba(239,68,68,.3)}
+.guidance-card.ok{border-color:rgba(245,158,11,.3)}
+.guidance-card.best{border-color:rgba(16,185,129,.3)}
+.guidance-label{font-size:.65rem;font-family:var(--ff-mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.625rem}
+.guidance-label.bad{color:#ef4444}
+.guidance-label.ok{color:var(--amber)}
+.guidance-label.best{color:var(--green)}
+.guidance-name{font-size:.88rem;font-weight:700;color:var(--text2);margin-bottom:.5rem}
+.guidance-desc{font-size:.75rem;color:var(--muted);line-height:1.55;margin-bottom:.625rem}
+.guidance-cost{font-size:.7rem;font-family:var(--ff-mono);padding:.2rem .5rem;border-radius:4px;display:inline-block}
+.guidance-cost.bad{background:rgba(239,68,68,.1);color:#ef4444}
+.guidance-cost.ok{background:rgba(245,158,11,.1);color:var(--amber)}
+.guidance-cost.best{background:rgba(16,185,129,.1);color:var(--green)}
+.fwd-row{display:flex;align-items:center;gap:.4rem;margin-top:.5rem}
+.fwd-box{flex:1;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.63rem;font-family:var(--ff-mono);font-weight:600}
+.fwd-box.main{background:rgba(139,92,246,.25);color:var(--purple-l);border:1px solid rgba(139,92,246,.4)}
+.fwd-box.weak{background:rgba(245,158,11,.2);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.fwd-box.repa{background:rgba(6,182,212,.15);color:var(--cyan);border:1px solid rgba(6,182,212,.3)}
+.fwd-box.uncond{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.fwd-plus{font-size:.75rem;color:var(--muted)}
+
+/* Convergence chart */
+#conv-canvas{display:block;width:100%;height:260px;border-radius:8px;background:var(--card2)}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:160px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.2s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+.bar-group-label{font-size:.65rem;font-family:var(--ff-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .4rem}
+
+/* Results comparison table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Callout */
+.callout{display:flex;gap:.875rem;background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:0 8px 8px 0;padding:.875rem 1rem;margin:1.25rem 0}
+.callout-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.callout-body{font-size:.825rem;color:var(--muted2);line-height:1.65}
+.callout-body strong{color:var(--text2)}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.85rem;color:var(--text2);line-height:2;overflow-x:auto;text-align:center}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono);text-align:left}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .guidance-grid{grid-template-columns:1fr}
+  .k-stats{grid-template-columns:1fr 1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion Models</span>
+    <span class="tag tag-cyan">Image Generation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>RAEv2: 10× Faster Image Generation<br>with Smarter Encoder Layers</h1>
+  <p class="lead">Representation Autoencoders replace the VAE in diffusion transformers with a pretrained vision encoder — but the original recipe left three easy wins on the table. RAEv2 fixes all three: sum the encoder's last K layers for a tunable reconstruction-generation trade-off, combine RAE with REPA (they're complementary, not redundant), and reuse the REPA head for free internal guidance — no extra model, no extra forward pass. The result: state-of-the-art gFID 1.06 in 80 epochs, over 10× faster than the original.</p>
+  <div class="post-hero-meta">
+    <span>May 26, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2605.18324</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.18324" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://raev2.github.io" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-klayers"><a href="#s-klayers"><span class="toc-num">02</span> K-Layer Encoder</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> RAEv2 Architecture</a></li>
+    <li class="toc-item" id="toc-s-complementary"><a href="#s-complementary"><span class="toc-num">04</span> Complementary Roles</a></li>
+    <li class="toc-item" id="toc-s-guidance"><a href="#s-guidance"><span class="toc-num">05</span> Free Guidance</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01 THE PROBLEM ──────────────────────────────────── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>What RAE promised — and where it fell short</h2>
+
+<p>Traditional image diffusion models (Stable Diffusion, FLUX, etc.) work in the latent space of a VAE: a small convolutional encoder compresses images to 4–16× smaller feature maps, the diffusion transformer adds noise and denoises there, then a decoder reconstructs the image. It works, but the VAE latent space was designed for reconstruction, not for a diffusion model to reason in.</p>
+
+<p><strong>Representation Autoencoders (RAE)</strong> swap the VAE for a pretrained vision encoder (DINOv2, DINOv3, CLIP…). The encoder's features are richer — they capture semantic structure that helps diffusion converge faster. But the original RAE recipe had three blind spots:</p>
+
+<ul>
+  <li><strong>Only the final encoder layer was used.</strong> A 24-layer DINOv3 was reduced to its last layer alone — discarding 23 layers of complementary spatial and structural information.</li>
+  <li><strong>RAE couldn't use classifier-free guidance (CFG).</strong> CFG requires an unconditional forward pass for comparison; RAE's representation-conditioned formulation breaks this. A separate smaller model (AutoGuidance) had to be trained and run at every inference step — doubling complexity and compute.</li>
+  <li><strong>RAE was assumed to replace REPA.</strong> REPA (Representation Alignment) distills the same pretrained features to intermediate diffusion layers. Since RAE already uses those features as the latent space, everyone assumed REPA would be redundant. Turns out this assumption was wrong.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-icon">↯</span>
+  <div class="callout-body">RAEv2 fixes all three with no new architecture components: sum the last K encoder layers, add REPA back on top, and reformulate the output head as x-prediction for free internal guidance. Together they deliver <strong>over 10× faster convergence</strong> to the same quality level.</div>
+</div>
+</section>
+
+<!-- ─── §02 K-LAYER ENCODER ──────────────────────────────── -->
+<section id="s-klayers" data-code="klayers">
+<div class="section-no">02 — K-Layer Encoder</div>
+<h2>Summing K encoder layers: a free reconstruction-generation knob</h2>
+
+<p>The insight is simple: a pretrained vision encoder isn't just its final layer. Layer 1 sees edges and textures; layers 12–16 hold spatial structure; the final layer encodes semantic concepts. The original RAE threw away everything except the last layer.</p>
+
+<p>The fix: define the encoder representation as the <em>sum</em> of the last K layers. No new parameters, no training cost — just change which features go into the latent space.</p>
+
+<div class="math-block">
+  <div class="math-label">Generalized encoder output (sum of last K layers)</div>
+  <span class="math-var">x</span> = <span class="math-var">z</span><sub>L−K+1</sub> + <span class="math-var">z</span><sub>L−K+2</sub> + … + <span class="math-var">z</span><sub>L</sub>
+  &nbsp;&nbsp;&nbsp;<span class="math-comment">// K=1 recovers original RAE</span>
+</div>
+
+<p>The key insight is that higher K trades generation quality for reconstruction quality. The original RAE (K=1) has rFID 0.60 — noticeably blurry reconstructions. At K=7, guided gFID hits its best value of 1.06 while rFID drops to 0.35. At K=23 (all layers), rFID reaches 0.18 — competitive with proprietary VAEs — while guided gFID stays near 1.10.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">reconstruction-generation trade-off · K-layer sweep</span>
+    <span class="vp-hint">click K to explore</span>
+  </div>
+  <div class="vp-body">
+    <div class="k-btn-row">
+      <button class="k-btn" data-k="1">K = 1 <span style="font-size:.63rem;opacity:.6">(RAE baseline)</span></button>
+      <button class="k-btn" data-k="4">K = 4</button>
+      <button class="k-btn active" data-k="7">K = 7 <span style="font-size:.63rem;opacity:.6">(best gen.)</span></button>
+      <button class="k-btn" data-k="10">K = 10</button>
+      <button class="k-btn" data-k="23">K = 23 <span style="font-size:.63rem;opacity:.6">(best recon.)</span></button>
+    </div>
+    <canvas id="k-canvas"></canvas>
+    <div class="k-stats">
+      <div class="k-stat">
+        <div class="k-stat-label">rFID (reconstruction ↓)</div>
+        <div class="k-stat-val rfid" id="k-rfid">0.35</div>
+      </div>
+      <div class="k-stat">
+        <div class="k-stat-label">gFID guided (generation ↓)</div>
+        <div class="k-stat-val gfid" id="k-gfid">1.06</div>
+      </div>
+      <div class="k-stat">
+        <div class="k-stat-label">Sweet spot</div>
+        <div class="k-stat-val verdict" id="k-verdict">best guided gen.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The trade-off also holds at inference: for text-to-image and navigation world models, K=7 provides the best balance, while K=23 is preferable when reconstruction fidelity matters most (e.g., editing tasks).</p>
+</section>
+
+<!-- ─── §03 ARCHITECTURE ─────────────────────────────────── -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — RAEv2 Architecture</div>
+<h2>One unified pipeline: encoder, diffusion, REPA, guidance</h2>
+
+<p>RAEv2 replaces the VAE in a standard DiT setup. The pretrained vision encoder (DINOv3-L, 24 layers) encodes the image into a rich latent. The diffusion transformer (DDT-XL) denoises in that space. Two prediction heads share the forward pass: the full model output head (predicts x from all layers) and the lightweight REPA head (predicts x from early layers only).</p>
+
+<svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-height:280px;display:block;border-radius:8px">
+  <rect width="760" height="260" fill="#1e1e2e" rx="8"/>
+  <rect x="12" y="94" width="70" height="64" rx="6" fill="#162032" stroke="#2d4a6a" stroke-width="1"/>
+  <text x="47" y="88" fill="#64748b" font-size="9" font-family="monospace" text-anchor="middle">image</text>
+  <rect x="20" y="102" width="54" height="48" rx="3" fill="#1a3a5c" stroke="#2d6aa0" stroke-width="1"/>
+  <text x="47" y="129" fill="#38bdf8" font-size="10" font-family="monospace" text-anchor="middle" font-weight="600">256x256</text>
+  <text x="47" y="142" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">RGB</text>
+  <line x1="82" y1="126" x2="104" y2="126" stroke="#475569" stroke-width="1.5" marker-end="url(#ra1)"/>
+  <rect x="104" y="76" width="116" height="104" rx="6" fill="#0d2a3a" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="162" y="94" fill="#06b6d4" font-size="9" font-family="monospace" text-anchor="middle" font-weight="600">DINOv3-L</text>
+  <text x="162" y="106" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">24 layers</text>
+  <rect x="116" y="114" width="88" height="7" rx="2" fill="#0e4d66" opacity="0.6"/>
+  <rect x="116" y="124" width="88" height="7" rx="2" fill="#0e4d66" opacity="0.7"/>
+  <rect x="116" y="134" width="88" height="7" rx="2" fill="#0e4d66" opacity="0.85"/>
+  <rect x="116" y="144" width="88" height="7" rx="2" fill="#0e4d66"/>
+  <text x="162" y="168" fill="#38bdf8" font-size="8" font-family="monospace" text-anchor="middle">sum last K layers</text>
+  <line x1="220" y1="126" x2="248" y2="126" stroke="#475569" stroke-width="1.5" marker-end="url(#ra1)"/>
+  <text x="234" y="120" fill="#64748b" font-size="8" font-family="monospace" text-anchor="middle">x</text>
+  <rect x="248" y="108" width="54" height="36" rx="5" fill="#2a1f00" stroke="#d97706" stroke-width="1"/>
+  <text x="275" y="126" fill="#d97706" font-size="9" font-family="monospace" text-anchor="middle">x_t</text>
+  <text x="275" y="138" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">+ noise</text>
+  <line x1="302" y1="126" x2="328" y2="126" stroke="#475569" stroke-width="1.5" marker-end="url(#ra1)"/>
+  <rect x="328" y="58" width="128" height="140" rx="6" fill="#1a1040" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="392" y="76" fill="#a78bfa" font-size="9" font-family="monospace" text-anchor="middle" font-weight="600">DiT Backbone</text>
+  <text x="392" y="88" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">DDT-XL (839M)</text>
+  <rect x="340" y="96" width="104" height="12" rx="3" fill="#2d1f7a" opacity="0.8"/>
+  <text x="392" y="106" fill="#a78bfa" font-size="7" font-family="monospace" text-anchor="middle">early layers h_early</text>
+  <rect x="340" y="112" width="104" height="12" rx="3" fill="#2d1f7a"/>
+  <rect x="340" y="128" width="104" height="12" rx="3" fill="#2d1f7a"/>
+  <rect x="340" y="144" width="104" height="12" rx="3" fill="#312080"/>
+  <text x="392" y="172" fill="#a78bfa" font-size="7" font-family="monospace" text-anchor="middle">all layers h_full</text>
+  <line x1="392" y1="96" x2="392" y2="36" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <line x1="392" y1="36" x2="510" y2="36" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#ra2)"/>
+  <rect x="510" y="20" width="116" height="32" rx="5" fill="#062a33" stroke="#06b6d4" stroke-width="1"/>
+  <text x="568" y="34" fill="#06b6d4" font-size="8" font-family="monospace" text-anchor="middle" font-weight="600">REPA Head (MLP)</text>
+  <text x="568" y="46" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">x_hat_repa (weak)</text>
+  <line x1="456" y1="152" x2="510" y2="152" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#ra3)"/>
+  <rect x="510" y="136" width="116" height="32" rx="5" fill="#1a1040" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="568" y="150" fill="#a78bfa" font-size="8" font-family="monospace" text-anchor="middle" font-weight="600">Output Head</text>
+  <text x="568" y="162" fill="#475569" font-size="8" font-family="monospace" text-anchor="middle">x_hat_full (strong)</text>
+  <line x1="626" y1="36" x2="672" y2="36" stroke="#06b6d4" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="626" y1="152" x2="672" y2="152" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="672" y1="36" x2="672" y2="152" stroke="#10b981" stroke-width="1.5"/>
+  <line x1="672" y1="94" x2="700" y2="94" stroke="#10b981" stroke-width="1.5" marker-end="url(#ra4)"/>
+  <circle cx="672" cy="94" r="5" fill="#10b981" opacity="0.4"/>
+  <rect x="700" y="78" width="54" height="32" rx="5" fill="#042213" stroke="#10b981" stroke-width="1"/>
+  <text x="727" y="93" fill="#10b981" font-size="9" font-family="monospace" text-anchor="middle" font-weight="600">x_guided</text>
+  <text x="727" y="104" fill="#475569" font-size="7" font-family="monospace" text-anchor="middle">full + w*diff</text>
+  <text x="162" y="210" fill="#1e6a7a" font-size="8" font-family="monospace" text-anchor="middle">frozen encoder</text>
+  <text x="392" y="220" fill="#4a2e9a" font-size="8" font-family="monospace" text-anchor="middle">trainable backbone</text>
+  <text x="568" y="210" fill="#1a3a60" font-size="8" font-family="monospace" text-anchor="middle">same forward pass</text>
+  <defs>
+    <marker id="ra1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#475569"/></marker>
+    <marker id="ra2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#06b6d4"/></marker>
+    <marker id="ra3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6"/></marker>
+    <marker id="ra4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#10b981"/></marker>
+  </defs>
+</svg>
+
+<p>The key insight is that everything is computed in a <em>single forward pass</em>. The REPA head branches off early layers and produces a weak x-prediction. The main output head uses all layers for a strong prediction. Both outputs live in the same representation space — so they can be combined for guidance arithmetically, with no second model needed.</p>
+</section>
+
+<!-- ─── §04 COMPLEMENTARY MECHANISMS ────────────────────── -->
+<section id="s-complementary" data-code="complementary">
+<div class="section-no">04 — Complementary Roles</div>
+<h2>RAE and REPA do different things — use both</h2>
+
+<p>The prevailing assumption was: since RAE already uses the pretrained encoder features as the latent space, distilling those same features to intermediate diffusion layers (REPA) would be a wasteful skip connection. Why would adding REPA on top of RAE help?</p>
+
+<p>The authors tested this assumption empirically across <strong>27 vision encoders</strong> and found the opposite. REPA on top of RAE consistently improved generation quality across every single encoder tested. The two methods work through <em>different mechanisms</em>:</p>
+
+<ul>
+  <li><strong>RAE</strong> benefits from encoders with high <em>global semantic accuracy</em> (ImageNet linear probe = LP). The diffusion model learns to reason in a semantically-rich latent space.</li>
+  <li><strong>REPA</strong> benefits from encoders with high <em>spatial structure quality</em> (local distance similarity score = LDS). It regularizes how intermediate diffusion features relate to each other spatially.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">encoder property → generation quality · Pearson r with gFID (lower is better)</span>
+    <span class="vp-hint">click mode to switch</span>
+  </div>
+  <div class="vp-body">
+    <div class="comp-tabs">
+      <button class="comp-tab active" data-mode="rae">RAE alone</button>
+      <button class="comp-tab" data-mode="repa">REPA alone</button>
+      <button class="comp-tab" data-mode="both">RAE + REPA</button>
+    </div>
+    <canvas id="comp-canvas"></canvas>
+  </div>
+</div>
+
+<p>The scatter plots tell the story clearly: for RAE alone, LP (global semantics) has strong negative correlation with gFID (r = −0.81) while LDS (spatial structure) barely correlates (r = −0.13). For REPA alone, it's inverted: LDS dominates (r = −0.89). When combined, the best predictor is the <em>average</em> of LP and LDS (r = −0.83) — confirming they contribute complementary information.</p>
+
+<p>This complementarity also explains why DINOv3-L is the best encoder for RAEv2: it scores highly on both LP and LDS, while DINOv2-B (the original RAE's default encoder) is strong on LP but weaker on LDS.</p>
+</section>
+
+<!-- ─── §05 FREE GUIDANCE ────────────────────────────────── -->
+<section id="s-guidance" data-code="guidance">
+<div class="section-no">05 — Free Guidance</div>
+<h2>REPA head = free weaker model for internal guidance</h2>
+
+<p>CFG needs two things: a strong (conditioned) prediction and a weak (unconditioned) baseline. The guidance signal is their difference — amplified by weight w. The problem: RAE's latent space is conditioned on the representation, making unconditional generation ill-defined. So CFG doesn't work with RAE. The original workaround was AutoGuidance: train a second, smaller diffusion model to serve as the weak baseline.</p>
+
+<p>RAEv2 eliminates this entirely. The key observation: the REPA head is already the weaker prediction. It only accesses early intermediate layers and uses a lightweight MLP — by definition, it's less capable than the full model. Reformulate both the full model output and the REPA head as x-prediction (rather than velocity), and you can combine them directly:</p>
+
+<div class="math-block">
+  <div class="math-label">Internal guidance (no extra model or forward pass)</div>
+  x&#770;<sub>guided</sub> = x&#770;<sub>full</sub> + <span class="math-var">w</span> · (x&#770;<sub>full</sub> − x&#770;<sub>repa</sub>)
+  <br>
+  <span class="math-comment">// x&#770;_full: all DiT layers · x&#770;_repa: REPA head on early layers only</span>
+</div>
+
+<div class="guidance-grid">
+  <div class="guidance-card bad">
+    <div class="guidance-label bad">Broken with RAE</div>
+    <div class="guidance-name">Classifier-Free Guidance</div>
+    <div class="guidance-desc">Requires an unconditional pass — undefined in RAE's representation-conditioned latent space. CFG actually degrades gFID with RAE.</div>
+    <div class="guidance-cost bad">2× forward passes</div>
+    <div class="fwd-row">
+      <div class="fwd-box main">cond. pass</div>
+      <div class="fwd-plus">+</div>
+      <div class="fwd-box uncond">uncond. pass ✗</div>
+    </div>
+  </div>
+  <div class="guidance-card ok">
+    <div class="guidance-label ok">Original RAE workaround</div>
+    <div class="guidance-name">AutoGuidance</div>
+    <div class="guidance-desc">Train a second, smaller DiT model. Run it at every inference step as the weak baseline. Extra training, extra memory, extra compute.</div>
+    <div class="guidance-cost ok">1× pass + separate model</div>
+    <div class="fwd-row">
+      <div class="fwd-box main">main DiT</div>
+      <div class="fwd-plus">+</div>
+      <div class="fwd-box weak">small DiT ★</div>
+    </div>
+  </div>
+  <div class="guidance-card best">
+    <div class="guidance-label best">RAEv2 — free</div>
+    <div class="guidance-name">REPA Internal Guidance</div>
+    <div class="guidance-desc">The REPA head (already trained for alignment) is the weak prediction. Combine with main output. No extra model. No extra forward pass.</div>
+    <div class="guidance-cost best">1× forward pass, no extra model</div>
+    <div class="fwd-row">
+      <div class="fwd-box main">main output</div>
+      <div class="fwd-plus">⊕</div>
+      <div class="fwd-box repa">REPA head</div>
+    </div>
+  </div>
+</div>
+
+<p>The ablation confirms: CFG fails (gFID 3.86 vs 3.75 without guidance), AutoGuidance helps (3.31), and REPA internal guidance achieves the best result (1.06 at 80 epochs) at zero extra cost.</p>
+</section>
+
+<!-- ─── §06 RESULTS ──────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>State-of-the-art at 80 epochs — 10× fewer than before</h2>
+
+<p>The three improvements stack multiplicatively. Each change alone speeds convergence; together they produce a model that reaches gFID 1.06 in just 80 epochs — where the original RAE took 800 epochs to reach 1.13.</p>
+
+<h3>Convergence speed</h3>
+<canvas id="conv-canvas"></canvas>
+<p style="font-size:.78rem;color:var(--muted);margin-top:.4rem">gFID vs training epochs on ImageNet-256, DDT-XL backbone. RAEv2 (cyan) reaches the same quality as 800 epochs of RAE (purple) in under 80 epochs.</p>
+
+<h3>Training efficiency: EPFID@2</h3>
+<p>Absolute gFID has diminishing signal at this quality level. The authors propose EPFID@k — epochs to first reach unguided gFID ≤ k. This measures training efficiency directly:</p>
+
+<div class="bar-group-label">Epochs to reach unguided gFID ≤ 2 (lower = faster)</div>
+<div class="results-bars" id="epfid-bars">
+  <div class="bar-row">
+    <div class="bar-label">SiT-XL/2-REPA</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(100,116,139,.5)" data-w="100"><span>&gt;800</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LightningDiT</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(100,116,139,.45)" data-w="70"><span>560</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">REG</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(100,116,139,.4)" data-w="60"><span>480</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">REPA-E / RAE-XL</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(139,92,246,.4)" data-w="22.1"><span>177</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--cyan)">RAEv2 (ours)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.6)" data-w="4.4"><span>35</span></div></div>
+  </div>
+</div>
+
+<h3>Final benchmarks (ImageNet-256, 80 epochs)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Epochs</th>
+      <th>gFID ↓</th>
+      <th>FD<sup>6</sup><sub>r</sub> ↓</th>
+      <th>EPFID@2 ↓</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SiT-XL/2</td>
+      <td class="mn">800</td>
+      <td class="mn">2.12</td>
+      <td class="mn">8.44</td>
+      <td class="mn">–</td>
+    </tr>
+    <tr>
+      <td>DDT-XL</td>
+      <td class="mn">800</td>
+      <td class="mn">1.26</td>
+      <td class="mn">5.70</td>
+      <td class="mn">&gt;800</td>
+    </tr>
+    <tr>
+      <td>LightningDiT</td>
+      <td class="mn">800</td>
+      <td class="mn">1.42</td>
+      <td class="mn">4.57</td>
+      <td class="mn">560</td>
+    </tr>
+    <tr>
+      <td>REPA-E</td>
+      <td class="mn">800</td>
+      <td class="mn">1.12</td>
+      <td class="mn">3.04</td>
+      <td class="mn">177</td>
+    </tr>
+    <tr>
+      <td>RAE-XL</td>
+      <td class="mn">800</td>
+      <td class="mn">1.13</td>
+      <td class="mn">3.26</td>
+      <td class="mn">177</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>RAEv2 (K=7, ours)</strong></td>
+      <td class="mn best">80</td>
+      <td class="mn best">1.06</td>
+      <td class="mn best">2.17</td>
+      <td class="mn best">35</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The gains transfer: on text-to-image generation (GenEval), RAEv2 reaches 82.7 after finetuning vs 81.5 for RAE and 78.3 for Flux-VAE. On navigation world models (RECON), RAEv2-NWM achieves FVD 105.61 vs RAE 312.01 and NWM 200.97.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">raev2/encoder.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="klayers">k-layers</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="complementary">complementary</button>
+    <button class="cs-tab" data-panel="guidance">guidance</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- PANEL: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Original RAE — the three problems</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem 1: final layer only</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">rae_encode</span>(img, encoder):</span>
+<span class="cs-line hl-p">    feats = encoder(img)         <span class="cmt"># all 24 layers</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> feats[<span class="op">-</span><span class="num">1</span>]              <span class="cmt"># only last layer!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem 2: CFG fails with RAE</span>
+<span class="cs-line"><span class="cmt"># CFG needs uncond pass:</span></span>
+<span class="cs-line hl-a">v_cond  = dit(x_t, cond=z)</span>
+<span class="cs-line hl-a">v_uncond = dit(x_t, cond=None) <span class="cmt"># ← undefined!</span></span>
+<span class="cs-line hl-a"><span class="cmt"># RAE latent space conditioned on z</span></span>
+<span class="cs-line hl-a"><span class="cmt"># → unconditional has no meaning</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem 3: REPA wrongly dropped</span>
+<span class="cs-line"><span class="cmt"># Assumption: RAE uses z as encoder</span></span>
+<span class="cs-line"><span class="cmt"># → distilling z to intermediate</span></span>
+<span class="cs-line"><span class="cmt">#   layers is a wasteful skip</span></span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># gFID @ 800ep: 1.13 (RAE baseline)</span></span>
+<span class="cs-line"><span class="cmt"># rFID @ K=1:   0.60 (poor recon)</span></span>
+<span class="cs-line"><span class="cmt"># AutoGuidance: separate model ★</span></span>
+      </pre>
+    </div>
+
+    <!-- PANEL: klayers -->
+    <div class="cs-panel" id="panel-klayers">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Generalized K-layer encoder</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">gen_encode</span>(img, encoder, K):</span>
+<span class="cs-line hl-g">    feats = encoder.all_layers(img)</span>
+<span class="cs-line hl-g">    <span class="cmt"># sum last K layers</span></span>
+<span class="cs-line hl-g">    <span class="kw">return</span> <span class="fn">sum</span>(feats[<span class="op">-</span>K:])</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># No new params — training free</span>
+<span class="cs-line"><span class="cmt"># Same latent shape N×d for all K</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># K sweep results (DINOv3-L, 80ep)</span>
+<span class="cs-line">K_DATA = &#123;</span>
+<span class="cs-line hl-a">    <span class="num">1</span>:  &#123;<span class="str">'rFID'</span>: <span class="num">0.60</span>, <span class="str">'gFID'</span>: <span class="num">1.59</span>&#125;,</span>
+<span class="cs-line">    <span class="num">4</span>:  &#123;<span class="str">'rFID'</span>: <span class="num">0.45</span>, <span class="str">'gFID'</span>: <span class="num">1.20</span>&#125;,</span>
+<span class="cs-line hl-g">    <span class="num">7</span>:  &#123;<span class="str">'rFID'</span>: <span class="num">0.35</span>, <span class="str">'gFID'</span>: <span class="num">1.06</span>&#125;,  <span class="cmt"># ★</span></span>
+<span class="cs-line">    <span class="num">10</span>: &#123;<span class="str">'rFID'</span>: <span class="num">0.25</span>, <span class="str">'gFID'</span>: <span class="num">1.09</span>&#125;,</span>
+<span class="cs-line hl-c">    <span class="num">23</span>: &#123;<span class="str">'rFID'</span>: <span class="num">0.18</span>, <span class="str">'gFID'</span>: <span class="num">1.10</span>&#125;,  <span class="cmt"># recon</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LP accuracy preserved across K:</span>
+<span class="cs-line"><span class="cmt"># K=1: 85.39%  K=7: 85.10%  K=23: 85.24%</span></span>
+<span class="cs-line"><span class="cmt"># Understanding performance intact</span></span>
+      </pre>
+    </div>
+
+    <!-- PANEL: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># RAEv2 training loop</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">for</span> img, label <span class="kw">in</span> dataloader:</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">  <span class="cmt"># 1. Encode with generalized encoder</span></span>
+<span class="cs-line hl-c">  x = gen_encode(img, dinov3, K=<span class="num">7</span>)</span>
+<span class="cs-line hl-c">  <span class="cmt"># x ∈ R^&#123;N×d&#125;, no grad on encoder</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a">  <span class="cmt"># 2. Forward noisy latent through DiT</span></span>
+<span class="cs-line hl-a">  t = <span class="fn">sample_timestep</span>()</span>
+<span class="cs-line hl-a">  x_t = x + t * noise</span>
+<span class="cs-line hl-a">  h_all, h_early = dit(x_t, label)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">  <span class="cmt"># 3. Two x-predictions in same space</span></span>
+<span class="cs-line hl-p">  x_full = head_full(h_all)   <span class="cmt"># strong</span></span>
+<span class="cs-line hl-p">  x_repa = head_repa(h_early) <span class="cmt"># weak</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">  <span class="cmt"># 4. Losses</span></span>
+<span class="cs-line hl-g">  L_diff = mse(x_full, x)     <span class="cmt"># main</span></span>
+<span class="cs-line hl-g">  L_repa = mse(x_repa, x)     <span class="cmt"># REPA</span></span>
+<span class="cs-line hl-g">  loss = L_diff + λ * L_repa</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Inference: internal guidance</span>
+<span class="cs-line">x_guided = x_full + w*(x_full - x_repa)</span>
+      </pre>
+    </div>
+
+    <!-- PANEL: complementary -->
+    <div class="cs-panel" id="panel-complementary">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Correlation analysis: 27 encoders</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># LP = ImageNet linear probe acc (%)</span></span>
+<span class="cs-line"><span class="cmt"># LDS = local distance similarity score</span></span>
+<span class="cs-line"><span class="cmt"># r = Pearson correlation with gFID</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># RAE alone (uses LP, ignores LDS)</span>
+<span class="cs-line hl-p">r_LP_rae  = <span class="op">-</span><span class="num">0.81</span>   <span class="cmt"># strong ★</span></span>
+<span class="cs-line hl-a">r_LDS_rae = <span class="op">-</span><span class="num">0.13</span>   <span class="cmt"># negligible</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># REPA alone (uses LDS, ignores LP)</span>
+<span class="cs-line hl-a">r_LP_repa  = <span class="op">+</span><span class="num">0.34</span>  <span class="cmt"># anti-correlated!</span></span>
+<span class="cs-line hl-c">r_LDS_repa = <span class="op">-</span><span class="num">0.89</span>  <span class="cmt"># strong ★</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># RAE + REPA (needs both)</span>
+<span class="cs-line hl-g">r_avg_both = <span class="op">-</span><span class="num">0.83</span>  <span class="cmt"># avg(LP,LDS) ★</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DINOv3-L is best because:</span>
+<span class="cs-line hl-g">LP_dinov3l  = <span class="num">87.0</span>   <span class="cmt"># best global</span></span>
+<span class="cs-line hl-g">LDS_dinov3l = <span class="num">0.42</span>   <span class="cmt"># best spatial</span></span>
+<span class="cs-line hl-g">gFID_raev2  = <span class="num">2.61</span>   <span class="cmt"># @ 20ep, best</span></span>
+      </pre>
+    </div>
+
+    <!-- PANEL: guidance -->
+    <div class="cs-panel" id="panel-guidance">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Guidance ablation (RAEv2, 80ep)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Option 1: no guidance</span>
+<span class="cs-line">gFID_none = <span class="num">1.50</span>   <span class="cmt"># unguided</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Option 2: CFG — fails!</span>
+<span class="cs-line hl-a">gFID_cfg  = <span class="num">3.86</span>   <span class="cmt"># worse than none</span></span>
+<span class="cs-line hl-a"><span class="cmt"># unconditional is ill-defined in RAE</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Option 3: AutoGuidance (original)</span>
+<span class="cs-line hl-p">gFID_ag   = <span class="num">3.31</span>   <span class="cmt"># separate small DiT</span></span>
+<span class="cs-line hl-p"><span class="cmt"># but: extra model + extra NFEs</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Option 4: REPA guidance (ours)</span>
+<span class="cs-line hl-g">x_guided  = (x_full</span>
+<span class="cs-line hl-g">           + w * (x_full - x_repa))</span>
+<span class="cs-line hl-g">gFID_repa = <span class="num">1.06</span>   <span class="cmt"># best ★</span></span>
+<span class="cs-line hl-g">extra_NFE = <span class="num">0</span>       <span class="cmt"># in same fwd pass</span></span>
+<span class="cs-line hl-g">extra_model = <span class="cls">None</span>  <span class="cmt"># not needed</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why REPA = weak prediction:</span>
+<span class="cs-line"><span class="cmt"># MLP head on early layers only</span></span>
+<span class="cs-line"><span class="cmt"># → less information, weaker pred</span></span>
+<span class="cs-line"><span class="cmt"># → plays role of small model in AG</span></span>
+      </pre>
+    </div>
+
+    <!-- PANEL: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark comparison (ImageNet-256)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt">#                  ep   gFID  FDr6  EPFID</span></span>
+<span class="cs-line">SiT_XL2          = (<span class="num">800</span>, <span class="num">2.12</span>, <span class="num">8.44</span>,   <span class="num">0</span>)</span>
+<span class="cs-line">DDT_XL           = (<span class="num">800</span>, <span class="num">1.26</span>, <span class="num">5.70</span>, <span class="num">800</span>)</span>
+<span class="cs-line">LightningDiT     = (<span class="num">800</span>, <span class="num">1.42</span>, <span class="num">4.57</span>, <span class="num">560</span>)</span>
+<span class="cs-line">REG              = (<span class="num">800</span>, <span class="num">1.54</span>, <span class="num">4.64</span>, <span class="num">480</span>)</span>
+<span class="cs-line">REPA_E           = (<span class="num">800</span>, <span class="num">1.12</span>, <span class="num">3.04</span>, <span class="num">177</span>)</span>
+<span class="cs-line">RAE_XL           = (<span class="num">800</span>, <span class="num">1.13</span>, <span class="num">3.26</span>, <span class="num">177</span>)</span>
+<span class="cs-line hl-g">RAEv2_K7    = ( <span class="num">80</span>, <span class="num">1.06</span>, <span class="num">2.17</span>,  <span class="num">35</span>) <span class="cmt"># ★</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Text-to-image (GenEval benchmark)</span>
+<span class="cs-line hl-c">flux_vae_ft  = <span class="num">78.3</span>   <span class="cmt"># after finetune</span></span>
+<span class="cs-line hl-c">rae_ft       = <span class="num">81.5</span></span>
+<span class="cs-line hl-g">raev2_ft     = <span class="num">82.7</span>   <span class="cmt"># ★</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># World models (RECON FVD)</span>
+<span class="cs-line">DIAMOND = <span class="num">762.73</span></span>
+<span class="cs-line">NWM     = <span class="num">200.97</span></span>
+<span class="cs-line hl-p">RAE_NWM = <span class="num">312.01</span>  <span class="cmt"># original RAE worse!</span></span>
+<span class="cs-line hl-g">RAEv2_NWM = <span class="num">105.61</span> <span class="cmt"># ★ 3× better</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + Sidebar toggles ────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ───────────────────────────
+const tabMeta = {
+  problem:       { file: 'raev2/encoder.py',     title: 'The Problem' },
+  klayers:       { file: 'raev2/gen_encoder.py', title: 'K-Layer Encoder' },
+  arch:          { file: 'raev2/train.py',        title: 'Architecture' },
+  complementary: { file: 'raev2/analysis.py',     title: 'Complementary Roles' },
+  guidance:      { file: 'raev2/guidance.py',     title: 'Free Guidance' },
+  results:       { file: 'raev2/results.py',      title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar on scroll ──
+const sectionMap = {
+  's-problem':       'problem',
+  's-klayers':       'klayers',
+  's-arch':          'arch',
+  's-complementary': 'complementary',
+  's-guidance':      'guidance',
+  's-results':       'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ── K-layer canvas ───────────────────────────────────────
+const kData = {
+  1:  { rFID: 0.60, gFID: 1.59, verdict: 'original RAE baseline' },
+  4:  { rFID: 0.45, gFID: 1.20, verdict: 'improved reconstruction' },
+  7:  { rFID: 0.35, gFID: 1.06, verdict: 'best guided generation' },
+  10: { rFID: 0.25, gFID: 1.09, verdict: 'near-pareto, strong recon' },
+  23: { rFID: 0.18, gFID: 1.10, verdict: 'best reconstruction (all layers)' },
+};
+
+// Pareto frontier comparison points (other methods)
+const comparisons = [
+  { label: 'FLUX.1 VAE', rFID: 0.22, gFID: 3.8,  color: 'rgba(148,163,184,.5)' },
+  { label: 'SD-VAE',     rFID: 0.55, gFID: 4.2,  color: 'rgba(148,163,184,.4)' },
+  { label: 'VA-VAE',     rFID: 0.49, gFID: 3.2,  color: 'rgba(148,163,184,.4)' },
+];
+
+let selectedK = 7;
+
+function drawKCanvas() {
+  const canvas = document.getElementById('k-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 280;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PAD = { top: 28, right: 30, bottom: 44, left: 56 };
+  const PW = W - PAD.left - PAD.right;
+  const PH = H - PAD.top - PAD.bottom;
+
+  // Axis ranges
+  const rMin = 0.0, rMax = 0.72;
+  const gMin = 0.8, gMax = 4.8;
+
+  function tx(rFID) { return PAD.left + ((rFID - rMin) / (rMax - rMin)) * PW; }
+  function ty(gFID) { return PAD.top + ((gFID - gMin) / (gMax - gMin)) * PH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1;
+  for (let r = 0.1; r < 0.72; r += 0.1) {
+    ctx.beginPath(); ctx.moveTo(tx(r), PAD.top); ctx.lineTo(tx(r), PAD.top + PH); ctx.stroke();
+  }
+  for (let g = 1; g < 4.8; g += 0.5) {
+    ctx.beginPath(); ctx.moveTo(PAD.left, ty(g)); ctx.lineTo(PAD.left + PW, ty(g)); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,.2)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + PH);
+  ctx.lineTo(PAD.left + PW, PAD.top + PH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(148,163,184,.7)';
+  ctx.font = '10px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('rFID (reconstruction) →', PAD.left + PW / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, PAD.top + PH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('gFID (generation) →', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = '9px var(--ff-mono)';
+  ctx.fillStyle = 'rgba(148,163,184,.5)';
+  ctx.textAlign = 'center';
+  [0.1, 0.2, 0.3, 0.4, 0.5, 0.6].forEach(r => {
+    ctx.fillText(r.toFixed(1), tx(r), PAD.top + PH + 14);
+  });
+  ctx.textAlign = 'right';
+  [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5].forEach(g => {
+    ctx.fillText(g.toFixed(1), PAD.left - 6, ty(g) + 3);
+  });
+
+  // "Better" annotation arrows
+  ctx.fillStyle = 'rgba(148,163,184,.3)';
+  ctx.font = '8px var(--ff-mono)';
+  ctx.textAlign = 'left';
+  ctx.fillText('← better recon.', PAD.left + 4, PAD.top + PH - 8);
+  ctx.textAlign = 'center';
+  ctx.fillText('better gen. ↑', PAD.left + 40, PAD.top + 14);
+
+  // Comparison points (other methods)
+  comparisons.forEach(c => {
+    const cx = tx(c.rFID), cy = ty(c.gFID);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = c.color;
+    ctx.fill();
+    ctx.font = '8.5px var(--ff-mono)';
+    ctx.fillStyle = 'rgba(148,163,184,.55)';
+    ctx.textAlign = 'left';
+    ctx.fillText(c.label, cx + 7, cy + 3);
+  });
+
+  // Pareto curve through RAEv2 K points
+  const ks = [1, 4, 7, 10, 23];
+  ctx.beginPath();
+  ks.forEach((k, i) => {
+    const d = kData[k];
+    const px = tx(d.rFID), py = ty(d.gFID);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.strokeStyle = 'rgba(139,92,246,.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // All K points
+  ks.forEach(k => {
+    const d = kData[k];
+    const px = tx(d.rFID), py = ty(d.gFID);
+    const isSelected = k === selectedK;
+    ctx.beginPath();
+    ctx.arc(px, py, isSelected ? 8 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? 'var(--cyan)' : 'rgba(6,182,212,.35)';
+    ctx.fill();
+    if (isSelected) {
+      ctx.strokeStyle = 'rgba(6,182,212,.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.font = isSelected ? '10px var(--ff-mono)' : '9px var(--ff-mono)';
+    ctx.fillStyle = isSelected ? '#e2e8f0' : 'rgba(148,163,184,.6)';
+    ctx.textAlign = 'center';
+    ctx.fillText('K=' + k, px, py - 12);
+  });
+}
+
+document.querySelectorAll('.k-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.k-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedK = parseInt(btn.dataset.k, 10);
+    const d = kData[selectedK];
+    document.getElementById('k-rfid').textContent = d.rFID.toFixed(2);
+    document.getElementById('k-gfid').textContent = d.gFID.toFixed(2);
+    document.getElementById('k-verdict').textContent = d.verdict;
+    drawKCanvas();
+  });
+});
+
+window.addEventListener('resize', drawKCanvas);
+drawKCanvas();
+
+// ── Complementary mechanisms scatter ────────────────────
+const compModes = {
+  rae: {
+    title: 'RAE alone — global semantics (LP) drives gFID',
+    xLabel: 'LP accuracy (%)', yLabel: 'gFID (lower = better)',
+    r: -0.81,
+    points: [
+      { lp: 76.4, lds: 0.15, gFID: 13.84, label: 'MoCov3-B' },
+      { lp: 84.1, lds: 0.18, gFID:  8.60, label: 'WebSSL-1B' },
+      { lp: 84.5, lds: 0.38, gFID:  4.25, label: 'DINOv3-B' },
+      { lp: 83.9, lds: 0.41, gFID:  3.75, label: 'DINOv2-B' },
+      { lp: 87.0, lds: 0.42, gFID:  3.30, label: 'DINOv3-L' },
+    ],
+    xKey: 'lp', xMin: 74, xMax: 89,
+    rCorr: -0.81, gCorr: -0.13,
+  },
+  repa: {
+    title: 'REPA alone — spatial structure (LDS) drives gFID',
+    xLabel: 'LDS (spatial structure)', yLabel: 'gFID (lower = better)',
+    points: [
+      { lp: 76.4, lds: 0.15, gFID: 13.0, label: 'MoCov3-B' },
+      { lp: 84.1, lds: 0.18, gFID:  9.5, label: 'WebSSL-1B' },
+      { lp: 84.5, lds: 0.38, gFID:  5.2, label: 'DINOv3-B' },
+      { lp: 83.9, lds: 0.41, gFID:  4.8, label: 'DINOv2-B' },
+      { lp: 87.0, lds: 0.42, gFID:  4.4, label: 'DINOv3-L' },
+    ],
+    xKey: 'lds', xMin: 0.10, xMax: 0.48,
+    rCorr: -0.89, gCorr: +0.34,
+  },
+  both: {
+    title: 'RAE + REPA - avg(LP, LDS) is best predictor',
+    xLabel: "avg(LP', LDS') (normalized)", yLabel: 'gFID (lower = better)',
+    points: [
+      { avg: 0.36, gFID: 8.35, label: 'MoCov3-B' },
+      { avg: 0.44, gFID: 4.16, label: 'WebSSL-1B' },
+      { avg: 0.62, gFID: 2.76, label: 'DINOv3-B' },
+      { avg: 0.68, gFID: 2.81, label: 'DINOv2-B' },
+      { avg: 0.75, gFID: 2.61, label: 'DINOv3-L' },
+    ],
+    xKey: 'avg', xMin: 0.3, xMax: 0.8,
+    rCorr: -0.83, gCorr: null,
+  },
+};
+
+let compMode = 'rae';
+
+function drawCompCanvas() {
+  const canvas = document.getElementById('comp-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 300;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const m = compModes[compMode];
+  const PAD = { top: 30, right: 24, bottom: 46, left: 60 };
+  const PW = W - PAD.left - PAD.right;
+  const PH = H - PAD.top - PAD.bottom;
+
+  const xMin = m.xMin, xMax = m.xMax;
+  const yMin = 1.5, yMax = 15;
+
+  function tx(x) { return PAD.left + ((x - xMin) / (xMax - xMin)) * PW; }
+  function ty(y) { return PAD.top + ((y - yMin) / (yMax - yMin)) * PH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.035)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const x = xMin + i * (xMax - xMin) / 5;
+    ctx.beginPath(); ctx.moveTo(tx(x), PAD.top); ctx.lineTo(tx(x), PAD.top + PH); ctx.stroke();
+    const y = yMin + i * (yMax - yMin) / 5;
+    ctx.beginPath(); ctx.moveTo(PAD.left, ty(y)); ctx.lineTo(PAD.left + PW, ty(y)); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + PH);
+  ctx.lineTo(PAD.left + PW, PAD.top + PH);
+  ctx.stroke();
+
+  // Regression line (approximate)
+  ctx.strokeStyle = compMode === 'rae' ? 'rgba(139,92,246,.4)'
+    : compMode === 'repa' ? 'rgba(6,182,212,.4)' : 'rgba(16,185,129,.4)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top + PH * 0.1);
+  ctx.lineTo(PAD.left + PW, PAD.top + PH * 0.9);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(148,163,184,.7)';
+  ctx.font = '10px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText(m.xLabel, PAD.left + PW / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, PAD.top + PH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(m.yLabel, 0, 0);
+  ctx.restore();
+
+  // Pearson r annotation
+  const rColor = compMode === 'rae' ? 'rgba(139,92,246,.85)'
+    : compMode === 'repa' ? 'rgba(6,182,212,.85)' : 'rgba(16,185,129,.85)';
+  ctx.fillStyle = rColor;
+  ctx.font = 'bold 11px var(--ff-mono)';
+  ctx.textAlign = 'right';
+  ctx.fillText('r = ' + m.rCorr.toFixed(2), PAD.left + PW - 4, PAD.top + 16);
+
+  // Data points
+  const pts = m.points;
+  const ptColor = compMode === 'rae' ? 'rgba(139,92,246,.8)'
+    : compMode === 'repa' ? 'rgba(6,182,212,.8)' : 'rgba(16,185,129,.8)';
+
+  pts.forEach(p => {
+    const xv = p[m.xKey];
+    const px = tx(xv), py = ty(p.gFID);
+    ctx.beginPath();
+    ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = ptColor;
+    ctx.fill();
+    ctx.font = '8.5px var(--ff-mono)';
+    ctx.fillStyle = 'rgba(148,163,184,.75)';
+    ctx.textAlign = 'left';
+    ctx.fillText(p.label, px + 8, py + 3);
+  });
+}
+
+document.querySelectorAll('.comp-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.comp-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    compMode = tab.dataset.mode;
+    drawCompCanvas();
+  });
+});
+window.addEventListener('resize', drawCompCanvas);
+drawCompCanvas();
+
+// ── Convergence chart ────────────────────────────────────
+function drawConvCanvas() {
+  const canvas = document.getElementById('conv-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 260;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PAD = { top: 24, right: 80, bottom: 46, left: 60 };
+  const PW = W - PAD.left - PAD.right;
+  const PH = H - PAD.top - PAD.bottom;
+
+  // RAE data (epochs 20,40,80,160,400,800)
+  const raeData = [
+    [20, 3.75], [40, 2.85], [80, 2.23], [160, 1.85], [400, 1.40], [800, 1.13]
+  ];
+  // RAEv2 data (epochs 20,40,80)
+  const raev2Data = [
+    [20, 2.61], [40, 1.70], [80, 1.06]
+  ];
+
+  const xMin = 0, xMax = 850;
+  const yMin = 0.8, yMax = 4.2;
+
+  function tx(ep) { return PAD.left + ((ep - xMin) / (xMax - xMin)) * PW; }
+  function ty(gfid) { return PAD.top + ((gfid - yMin) / (yMax - yMin)) * PH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1;
+  [100, 200, 400, 600, 800].forEach(e => {
+    ctx.beginPath(); ctx.moveTo(tx(e), PAD.top); ctx.lineTo(tx(e), PAD.top + PH); ctx.stroke();
+  });
+  [1, 1.5, 2, 2.5, 3, 3.5, 4].forEach(g => {
+    ctx.beginPath(); ctx.moveTo(PAD.left, ty(g)); ctx.lineTo(PAD.left + PW, ty(g)); ctx.stroke();
+  });
+
+  // Target gFID=2 horizontal reference line
+  ctx.strokeStyle = 'rgba(245,158,11,.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, ty(2)); ctx.lineTo(PAD.left + PW, ty(2));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(245,158,11,.6)';
+  ctx.font = '9px var(--ff-mono)';
+  ctx.textAlign = 'left';
+  ctx.fillText('gFID = 2 threshold', PAD.left + 4, ty(2) - 4);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,.2)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + PH);
+  ctx.lineTo(PAD.left + PW, PAD.top + PH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(148,163,184,.7)';
+  ctx.font = '10px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Training Epochs', PAD.left + PW / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, PAD.top + PH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('gFID (lower = better)', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = '9px var(--ff-mono)';
+  ctx.fillStyle = 'rgba(148,163,184,.5)';
+  ctx.textAlign = 'center';
+  [100, 200, 400, 600, 800].forEach(e => ctx.fillText(e, tx(e), PAD.top + PH + 14));
+  ctx.textAlign = 'right';
+  [1, 1.5, 2, 2.5, 3, 3.5, 4].forEach(g => ctx.fillText(g.toFixed(1), PAD.left - 6, ty(g) + 3));
+
+  // Draw RAE line
+  ctx.beginPath();
+  raeData.forEach(([e, g], i) => {
+    if (i === 0) ctx.moveTo(tx(e), ty(g));
+    else ctx.lineTo(tx(e), ty(g));
+  });
+  ctx.strokeStyle = 'rgba(139,92,246,.7)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  raeData.forEach(([e, g]) => {
+    ctx.beginPath(); ctx.arc(tx(e), ty(g), 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(139,92,246,.85)'; ctx.fill();
+  });
+
+  // Draw RAEv2 line
+  ctx.beginPath();
+  raev2Data.forEach(([e, g], i) => {
+    if (i === 0) ctx.moveTo(tx(e), ty(g));
+    else ctx.lineTo(tx(e), ty(g));
+  });
+  ctx.strokeStyle = 'rgba(6,182,212,.85)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  raev2Data.forEach(([e, g]) => {
+    ctx.beginPath(); ctx.arc(tx(e), ty(g), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'var(--cyan)'; ctx.fill();
+  });
+
+  // Endpoint annotations
+  ctx.font = 'bold 10px var(--ff-mono)';
+  ctx.fillStyle = 'rgba(139,92,246,.85)';
+  ctx.textAlign = 'left';
+  ctx.fillText('RAE', tx(820), ty(1.13) + 3);
+  ctx.fillStyle = 'rgba(6,182,212,.9)';
+  ctx.fillText('RAEv2', tx(820), ty(1.06) - 6);
+
+  // EPFID markers
+  const rae177ep = 177, raev2_35ep = 35;
+  // RAE crosses gFID=2 at ~177 epochs (interpolate between 80→160: 2.23→1.85)
+  ctx.fillStyle = 'rgba(139,92,246,.5)';
+  ctx.font = '8px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('EPFID@2 = 177', tx(177), ty(2) + 20);
+  ctx.beginPath(); ctx.arc(tx(177), ty(2), 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(139,92,246,.6)'; ctx.fill();
+
+  ctx.fillStyle = 'rgba(6,182,212,.7)';
+  ctx.font = '8px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('EPFID@2 = 35', tx(35), ty(2) + 20);
+  ctx.beginPath(); ctx.arc(tx(35), ty(2), 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(6,182,212,.7)'; ctx.fill();
+
+  // Speedup label
+  ctx.fillStyle = 'rgba(16,185,129,.8)';
+  ctx.font = 'bold 11px var(--ff-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('10× faster', tx(440), ty(3.1));
+}
+
+window.addEventListener('resize', drawConvCanvas);
+drawConvCanvas();
+
+// ── EPFID animated bar chart ─────────────────────────────
+const epfidSection = document.getElementById('s-results');
+if (epfidSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(epfidSection);
+}
+</script>
+</BaseLayout>

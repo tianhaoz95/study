@@ -1,0 +1,1368 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="ELF: Continuous Diffusion for Language Finally Works | AI/ML Deep Dives"
+  description="A deep dive into Embedded Language Flows — how continuous flow matching in embedding space beats discrete diffusion language models, with animated visualizations."
+  crumb="ELF: Continuous Diffusion for Language"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Flow canvas ────────────────────────────────────────── */
+#flow-canvas{display:block;width:100%;height:220px;border-radius:8px;background:var(--card2)}
+.flow-controls{display:flex;align-items:center;gap:.75rem;margin-top:.875rem;flex-wrap:wrap}
+.flow-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .9rem;border-radius:6px;font-size:.74rem;font-family:var(--ff-mono);cursor:pointer;transition:all .2s;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)}
+.flow-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.flow-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.flow-t-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+#flow-t-val{color:var(--cyan);font-weight:700}
+
+/* ── Architecture diagram ───────────────────────────────── */
+#arch-svg{width:100%;height:auto}
+
+/* ── Step-by-step inference ─────────────────────────────── */
+.infer-steps{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.infer-step{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.infer-step.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.infer-step.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.infer-step.active .step-num{background:var(--purple);color:#fff}
+.infer-step.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.infer-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.infer-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.infer-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.infer-nav button:disabled{opacity:.35;cursor:default}
+.infer-progress{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+
+/* ── CFG extrapolation viz ──────────────────────────────── */
+.cfg-viz{position:relative;margin:1.5rem 0;border-radius:8px;overflow:hidden;background:var(--card2);border:1px solid var(--border)}
+#cfg-canvas{display:block;width:100%;height:180px}
+.cfg-legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem;padding:0 .125rem}
+.cfg-leg-item{display:flex;align-items:center;gap:.4rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted)}
+.cfg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* ── Comparison table ───────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2);line-height:1.5}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .model-name{font-family:var(--ff-mono);font-size:.75rem;font-weight:600;color:var(--text2)}
+.results-table .elf-row td{background:rgba(139,92,246,.06)}
+.results-table .elf-row .model-name{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .note{font-size:.65rem;color:var(--muted);font-style:italic}
+.discrete-header td{background:var(--surface);font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:.35rem .75rem}
+.continuous-header td{background:rgba(6,182,212,.06);font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--cyan);padding:.35rem .75rem}
+
+/* ── Training loss split bar ────────────────────────────── */
+.loss-split{display:flex;height:32px;border-radius:6px;overflow:hidden;margin:1rem 0;border:1px solid var(--border)}
+.loss-mse{background:linear-gradient(90deg,var(--purple-dim),rgba(139,92,246,.35));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-family:var(--ff-mono);color:var(--purple-l);font-weight:600;width:80%}
+.loss-ce{background:linear-gradient(90deg,rgba(6,182,212,.2),var(--cyan-dim));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-family:var(--ff-mono);color:var(--cyan);font-weight:600;width:20%}
+
+/* ── Embedding grid ─────────────────────────────────────── */
+.emb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin:1.5rem 0}
+.emb-cell{background:var(--card);padding:.875rem;text-align:center}
+.emb-cell-title{font-size:.67rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.emb-cell-score{font-size:1.4rem;font-weight:700;font-family:var(--ff-mono)}
+.emb-cell-desc{font-size:.67rem;color:var(--muted);margin-top:.25rem;line-height:1.4}
+.score-bad{color:var(--red)}
+.score-ok{color:var(--amber)}
+.score-good{color:var(--green)}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── TOC sidebar ─────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Math callout ────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-op{color:var(--muted2)}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .emb-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .post-hero{padding:5rem 1.25rem 2.5rem}
+  .post-body{padding:1.25rem 1.25rem 4rem}
+}
+</style>
+
+<!-- ════════════════════════════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion Language Models</span>
+    <span class="tag tag-cyan">Flow Matching</span>
+    <span class="tag tag-cyan">Continuous Embeddings</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>ELF: Continuous Diffusion<br>for Language Finally Works</h1>
+  <p class="lead">
+    For years, discrete diffusion dominated language generation because continuous approaches kept failing. ELF fixes this with one elegant insight: <em>stay in continuous embedding space for the entire denoising trajectory, and only snap to tokens at the very last step</em>. The result beats leading discrete DLMs using 10× fewer training tokens.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 26, 2026</span>
+    <span>~18 min read</span>
+    <span>Paper: <code>arXiv:2605.10938</code> — MIT</span>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════ GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- ══════════════════════════════════ TOC ══════════════════ -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents" aria-label="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Discrete Gap</a></li>
+    <li class="toc-item" id="toc-s-flow"><a href="#s-flow"><span class="toc-num">02</span> Flow Matching</a></li>
+    <li class="toc-item" id="toc-s-elf"><a href="#s-elf"><span class="toc-num">03</span> ELF Framework</a></li>
+    <li class="toc-item" id="toc-s-final"><a href="#s-final"><span class="toc-num">04</span> Final Step Trick</a></li>
+    <li class="toc-item" id="toc-s-guidance"><a href="#s-guidance"><span class="toc-num">05</span> CFG & Guidance</a></li>
+    <li class="toc-item" id="toc-s-inference"><a href="#s-inference"><span class="toc-num">06</span> Inference Walk</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">07</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════════════════════════ ARTICLE ══════════════════ -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────── §1 The Discrete Gap -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Discrete Gap</div>
+<h2>Why language and diffusion fight each other</h2>
+<p>
+  Diffusion models thrive in continuous spaces. Given a pixel image, you corrupt it with Gaussian noise and train a network to predict the clean image — the whole pipeline is smooth, differentiable, and mathematically elegant. Language is <strong>not</strong> continuous. A sentence is a sequence of discrete integer indices into a vocabulary. There is no sensible "halfway between 'cat' and 'dog'".
+</p>
+<p>
+  The field resolved this tension in two ways:
+</p>
+
+<div class="emb-grid">
+  <div class="emb-cell">
+    <div class="emb-cell-title">Discrete DLMs</div>
+    <div class="emb-cell-score score-ok">Works</div>
+    <div class="emb-cell-desc">Diffuse directly over token indices. Use masking or categorical corruption. Conceptually clean but can't use continuous techniques like CFG.</div>
+  </div>
+  <div class="emb-cell">
+    <div class="emb-cell-title">Continuous DLMs (prior)</div>
+    <div class="emb-cell-score score-bad">Lagged</div>
+    <div class="emb-cell-desc">Map tokens → embeddings, denoise in that space. But used per-step token losses that tied the trajectory back to discrete tokens at every step, limiting flexibility.</div>
+  </div>
+  <div class="emb-cell">
+    <div class="emb-cell-title">ELF</div>
+    <div class="emb-cell-score score-good">Wins</div>
+    <div class="emb-cell-desc">Continuous-only denoising from start to finish. Discretization happens exactly once — at the final step — using the same network weights.</div>
+  </div>
+</div>
+
+<p>
+  The key failure mode of previous continuous DLMs: they kept pulling the trajectory back toward discrete token space at every step with a cross-entropy loss. This is like trying to drive a smooth road but stopping every 100 meters to snap your GPS back to the nearest house. The trajectory never flows freely.
+</p>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">💡</span>
+  <span><strong>The ELF insight:</strong> Discretization is not a per-step nuisance to be managed — it is a <em>natural endpoint</em> of the flow. The final time step t=1 already wants to produce clean data, so repurpose it as your decoder. No extra components needed.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §2 Flow Matching -->
+<section id="s-flow" data-code="flow">
+<div class="section-no">02 — Flow Matching</div>
+<h2>From Gaussian noise to clean embeddings</h2>
+<p>
+  Flow Matching is the continuous-time successor to DDPM-style diffusion. Instead of thinking about T discrete denoising steps, you parameterize a smooth <em>velocity field</em> that moves a particle from noise at t=0 to data at t=1.
+</p>
+
+<h3>Rectified flows: the simplest path</h3>
+<p>
+  ELF uses the rectified flow interpolant — the straight-line path between noise and data:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Linear interpolation (rectified flow)</div>
+  <span class="math-var">z</span><sub>t</sub> <span class="math-op">= t · </span><span class="math-var">x</span> <span class="math-op">+ (1 − t) · </span><span class="math-var">ε</span>
+  <br>
+  <span class="math-comment">  where x ~ data distribution, ε ~ N(0, I), t ∈ [0, 1]</span>
+  <br><br>
+  <span class="math-var">v</span> <span class="math-op">= dz/dt = </span><span class="math-var">x</span> <span class="math-op">− </span><span class="math-var">ε</span>
+  <span class="math-comment">  ← constant velocity along the straight-line path</span>
+</div>
+
+<p>
+  At t=0 you have pure Gaussian noise. At t=1 you have the clean embedding. In between, you're at a linear mixture. The network is trained to predict <strong>x</strong> (the clean embedding) at every point along this path, then velocity is derived from x-prediction via <code>v = (x̂ − z) / (1 − t)</code>.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">flow-trajectories.canvas</span>
+    <span class="vp-hint">animated — press play</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="flow-canvas"></canvas>
+    <div class="flow-controls">
+      <button class="flow-btn" id="flow-play">▶ Play</button>
+      <button class="flow-btn" id="flow-reset">↺ Reset</button>
+      <span class="flow-t-label">t = <span id="flow-t-val">0.00</span></span>
+      <span class="flow-t-label" style="margin-left:auto;font-size:.65rem;opacity:.7">Each dot = one token embedding trajectory</span>
+    </div>
+  </div>
+</div>
+
+<h3>Why x-prediction instead of v-prediction?</h3>
+<p>
+  Standard Flow Matching predicts velocity <strong>v</strong> directly. ELF predicts the clean embedding <strong>x</strong> instead, and derives v from it. This matters for two reasons:
+</p>
+<ul>
+  <li><strong>Stability in high dimensions</strong> — token embeddings are 512-768 dimensional. Predicting the target directly is more stable than predicting the direction of travel.</li>
+  <li><strong>Weight sharing</strong> — the final step needs to produce a clean embedding that maps to a token. If the network predicts x at all steps, the final-step decode mode and the denoising mode share the same output space, making weight sharing natural and effective.</li>
+</ul>
+
+<div class="callout callout-tip">
+  <span class="callout-icon">⚡</span>
+  <span>The MSE loss in x-prediction space is: <code>L = E[(1/(1-t))² · ‖x̂θ(zₜ,t) − x‖²]</code>. The (1/(1-t))² weight upweights errors near t=1, where the model must be most precise.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §3 ELF Framework -->
+<section id="s-elf" data-code="elf">
+<div class="section-no">03 — ELF Framework</div>
+<h2>The complete architecture</h2>
+
+<p>
+  The full pipeline has three phases: <strong>encode</strong> tokens into continuous embeddings, <strong>flow</strong> from noise to clean embeddings using a shared denoiser network, and <strong>decode</strong> back to tokens at the final step using the same network.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">elf-architecture.svg</span>
+    <span class="vp-hint">hover components</span>
+  </div>
+  <div class="vp-body" style="overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" style="min-width:580px">
+      <!-- Background -->
+      <rect width="760" height="200" fill="transparent"/>
+
+      <!-- Tokens input -->
+      <g id="arch-tokens">
+        <rect x="10" y="70" width="90" height="60" rx="7" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+        <text x="55" y="94" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="monospace" font-weight="600">Tokens</text>
+        <text x="55" y="110" text-anchor="middle" fill="#7c6fad" font-size="9" font-family="monospace">[s₁, s₂, …, sL]</text>
+        <text x="55" y="123" text-anchor="middle" fill="#5c5380" font-size="8" font-family="monospace">discrete ∈ V</text>
+      </g>
+
+      <!-- Arrow: tokens → encoder -->
+      <line x1="100" y1="100" x2="128" y2="100" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+      <!-- T5 Encoder (training only) -->
+      <g id="arch-encoder">
+        <rect x="130" y="55" width="110" height="90" rx="7" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)" stroke-width="1.5"/>
+        <text x="185" y="78" text-anchor="middle" fill="#67e8f9" font-size="10" font-family="monospace" font-weight="600">T5 Encoder</text>
+        <text x="185" y="93" text-anchor="middle" fill="#4ba3b5" font-size="8" font-family="monospace">(frozen, 35M)</text>
+        <text x="185" y="113" text-anchor="middle" fill="#4ba3b5" font-size="8" font-family="monospace">bidirectional</text>
+        <text x="185" y="127" text-anchor="middle" fill="#4ba3b5" font-size="8" font-family="monospace">contextual emb.</text>
+        <rect x="148" y="136" width="74" height="14" rx="3" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+        <text x="185" y="146" text-anchor="middle" fill="#fbbf24" font-size="7.5" font-family="monospace">train-only</text>
+      </g>
+
+      <!-- Arrow: encoder → embeddings -->
+      <line x1="240" y1="100" x2="268" y2="100" stroke="rgba(6,182,212,.5)" stroke-width="1.5" marker-end="url(#arrowCyan)"/>
+
+      <!-- Continuous Embeddings -->
+      <g id="arch-emb">
+        <rect x="270" y="62" width="110" height="76" rx="7" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)" stroke-width="1.5"/>
+        <text x="325" y="85" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace" font-weight="600">Embeddings</text>
+        <text x="325" y="100" text-anchor="middle" fill="#3b9e7e" font-size="8" font-family="monospace">x ∈ ℝ^(L×512)</text>
+        <text x="325" y="115" text-anchor="middle" fill="#3b9e7e" font-size="8" font-family="monospace">+ noise ε ~ N(0,I)</text>
+        <text x="325" y="128" text-anchor="middle" fill="#3b9e7e" font-size="8" font-family="monospace">→ zₜ = tx + (1-t)ε</text>
+      </g>
+
+      <!-- Arrow: emb → ELF net -->
+      <line x1="380" y1="100" x2="408" y2="100" stroke="rgba(16,185,129,.5)" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+      <!-- ELF Network (main) -->
+      <g id="arch-net">
+        <rect x="410" y="45" width="130" height="110" rx="7" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="2"/>
+        <text x="475" y="68" text-anchor="middle" fill="#c4b5fd" font-size="10.5" font-family="monospace" font-weight="700">ELF Network</text>
+        <text x="475" y="83" text-anchor="middle" fill="#7c6fad" font-size="8" font-family="monospace">netθ(zₜ, t, mode)</text>
+        <!-- Denoise branch -->
+        <rect x="422" y="92" width="98" height="22" rx="4" fill="rgba(139,92,246,.2)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+        <text x="471" y="103" text-anchor="middle" fill="#c4b5fd" font-size="8" font-family="monospace">mode=denoise → x̂</text>
+        <text x="471" y="113" text-anchor="middle" fill="#7c6fad" font-size="7" font-family="monospace">L_MSE (t &lt; 1)</text>
+        <!-- Decode branch -->
+        <rect x="422" y="120" width="98" height="22" rx="4" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+        <text x="471" y="131" text-anchor="middle" fill="#67e8f9" font-size="8" font-family="monospace">mode=decode → logits</text>
+        <text x="471" y="141" text-anchor="middle" fill="#4ba3b5" font-size="7" font-family="monospace">L_CE (t = 1 only)</text>
+        <!-- Shared weights indicator -->
+        <text x="475" y="155" text-anchor="middle" fill="#8b7ba8" font-size="7" font-family="monospace">↕ shared weights</text>
+      </g>
+
+      <!-- Arrow: net → output tokens -->
+      <line x1="540" y1="100" x2="568" y2="100" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+      <!-- Output tokens -->
+      <g id="arch-output">
+        <rect x="570" y="70" width="100" height="60" rx="7" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+        <text x="620" y="94" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="monospace" font-weight="600">Output</text>
+        <text x="620" y="109" text-anchor="middle" fill="#7c6fad" font-size="8" font-family="monospace">argmax(W·x̂)</text>
+        <text x="620" y="122" text-anchor="middle" fill="#5c5380" font-size="8" font-family="monospace">discrete tokens</text>
+      </g>
+
+      <!-- Loop-back arrow for iterative denoising -->
+      <path d="M 475 45 Q 475 18 325 18 Q 175 18 185 55" fill="none" stroke="rgba(6,182,212,.4)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowCyanSm)"/>
+      <text x="330" y="13" text-anchor="middle" fill="#4ba3b5" font-size="8" font-family="monospace">iterative denoising (t: 0→1)</text>
+
+      <!-- Noise injection arrow -->
+      <text x="325" y="185" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">← start: z₀ ~ N(0,I)</text>
+      <line x1="270" y1="168" x2="270" y2="138" stroke="rgba(255,255,255,.15)" stroke-width="1" stroke-dasharray="3,2"/>
+
+      <!-- Defs -->
+      <defs>
+        <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(139,92,246,.6)"/>
+        </marker>
+        <marker id="arrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(6,182,212,.6)"/>
+        </marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(16,185,129,.6)"/>
+        </marker>
+        <marker id="arrowCyanSm" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto">
+          <path d="M0,0 L0,5 L6,2.5 z" fill="rgba(6,182,212,.4)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<h3>The encoder: contextual embeddings matter</h3>
+<p>
+  ELF encodes the input sequence with a pretrained T5-small encoder (frozen). This gives <strong>contextual</strong> embeddings — each token's representation considers its full sentence context. This is crucial: ELF's ablations show contextual embeddings beat non-contextual (single lookup table) embeddings by a large margin.
+</p>
+<p>
+  Crucially, the encoder is only needed at <strong>training time</strong> to produce clean target embeddings x. At inference, you start from Gaussian noise and denoise toward the learned embedding distribution — the encoder never runs.
+</p>
+
+<h3>The bottleneck projection</h3>
+<p>
+  T5-small produces 512-dimensional embeddings per token. ELF projects these down to 128-dim for the flow, then back up to match the denoiser's hidden size. This bottleneck (from the "Back to Basics" paper by Tianhong Li and Kaiming He — same group!) is a design choice that stabilizes the flow dynamics in high-dimensional spaces.
+</p>
+
+<div class="loss-split">
+  <div class="loss-mse">80% MSE loss (denoising, t &lt; 1)</div>
+  <div class="loss-ce">20% CE loss (decode, t = 1)</div>
+</div>
+<p style="font-size:.8rem;color:var(--muted);">Training batch composition — 80% of samples use the denoising branch (MSE), 20% use the decoding branch (cross-entropy). Both branches share the same network weights.</p>
+</section>
+
+<!-- ─────────────────────────────────── §4 Final Step Trick -->
+<section id="s-final" data-code="final">
+<div class="section-no">04 — The Final Step Trick</div>
+<h2>Why you only need to discretize once</h2>
+<p>
+  This is the core idea that makes ELF work. In Flow Matching, t=1 is where z<sub>t</sub> should equal the clean data x. So when the ODE integrator reaches t=1, the network input is approximately the clean embedding. Discretization is just <em>reading off the nearest token from the embedding</em>.
+</p>
+<p>
+  But there is a training subtlety: at t=1 exactly, z₁ = x, which means the network input carries no uncertainty — the task is trivially easy and the model learns nothing about decoding. ELF's fix: at the decoding branch, corrupt x with a small amount of noise to create z̃, giving the network a non-trivial input while still training it to produce discrete logits.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Final-step decode path</div>
+  <span class="math-comment">Training (decoding branch):</span>
+  <br>
+  <span class="math-var">z̃</span> <span class="math-op">= corrupt(</span><span class="math-var">x</span><span class="math-op">)</span>
+  <span class="math-comment">  ← nontrivial input via masking/noise</span>
+  <br>
+  <span class="math-var">x̂</span> <span class="math-op">= netθ(</span><span class="math-var">z̃</span><span class="math-op">, t=1, mode="decode")</span>
+  <br>
+  loss <span class="math-op">= CrossEntropy(W · </span><span class="math-var">x̂</span><span class="math-op">, s)</span>
+  <span class="math-comment">  ← W = unembedding matrix</span>
+  <br><br>
+  <span class="math-comment">Inference (final step only):</span>
+  <br>
+  tokens <span class="math-op">= argmax(W · netθ(</span><span class="math-var">z</span><sub>1</sub><span class="math-op">, t=1, mode="decode"))</span>
+</div>
+
+<h3>Shared weights: the elegant shortcut</h3>
+<p>
+  The denoiser and the decoder share all weights. A single binary "mode" token in the network's input tells it which task to perform. This is better than a two-stage pipeline (separate decoder) because:
+</p>
+<ul>
+  <li>The denoiser already learns rich representations of clean embeddings — the decoder just needs to project them to tokens.</li>
+  <li>No additional training stage, no additional parameters at inference.</li>
+  <li>The shared training signal keeps the embedding space aligned with what the unembedding layer expects.</li>
+</ul>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">💡</span>
+  <span>ELF's ablation confirms: the shared-weight variant extends further toward very low generative perplexity than a separately trained decoder. Sharing constraints the network to maintain a consistent embedding geometry throughout the flow.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §5 CFG & Guidance -->
+<section id="s-guidance" data-code="guidance">
+<div class="section-no">05 — CFG & Guidance</div>
+<h2>Getting continuous guidance for free</h2>
+<p>
+  Classifier-Free Guidance (CFG) is one of the most powerful tools in image diffusion — it lets you trade diversity for quality by blending conditional and unconditional predictions. For language, it has been "largely unexplored and shown less effective" in discrete DLMs, precisely because CFG requires interpolating in a continuous velocity space.
+</p>
+<p>
+  Since ELF operates entirely in continuous embedding space, CFG applies directly:
+</p>
+
+<div class="math-block">
+  <div class="math-label">CFG velocity blending</div>
+  <span class="math-var">v</span><sub>cfg</sub><span class="math-op">(zₜ | c) = ω · v(zₜ | c) + (1 − ω) · v(zₜ | ∅)</span>
+  <br>
+  <span class="math-comment">  ω = guidance scale; c = condition; ∅ = null condition</span>
+  <br>
+  <span class="math-comment">  ω > 1 amplifies the conditional direction → lower PPL, less diversity</span>
+</div>
+
+<h3>Self-conditioning: making guidance work without labels</h3>
+<p>
+  Standard CFG requires a class label or text prompt as condition c. For unconditional text generation, ELF uses <strong>self-conditioning</strong>: the prediction from the previous time step x̂′ becomes the condition for the current step. This is implemented by concatenating [z<sub>t</sub>, x̂′] as the network input — zero overhead at inference since you already have the previous prediction.
+</p>
+
+<div class="cfg-viz">
+  <canvas id="cfg-canvas"></canvas>
+</div>
+<div class="cfg-legend">
+  <div class="cfg-leg-item"><div class="cfg-dot" style="background:#5c6370"></div>ω=0 (unconditional)</div>
+  <div class="cfg-leg-item"><div class="cfg-dot" style="background:#61afef"></div>ω=1 (no guidance)</div>
+  <div class="cfg-leg-item"><div class="cfg-dot" style="background:#c678dd"></div>ω=2 (light guidance)</div>
+  <div class="cfg-leg-item"><div class="cfg-dot" style="background:#e5c07b"></div>ω=3 (strong guidance)</div>
+  <div class="cfg-leg-item"><div class="cfg-dot" style="background:#98c379"></div>data distribution</div>
+</div>
+
+<h3>Training-time CFG</h3>
+<p>
+  The standard CFG approach doubles inference compute (two forward passes per step). ELF avoids this by using <strong>training-time CFG</strong> (following the Mean Flows technique from the same MIT group): the network is trained to directly produce the guided output x<sub>cfg</sub> in a single pass, modeling the CFG output distribution rather than combining two predictions at inference time.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §6 Inference Walk -->
+<section id="s-inference" data-code="inference">
+<div class="section-no">06 — Inference Walk</div>
+<h2>From noise to text: step by step</h2>
+<p>
+  At inference time, ELF runs a numerical ODE (or SDE) solver over the flow trajectory. Walk through each step below:
+</p>
+
+<div class="infer-steps" id="infer-steps">
+  <div class="infer-step active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Initialize: sample Gaussian noise</div>
+      <div class="step-desc">Draw z₀ ~ N(0, I) of shape [L × d_emb]. This is your starting point — pure random noise with no structure at all.</div>
+      <div class="step-code">z = randn(L, d_emb)   <span style="color:var(--muted);"># e.g. shape [1024, 128]</span></div>
+    </div>
+  </div>
+  <div class="infer-step" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Iterative denoising loop (t: 0 → ~0.99)</div>
+      <div class="step-desc">For each time step tᵢ in the schedule, run the ELF network in denoise mode to predict the clean embedding x̂, then convert to velocity and take an Euler step.</div>
+      <div class="step-code">x_pred = net(z, t, mode="denoise")<br>v = (x_pred - z) / (1 - t)<br>z = z + dt * v</div>
+    </div>
+  </div>
+  <div class="infer-step" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Optional: SDE noise injection per step</div>
+      <div class="step-desc">The SDE variant injects a small amount of fresh noise at each step, resetting accumulated errors. This dramatically reduces generative perplexity in the few-step regime (32 steps).</div>
+      <div class="step-code">z = z + dt * v + σ * randn_like(z)  <span style="color:var(--muted);"># SDE variant</span></div>
+    </div>
+  </div>
+  <div class="infer-step" id="step-3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Final step: switch to decode mode</div>
+      <div class="step-desc">At the last step t=1, the network switches to "decode" mode. It produces clean embedding predictions which are projected to vocabulary logits by the unembedding matrix W.</div>
+      <div class="step-code">h = net(z, t=1, mode="decode")<br>logits = unembed(h)  <span style="color:var(--muted);"># W @ h</span></div>
+    </div>
+  </div>
+  <div class="infer-step" id="step-4">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Discretize: argmax to tokens</div>
+      <div class="step-desc">Apply argmax over the vocabulary dimension at each position to obtain the final discrete token sequence. All L tokens are produced simultaneously — generation is non-autoregressive.</div>
+      <div class="step-code">tokens = argmax(logits, dim=-1)  <span style="color:var(--muted);"># shape [L]</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="infer-nav">
+  <button id="infer-prev" disabled>‹ Prev</button>
+  <button id="infer-next">Next ›</button>
+  <span class="infer-progress" id="infer-prog">Step 1 of 5</span>
+</div>
+
+<h3>ODE vs SDE: when does stochasticity help?</h3>
+<p>
+  ELF's SDE-inspired sampler substantially outperforms the ODE in the few-step regime (8–32 steps), but they converge at high step counts. The intuition: the ODE deterministically follows the learned velocity field — small errors accumulate. The SDE's noise injection periodically "resets" these errors, trading a small accuracy cost per step for better error correction overall.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §7 Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">07 — Results</div>
+<h2>Beating discrete DLMs at their own game</h2>
+
+<p>
+  ELF is evaluated on unconditional generation (generative perplexity on OpenWebText), machine translation (WMT14 De-En, BLEU), and summarization (XSum, ROUGE). Results are clear across all three.
+</p>
+
+<h3>Unconditional generation — generative perplexity</h3>
+<p>
+  Lower generative perplexity = higher quality text. ELF-B (105M params, 45B training tokens) achieves <strong>Gen. PPL = 24</strong> at just 32 sampling steps — better than MDLM and Duo at 1024 steps.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Type</th>
+      <th>Params</th>
+      <th>Train Tokens</th>
+      <th>Steps</th>
+      <th>Gen. PPL ↓</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="discrete-header"><td colspan="6">Discrete DLMs</td></tr>
+    <tr>
+      <td class="model-name">MDLM</td>
+      <td>Discrete (masked)</td>
+      <td>170M</td>
+      <td>~550B</td>
+      <td>1024</td>
+      <td>~50</td>
+    </tr>
+    <tr>
+      <td class="model-name">Duo</td>
+      <td>Discrete (uniform)</td>
+      <td>170M</td>
+      <td>~550B</td>
+      <td>1024</td>
+      <td>~45</td>
+    </tr>
+    <tr>
+      <td class="model-name">MDLM + distill</td>
+      <td>Discrete + distil.</td>
+      <td>170M</td>
+      <td>~550B+</td>
+      <td>32</td>
+      <td>~35</td>
+    </tr>
+    <tr class="continuous-header"><td colspan="6">Continuous DLMs</td></tr>
+    <tr>
+      <td class="model-name">FLM / FMLM</td>
+      <td>Continuous (distilled)</td>
+      <td>170M</td>
+      <td>~577B</td>
+      <td>32</td>
+      <td>~30</td>
+    </tr>
+    <tr>
+      <td class="model-name">LangFlow</td>
+      <td>Continuous</td>
+      <td>170M</td>
+      <td>~550B</td>
+      <td>1024</td>
+      <td>~55</td>
+    </tr>
+    <tr class="elf-row">
+      <td class="model-name">ELF-B (ours)</td>
+      <td>Continuous (ELF)</td>
+      <td>105M</td>
+      <td class="best">45B</td>
+      <td class="best">32</td>
+      <td class="best">24</td>
+    </tr>
+  </tbody>
+</table>
+<p class="note" style="font-size:.73rem;color:var(--muted);">Gen. PPL numbers approximate from paper Figure 7; exact values vary with entropy/CFG scale. ELF uses SDE sampler with CFG scale=3.</p>
+
+<h3>Conditional generation</h3>
+<p>
+  On machine translation and summarization, ELF-B outperforms all comparable-scale baselines:
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Size</th>
+      <th>WMT14 De-En BLEU ↑</th>
+      <th>XSum R-1 ↑</th>
+      <th>XSum R-2 ↑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">MDLM</td><td>99M</td><td>25.2</td><td>30.5</td><td>10.2</td>
+    </tr>
+    <tr>
+      <td class="model-name">Duo</td><td>99M</td><td>18.4</td><td>33.4</td><td>11.6</td>
+    </tr>
+    <tr>
+      <td class="model-name">E2D2</td><td>170M (+35M)</td><td>21.3</td><td>31.4</td><td>10.1</td>
+    </tr>
+    <tr>
+      <td class="model-name">SeqDiffuSeq</td><td>99M</td><td>24.8</td><td>28.4</td><td>8.3</td>
+    </tr>
+    <tr class="elf-row">
+      <td class="model-name">ELF-B (ours)</td><td>105M (+35M)</td><td class="best">26.4</td><td class="best">36.0</td><td class="best">12.2</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>What the ablations reveal</h3>
+<ul>
+  <li><strong>Contextual embeddings win.</strong> Pretrained T5 encoder >> random encoder >> frozen Gaussian embeddings >> learnable embeddings. Context helps the flow model navigate the embedding space.</li>
+  <li><strong>Shared weights win narrowly.</strong> A separately-trained two-stage decoder performs comparably overall, but the shared-weight variant achieves lower generative perplexity at the extreme end of the quality-diversity trade-off.</li>
+  <li><strong>SDE beats ODE at ≤64 steps.</strong> At 128+ steps the gap closes. For practical deployment (fast generation), SDE is the clear choice.</li>
+  <li><strong>CFG scale 2-3 is the sweet spot.</strong> Higher scales push perplexity down but also collapse diversity. The paper plots quality vs. entropy Pareto curves across CFG scales.</li>
+</ul>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">📊</span>
+  <span><strong>The data efficiency story:</strong> ELF uses 45B training tokens versus 550B+ for prior DLMs — a 12× reduction. The paper attributes this partly to the Flow Matching formulation and partly to the pretrained T5 encoder providing a high-quality embedding space from day one.</span>
+</div>
+
+<h3>Scaling</h3>
+<p>
+  ELF scales predictably: ELF-B (105M) → ELF-M (342M) → ELF-L (652M) each push the generative perplexity–entropy Pareto frontier in the right direction. Larger models achieve lower perplexity at matched diversity, suggesting standard scaling laws apply.
+</p>
+</section>
+
+</article>
+
+<!-- ══════════════════════════════════ CODE SIDEBAR ══════════════════ -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">elf/train.py</div>
+      <div class="cs-section-title" id="cs-section-title">Training Loop</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code" aria-label="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">context</button>
+    <button class="cs-tab" data-panel="flow">flow math</button>
+    <button class="cs-tab" data-panel="elf">architecture</button>
+    <button class="cs-tab" data-panel="final">final step</button>
+    <button class="cs-tab" data-panel="guidance">CFG</button>
+    <button class="cs-tab" data-panel="inference">inference</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre"><span class="cs-line cmt"># Why continuous DLMs lagged discrete ones</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># Prior continuous DLMs (Diffusion-LM, CDCD,</span>
+<span class="cs-line cmt"># DiffuSeq) added a per-step cross-entropy</span>
+<span class="cs-line cmt"># loss to "guide" the trajectory:</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># OLD APPROACH (simplified):</span></span>
+<span class="cs-line hl-p"><span class="kw">for</span> t <span class="kw">in</span> time_steps:</span>
+<span class="cs-line hl-p">    x_pred = denoise(z_t, t)</span>
+<span class="cs-line hl-p">    loss_mse = mse(x_pred, x_clean)</span>
+<span class="cs-line hl-p">    loss_ce = cross_entropy(  <span class="cmt"># ← every step!</span></span>
+<span class="cs-line hl-p">        unembed(x_pred), tokens)</span>
+<span class="cs-line hl-p">    loss = loss_mse + loss_ce</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># This "anchor" to discrete space at every</span>
+<span class="cs-line cmt"># step prevents the flow from moving freely</span>
+<span class="cs-line cmt"># through continuous embedding space.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># Discrete DLMs (MDLM, Duo) don't have this</span>
+<span class="cs-line cmt"># tension — they operate directly over token</span>
+<span class="cs-line cmt"># indices with categorical distributions:</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># MDLM (masked diffusion):</span></span>
+<span class="cs-line"><span class="cmt"># x_t = MASK with prob (1-t), else x_0</span></span>
+<span class="cs-line"><span class="cmt"># → predict unmasked tokens directly</span></span>
+<span class="cs-line"><span class="cmt"># → no continuous space issues</span></span>
+<span class="cs-line"><span class="cmt"># → but no CFG either (discrete velocity?)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ELF's solution: let the flow be free,</span>
+<span class="cs-line cmt"># discretize exactly ONCE at the end.</span></pre>
+    </div>
+
+    <!-- panel: flow -->
+    <div class="cs-panel" id="panel-flow">
+      <pre class="cs-pre"><span class="cs-line cmt"># Flow Matching math for ELF</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line"><span class="cmt"># Rectified flow interpolant:</span></span>
+<span class="cs-line hl-c">  z_t = t * x + (1 - t) * epsilon</span>
+<span class="cs-line hl-c">  <span class="cmt"># x   = clean embedding (from T5 encoder)</span></span>
+<span class="cs-line hl-c">  <span class="cmt"># eps = Gaussian noise N(0, I)</span></span>
+<span class="cs-line hl-c">  <span class="cmt"># t   = time ∈ [0, 1]</span></span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># True velocity (constant along path):</span></span>
+<span class="cs-line hl-p">  v = dz/dt = x - epsilon</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># x-prediction parameterization:</span></span>
+<span class="cs-line hl-g">  x_hat = net(z_t, t, mode="denoise")</span>
+<span class="cs-line hl-g">  v_hat = (x_hat - z_t) / (1 - t)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># MSE training loss (weighted):</span></span>
+<span class="cs-line">  L_MSE = E[</span>
+<span class="cs-line">    (1/(1-t))^2</span>
+<span class="cs-line">    * ||x_hat - x||^2</span>
+<span class="cs-line">  ]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why x-prediction (not v-prediction)?</span>
+<span class="cs-line cmt"># 1. More stable in high-dim embedding space</span>
+<span class="cs-line cmt"># 2. Output space = clean embeddings = same</span>
+<span class="cs-line cmt">#    as what the decode branch produces</span>
+<span class="cs-line cmt">#    → weight sharing works naturally</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># If you used v-prediction:</span>
+<span class="cs-line cmt"># v is a direction, not an embedding point</span>
+<span class="cs-line cmt"># → decode branch needs different output head</span>
+<span class="cs-line cmt"># → no clean weight sharing</span></pre>
+    </div>
+
+    <!-- panel: elf -->
+    <div class="cs-panel" id="panel-elf">
+      <pre class="cs-pre"><span class="cs-line cmt"># ELF full training algorithm</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line kw">def</span> <span class="fn">elf_train_step</span>(tokens, net, encoder):</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">    <span class="cmt"># 1. Encode tokens to continuous space</span></span>
+<span class="cs-line hl-c">    x = encoder(tokens)  <span class="cmt"># T5-small frozen</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># x: [L, 512] contextual embeddings</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">if</span> rand() &lt; <span class="num">0.8</span>:</span>
+<span class="cs-line hl-p">        <span class="cmt"># DENOISING BRANCH (80%)</span></span>
+<span class="cs-line hl-p">        t = sample_t()        <span class="cmt"># uniform [0,1)</span></span>
+<span class="cs-line hl-p">        eps = randn_like(x)</span>
+<span class="cs-line hl-p">        z_t = t*x + (1-t)*eps  <span class="cmt"># corrupt</span></span>
+<span class="cs-line hl-p">        x_hat = net(z_t, t, <span class="str">"denoise"</span>)</span>
+<span class="cs-line hl-p">        v_hat = (x_hat - z_t) / (1-t)</span>
+<span class="cs-line hl-p">        v_true = x - eps</span>
+<span class="cs-line hl-p">        loss = mse(v_hat, v_true)</span>
+<span class="cs-line">    <span class="kw">else</span>:</span>
+<span class="cs-line hl-g">        <span class="cmt"># DECODING BRANCH (20%)</span></span>
+<span class="cs-line hl-g">        z_tilde = corrupt(x)  <span class="cmt"># nontrivial input</span></span>
+<span class="cs-line hl-g">        x_hat = net(z_tilde, <span class="num">1.0</span>, <span class="str">"decode"</span>)</span>
+<span class="cs-line hl-g">        logits = unembed(x_hat)  <span class="cmt"># W @ x_hat</span></span>
+<span class="cs-line hl-g">        loss = cross_entropy(logits, tokens)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">return</span> loss</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key: both branches use the SAME net()</span>
+<span class="cs-line cmt"># differentiated only by mode token + t</span>
+<span class="cs-line cmt"># The unembedding matrix W is shared too</span></pre>
+    </div>
+
+    <!-- panel: final -->
+    <div class="cs-panel" id="panel-final">
+      <pre class="cs-pre"><span class="cs-line cmt"># The final-step discretization trick</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># Problem: at t=1, z_t → x (clean)</span>
+<span class="cs-line cmt"># So the decoding input is trivially clean:</span>
+<span class="cs-line cmt"># the network just memorizes x → tokens</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Fix: corrupt x before passing to decoder</span>
+<span class="cs-line kw">def</span> <span class="fn">corrupt</span>(x):</span>
+<span class="cs-line hl-p">    <span class="cmt"># mask some positions + add noise</span></span>
+<span class="cs-line hl-p">    mask = rand(x.shape[0]) &lt; mask_rate</span>
+<span class="cs-line hl-p">    noise = randn_like(x) * noise_scale</span>
+<span class="cs-line hl-p">    x_corrupted = x.clone()</span>
+<span class="cs-line hl-p">    x_corrupted[mask] += noise[mask]</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> x_corrupted</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Two decoding strategies compared:</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># 1. SHARED-WEIGHT (ELF default)</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    Stage 1+2 = same net, mode token tells</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    it whether to denoise or decode</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    Pro: single model, simpler pipeline</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    Pushes further toward low PPL regime</span></span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt"># 2. SEPARATE DECODER (ablation)</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    Stage 1: train T5 decoder on masked emb</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    Stage 2: freeze encoder+decoder,</span></span>
+<span class="cs-line hl-c"><span class="cmt">#             train separate denoiser</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    Con: two training stages, extra params</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    Comparable but doesn't reach lowest PPL</span></span></pre>
+    </div>
+
+    <!-- panel: guidance -->
+    <div class="cs-panel" id="panel-guidance">
+      <pre class="cs-pre"><span class="cs-line cmt"># Classifier-Free Guidance in ELF</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># CFG blends conditional + unconditional:</span>
+<span class="cs-line hl-p">  v_cfg = w * v(z|c) + (1-w) * v(z|null)</span>
+<span class="cs-line hl-p">  <span class="cmt"># w > 1: amplify condition direction</span></span>
+<span class="cs-line hl-p">  <span class="cmt"># w = 1: standard conditional</span></span>
+<span class="cs-line hl-p">  <span class="cmt"># w = 0: unconditional</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># In ELF (x-prediction form):</span>
+<span class="cs-line hl-c">  x_cfg = w * x(z|c) + (1-w) * x(z|null)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Self-conditioning (condition = prev pred):</span>
+<span class="cs-line kw">def</span> <span class="fn">inference_step</span>(z, t, x_prev):</span>
+<span class="cs-line hl-g">    <span class="cmt"># Concat previous prediction as condition</span></span>
+<span class="cs-line hl-g">    inp = concat([z, x_prev], dim=-<span class="num">1</span>)</span>
+<span class="cs-line hl-g">    x_cond = net(inp, t, <span class="str">"denoise"</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">    <span class="cmt"># Null condition = zeros</span></span>
+<span class="cs-line hl-g">    x_null = net(concat([z, zeros], dim=-<span class="num">1</span>),</span>
+<span class="cs-line hl-g">                 t, <span class="str">"denoise"</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">    x_cfg = w * x_cond + (<span class="num">1</span>-w) * x_null</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> x_cfg</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training-time CFG (avoids 2x forward pass)</span>
+<span class="cs-line cmt"># Train the network to directly produce x_cfg</span>
+<span class="cs-line cmt"># using the "Mean Flows" technique.</span>
+<span class="cs-line cmt"># At inference: single forward pass, full CFG</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Trade-off summary:</span>
+<span class="cs-line cmt"># w=1.0 → best diversity, higher PPL</span>
+<span class="cs-line cmt"># w=2.0 → good balance (default)</span>
+<span class="cs-line cmt"># w=3.0 → lowest PPL, less diversity</span></pre>
+    </div>
+
+    <!-- panel: inference -->
+    <div class="cs-panel" id="panel-inference">
+      <pre class="cs-pre"><span class="cs-line cmt"># ELF inference (ODE + SDE variants)</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line kw">def</span> <span class="fn">elf_sample</span>(L, steps=<span class="num">32</span>, sde=<span class="kw">True</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Init: pure Gaussian noise</span></span>
+<span class="cs-line hl-p">    z = randn(L, d_emb)</span>
+<span class="cs-line hl-p">    ts = linspace(<span class="num">0</span>, <span class="num">1</span>, steps)</span>
+<span class="cs-line hl-p">    x_prev = zeros_like(z)  <span class="cmt"># self-cond init</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">for</span> i <span class="kw">in</span> range(steps - <span class="num">1</span>):</span>
+<span class="cs-line">        t = ts[i]; dt = ts[i+<span class="num">1</span>] - ts[i]</span>
+<span class="cs-line hl-c"></span>
+<span class="cs-line hl-c">        <span class="cmt"># Predict clean embedding</span></span>
+<span class="cs-line hl-c">        x_hat = net(</span>
+<span class="cs-line hl-c">            concat([z, x_prev], dim=-<span class="num">1</span>),</span>
+<span class="cs-line hl-c">            t, <span class="str">"denoise"</span></span>
+<span class="cs-line hl-c">        )</span>
+<span class="cs-line hl-c">        v = (x_hat - z) / (<span class="num">1</span> - t)</span>
+<span class="cs-line"></span>
+<span class="cs-line">        <span class="kw">if</span> sde:</span>
+<span class="cs-line hl-g">            <span class="cmt"># Inject noise, shift t back</span></span>
+<span class="cs-line hl-g">            sigma = sde_noise_level(t)</span>
+<span class="cs-line hl-g">            z = z + dt*v + sigma*randn_like(z)</span>
+<span class="cs-line">        <span class="kw">else</span>:</span>
+<span class="cs-line">            z = z + dt * v  <span class="cmt"># ODE Euler step</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">        x_prev = x_hat  <span class="cmt"># update self-cond</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">    <span class="cmt"># Final step: decode mode</span></span>
+<span class="cs-line hl-p">    h = net(z, <span class="num">1.0</span>, <span class="str">"decode"</span>)</span>
+<span class="cs-line hl-p">    logits = unembed(h)      <span class="cmt"># W @ h</span></span>
+<span class="cs-line hl-p">    tokens = argmax(logits, dim=-<span class="num">1</span>)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> tokens  <span class="cmt"># all L tokens at once</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Non-autoregressive: L tokens in parallel!</span>
+<span class="cs-line cmt"># Compare to AR: needs L sequential passes</span></pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre"><span class="cs-line cmt"># Key results from ELF paper</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># Unconditional gen PPL (OWT, 32 steps):</span>
+<span class="cs-line cmt">#   MDLM (1024 steps, 550B tok)  → ~50 PPL</span>
+<span class="cs-line cmt">#   Duo  (1024 steps, 550B tok)  → ~45 PPL</span>
+<span class="cs-line hl-g"><span class="cmt">#   ELF-B (32 steps,   45B tok)  → ~24 PPL ✓</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Even vs distilled models (extra training):</span>
+<span class="cs-line cmt">#   MDLM+SDTT (32 steps) → ~35 PPL</span>
+<span class="cs-line cmt">#   Duo+DCD   (32 steps) → ~30 PPL</span>
+<span class="cs-line hl-g"><span class="cmt">#   ELF-B     (32 steps) → ~24 PPL ✓</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training token efficiency:</span>
+<span class="cs-line hl-p"><span class="cmt">#   Prior DLMs: 550B+ tokens</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   ELF-B:       45B tokens (12x fewer)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Conditional generation (WMT14 De-En BLEU):</span>
+<span class="cs-line cmt">#   MDLM      → 25.2</span>
+<span class="cs-line cmt">#   Duo       → 18.4</span>
+<span class="cs-line cmt">#   SeqDiffuSeq → 24.8</span>
+<span class="cs-line hl-g"><span class="cmt">#   ELF-B     → 26.4 ✓</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># XSum summarization (ROUGE-1):</span>
+<span class="cs-line cmt">#   MDLM      → 30.5</span>
+<span class="cs-line cmt">#   Duo       → 33.4</span>
+<span class="cs-line hl-g"><span class="cmt">#   ELF-B     → 36.0 ✓</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation winners:</span>
+<span class="cs-line cmt">#   Embedding: pretrained contextual > other</span>
+<span class="cs-line cmt">#   Decoder:   shared-weight > separate</span>
+<span class="cs-line cmt">#   Sampler:   SDE > ODE at ≤64 steps</span>
+<span class="cs-line cmt">#   CFG scale: 2-3 is sweet spot</span></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC toggle ──────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle = document.getElementById('toc-toggle');
+const postGrid = document.getElementById('post-grid');
+
+tocToggle?.addEventListener('click', () => {
+  const collapsed = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', collapsed);
+  tocToggle.textContent = collapsed ? '›' : '‹';
+  tocToggle.title = collapsed ? 'Show contents' : 'Hide contents';
+});
+
+// ── Code sidebar toggle ─────────────────────────────────────────────
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle = document.getElementById('cs-toggle');
+
+csToggle?.addEventListener('click', () => {
+  const collapsed = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', collapsed);
+  csToggle.textContent = collapsed ? '‹' : '›';
+  csToggle.title = collapsed ? 'Show code' : 'Hide code';
+});
+
+// ── Code sidebar tabs ───────────────────────────────────────────────
+const csTabs = document.querySelectorAll('.cs-tab');
+const csPanels = document.querySelectorAll('.cs-panel');
+const csFileLabel = document.getElementById('cs-file-label');
+const csSectionTitle = document.getElementById('cs-section-title');
+
+const tabMeta = {
+  problem:   { file: 'elf/background.py',   title: 'Discrete vs Continuous' },
+  flow:      { file: 'elf/flow_matching.py', title: 'Flow Matching Math' },
+  elf:       { file: 'elf/train.py',         title: 'ELF Training Loop' },
+  final:     { file: 'elf/decode.py',        title: 'Final Step Decode' },
+  guidance:  { file: 'elf/guidance.py',      title: 'CFG & Self-Conditioning' },
+  inference: { file: 'elf/sample.py',        title: 'Sampling Algorithm' },
+  results:   { file: 'elf/results.py',       title: 'Benchmark Results' },
+};
+
+function activateTab(name) {
+  csTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  csPanels.forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m && csFileLabel) csFileLabel.textContent = m.file;
+  if (m && csSectionTitle) csSectionTitle.textContent = m.title;
+}
+
+csTabs.forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.panel));
+});
+
+// ── IntersectionObserver: sync TOC + sidebar ───────────────────────
+const sectionCodeMap = {
+  's-problem':  'problem',
+  's-flow':     'flow',
+  's-elf':      'elf',
+  's-final':    'final',
+  's-guidance': 'guidance',
+  's-inference':'inference',
+  's-results':  'results',
+};
+
+const observer = new IntersectionObserver((entries) => {
+  let best = null, bestRatio = 0;
+  entries.forEach(e => {
+    if (e.isIntersecting && e.intersectionRatio > bestRatio) {
+      best = e.target;
+      bestRatio = e.intersectionRatio;
+    }
+  });
+  if (!best) return;
+  const id = best.id;
+  // update TOC active
+  document.querySelectorAll('.toc-item').forEach(li => {
+    li.classList.toggle('toc-active', li.id === 'toc-' + id);
+  });
+  // sync sidebar tab
+  const panel = sectionCodeMap[id];
+  if (panel) activateTab(panel);
+}, { threshold: [0.15, 0.4] });
+
+document.querySelectorAll('.post-body section[id]').forEach(s => observer.observe(s));
+
+// ── Flow canvas animation ───────────────────────────────────────────
+const flowCanvas = document.getElementById('flow-canvas');
+if (flowCanvas) {
+  const ctx = flowCanvas.getContext('2d');
+  let animId = null;
+  let t = 0;
+  let playing = false;
+
+  const W_CSS = flowCanvas.clientWidth;
+  const H_CSS = 220;
+  const DPR = window.devicePixelRatio || 1;
+  flowCanvas.width = W_CSS * DPR;
+  flowCanvas.height = H_CSS * DPR;
+  ctx.scale(DPR, DPR);
+  const W = W_CSS, H = H_CSS;
+
+  // Create particles: each has a noise start and a clean end position
+  // Represent 5 "word clusters" in 2D projected embedding space
+  const clusters = [
+    { cx: 0.22, cy: 0.38, color: '#c678dd', label: '"cat"' },
+    { cx: 0.55, cy: 0.28, color: '#61afef', label: '"Paris"' },
+    { cx: 0.75, cy: 0.62, color: '#98c379', label: '"run"' },
+    { cx: 0.38, cy: 0.70, color: '#e5c07b', label: '"love"' },
+    { cx: 0.62, cy: 0.45, color: '#e06c75', label: '"large"' },
+  ];
+
+  // 3 particles per cluster
+  const particles = [];
+  const rng = (seed) => { let s = seed; return () => { s = (s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; }; };
+
+  clusters.forEach((cl, ci) => {
+    const rand = rng(ci * 17 + 3);
+    for (let i = 0; i < 5; i++) {
+      const noise_x = rand() * W;
+      const noise_y = rand() * H;
+      const clean_x = cl.cx * W + (rand() - 0.5) * 30;
+      const clean_y = cl.cy * H + (rand() - 0.5) * 25;
+      particles.push({ noise_x, noise_y, clean_x, clean_y, color: cl.color, label: i === 2 ? cl.label : null });
+    }
+  });
+
+  function lerp(a, b, tt) { return a + (b - a) * tt; }
+  function easeInOut(x) { return x < 0.5 ? 2*x*x : 1 - Math.pow(-2*x+2,2)/2; }
+
+  function drawFrame(tt) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background subtle grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx <= W; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+    for (let gy = 0; gy <= H; gy += 44) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+    const te = easeInOut(tt);
+
+    // Draw trajectory trails
+    particles.forEach(p => {
+      const trail = 8;
+      for (let i = 0; i < trail; i++) {
+        const frac = Math.max(0, te - i * 0.015);
+        const fe = easeInOut(Math.min(1, frac));
+        const x = lerp(p.noise_x, p.clean_x, fe);
+        const y = lerp(p.noise_y, p.clean_y, fe);
+        ctx.beginPath();
+        ctx.arc(x, y, 2 * (1 - i / trail), 0, Math.PI * 2);
+        ctx.fillStyle = p.color.replace(')', `, ${0.08 * (1 - i / trail)})`).replace('rgb', 'rgba').replace('#', 'rgba(').replace(/^rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/, (_, r, g, b) => `rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`);
+        // simpler approach:
+        ctx.fillStyle = p.color + Math.round(25 * (1 - i / trail)).toString(16).padStart(2, '0');
+        ctx.fill();
+      }
+    });
+
+    // Draw current positions
+    particles.forEach(p => {
+      const x = lerp(p.noise_x, p.clean_x, te);
+      const y = lerp(p.noise_y, p.clean_y, te);
+
+      // Glow
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, 12);
+      grd.addColorStop(0, p.color + '44');
+      grd.addColorStop(1, p.color + '00');
+      ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fillStyle = grd; ctx.fill();
+
+      // Dot
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1; ctx.stroke();
+
+      // Label at clean position
+      if (p.label && te > 0.7) {
+        ctx.globalAlpha = (te - 0.7) / 0.3;
+        ctx.font = '11px monospace';
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.label, x + 8, y - 6);
+        ctx.globalAlpha = 1;
+      }
+    });
+
+    // t annotation
+    ctx.font = '12px monospace';
+    ctx.fillStyle = 'rgba(6,182,212,0.8)';
+    ctx.fillText(`t = ${tt.toFixed(2)}`, W - 80, 20);
+
+    // Labels at endpoints
+    if (tt < 0.05) {
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('← noise (t=0)', 10, 20);
+    }
+    if (tt > 0.95) {
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('embedding space (t=1) →', W - 180, H - 10);
+    }
+  }
+
+  drawFrame(0);
+
+  const tVal = document.getElementById('flow-t-val');
+  const playBtn = document.getElementById('flow-play');
+  const resetBtn = document.getElementById('flow-reset');
+
+  function step() {
+    t = Math.min(1, t + 0.008);
+    drawFrame(t);
+    if (tVal) tVal.textContent = t.toFixed(2);
+    if (t < 1) {
+      animId = requestAnimationFrame(step);
+    } else {
+      playing = false;
+      if (playBtn) { playBtn.textContent = '▶ Play'; playBtn.classList.remove('active'); }
+    }
+  }
+
+  playBtn?.addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      cancelAnimationFrame(animId);
+      playBtn.textContent = '▶ Play';
+      playBtn.classList.remove('active');
+    } else {
+      if (t >= 1) t = 0;
+      playing = true;
+      playBtn.textContent = '⏸ Pause';
+      playBtn.classList.add('active');
+      animId = requestAnimationFrame(step);
+    }
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    playing = false;
+    cancelAnimationFrame(animId);
+    t = 0;
+    drawFrame(0);
+    if (tVal) tVal.textContent = '0.00';
+    if (playBtn) { playBtn.textContent = '▶ Play'; playBtn.classList.remove('active'); }
+  });
+}
+
+// ── CFG canvas ───────────────────────────────────────────────────────
+const cfgCanvas = document.getElementById('cfg-canvas');
+if (cfgCanvas) {
+  const ctx = cfgCanvas.getContext('2d');
+  const W = cfgCanvas.clientWidth;
+  const H = 180;
+  const DPR = window.devicePixelRatio || 1;
+  cfgCanvas.width = W * DPR;
+  cfgCanvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // Draw embedding space with CFG extrapolation paths
+  // Center = unconditional; Target = conditional mean; CFG extrapolates beyond
+  const cx = W * 0.38, cy = H * 0.55;  // unconditional "cluster"
+  const dx = W * 0.62, dy = H * 0.35;  // conditional target
+
+  // data cluster (green dots)
+  const rng2 = (seed) => { let s = seed; return () => { s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; }; };
+  const rand = rng2(42);
+  const dataPts = Array.from({length: 18}, () => ({
+    x: dx + (rand()-0.5)*55, y: dy + (rand()-0.5)*45
+  }));
+
+  // Draw axes labels
+  ctx.font = '9px monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillText('embedding dim 1', 10, H - 10);
+  ctx.save(); ctx.translate(12, H/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('embedding dim 2', 0, 0); ctx.restore();
+
+  // Data distribution cluster
+  dataPts.forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(152,195,121,0.4)'; ctx.fill();
+  });
+  ctx.font = '9px monospace'; ctx.fillStyle = 'rgba(152,195,121,0.6)';
+  ctx.fillText('data distribution', dx - 20, dy + 55);
+
+  // Unconditional center
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(92,99,112,0.8)'; ctx.fill();
+  ctx.font = '9px monospace'; ctx.fillStyle = 'rgba(92,99,112,0.8)';
+  ctx.fillText('unconditional', cx - 45, cy + 18);
+
+  // CFG trajectories at different scales
+  const cfgScales = [
+    { w: 1, color: '#61afef', label: 'ω=1' },
+    { w: 2, color: '#c678dd', label: 'ω=2' },
+    { w: 3, color: '#e5c07b', label: 'ω=3' },
+  ];
+
+  cfgScales.forEach(({ w, color, label }) => {
+    // CFG: end = w * conditional + (1-w) * unconditional
+    const ex = w * dx + (1 - w) * cx;
+    const ey = w * dy + (1 - w) * cy;
+
+    // Draw arrow from unconditional to CFG endpoint
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ex, ey);
+    ctx.strokeStyle = color + '88';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Endpoint dot
+    ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.font = '9px monospace'; ctx.fillStyle = color;
+    ctx.fillText(label, ex + 7, ey + 3);
+  });
+
+  // Base arrow (conditional direction)
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(dx, dy);
+  ctx.strokeStyle = '#61afef';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath(); ctx.arc(dx, dy, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#61afef'; ctx.fill();
+  ctx.font = '9px monospace'; ctx.fillStyle = '#61afef';
+  ctx.fillText('conditional (ω=1)', dx + 8, dy + 3);
+
+  // Legend note
+  ctx.font = '9px monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillText('Higher ω → extrapolates further toward (and beyond) data cluster', 10, 15);
+}
+
+// ── Step-by-step inference navigator ───────────────────────────────
+let currentStep = 0;
+const stepEls = document.querySelectorAll('.infer-step');
+const prevBtn = document.getElementById('infer-prev');
+const nextBtn = document.getElementById('infer-next');
+const progEl = document.getElementById('infer-prog');
+
+function updateSteps() {
+  stepEls.forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === currentStep) el.classList.add('active');
+    else if (i < currentStep) el.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = currentStep === 0;
+  if (nextBtn) nextBtn.disabled = currentStep === stepEls.length - 1;
+  if (progEl) progEl.textContent = `Step ${currentStep + 1} of ${stepEls.length}`;
+  // Sync step nums
+  stepEls.forEach((el, i) => {
+    const numEl = el.querySelector('.step-num');
+    if (numEl && i < currentStep) numEl.textContent = '✓';
+    else if (numEl) numEl.textContent = String(i + 1);
+  });
+}
+
+prevBtn?.addEventListener('click', () => { if (currentStep > 0) { currentStep--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (currentStep < stepEls.length - 1) { currentStep++; updateSteps(); } });
+updateSteps();
+</script>
+</BaseLayout>

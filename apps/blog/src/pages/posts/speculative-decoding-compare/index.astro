@@ -1,0 +1,662 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Speculative Decoding Methods Compared | AI/ML Deep Dives"
+  description="Side-by-side comparison of EAGLE-3, DeepSeek MTP, DFlash, P-EAGLE, DART, and Gemma 4 MTP — backbone access, draft architecture, inference cost, and core tradeoffs."
+  crumb="Speculative Decoding Compared"
+>
+
+<style is:global>
+/* ── Layout ──────────────────────────────────────────────── */
+.cmp-root{max-width:900px;margin:0 auto;padding:2rem 1.5rem 5rem}
+.cmp-hero{padding:3.5rem 0 2rem}
+.cmp-hero h1{font-size:clamp(1.6rem,4vw,2.2rem);font-weight:700;line-height:1.25;margin-bottom:.75rem}
+.cmp-lead{font-size:.95rem;color:var(--muted2);max-width:620px;line-height:1.7}
+
+/* ── Selector ────────────────────────────────────────────── */
+.selector-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:.75rem;align-items:start;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem}
+.selector-col-lbl{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem}
+.selector-btns{display:flex;flex-wrap:wrap;gap:.4rem}
+.sel-btn{font-family:var(--ff-mono);font-size:.67rem;padding:.2rem .55rem;border-radius:3px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--muted2);cursor:pointer;transition:all .15s}
+.sel-btn:hover{border-color:rgba(255,255,255,.22);color:var(--text)}
+.sel-btn.active{font-weight:700}
+.sel-btn[data-method="eagle3"].active   {border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.08)}
+.sel-btn[data-method="deepseek"].active {border-color:#10b981;color:#10b981;background:rgba(16,185,129,.08)}
+.sel-btn[data-method="dflash"].active   {border-color:#f472b6;color:#f472b6;background:rgba(244,114,182,.08)}
+.sel-btn[data-method="peagle"].active   {border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.08)}
+.sel-btn[data-method="dart"].active     {border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,.08)}
+.sel-btn[data-method="gemma4"].active   {border-color:#a78bfa;color:#a78bfa;background:rgba(167,139,250,.08)}
+.selector-vs{display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);font-family:var(--ff-mono);padding-top:1.4rem}
+
+/* ── Vis panels ──────────────────────────────────────────── */
+.vis-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+.vis-panel{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.vis-panel-head{padding:.45rem .75rem;border-bottom:1px solid var(--border);font-size:.68rem;font-family:var(--ff-mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.vis-panel-body{padding:.75rem}
+.vis-panel-body svg{width:100%;display:block}
+
+/* ── Papers list ─────────────────────────────────────────── */
+.papers-list{display:flex;flex-direction:column;gap:.35rem;margin-bottom:2rem}
+.paper-link{display:flex;align-items:baseline;gap:.6rem;font-size:.78rem;color:var(--muted2);text-decoration:none;padding:.3rem .5rem;border-radius:4px;border:1px solid transparent;transition:all .15s;line-height:1.5}
+.paper-link:hover{background:rgba(255,255,255,.03);border-color:var(--border);color:var(--text)}
+.paper-link .paper-tag{font-family:var(--ff-mono);font-size:.64rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;padding:.1rem .35rem;border-radius:2px;flex-shrink:0}
+.paper-link .paper-title{flex:1}
+.paper-link .paper-id{font-family:var(--ff-mono);font-size:.65rem;color:var(--muted);flex-shrink:0}
+
+/* ── Comparison table ────────────────────────────────────── */
+.cmp-section-title{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;font-family:var(--ff-mono);color:var(--muted);margin:2rem 0 .75rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+.cmp-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.cmp-table th{padding:.45rem .75rem;text-align:left;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--surface);border-bottom:2px solid var(--border);white-space:nowrap}
+.cmp-table th.aspect-th{color:var(--muted);width:30%}
+.cmp-table td{padding:.5rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.6;color:var(--muted2);font-size:.8rem}
+.cmp-table tr:hover td{background:rgba(255,255,255,.015)}
+.cmp-table td.aspect-td{color:var(--text2);font-weight:600;font-size:.72rem;font-family:var(--ff-mono);white-space:nowrap;padding-top:.65rem}
+.cmp-table .group-row td{background:rgba(255,255,255,.04);color:var(--muted);font-size:.67rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.3rem .75rem;font-family:var(--ff-mono)}
+.cmp-table td strong{color:var(--text)}
+.cmp-table td em{color:var(--cyan)}
+
+@media(max-width:680px){.vis-row{grid-template-columns:1fr}.selector-wrap{grid-template-columns:1fr;gap:.5rem}.selector-vs{padding-top:0}}
+</style>
+
+<div class="cmp-root">
+  <div class="cmp-hero">
+    <div style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">Speculative Decoding · Deep Comparison</div>
+    <h1>How Draft Models Access Target Context</h1>
+    <p class="cmp-lead">Six speculative decoding systems — EAGLE-3, DeepSeek MTP, DFlash, P-EAGLE, DART, and Gemma 4 MTP — each make a different architectural bet on <em>what signal</em> to take from the target model and <em>how</em> the drafter uses it. Pick any two to compare side-by-side.</p>
+  </div>
+
+  <!-- ── Selector ── -->
+  <div class="selector-wrap">
+    <div>
+      <div class="selector-col-lbl">Method A</div>
+      <div class="selector-btns" id="btns-a">
+        <button class="sel-btn active" data-method="eagle3">EAGLE-3</button>
+        <button class="sel-btn" data-method="deepseek">DEEPSEEK MTP</button>
+        <button class="sel-btn" data-method="dflash">DFLASH</button>
+        <button class="sel-btn" data-method="peagle">P-EAGLE</button>
+        <button class="sel-btn" data-method="dart">DART</button>
+        <button class="sel-btn" data-method="gemma4">GEMMA 4 MTP</button>
+      </div>
+    </div>
+    <div class="selector-vs">vs</div>
+    <div>
+      <div class="selector-col-lbl">Method B</div>
+      <div class="selector-btns" id="btns-b">
+        <button class="sel-btn" data-method="eagle3">EAGLE-3</button>
+        <button class="sel-btn" data-method="deepseek">DEEPSEEK MTP</button>
+        <button class="sel-btn" data-method="dflash">DFLASH</button>
+        <button class="sel-btn" data-method="peagle">P-EAGLE</button>
+        <button class="sel-btn" data-method="dart">DART</button>
+        <button class="sel-btn active" data-method="gemma4">GEMMA 4 MTP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Side-by-side visualizations ── -->
+  <div class="vis-row">
+    <div class="vis-panel" id="vis-a">
+      <div class="vis-panel-head" id="vis-a-head">—</div>
+      <div class="vis-panel-body" id="vis-a-body"></div>
+    </div>
+    <div class="vis-panel" id="vis-b">
+      <div class="vis-panel-head" id="vis-b-head">—</div>
+      <div class="vis-panel-body" id="vis-b-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Papers ── -->
+  <div class="cmp-section-title" style="margin-top:2rem">Papers</div>
+  <div class="papers-list">
+    <a class="paper-link" href="https://arxiv.org/abs/2503.01840" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#f59e0b;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)">EAGLE-3</span>
+      <span class="paper-title">Scaling up Inference Acceleration of Large Language Models via Training-Time Test</span>
+      <span class="paper-id">arXiv:2503.01840</span>
+    </a>
+    <a class="paper-link" href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#10b981;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25)">DEEPSEEK MTP</span>
+      <span class="paper-title">DeepSeek-V3 Technical Report</span>
+      <span class="paper-id">arXiv:2412.19437</span>
+    </a>
+    <a class="paper-link" href="https://arxiv.org/abs/2602.06036" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#f472b6;background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.25)">DFLASH</span>
+      <span class="paper-title">DFlash: Block Diffusion for Flash Speculative Decoding</span>
+      <span class="paper-id">arXiv:2602.06036</span>
+    </a>
+    <a class="paper-link" href="https://arxiv.org/abs/2602.01469" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#38bdf8;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25)">P-EAGLE</span>
+      <span class="paper-title">P-EAGLE: Parallel-Drafting EAGLE with Scalable Training</span>
+      <span class="paper-id">arXiv:2602.01469</span>
+    </a>
+    <a class="paper-link" href="https://arxiv.org/abs/2601.19278" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#fb923c;background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.25)">DART</span>
+      <span class="paper-title">DART: Diffusion-Inspired Speculative Decoding for Fast LLM Inference</span>
+      <span class="paper-id">arXiv:2601.19278</span>
+    </a>
+    <a class="paper-link" href="https://deepmind.google/models/gemma/gemma-4/" target="_blank" rel="noopener">
+      <span class="paper-tag" style="color:#a78bfa;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25)">GEMMA 4 MTP</span>
+      <span class="paper-title">Gemma 4 — Model Page (MTP assistant derived from HF transformers source)</span>
+      <span class="paper-id">deepmind.google</span>
+    </a>
+  </div>
+
+  <!-- ── Comparison table ── -->
+  <div class="cmp-section-title">Detailed comparison</div>
+  <table class="cmp-table" id="cmp-table">
+    <thead>
+      <tr>
+        <th class="aspect-th">Aspect</th>
+        <th id="th-a" style="color:#f59e0b;width:35%">EAGLE-3</th>
+        <th id="th-b" style="color:#a78bfa;width:35%">GEMMA 4 MTP</th>
+      </tr>
+    </thead>
+    <tbody id="cmp-tbody"></tbody>
+  </table>
+</div>
+
+<!-- ── SVG templates (hidden) ── -->
+<div style="display:none" aria-hidden="true">
+
+  <!-- EAGLE-3 -->
+  <div id="tpl-eagle3">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#f59e0b" text-anchor="middle" font-weight="700" letter-spacing=".5">EAGLE-3</text>
+      <!-- Backbone -->
+      <rect x="8" y="20" width="162" height="84" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.25)"/>
+      <text x="89" y="34" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Backbone  (N layers)</text>
+      <rect x="16" y="39" width="146" height="13" rx="2" fill="rgba(96,165,250,.1)" stroke="rgba(96,165,250,.35)"/>
+      <text x="89" y="49.5" font-size="7" fill="#93c5fd" text-anchor="middle" font-weight="600">layer 2 (shallow)  ← l</text>
+      <rect x="16" y="56" width="146" height="13" rx="2" fill="rgba(167,139,250,.1)" stroke="rgba(167,139,250,.35)"/>
+      <text x="89" y="66.5" font-size="7" fill="#c4b5fd" text-anchor="middle" font-weight="600">layer L/2 (mid)  ← m</text>
+      <rect x="16" y="73" width="146" height="13" rx="2" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)"/>
+      <text x="89" y="83.5" font-size="7" fill="#f59e0b" text-anchor="middle" font-weight="600">layer L-1 (top)  ← h</text>
+      <text x="89" y="100" font-size="6.5" fill="#64748b" text-anchor="middle">3 layers  ·  concat → 3k-dim vector</text>
+      <!-- Arrow to FC -->
+      <line x1="89" y1="104" x2="89" y2="114" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+      <!-- FC box -->
+      <rect x="16" y="114" width="146" height="18" rx="3" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.4)"/>
+      <text x="89" y="127" font-size="7.5" fill="#f59e0b" text-anchor="middle" font-weight="600">FC  [l ⊕ m ⊕ h]  →  g</text>
+      <text x="174" y="127" font-size="6" fill="#64748b">3k→k</text>
+      <!-- Arrow to draft + left embed input -->
+      <line x1="89" y1="132" x2="89" y2="150" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+      <polygon points="85,146 89,153 93,146" fill="rgba(245,158,11,.7)"/>
+      <text x="144" y="141" font-size="6.5" fill="#f59e0b">g  fused</text>
+      <text x="144" y="150" font-size="6" fill="#64748b">(not K/V)</text>
+      <line x1="8" y1="173" x2="24" y2="173" stroke="rgba(245,158,11,.5)" stroke-width="1.2"/>
+      <polygon points="21,170 27,173 21,176" fill="rgba(245,158,11,.6)"/>
+      <text x="6" y="166" font-size="6" fill="#f59e0b" text-anchor="end">embed</text>
+      <text x="6" y="175" font-size="6" fill="#f59e0b" text-anchor="end">(prev)</text>
+      <!-- Draft box -->
+      <rect x="8" y="153" width="162" height="66" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)"/>
+      <text x="89" y="170" font-size="8" fill="#06b6d4" text-anchor="middle" font-weight="600">Draft Transformer</text>
+      <text x="89" y="182" font-size="7" fill="#64748b" text-anchor="middle">1 layer  ·  own W_Q, W_K, W_V</text>
+      <text x="89" y="193" font-size="7" fill="#64748b" text-anchor="middle">causal attention</text>
+      <text x="89" y="204" font-size="7" fill="#64748b" text-anchor="middle">builds own KV cache</text>
+      <text x="89" y="215" font-size="7" fill="#f59e0b" text-anchor="middle" font-weight="600">→ 1 token per step</text>
+      <!-- Output -->
+      <line x1="89" y1="219" x2="89" y2="229" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+      <polygon points="85,226 89,232 93,226" fill="rgba(6,182,212,.6)"/>
+      <rect x="8" y="231" width="162" height="32" rx="4" fill="rgba(245,158,11,.04)" stroke="rgba(245,158,11,.18)"/>
+      <text x="89" y="244" font-size="7" fill="#f59e0b" text-anchor="middle" font-weight="600">K sequential passes  →  K tokens</text>
+      <text x="89" y="256" font-size="6.5" fill="#64748b" text-anchor="middle">dynamic draft tree (EAGLE-2 style)</text>
+      <!-- Stats -->
+      <line x1="8" y1="271" x2="272" y2="271" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="283" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="283" font-size="6.5" fill="#f59e0b">3-layer hidden states</text>
+      <text x="14" y="294" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="294" font-size="6.5" fill="#f59e0b">1 layer · causal · own KV</text>
+      <text x="14" y="305" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="305" font-size="6.5" fill="#f59e0b">K passes (linear)</text>
+      <text x="14" y="316" font-size="6.5" fill="#64748b">Tree</text><text x="60" y="316" font-size="6.5" fill="#f59e0b">dynamic (confidence-based)</text>
+    </svg>
+  </div>
+
+  <!-- DeepSeek MTP -->
+  <div id="tpl-deepseek">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#10b981" text-anchor="middle" font-weight="700" letter-spacing=".5">DEEPSEEK MTP</text>
+      <!-- Main model -->
+      <rect x="8" y="20" width="264" height="30" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.22)"/>
+      <text x="140" y="32" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Main Model</text>
+      <text x="140" y="44" font-size="6.5" fill="#64748b" text-anchor="middle">shared Emb  ·  shared OutHead  ·  h⁰ (hidden state from last layer)</text>
+      <!-- Arrow h0 -->
+      <line x1="140" y1="50" x2="140" y2="60" stroke="rgba(16,185,129,.5)" stroke-width="1.3"/>
+      <polygon points="136,57 140,63 144,57" fill="rgba(16,185,129,.7)"/>
+      <text x="162" y="58" font-size="7" fill="#10b981">h⁰</text>
+      <!-- MTP Module 1 -->
+      <rect x="8" y="62" width="264" height="96" rx="5" fill="rgba(16,185,129,.05)" stroke="rgba(16,185,129,.28)"/>
+      <text x="140" y="76" font-size="7.5" fill="#10b981" text-anchor="middle" font-weight="600">MTP Module 1  (predicts t+1)</text>
+      <line x1="14" y1="80" x2="266" y2="80" stroke="rgba(16,185,129,.12)" stroke-width="1"/>
+      <rect x="16" y="84" width="248" height="13" rx="2" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.2)"/>
+      <text x="140" y="94" font-size="6.5" fill="#a3e635" text-anchor="middle">RMSNorm(h⁰)  ⊕  RMSNorm(Emb(t_next))</text>
+      <line x1="140" y1="97" x2="140" y2="103" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <rect x="44" y="103" width="192" height="12" rx="2" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.2)"/>
+      <text x="140" y="113" font-size="6.5" fill="#10b981" text-anchor="middle">Linear Proj Mk  (2d → d)</text>
+      <line x1="140" y1="115" x2="140" y2="121" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <rect x="44" y="121" width="192" height="12" rx="2" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.2)"/>
+      <text x="140" y="131" font-size="6.5" fill="#10b981" text-anchor="middle">Transformer Block TRM_1</text>
+      <line x1="140" y1="133" x2="140" y2="139" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <rect x="44" y="139" width="192" height="12" rx="2" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.2)"/>
+      <text x="140" y="149" font-size="6.5" fill="#a3e635" text-anchor="middle">shared OutHead  →  P(t+1)</text>
+      <!-- Arrow h1 (chaining) -->
+      <line x1="140" y1="158" x2="140" y2="168" stroke="#10b981" stroke-width="2"/>
+      <polygon points="135,164 140,171 145,164" fill="#10b981"/>
+      <text x="162" y="166" font-size="7.5" fill="#10b981" font-weight="600">h¹  M1→M2</text>
+      <!-- MTP Module 2 abbreviated -->
+      <rect x="8" y="170" width="264" height="34" rx="5" fill="rgba(16,185,129,.05)" stroke="rgba(16,185,129,.28)"/>
+      <text x="140" y="183" font-size="7.5" fill="#10b981" text-anchor="middle" font-weight="600">MTP Module 2  (predicts t+2)</text>
+      <text x="140" y="197" font-size="6.5" fill="#a3e635" text-anchor="middle">RMSNorm(h¹)  ⊕  RMSNorm(Emb(t_next2))  →  Proj  →  TRM  →  h²</text>
+      <text x="140" y="210" font-size="6.5" fill="#64748b" text-anchor="middle">→  M3(h²)  →  ···   (D=1 in DS-V3)</text>
+      <!-- Stats -->
+      <line x1="8" y1="225" x2="272" y2="225" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="237" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="237" font-size="6.5" fill="#10b981">shared Emb + OutHead + h^k chain</text>
+      <text x="14" y="248" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="248" font-size="6.5" fill="#10b981">D modules · own K/V · causal</text>
+      <text x="14" y="259" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="259" font-size="6.5" fill="#10b981">D × t_module  (D=1 in DS-V3)</text>
+      <text x="14" y="270" font-size="6.5" fill="#64748b">Tree</text><text x="60" y="270" font-size="6.5" fill="#10b981">sequential predictions (no tree)</text>
+    </svg>
+  </div>
+
+  <!-- DFlash -->
+  <div id="tpl-dflash">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#f472b6" text-anchor="middle" font-weight="700" letter-spacing=".5">DFLASH</text>
+      <!-- Backbone -->
+      <rect x="8" y="20" width="162" height="92" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.22)"/>
+      <text x="89" y="34" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Backbone</text>
+      <rect x="16" y="39" width="146" height="12" rx="2" fill="rgba(244,114,182,.1)" stroke="rgba(244,114,182,.35)"/>
+      <text x="89" y="49" font-size="7" fill="#f472b6" text-anchor="middle" font-weight="600">h₁  (layer 2, shallow)</text>
+      <rect x="16" y="55" width="146" height="12" rx="2" fill="rgba(244,114,182,.1)" stroke="rgba(244,114,182,.35)"/>
+      <text x="89" y="65" font-size="7" fill="#f472b6" text-anchor="middle" font-weight="600">h₂  (layer N/4)</text>
+      <rect x="16" y="71" width="146" height="12" rx="2" fill="rgba(244,114,182,.1)" stroke="rgba(244,114,182,.35)"/>
+      <text x="89" y="81" font-size="7" fill="#f472b6" text-anchor="middle" font-weight="600">h₃  (layer N/2)</text>
+      <rect x="16" y="87" width="146" height="12" rx="2" fill="rgba(244,114,182,.1)" stroke="rgba(244,114,182,.35)"/>
+      <text x="89" y="97" font-size="7" fill="#f472b6" text-anchor="middle" font-weight="600">h₄  ·  h₅  (deep)</text>
+      <text x="89" y="108" font-size="6.5" fill="#64748b" text-anchor="middle">5 layers · uniform sampling</text>
+      <!-- Arrow to projection -->
+      <line x1="89" y1="112" x2="89" y2="122" stroke="rgba(244,114,182,.5)" stroke-width="1.5"/>
+      <text x="130" y="119" font-size="6.5" fill="#64748b">concat 5h</text>
+      <!-- Projection box -->
+      <rect x="16" y="122" width="146" height="17" rx="3" fill="rgba(244,114,182,.1)" stroke="rgba(244,114,182,.4)"/>
+      <text x="89" y="134" font-size="7.5" fill="#f472b6" text-anchor="middle" font-weight="600">project h₁..h₅  →  c</text>
+      <!-- Right-side injection path (to 5 draft layers) -->
+      <line x1="162" y1="130" x2="178" y2="130" stroke="rgba(244,114,182,.55)" stroke-width="1.3"/>
+      <line x1="178" y1="130" x2="178" y2="215" stroke="rgba(244,114,182,.55)" stroke-width="1.3"/>
+      <line x1="178" y1="215" x2="168" y2="215" stroke="rgba(244,114,182,.55)" stroke-width="1.3"/>
+      <polygon points="165,212 171,215 165,218" fill="rgba(244,114,182,.7)"/>
+      <text x="182" y="158" font-size="6" fill="#f472b6">c→KV</text>
+      <text x="182" y="167" font-size="6" fill="#f472b6">every</text>
+      <text x="182" y="176" font-size="6" fill="#f472b6">layer</text>
+      <!-- Draft box -->
+      <rect x="8" y="140" width="160" height="84" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)"/>
+      <text x="88" y="156" font-size="8" fill="#06b6d4" text-anchor="middle" font-weight="600">Draft Transformer</text>
+      <text x="88" y="168" font-size="7" fill="#f472b6" text-anchor="middle">c → K,V at every layer</text>
+      <text x="88" y="180" font-size="7" fill="#64748b" text-anchor="middle">5 layers  ·  new W_K, W_V</text>
+      <text x="88" y="191" font-size="7" fill="#64748b" text-anchor="middle">bidir within blocks</text>
+      <text x="88" y="203" font-size="7" fill="#f472b6" text-anchor="middle" font-weight="600">block-parallel decoding</text>
+      <text x="88" y="215" font-size="7" fill="#64748b" text-anchor="middle">→ block of tokens per pass</text>
+      <!-- Stats -->
+      <line x1="8" y1="235" x2="272" y2="235" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="247" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="247" font-size="6.5" fill="#f472b6">5-layer hidden states → new K/V</text>
+      <text x="14" y="258" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="258" font-size="6.5" fill="#f472b6">5 layers · bidir blocks · KV injected</text>
+      <text x="14" y="269" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="269" font-size="6.5" fill="#f472b6">1 parallel pass (constant)</text>
+      <text x="14" y="280" font-size="6.5" fill="#64748b">Tree</text><text x="60" y="280" font-size="6.5" fill="#f472b6">block-based parallel decoding</text>
+    </svg>
+  </div>
+
+  <!-- P-EAGLE -->
+  <div id="tpl-peagle">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#38bdf8" text-anchor="middle" font-weight="700" letter-spacing=".5">P-EAGLE</text>
+      <!-- Backbone: same 3-layer as EAGLE-3 -->
+      <rect x="8" y="20" width="162" height="84" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.22)"/>
+      <text x="89" y="34" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Backbone  (same as EAGLE-3)</text>
+      <rect x="16" y="39" width="146" height="13" rx="2" fill="rgba(56,189,248,.1)" stroke="rgba(56,189,248,.35)"/>
+      <text x="89" y="49.5" font-size="7" fill="#38bdf8" text-anchor="middle" font-weight="600">layer 2  ← l</text>
+      <rect x="16" y="56" width="146" height="13" rx="2" fill="rgba(56,189,248,.1)" stroke="rgba(56,189,248,.35)"/>
+      <text x="89" y="66.5" font-size="7" fill="#38bdf8" text-anchor="middle" font-weight="600">layer L/2  ← m</text>
+      <rect x="16" y="73" width="146" height="13" rx="2" fill="rgba(56,189,248,.1)" stroke="rgba(56,189,248,.35)"/>
+      <text x="89" y="83.5" font-size="7" fill="#38bdf8" text-anchor="middle" font-weight="600">layer L-1  ← h</text>
+      <text x="89" y="100" font-size="6.5" fill="#64748b" text-anchor="middle">identical backbone access to EAGLE-3</text>
+      <!-- FC fusion -->
+      <line x1="89" y1="104" x2="89" y2="114" stroke="rgba(56,189,248,.5)" stroke-width="1.5"/>
+      <rect x="16" y="114" width="146" height="18" rx="3" fill="rgba(56,189,248,.1)" stroke="rgba(56,189,248,.4)"/>
+      <text x="89" y="127" font-size="7.5" fill="#38bdf8" text-anchor="middle" font-weight="600">FC  [l ⊕ m ⊕ h]  →  g</text>
+      <!-- Arrow + h_shared note -->
+      <line x1="89" y1="132" x2="89" y2="152" stroke="rgba(56,189,248,.5)" stroke-width="1.5"/>
+      <polygon points="85,148 89,155 93,148" fill="rgba(56,189,248,.7)"/>
+      <text x="144" y="141" font-size="6.5" fill="#38bdf8">g  fused</text>
+      <!-- h_shared for pos 2..K -->
+      <rect x="176" y="120" width="96" height="22" rx="3" fill="rgba(56,189,248,.07)" stroke="rgba(56,189,248,.28)"/>
+      <text x="224" y="131" font-size="6.5" fill="#38bdf8" text-anchor="middle">h_shared (learnable)</text>
+      <text x="224" y="140" font-size="6" fill="#64748b" text-anchor="middle">for positions 2..K</text>
+      <line x1="224" y1="142" x2="224" y2="158" stroke="rgba(56,189,248,.35)" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="224" y1="158" x2="156" y2="158" stroke="rgba(56,189,248,.35)" stroke-width="1" stroke-dasharray="3,2"/>
+      <!-- Draft box: 4 layers, parallel -->
+      <rect x="8" y="155" width="162" height="72" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)"/>
+      <text x="89" y="171" font-size="8" fill="#06b6d4" text-anchor="middle" font-weight="600">Draft  (×4 layers)</text>
+      <text x="89" y="183" font-size="7" fill="#64748b" text-anchor="middle">own W_Q, W_K, W_V  ·  causal</text>
+      <text x="89" y="194" font-size="7" fill="#64748b" text-anchor="middle">depth-ordering constraints</text>
+      <text x="89" y="206" font-size="7" fill="#38bdf8" text-anchor="middle" font-weight="600">K tokens in one pass ↓</text>
+      <text x="89" y="218" font-size="7" fill="#64748b" text-anchor="middle">single forward pass (no rollout)</text>
+      <!-- Stats -->
+      <line x1="8" y1="240" x2="272" y2="240" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="252" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="252" font-size="6.5" fill="#38bdf8">same 3-layer FC-fusion as EAGLE-3</text>
+      <text x="14" y="263" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="263" font-size="6.5" fill="#38bdf8">4 layers · causal · own KV</text>
+      <text x="14" y="274" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="274" font-size="6.5" fill="#38bdf8">1 forward pass (constant)</text>
+      <text x="14" y="285" font-size="6.5" fill="#64748b">Extra</text><text x="60" y="285" font-size="6.5" fill="#38bdf8">learnable h_shared for pos 2..K</text>
+    </svg>
+  </div>
+
+  <!-- DART -->
+  <div id="tpl-dart">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#fb923c" text-anchor="middle" font-weight="700" letter-spacing=".5">DART</text>
+      <!-- Backbone: same 3-layer as EAGLE-3 -->
+      <rect x="8" y="20" width="162" height="84" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.22)"/>
+      <text x="89" y="34" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Backbone  (same as EAGLE-3)</text>
+      <rect x="16" y="39" width="146" height="13" rx="2" fill="rgba(251,146,60,.1)" stroke="rgba(251,146,60,.35)"/>
+      <text x="89" y="49.5" font-size="7" fill="#fb923c" text-anchor="middle" font-weight="600">low layers  ← l</text>
+      <rect x="16" y="56" width="146" height="13" rx="2" fill="rgba(251,146,60,.1)" stroke="rgba(251,146,60,.35)"/>
+      <text x="89" y="66.5" font-size="7" fill="#fb923c" text-anchor="middle" font-weight="600">mid layers  ← m</text>
+      <rect x="16" y="73" width="146" height="13" rx="2" fill="rgba(251,146,60,.1)" stroke="rgba(251,146,60,.35)"/>
+      <text x="89" y="83.5" font-size="7" fill="#fb923c" text-anchor="middle" font-weight="600">top layers  ← h</text>
+      <text x="89" y="100" font-size="6.5" fill="#64748b" text-anchor="middle">3 layers  ·  same as EAGLE-3</text>
+      <!-- Arrow to FC -->
+      <line x1="89" y1="104" x2="89" y2="114" stroke="rgba(251,146,60,.5)" stroke-width="1.5"/>
+      <!-- FC box -->
+      <rect x="16" y="114" width="146" height="18" rx="3" fill="rgba(251,146,60,.1)" stroke="rgba(251,146,60,.4)"/>
+      <text x="89" y="127" font-size="7.5" fill="#fb923c" text-anchor="middle" font-weight="600">FC  [l ⊕ m ⊕ h]  →  g</text>
+      <!-- Shifted embed input from left -->
+      <line x1="0" y1="148" x2="16" y2="148" stroke="rgba(251,146,60,.5)" stroke-width="1.2"/>
+      <polygon points="13,145 19,148 13,151" fill="rgba(251,146,60,.6)"/>
+      <text x="-2" y="143" font-size="5.5" fill="#fb923c" text-anchor="end">embed</text>
+      <text x="-2" y="152" font-size="5.5" fill="#fb923c" text-anchor="end">(t_next)</text>
+      <!-- Arrow g to draft with concat note -->
+      <line x1="89" y1="132" x2="89" y2="150" stroke="rgba(251,146,60,.5)" stroke-width="1.5"/>
+      <polygon points="85,146 89,153 93,146" fill="rgba(251,146,60,.7)"/>
+      <text x="145" y="140" font-size="6.5" fill="#fb923c">g ⊕ embed</text>
+      <text x="145" y="149" font-size="6" fill="#64748b">→ z  (not K/V)</text>
+      <!-- Draft box with MASK tokens -->
+      <rect x="8" y="153" width="162" height="72" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)"/>
+      <text x="89" y="169" font-size="8" fill="#06b6d4" text-anchor="middle" font-weight="600">Draft  (1 layer · causal)</text>
+      <text x="89" y="181" font-size="7" fill="#64748b" text-anchor="middle">[ z₁:ₙ  MASK MASK ··· ]</text>
+      <text x="89" y="192" font-size="7" fill="#64748b" text-anchor="middle">own K/V  ·  strictly causal</text>
+      <text x="89" y="203" font-size="7" fill="#fb923c" text-anchor="middle" font-weight="600">d logits in one pass ↓</text>
+      <text x="89" y="215" font-size="7" fill="#64748b" text-anchor="middle">no iterative denoising</text>
+      <!-- N-gram box -->
+      <line x1="89" y1="225" x2="89" y2="235" stroke="rgba(251,146,60,.4)" stroke-width="1.2"/>
+      <rect x="16" y="235" width="146" height="18" rx="3" fill="rgba(251,146,60,.06)" stroke="rgba(251,146,60,.28)"/>
+      <text x="89" y="248" font-size="7" fill="#fb923c" text-anchor="middle">N-gram continuity tree pruning</text>
+      <!-- Stats -->
+      <line x1="8" y1="262" x2="272" y2="262" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="274" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="274" font-size="6.5" fill="#fb923c">3-layer FC-fusion + shifted embed</text>
+      <text x="14" y="285" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="285" font-size="6.5" fill="#fb923c">1 layer · causal · MASK tokens</text>
+      <text x="14" y="296" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="296" font-size="6.5" fill="#fb923c">1 forward pass → d logits</text>
+      <text x="14" y="307" font-size="6.5" fill="#64748b">Tree</text><text x="60" y="307" font-size="6.5" fill="#fb923c">N-gram pruning (semantic continuity)</text>
+    </svg>
+  </div>
+
+  <!-- Gemma 4 MTP -->
+  <div id="tpl-gemma4">
+    <svg viewBox="0 0 280 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace">
+      <text x="140" y="14" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="700" letter-spacing=".5">GEMMA 4 MTP</text>
+      <!-- Backbone with K/V cache -->
+      <rect x="8" y="20" width="130" height="110" rx="5" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.22)"/>
+      <text x="73" y="35" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">Backbone</text>
+      <rect x="16" y="40" width="114" height="12" rx="2" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.12)"/>
+      <text x="73" y="50" font-size="7" fill="#64748b" text-anchor="middle">normal layers</text>
+      <rect x="16" y="56" width="114" height="14" rx="2" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.4)"/>
+      <text x="73" y="67" font-size="7.5" fill="#f59e0b" text-anchor="middle" font-weight="600">last SWA  ← K/V stored</text>
+      <rect x="16" y="74" width="114" height="14" rx="2" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.4)"/>
+      <text x="73" y="85" font-size="7.5" fill="#10b981" text-anchor="middle" font-weight="600">last full  ← K/V stored</text>
+      <rect x="16" y="92" width="114" height="18" rx="2" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.28)"/>
+      <text x="73" y="105" font-size="7" fill="#a78bfa" text-anchor="middle">tail layers (reuse)</text>
+      <text x="73" y="122" font-size="6.5" fill="#64748b" text-anchor="middle">backbone's own K,V</text>
+      <!-- K/V arrows to dict -->
+      <line x1="130" y1="63" x2="148" y2="63" stroke="rgba(245,158,11,.6)" stroke-width="1.2"/>
+      <polygon points="145,60 151,63 145,66" fill="rgba(245,158,11,.8)"/>
+      <line x1="130" y1="81" x2="148" y2="81" stroke="rgba(16,185,129,.6)" stroke-width="1.2"/>
+      <polygon points="145,78 151,81 145,84" fill="rgba(16,185,129,.8)"/>
+      <!-- Dict box -->
+      <rect x="150" y="50" width="122" height="44" rx="4" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.38)" stroke-width="1.2"/>
+      <text x="211" y="63" font-size="6.5" fill="#10b981" text-anchor="middle" font-weight="600">backbone K/V cache</text>
+      <text x="211" y="74" font-size="6" fill="#94a3b8" text-anchor="middle">backbone's own —</text>
+      <text x="211" y="83" font-size="6" fill="#94a3b8" text-anchor="middle">no re-projection</text>
+      <text x="211" y="92" font-size="6.5" fill="#10b981" text-anchor="middle">reused as-is ✓</text>
+      <!-- Dashed arrow down to draft -->
+      <line x1="211" y1="94" x2="211" y2="116" stroke="rgba(16,185,129,.45)" stroke-width="1.3" stroke-dasharray="4,3"/>
+      <polygon points="207,113 211,119 215,113" fill="rgba(16,185,129,.65)"/>
+      <!-- Left input arrow (embed) -->
+      <line x1="0" y1="155" x2="16" y2="155" stroke="rgba(167,139,250,.5)" stroke-width="1.2"/>
+      <polygon points="13,152 19,155 13,158" fill="rgba(167,139,250,.6)"/>
+      <text x="-2" y="150" font-size="5.5" fill="#a78bfa" text-anchor="end">embed</text>
+      <text x="-2" y="159" font-size="5.5" fill="#a78bfa" text-anchor="end">(prev)</text>
+      <!-- Draft box: Q-only, bidirectional -->
+      <rect x="8" y="118" width="264" height="62" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.22)"/>
+      <text x="140" y="135" font-size="8" fill="#06b6d4" text-anchor="middle" font-weight="600">Draft Transformer  (Q-only)</text>
+      <text x="140" y="147" font-size="7" fill="#a78bfa" text-anchor="middle">no W_K  ·  no W_V  ·  only W_Q</text>
+      <text x="140" y="158" font-size="7" fill="#64748b" text-anchor="middle">K,V come from backbone cache above</text>
+      <text x="140" y="169" font-size="7" fill="#64748b" text-anchor="middle">bidirectional  ·  q_len=1 per step</text>
+      <!-- Stats -->
+      <line x1="8" y1="192" x2="272" y2="192" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <text x="14" y="204" font-size="6.5" fill="#64748b">Signal</text><text x="60" y="204" font-size="6.5" fill="#a78bfa">backbone's own K/V (no transform)</text>
+      <text x="14" y="215" font-size="6.5" fill="#64748b">Draft</text><text x="60" y="215" font-size="6.5" fill="#a78bfa">Q-only · no W_K/W_V · bidir</text>
+      <text x="14" y="226" font-size="6.5" fill="#64748b">Cost</text><text x="60" y="226" font-size="6.5" fill="#a78bfa">K passes · ~1/3 QKV cost per step</text>
+      <text x="14" y="237" font-size="6.5" fill="#64748b">Tree</text><text x="60" y="237" font-size="6.5" fill="#a78bfa">dynamic (confidence-based)</text>
+    </svg>
+  </div>
+
+</div><!-- end SVG templates -->
+
+<script>
+const COLORS = {
+  eagle3:   '#f59e0b',
+  deepseek: '#10b981',
+  dflash:   '#f472b6',
+  peagle:   '#38bdf8',
+  dart:     '#fb923c',
+  gemma4:   '#a78bfa',
+};
+
+const NAMES = {
+  eagle3:   'EAGLE-3',
+  deepseek: 'DeepSeek MTP',
+  dflash:   'DFlash',
+  peagle:   'P-EAGLE',
+  dart:     'DART',
+  gemma4:   'Gemma 4 MTP',
+};
+
+const ROWS = [
+  { group: 'Backbone Access' },
+  { id: 'signal',     label: 'Signal type' },
+  { id: 'layers',     label: 'Layers tapped' },
+  { id: 'transform',  label: 'Feature transform' },
+  { group: 'Draft Architecture' },
+  { id: 'depth',      label: 'Draft depth' },
+  { id: 'attention',  label: 'Attention type' },
+  { id: 'own_kv',     label: 'Own K/V' },
+  { id: 'strategy',   label: 'Token generation' },
+  { id: 'extra',      label: 'Extra inputs' },
+  { group: 'Training' },
+  { id: 'objective',  label: 'Training objective' },
+  { id: 'frozen',     label: 'Backbone frozen?' },
+  { group: 'Inference' },
+  { id: 'cost',       label: 'Draft cost' },
+  { id: 'per_pass',   label: 'Tokens per pass' },
+  { id: 'tree',       label: 'Draft tree' },
+  { group: 'Design' },
+  { id: 'innovation', label: 'Core innovation' },
+  { id: 'limitation', label: 'Key limitation' },
+];
+
+const DATA = {
+  eagle3: {
+    signal:     'Hidden states from 3 backbone layers (low, mid, top)',
+    layers:     'Indices 2, L/2, L-1 — shallow, mid, and last decoder layers',
+    transform:  'Concat [l⊕m⊕h] → 3k-dim → FC layer → fused vector g (k-dim)',
+    depth:      '1 transformer decoder layer',
+    attention:  'Causal — standard autoregressive lower-triangular mask',
+    own_kv:     'Yes — full W_Q, W_K, W_V; builds own growing KV cache',
+    strategy:   'Autoregressive — K sequential forward passes for K draft tokens',
+    extra:      'Token embedding of previously sampled draft token at each step',
+    objective:  'Feature prediction loss + cross-entropy token prediction',
+    frozen:     'Yes — backbone frozen; only draft model parameters trained',
+    cost:       'K × t_step (linear with draft length K)',
+    per_pass:   '1 token (fully sequential)',
+    tree:       'Dynamic pruning via draft model confidence (EAGLE-2 style)',
+    innovation: 'Multi-layer hidden state fusion gives richer signal than single-layer; FC projection captures cross-layer semantics',
+    limitation: 'Draft cost scales linearly with K; single layer limits model capacity and acceptance rate ceiling',
+  },
+  deepseek: {
+    signal:     'Shared token embedding table + shared LM head weights; hidden state h^k chained between sequential modules',
+    layers:     'No specific backbone layers tapped for hidden states; modules chain h^k from previous depth',
+    transform:  'RMSNorm(h^{k-1}) ⊕ RMSNorm(Emb(t_{i+k})) → Linear Proj Mk (2d→d) → Transformer block TRM_k',
+    depth:      'D modules (D=1 in DS-V3); each module is a full-depth transformer block',
+    attention:  'Causal within each sequential module',
+    own_kv:     'Yes — each MTP module runs full self-attention with its own K/V',
+    strategy:   'Sequential modules: M1 predicts t+1, M2 predicts t+2 (D=1 in DS-V3)',
+    extra:      'Previous depth hidden state h^{k-1} concatenated with next token embedding via RMSNorm',
+    objective:  'Cross-entropy at each prediction depth; weighted average L_MTP = λ/D Σ L^k_MTP',
+    frozen:     'No — MTP modules trained jointly with the main model during pre-training',
+    cost:       'D × t_module ≈ t_step for D=1; minimal overhead over single LLM pass',
+    per_pass:   'D tokens (one per module; D=1 in practice)',
+    tree:       'Sequential predictions; no tree construction in original design',
+    innovation: 'Depth-wise sequential module chaining; shared embedding and output head enable end-to-end training with main model',
+    limitation: 'D=1 in DS-V3 limits parallelism; purely embedding sharing with no backbone hidden state access at draft time',
+  },
+  dflash: {
+    signal:     'Hidden states from 5 uniformly sampled backbone layers — projected into fresh K/V vectors (not the backbone\'s own cache)',
+    layers:     '5 layers, uniformly sampled from depth 2 to depth N-3 (shallow through deep coverage)',
+    transform:  'Concat 5h → lightweight projection → context c; c passed through new W_K, W_V at EVERY draft layer (not just input)',
+    depth:      '5 transformer layers (8 for some larger models)',
+    attention:  'Bidirectional within masked blocks; no cross-block attention; one forward pass per block',
+    own_kv:     'Hybrid — target context c projected into fresh K,V at each layer via learned weights; K/V did not exist in backbone',
+    strategy:   'Block diffusion — all tokens in a block decoded in parallel in a single forward pass',
+    extra:      'Context c injected into K/V of every draft layer (persistent, not diluted with depth)',
+    objective:  'Masked language modeling at block level',
+    frozen:     'Yes — only draft model trained; backbone frozen',
+    cost:       't_parallel (constant; one pass regardless of block size)',
+    per_pass:   'Block size (all tokens in block simultaneously)',
+    tree:       'Block-based parallel decoding with speculative verification',
+    innovation: 'KV injection at every layer prevents signal dilution with depth; block parallelism decouples draft quality from latency',
+    limitation: 'Bidirectional within blocks can misalign with causal generation; K/V are freshly projected (extra parameters vs direct cache reuse)',
+  },
+  peagle: {
+    signal:     'Hidden states from 3 backbone layers (identical to EAGLE-3: low/mid/top)',
+    layers:     'Same indices as EAGLE-3: 2, L/2, L-1',
+    transform:  'Same FC fusion as EAGLE-3: concat [l⊕m⊕h] → FC → g (k-dim); learnable shared h_shared for positions 2..K',
+    depth:      '4 transformer decoder layers (vs 1 in EAGLE-3; extra depth compensates for lost autoregressive signal)',
+    attention:  'Causal with depth-ordering constraints — all K positions in one pass but no future-draft leakage',
+    own_kv:     'Yes — full W_Q, W_K, W_V; own KV cache',
+    strategy:   'Parallel single-pass — all K draft tokens generated in one forward pass; no autoregressive rollouts',
+    extra:      'Learnable shared hidden state h_shared for all non-first positions (positions 2..K share one learnable vector)',
+    objective:  'KL divergence from target; position-aware weighting emphasizes early positions',
+    frozen:     'No — token embeddings also unfrozen; model learns to encode mask tokens meaningfully',
+    cost:       '1 forward pass (constant; regardless of K)',
+    per_pass:   'K tokens (all draft tokens simultaneously)',
+    tree:       'Dynamic tree (EAGLE-2 style, confidence-based)',
+    innovation: 'Eliminates K sequential passes of EAGLE-3 while preserving identical backbone access; 4-layer depth + h_shared substitute for autoregressive predecessor signal',
+    limitation: 'Shared h_shared across positions 2..K is less expressive than per-step predecessor hidden states; 4 layers still runs in one parallel pass',
+  },
+  dart: {
+    signal:     'Hidden states from 3 backbone layers (same as EAGLE-3) plus shifted token embedding of predicted next token',
+    layers:     'Same low/mid/top 3 layers as EAGLE-3',
+    transform:  'FC fusion [l⊕m⊕h] → g; additionally embed(t_{n+1}) shifted embedding; z = concat(g, e) along feature dimension',
+    depth:      '1 transformer decoder layer (same as EAGLE-3)',
+    attention:  'Strictly causal over prefix AND within the masked block; no bidirectional refinement; MASK tokens cannot attend forward',
+    own_kv:     'Yes — standard decoder layer with own K/V cache',
+    strategy:   'MASK-based parallel: input [z_{1:n}, MASK×(d-1)] → single forward pass → d logits simultaneously',
+    extra:      'Shifted token embedding e(t_{n+1}) concatenated with FC-fused features g to form z',
+    objective:  'Annealed KL divergence: λt = γ^{t-1}, γ=0.6 (exponentially decays weight of distant positions)',
+    frozen:     'Yes — backbone frozen; only draft model trained',
+    cost:       '1 forward pass → d logits (constant; generates d tokens in one shot)',
+    per_pass:   'd logits in one pass (configurable; e.g., d=5)',
+    tree:       'N-gram continuity-aware tree pruning (ensures semantic coherence across draft paths)',
+    innovation: 'MASK tokens let a causal 1-layer decoder predict d positions in one shot; shifted embedding improves first-position accuracy; N-gram pruning ensures draft tree coherence',
+    limitation: 'No iterative refinement; prediction quality degrades for distant positions; single layer capacity same as EAGLE-3',
+  },
+  gemma4: {
+    signal:     "Backbone's own K/V cache — the actual K,V tensors the backbone computed for its own attention (zero extra transformation)",
+    layers:     'Last non-sharing SWA layer + last non-sharing full-attention layer (2 specific layers, keyed by type not index)',
+    transform:  'None — K/V tensors used directly as-is; backbone already ran K = h·W_K and V = h·W_V; zero extra compute',
+    depth:      'Variable (e.g., 4 layers); all layers are KV-sharing layers with no W_K or W_V',
+    attention:  'Bidirectional cross-attention (Q-only); K,V fixed from backbone; q_len=1 per draft step',
+    own_kv:     'No — no W_K or W_V at all; only W_Q; draft attends to backbone cache directly',
+    strategy:   'Sequential q_len=1 per step (same as EAGLE-3) but each step costs ~1/3 less due to missing K/V projections',
+    extra:      'Token embedding of previous draft token (autoregressive); RoPE differentiates steps via position',
+    objective:  'Standard MTP cross-entropy; backbone and assistant trained jointly',
+    frozen:     'Partial — backbone K/V-sharing layers frozen during assistant training',
+    cost:       'K × t_draft (~1/3 cheaper per step than EAGLE-3 since no W_K/W_V projections)',
+    per_pass:   '1 token per step (sequential, q_len=1)',
+    tree:       'Dynamic tree (EAGLE-2 style, confidence-based)',
+    innovation: 'Zero-overhead K/V reuse — backbone K,V already existed; draft is simply a Q-lookup into backbone memory; eliminates all K/V projection compute from draft model',
+    limitation: 'SWA mask approximation: same window [t_{S-W}..t_S] for all draft steps regardless of absolute draft position; kv_len fixed as backbone grows',
+  },
+};
+
+let selA = 'eagle3', selB = 'gemma4';
+
+function setPanel(panel, method) {
+  const head = document.getElementById(`vis-${panel}-head`);
+  const body = document.getElementById(`vis-${panel}-body`);
+  const tpl  = document.getElementById(`tpl-${method}`);
+  if (!head || !body || !tpl) return;
+  head.textContent = NAMES[method];
+  head.style.color  = COLORS[method];
+  body.innerHTML    = tpl.innerHTML;
+}
+
+function renderTable() {
+  const thA   = document.getElementById('th-a');
+  const thB   = document.getElementById('th-b');
+  const tbody = document.getElementById('cmp-tbody');
+  if (!thA || !thB || !tbody) return;
+  thA.textContent = NAMES[selA];
+  thA.style.color  = COLORS[selA];
+  thB.textContent = NAMES[selB];
+  thB.style.color  = COLORS[selB];
+
+  const dA = DATA[selA], dB = DATA[selB];
+  tbody.innerHTML = ROWS.map(row => {
+    if (row.group) {
+      return `<tr class="group-row"><td colspan="3">${row.group}</td></tr>`;
+    }
+    const vA = dA[row.id] || '—';
+    const vB = dB[row.id] || '—';
+    return `<tr>
+      <td class="aspect-td">${row.label}</td>
+      <td>${vA}</td>
+      <td>${vB}</td>
+    </tr>`;
+  }).join('');
+}
+
+function init() {
+  // Wire panel A buttons
+  document.getElementById('btns-a').querySelectorAll('.sel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selA = btn.dataset.method;
+      document.getElementById('btns-a').querySelectorAll('.sel-btn').forEach(b => b.classList.toggle('active', b === btn));
+      setPanel('a', selA);
+      renderTable();
+    });
+  });
+
+  // Wire panel B buttons
+  document.getElementById('btns-b').querySelectorAll('.sel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selB = btn.dataset.method;
+      document.getElementById('btns-b').querySelectorAll('.sel-btn').forEach(b => b.classList.toggle('active', b === btn));
+      setPanel('b', selB);
+      renderTable();
+    });
+  });
+
+  // Initial render
+  setPanel('a', selA);
+  setPanel('b', selB);
+  renderTable();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</BaseLayout>
