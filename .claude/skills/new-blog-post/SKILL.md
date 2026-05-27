@@ -7,12 +7,30 @@ description: Create a new interactive blog post in apps/blog given research pape
 
 The user will supply some combination of:
 - **PDF paths** — local research paper files (e.g. `references/foo.pdf`)
-- **URLs** — arXiv pages, GitHub repos, blog posts for extra context
+- **PDF URLs** — direct links to arXiv PDFs (e.g. `https://arxiv.org/pdf/2503.01840`) — treated as the paper source, not just context
+- **URLs** — arXiv abstract pages, GitHub repos, blog posts for extra context
 - **Description** — what angle / focus the post should take
 
 If any input is missing, infer from context or ask once.
 
 ## Phase 1 — Extract & research
+
+### PDF download (when a PDF URL is provided)
+
+If the user supplies a direct PDF URL (e.g. an arXiv PDF link), do **both** of the following before extracting text:
+
+**1. Download the PDF into `references/`:**
+```bash
+curl -L -A "Mozilla/5.0" -o "references/<slug>.pdf" "<pdf-url>"
+```
+Choose a slug that matches the post slug (e.g. `eagle-3.pdf` for a post about Eagle-3).
+
+**2. Register it in `scripts/download_papers.py`:**
+Open `scripts/download_papers.py` and add a new entry to the `PAPERS` dict:
+```python
+"<slug>.pdf": "<pdf-url>",
+```
+Insert it at the top of the dict (most-recent-first ordering). The file already exists — use the Edit tool to add the line.
 
 ### PDF extraction
 `pdftotext` must be installed. If the first extraction attempt fails with "not installed":

@@ -2038,6 +2038,130 @@ _config_mapping["Gemma4AssistantForCausalLM"] = Gemma4TextConfig</code></pre>
   </div>
 </details>
 
+<details class="bonus-details" style="margin-top:1.25rem">
+  <summary class="bonus-summary">
+    <span class="bonus-tag">Bonus</span>
+    <span class="bonus-summary-title">Could the MTP Drafter Be Trained Post-Pretraining?</span>
+    <span class="bonus-chevron">›</span>
+  </summary>
+  <div class="bonus-body">
+    <p class="bonus-intro">
+      Eagle 3 and D-Flash train their draft models post-pretraining on modest datasets (~100K–200K examples). Gemma 4's MTP drafter is trained jointly during pretraining — a much heavier commitment. A natural question: could the same post-training recipe be applied to Gemma 4's Q-only K/V-sharing architecture, and how close would the acceptance rate get?
+    </p>
+
+    <!-- ── Regime comparison diagram ── -->
+    <svg viewBox="0 0 620 150" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace;display:block;margin:0 0 1.5rem">
+      <!-- Left panel: joint pretraining -->
+      <rect x="4" y="4" width="300" height="142" rx="6" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.2)"/>
+      <text x="154" y="20" font-size="7.5" fill="#a78bfa" text-anchor="middle" font-weight="700" letter-spacing=".07em">JOINT PRETRAINING (current)</text>
+      <!-- Main model box -->
+      <rect x="16" y="30" width="110" height="62" rx="5" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)"/>
+      <text x="71" y="54" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="600">Main Model</text>
+      <text x="71" y="67" font-size="7" fill="#94a3b8" text-anchor="middle">Gemma 4</text>
+      <text x="71" y="82" font-size="7" fill="#c4b5fd" text-anchor="middle">grad on</text>
+      <!-- Drafter box -->
+      <rect x="178" y="30" width="110" height="62" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.4)"/>
+      <text x="233" y="54" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">MTP Drafter</text>
+      <text x="233" y="67" font-size="7" fill="#94a3b8" text-anchor="middle">Assistant</text>
+      <text x="233" y="82" font-size="7" fill="#67e8f9" text-anchor="middle">grad on</text>
+      <!-- Bidirectional K/V arrow -->
+      <line x1="128" y1="55" x2="176" y2="55" stroke="#a78bfa" stroke-width="1.5"/>
+      <polygon points="173,52 179,55 173,58" fill="#a78bfa"/>
+      <polygon points="131,52 125,55 131,58" fill="#a78bfa"/>
+      <text x="152" y="50" font-size="6" fill="#a78bfa" text-anchor="middle">K, V</text>
+      <!-- Bidirectional gradient dashes -->
+      <line x1="128" y1="70" x2="176" y2="70" stroke="rgba(139,92,246,.4)" stroke-width="1.2" stroke-dasharray="3,2"/>
+      <polygon points="173,67 179,70 173,73" fill="rgba(139,92,246,.5)"/>
+      <polygon points="131,67 125,70 131,73" fill="rgba(139,92,246,.5)"/>
+      <text x="152" y="85" font-size="6" fill="#7c3aed" text-anchor="middle">grad flow</text>
+      <!-- Notes -->
+      <text x="154" y="113" font-size="7" fill="#94a3b8" text-anchor="middle">K/V projections co-evolve</text>
+      <text x="154" y="127" font-size="7" fill="#94a3b8" text-anchor="middle">centroids shape repr space jointly</text>
+      <text x="154" y="142" font-size="6.5" fill="#64748b" text-anchor="middle">full pretraining corpus</text>
+
+      <!-- Right panel: post-training -->
+      <rect x="316" y="4" width="300" height="142" rx="6" fill="rgba(100,116,139,.04)" stroke="rgba(100,116,139,.22)"/>
+      <text x="466" y="20" font-size="7.5" fill="#94a3b8" text-anchor="middle" font-weight="700" letter-spacing=".07em">POST-TRAINING (hypothetical)</text>
+      <!-- Frozen main model -->
+      <rect x="328" y="30" width="110" height="62" rx="5" fill="rgba(100,116,139,.1)" stroke="rgba(100,116,139,.35)"/>
+      <text x="383" y="54" font-size="8.5" fill="#94a3b8" text-anchor="middle" font-weight="600">Main Model</text>
+      <text x="383" y="67" font-size="7" fill="#64748b" text-anchor="middle">Gemma 4</text>
+      <text x="383" y="82" font-size="7" fill="#475569" text-anchor="middle">frozen</text>
+      <!-- Drafter box -->
+      <rect x="490" y="30" width="110" height="62" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.4)"/>
+      <text x="545" y="54" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">MTP Drafter</text>
+      <text x="545" y="67" font-size="7" fill="#94a3b8" text-anchor="middle">Assistant</text>
+      <text x="545" y="82" font-size="7" fill="#67e8f9" text-anchor="middle">grad on</text>
+      <!-- One-way K/V arrow -->
+      <line x1="440" y1="60" x2="488" y2="60" stroke="rgba(100,116,139,.5)" stroke-width="1.5"/>
+      <polygon points="485,57 491,60 485,63" fill="rgba(100,116,139,.6)"/>
+      <text x="464" y="54" font-size="6" fill="#94a3b8" text-anchor="middle">K, V</text>
+      <text x="464" y="76" font-size="6" fill="#475569" text-anchor="middle">no grad back</text>
+      <!-- Notes -->
+      <text x="466" y="113" font-size="7" fill="#64748b" text-anchor="middle">K/V projections fixed at pretraining</text>
+      <text x="466" y="127" font-size="7" fill="#64748b" text-anchor="middle">drafter must adapt to frozen repr</text>
+      <text x="466" y="142" font-size="6.5" fill="#475569" text-anchor="middle">small post-training dataset</text>
+    </svg>
+
+    <div class="bonus-h4">Why K/V Co-Adaptation is Load-Bearing</div>
+    <p style="font-size:.82rem;color:var(--muted2);line-height:1.7;margin:0 0 1rem">
+      In joint pretraining, the main model's W<sub>K</sub> and W<sub>V</sub> projections receive gradients from <em>both</em> the autoregressive loss and the drafter's prediction loss. They co-adapt: the main model learns to surface features the drafter can act on, and the drafter's centroid vocabulary clustering co-evolves with that K/V geometry. Post-training, those projections are frozen — the drafter inherits a representation space that was never optimized with it in mind.
+    </p>
+
+    <div class="bonus-h4">The Centroid Alignment Challenge</div>
+    <p style="font-size:.82rem;color:var(--muted2);line-height:1.7;margin:0 0 1rem">
+      Gemma 4's drafter uses ~2,048 learned centroids to cluster the 262K vocabulary into coarse groups before fine prediction. Trained jointly, these centroids carve the representation space in a way both models agree on. Trained post-hoc with frozen main-model weights, the centroids must rediscover a compatible clustering from scratch — harder, but learnable. A warm-start approach — initializing centroid embeddings via k-means over the main model's frozen output embedding matrix — would give the post-hoc drafter a geometrically aligned starting point and likely close most of the acceptance-rate gap.
+    </p>
+
+    <div class="bonus-h4">What Eagle 3 Tells Us</div>
+    <p style="font-size:.82rem;color:var(--muted2);line-height:1.7;margin:0 0 1rem">
+      Eagle 3's post-training success rests on one key finding: the target model's hidden states are information-dense enough that a drafter can learn to predict well from them without co-training. Gemma 4's drafter accesses a structurally similar signal via shared K/V caches. The key difference is directness — Eagle 3 feeds hidden states as explicit per-layer features; Gemma 4's drafter reads K/V caches implicitly through attention. That indirection doesn't make post-training impossible, it just makes it harder for the drafter to extract the full signal from frozen representations.
+    </p>
+
+    <div class="bonus-h4">Hypothesis — Projected Acceptance Rate</div>
+
+    <!-- ── Bar chart: projected acceptance rates ── -->
+    <svg viewBox="0 0 580 168" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace;display:block;margin:.5rem 0 1rem">
+      <!-- Axis line -->
+      <line x1="178" y1="6" x2="178" y2="155" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
+      <!-- 100% reference line -->
+      <line x1="178" y1="14" x2="548" y2="14" stroke="rgba(139,92,246,.15)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="550" y="12" font-size="6" fill="rgba(139,92,246,.5)">100%</text>
+
+      <!-- Row 1: Joint Pretraining (100% = 368px) -->
+      <text x="172" y="28" font-size="7.5" fill="#a78bfa" text-anchor="end" font-weight="600">Joint Pretraining</text>
+      <text x="172" y="39" font-size="6.5" fill="#64748b" text-anchor="end">(current)</text>
+      <rect x="180" y="18" width="368" height="16" rx="3" fill="rgba(139,92,246,.28)" stroke="rgba(139,92,246,.5)"/>
+      <text x="554" y="29" font-size="7" fill="#a78bfa">100%</text>
+      <text x="554" y="39" font-size="6" fill="#64748b">reference</text>
+
+      <!-- Row 2: Post-Train warm-start centroids (~91% = 335px) -->
+      <text x="172" y="70" font-size="7.5" fill="#10b981" text-anchor="end" font-weight="600">Post-Train,</text>
+      <text x="172" y="81" font-size="6.5" fill="#10b981" text-anchor="end">warm-start centroids</text>
+      <rect x="180" y="60" width="335" height="16" rx="3" fill="rgba(16,185,129,.2)" stroke="rgba(16,185,129,.42)"/>
+      <text x="554" y="71" font-size="7" fill="#10b981">~88–94%</text>
+      <text x="554" y="81" font-size="6" fill="#64748b">recommended</text>
+
+      <!-- Row 3: Post-Train general dataset (~84% = 309px) -->
+      <text x="172" y="112" font-size="7.5" fill="#06b6d4" text-anchor="end" font-weight="600">Post-Train,</text>
+      <text x="172" y="123" font-size="6.5" fill="#06b6d4" text-anchor="end">general dataset</text>
+      <rect x="180" y="102" width="309" height="16" rx="3" fill="rgba(6,182,212,.18)" stroke="rgba(6,182,212,.38)"/>
+      <text x="554" y="113" font-size="7" fill="#06b6d4">~82–88%</text>
+
+      <!-- Row 4: Post-Train domain-specific (~80% = 294px) -->
+      <text x="172" y="154" font-size="7.5" fill="#f59e0b" text-anchor="end" font-weight="600">Post-Train,</text>
+      <text x="172" y="165" font-size="6.5" fill="#f59e0b" text-anchor="end">domain-specific only</text>
+      <rect x="180" y="144" width="294" height="16" rx="3" fill="rgba(245,158,11,.15)" stroke="rgba(245,158,11,.32)"/>
+      <text x="554" y="155" font-size="7" fill="#f59e0b">~78–85%</text>
+      <text x="554" y="165" font-size="6" fill="#64748b">in-domain only</text>
+    </svg>
+
+    <p style="font-size:.82rem;color:var(--muted2);line-height:1.7;margin:.25rem 0 0">
+      These are hypothetical estimates extrapolated from Eagle 3 and D-Flash benchmarks — no Gemma 4 post-training experiment has been published. The warm-start centroid strategy is the highest-leverage variable: initializing centroids via k-means over the frozen main model's output embedding matrix aligns the vocabulary clustering with the existing representation geometry, likely recovering most of the joint-training advantage at a fraction of the training cost. Domain-specific post-training scores higher within its target domain but degrades on out-of-distribution inputs, making it a poor general-purpose choice.
+    </p>
+  </div>
+</details>
+
 </article>
 
 <!-- ══════════════════════════════════ CODE SIDEBAR ══════════════ -->
