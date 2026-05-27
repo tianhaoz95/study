@@ -1255,20 +1255,20 @@ details[open].bonus-details .bonus-summary{border-radius:8px 8px 0 0}
   </div>
   <div class="vp-body" style="padding:.875rem">
     <svg viewBox="0 0 660 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
-      <!-- Step 1: backbone hidden states -->
+      <!-- Step 1: backbone hidden state -->
       <rect x="8" y="30" width="130" height="50" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
       <text x="73" y="51" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="600">backbone hidden</text>
       <text x="73" y="64" font-size="8" fill="#64748b" text-anchor="middle">[B, L, 1536]</text>
-      <text x="73" y="76" font-size="7.5" fill="#64748b" text-anchor="middle">current token</text>
+      <text x="73" y="76" font-size="7.5" fill="#64748b" text-anchor="middle">last validated pos</text>
 
       <!-- Arrow concat -->
       <text x="160" y="57" font-size="8" fill="#64748b" text-anchor="middle">concat</text>
       <text x="160" y="68" font-size="7.5" fill="#64748b" text-anchor="middle">↕</text>
 
-      <!-- Step 2: concatenated (2 × backbone) -->
-      <rect x="8" y="95" width="130" height="32" rx="5" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.2)" stroke-width="1" stroke-dasharray="3,2"/>
-      <text x="73" y="112" font-size="7.5" fill="#64748b" text-anchor="middle">prev backbone hidden</text>
-      <text x="73" y="123" font-size="7.5" fill="#64748b" text-anchor="middle">[B, L, 1536]</text>
+      <!-- Step 2: token embedding -->
+      <rect x="8" y="95" width="130" height="32" rx="5" fill="rgba(245,158,11,.06)" stroke="rgba(245,158,11,.25)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="73" y="112" font-size="7.5" fill="#f59e0b" text-anchor="middle">token embedding</text>
+      <text x="73" y="123" font-size="7.5" fill="#64748b" text-anchor="middle">[B, L, 1536]  embed_tokens</text>
 
       <!-- Arrow to pre_proj -->
       <line x1="138" y1="81" x2="198" y2="81" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
@@ -1315,13 +1315,13 @@ details[open].bonus-details .bonus-summary{border-radius:8px 8px 0 0}
       <text x="590" y="165" font-size="7.5" fill="#64748b" text-anchor="middle">returned as hidden_states</text>
 
       <!-- Dimension labels at bottom -->
-      <text x="8" y="190" font-size="8" fill="#64748b">* The concat (→3072) is the two backbone hidden states at consecutive positions — allowing the assistant to see token transition context.</text>
+      <text x="8" y="190" font-size="8" fill="#64748b">* The concat (→3072) is the target model's token embedding + last-layer hidden state, both for the same last-validated position.</text>
     </svg>
   </div>
 </div>
 
 <p>
-  The <code>pre_projection</code> concatenates two consecutive backbone hidden states and compresses them to the assistant's smaller working dimension. The <code>post_projection</code> expands back to 1536 for one specific reason: <strong>the backbone's <code>lm_head</code> is <code>Linear(1536 → vocab_size)</code></strong> — it is the verification head during speculative decoding, and it only accepts inputs in the backbone's dimension. The assistant's <code>last_hidden_state</code> (after <code>post_projection</code>) is fed directly into that same <code>lm_head</code> to compute the reference logits for acceptance/rejection checking. Without this projection, the shapes would be incompatible and the backbone could not re-use its own output head to verify drafts.
+  The <code>pre_projection</code> receives a concatenation of the target model's <strong>token embedding</strong> (from <code>embed_tokens</code>) and the target model's <strong>last-layer hidden state</strong>, both taken at the same last-validated position, and compresses the resulting 3072-dim vector to the assistant's smaller working dimension. The <code>post_projection</code> expands back to 1536 for one specific reason: <strong>the backbone's <code>lm_head</code> is <code>Linear(1536 → vocab_size)</code></strong> — it is the verification head during speculative decoding, and it only accepts inputs in the backbone's dimension. The assistant's <code>last_hidden_state</code> (after <code>post_projection</code>) is fed directly into that same <code>lm_head</code> to compute the reference logits for acceptance/rejection checking. Without this projection, the shapes would be incompatible and the backbone could not re-use its own output head to verify drafts.
 </p>
 </section>
 
@@ -2302,7 +2302,7 @@ architecture: {
   lines: [
 `def forward(`,
 `    self,`,
-`    input_ids=None,          # unused`,{c:'hl-c',t:`    inputs_embeds=None,      # [B, L, 1536]`},{c:'hl-g',t:`    shared_kv_states=None,   # dict: layer_type → (K, V)  (2 entries)`},
+`    input_ids=None,          # unused`,{c:'hl-c',t:`    inputs_embeds=None,      # [B, L, 3072]  embed_tokens(t) || hidden_state(t)`},{c:'hl-g',t:`    shared_kv_states=None,   # dict: layer_type → (K, V)  (2 entries)`},
 `    position_ids=None,`,
 `    attention_mask=None,`,
 `    use_cache=None,          # unused`,
