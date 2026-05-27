@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+# Usage: python scripts/download_papers.py
+# Downloads all reference PDFs into references/; skips files that already exist.
+
+import os
+import sys
+import urllib.request
+
+REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
+
+PAPERS = {
+    "a-bitter-lesson-for-data-filtering.pdf": "https://arxiv.org/pdf/2605.19407",
+    "cola-dlm.pdf":                            "https://arxiv.org/pdf/2605.06548",
+    "dynamo-llm.pdf":                          "https://arxiv.org/pdf/2408.00741",
+    "ELF.pdf":                                 "https://arxiv.org/pdf/2605.10938",
+    "fast-byte-latent-transformer.pdf":        "https://arxiv.org/pdf/2605.08044",
+    "gated-deltanet-2.pdf":                    "https://arxiv.org/pdf/2605.22791",
+    "the-many-faces-of-opd.pdf":               "https://arxiv.org/pdf/2605.11182",
+    "oscar.pdf":                               "https://arxiv.org/pdf/2605.17757",
+    "representation-autoencoders.pdf":         "https://arxiv.org/pdf/2605.18324",
+    "tiny-recursive-model.pdf":               "https://arxiv.org/pdf/2605.19943",
+    "eagle-3.pdf":                             "https://arxiv.org/pdf/2503.01840",
+    "dpsk-v3.pdf":                             "https://arxiv.org/pdf/2412.19437",
+    "dflash.pdf":                              "https://arxiv.org/pdf/2602.06036",
+    "p-eagle.pdf":                             "https://arxiv.org/pdf/2602.01469",
+    "DART.pdf":                                "https://arxiv.org/pdf/2601.19278",
+}
+
+def download(filename, url, dest_dir):
+    path = os.path.join(dest_dir, filename)
+    if os.path.exists(path):
+        print(f"  skip  {filename}")
+        return
+    print(f"  fetch {filename}  ← {url}")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as resp, open(path, "wb") as f:
+        f.write(resp.read())
+    print(f"        saved ({os.path.getsize(path) // 1024} KB)")
+
+def main():
+    os.makedirs(REFERENCES_DIR, exist_ok=True)
+    errors = []
+    for filename, url in PAPERS.items():
+        try:
+            download(filename, url, REFERENCES_DIR)
+        except Exception as e:
+            print(f"  ERROR {filename}: {e}", file=sys.stderr)
+            errors.append(filename)
+    if errors:
+        print(f"\n{len(errors)} failed: {', '.join(errors)}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
