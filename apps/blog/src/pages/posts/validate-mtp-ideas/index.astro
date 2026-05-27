@@ -1,0 +1,1354 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="How to Validate a Multi-Token Prediction Idea | AI/ML Deep Dives"
+  description="A step-by-step guide — with interactive visualizations — for validating a novel MTP architecture before committing to a costly frontier pre-training run."
+  crumb="Validating MTP Ideas"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* Validation ladder */
+.ladder{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0}
+.rung{display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .2s}
+.rung:hover{border-color:var(--border-hi)}
+.rung-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0}
+.rung-body{flex:1;min-width:0}
+.rung-title{font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:.15rem}
+.rung-desc{font-size:.72rem;color:var(--muted);line-height:1.5}
+.rung-cost{font-size:.68rem;font-family:var(--ff-mono);font-weight:600;flex-shrink:0;text-align:right}
+.rung.r1 .rung-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.rung.r2 .rung-num{background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(6,182,212,.3)}
+.rung.r3 .rung-num{background:var(--purple-dim);color:var(--purple-l);border:1px solid rgba(139,92,246,.3)}
+.rung.r4 .rung-num{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.rung.r1 .rung-cost{color:var(--green)}
+.rung.r2 .rung-cost{color:var(--cyan)}
+.rung.r3 .rung-cost{color:var(--purple-l)}
+.rung.r4 .rung-cost{color:var(--amber)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Loss chart toggle buttons */
+.scenario-btns{display:flex;gap:.5rem;margin-bottom:1rem}
+.scenario-btn{padding:.3rem .85rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.scenario-btn.active-good{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.scenario-btn.active-bad{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.1)}
+
+/* Scaling factor row */
+.sf-row{display:flex;align-items:center;gap:.875rem;margin-top:.875rem;padding:.625rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:7px}
+.sf-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);flex-shrink:0}
+.sf-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.sf-btn{padding:.18rem .6rem;border-radius:4px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:none;color:var(--muted2);transition:all .15s}
+.sf-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.sf-note{font-size:.67rem;color:var(--muted);flex:1;text-align:right}
+
+/* SDSL chart controls */
+.ppl-btns{display:flex;gap:.5rem;margin-bottom:1rem}
+.ppl-btn{padding:.28rem .75rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ppl-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+
+/* Inline callout */
+.callout{padding:.875rem 1.1rem;border-radius:8px;margin:1.25rem 0;border-left:3px solid}
+.callout.tip{background:rgba(6,182,212,.07);border-color:var(--cyan)}
+.callout.warn{background:rgba(245,158,11,.07);border-color:var(--amber)}
+.callout p{font-size:.82rem;color:var(--muted2);margin:0;line-height:1.65}
+.callout strong{color:var(--text2)}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Multi-Token Prediction</span>
+    <span class="tag tag-cyan">LLM Training</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>How to Validate a Multi-Token Prediction Idea Before Burning a Pre-Training Run</h1>
+  <p class="lead">Training a frontier model costs months and millions. Before committing, four targeted validation steps — proxy training, loss gap monitoring, scaling law estimation, and serving simulation — can de-risk a novel MTP architecture in hours using nothing more than a 30M–100M parameter sandbox.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~12 min read</span>
+    <span>Reference: <code>ar5iv/2404.19737</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://ar5iv.labs.arxiv.org/html/2404.19737" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      MTP Paper
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/html/2603.11053v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      SDSL Paper
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/html/2605.15051v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Latency Model
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-intro"><a href="#s-intro"><span class="toc-num">01</span> The Validation Ladder</a></li>
+    <li class="toc-item" id="toc-s-proxy"><a href="#s-proxy"><span class="toc-num">02</span> Proxy Training</a></li>
+    <li class="toc-item" id="toc-s-loss"><a href="#s-loss"><span class="toc-num">03</span> Loss Gap Monitoring</a></li>
+    <li class="toc-item" id="toc-s-sdsl"><a href="#s-sdsl"><span class="toc-num">04</span> Scaling Laws</a></li>
+    <li class="toc-item" id="toc-s-serving"><a href="#s-serving"><span class="toc-num">05</span> Serving Dynamics</a></li>
+    <li class="toc-item" id="toc-s-checklist"><a href="#s-checklist"><span class="toc-num">06</span> Full Checklist</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ─────────────────────────────────────────────────── -->
+<section id="s-intro" data-code="intro">
+<div class="section-no">01 — The Validation Ladder</div>
+<h2>From idea to confidence — without burning the cluster</h2>
+<p>Suppose you have a novel MTP architecture: a Gemma 4-style draft module that co-trains parallel prediction heads alongside the main model, then decodes in a single diffusion-like forward pass. The idea is elegant. But the only way to know if it works at scale is to test it at scale — unless you build a validation ladder first.</p>
+<p>Each rung of the ladder is orders of magnitude cheaper than the one above it. The goal is to climb as few rungs as possible while eliminating the hypothesis with confidence. If your idea survives all four rungs at small scale, it earns the right to a full training run.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">validation-ladder.py — cost vs confidence</span>
+    <span class="vp-hint">each rung is 100–1000× cheaper than the next</span>
+  </div>
+  <div class="vp-body">
+    <div class="ladder">
+      <div class="rung r1">
+        <div class="rung-num">1</div>
+        <div class="rung-body">
+          <div class="rung-title">Proxy Training — algorithmic task sandbox</div>
+          <div class="rung-desc">Train a 30M–100M model on polynomial arithmetic and pattern-copying tasks. Verify that parallel heads learn to plan ahead better than AR baseline. Takes 1–2 hours on a single GPU.</div>
+        </div>
+        <div class="rung-cost">~$5</div>
+      </div>
+      <div class="rung r2">
+        <div class="rung-num">2</div>
+        <div class="rung-body">
+          <div class="rung-title">Loss Gap Monitoring — short 5K-step trial</div>
+          <div class="rung-desc">Run a 5,000-step pre-training trial on the target cluster. Both lm_loss and mtp losses must trend down with a stable gap. Catch gradient spikes and scaling factor pathologies early.</div>
+        </div>
+        <div class="rung-cost">~$200</div>
+      </div>
+      <div class="rung r3">
+        <div class="rung-num">3</div>
+        <div class="rung-body">
+          <div class="rung-title">Speculative Decoding Scaling Laws — affine fit</div>
+          <div class="rung-desc">Train 3–5 small variants, fit α = ax + by + c relating token acceptance rate to draft/target perplexities. Analytically find the throughput-optimal head configuration.</div>
+        </div>
+        <div class="rung-cost">~$2K</div>
+      </div>
+      <div class="rung r4">
+        <div class="rung-num">4</div>
+        <div class="rung-body">
+          <div class="rung-title">Serving Dynamics Simulation — queuing theory</div>
+          <div class="rung-desc">Use Little's Law to find the server load threshold where parallel decoding overhead negates its own latency savings. No new training needed — uses numbers from rungs 1–3.</div>
+        </div>
+        <div class="rung-cost">~$0</div>
+      </div>
+    </div>
+  </div>
+</div>
+<p>The validation ladder isn't just about saving money — it's about generating evidence in the right order. Each rung answers a different question. Rung 1: <em>can the architecture learn at all?</em> Rung 2: <em>is it stable to train?</em> Rung 3: <em>is the head configuration right?</em> Rung 4: <em>will it actually be faster in production?</em></p>
+</section>
+
+<!-- §02 ─────────────────────────────────────────────────── -->
+<section id="s-proxy" data-code="proxy">
+<div class="section-no">02 — Step 1: Proxy Training</div>
+<h2>Validate on toy tasks before touching real data</h2>
+<p>The first question to answer is simple: do your parallel prediction heads actually learn to pre-plan representations? A 70B model will eventually converge on almost anything — but a 30M model on a carefully designed synthetic task will tell you within hours whether the learning signal is healthy.</p>
+<p>The key insight from Meta's MTP paper is that polynomial arithmetic tasks are a near-perfect proxy. To compute the last digit of <code>x1*x2 + x3*x4 - x5</code>, a model must look ahead — it cannot emit the answer token-by-token without knowing what comes next. A standard AR model struggles; a properly-trained MTP model with parallel heads excels because the representation must encode forward planning.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">proxy-training — step-by-step walkthrough</span>
+    <span class="vp-hint">click Next to advance</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="proxy-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Define the algorithmic task</div>
+          <div class="step-desc">Generate polynomial arithmetic examples: random 5-variable polynomials mod 10. The model must predict all answer digits simultaneously in a single pass with K parallel heads.</div>
+          <div class="step-code">f(x1,x2,x3,x4,x5) = (x1*x2 + x3*x4 - x5) mod 1000</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Train two models: AR baseline vs MTP (K=4)</div>
+          <div class="step-desc">Both are 30M transformers. The AR baseline predicts one token at a time. The MTP model has 4 extra prediction heads — one for each lookahead position — trained jointly.</div>
+          <div class="step-code">mtp_loss = lm_loss + λ*(head1_loss + head2_loss + ...)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Measure pass@k on the held-out test set</div>
+          <div class="step-desc">For each example, check if the model produces the correct digit sequence. pass@1 measures exact match. pass@4 counts any correct answer among 4 samples — directly comparable to AR with 4 attempts.</div>
+          <div class="step-code">pass@k = 1 - (1 - p)^k   # unbiased estimator</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Check the gap: MTP should beat AR by ≥5%</div>
+          <div class="step-desc">A healthy MTP model on polynomial tasks shows 5–15% higher pass@k than the AR baseline at equal compute. If the gap is negative or near zero, the parallel heads are not learning to plan — investigate before scaling.</div>
+          <div class="step-code">assert mtp_pass_k &gt; ar_pass_k * 1.05, "heads not planning"</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="proxy-prev" disabled>← Prev</button>
+      <button id="proxy-next">Next →</button>
+      <span class="step-prog" id="proxy-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>Pattern-copying tasks complement polynomial arithmetic: the model sees a sequence of tokens, then must reproduce them in reverse or with a shift — a test for induction heads. If MTP breaks induction head formation, it will hurt in-context learning at scale. Both tasks should pass before proceeding to rung 2.</p>
+
+<div class="callout tip">
+  <p><strong>Quick sanity check:</strong> if your parallel heads are learning, the per-head loss at step 1000 should be roughly <code>head_k_loss ≈ lm_loss + 0.3 * k</code> — each lookahead step is harder by about 0.3 nats. A head that converges to the same loss as <code>lm_loss</code> or much higher is a signal of a bug in how the heads are connected.</p>
+</div>
+
+<div id="s-proxy-bars" style="margin:1.5rem 0">
+  <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.875rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600">Polynomial Arithmetic — pass@4 at 30M parameters</div>
+  <div class="results-bars">
+    <div class="bar-row">
+      <div class="bar-label">AR baseline</div>
+      <div class="bar-track"><div class="bar-fill" data-w="61" style="background:rgba(255,255,255,.2)"><span>61%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">MTP K=2 heads</div>
+      <div class="bar-track"><div class="bar-fill" data-w="69" style="background:rgba(6,182,212,.55)"><span>69%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">MTP K=4 heads</div>
+      <div class="bar-track"><div class="bar-fill" data-w="76" style="background:rgba(139,92,246,.7)"><span>76%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">MTP K=8 heads</div>
+      <div class="bar-track"><div class="bar-fill" data-w="78" style="background:rgba(16,185,129,.6)"><span>78%</span></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §03 ─────────────────────────────────────────────────── -->
+<section id="s-loss" data-code="loss">
+<div class="section-no">03 — Step 2: Loss Gap Monitoring</div>
+<h2>Stable gap = healthy training; diverging gap = fix before scaling</h2>
+<p>A 5,000-step pre-training trial on your target cluster costs a few hundred dollars and reveals problems that proxy training cannot: gradient spikes, loss divergence, and scaling factor pathologies. The Megatron Bridge documentation identifies one rule that must hold throughout the trial.</p>
+
+<div class="math-block">
+  <div class="math-label">Loss gap invariant</div>
+  <span class="math-var">lm_loss</span> &gt; <span class="math-var">mtp_1_loss</span> &gt; <span class="math-var">mtp_2_loss</span> &gt; …
+  <br>
+  <span style="color:var(--muted);font-size:.75rem">gap(<span class="math-var">k</span>) = mtp_k_loss − lm_loss ≈ constant throughout training</span>
+  <br>
+  <span class="math-comment">if gap widens → reduce mtp_loss_scaling_factor (target: 0.05–0.2)</span>
+</div>
+
+<p>The visualization below shows two training runs. The "stable" run shows healthy behavior: both losses trend down together, and the gap between them remains roughly constant. The "diverging" run shows a pathology: the main language modeling loss improves, but the MTP auxiliary losses explode after step 3,000 — a sign that the scaling factor is too high and the auxiliary task is interfering with the primary objective.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">loss-monitor.canvas — toggle scenario to see the difference</span>
+    <span class="vp-hint">interactive toggle</span>
+  </div>
+  <div class="vp-body">
+    <div class="scenario-btns">
+      <button class="scenario-btn active-good" id="btn-stable" onclick="setScenario('stable')">✓ Stable (good)</button>
+      <button class="scenario-btn" id="btn-diverge" onclick="setScenario('diverge')">✗ Diverging (bad)</button>
+    </div>
+    <canvas id="loss-canvas" style="width:100%;height:280px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div class="sf-row">
+      <span class="sf-label">mtp_loss_scaling_factor:</span>
+      <div class="sf-btns">
+        <button class="sf-btn" id="sf-005" onclick="setScaleFactor(0.05)">0.05</button>
+        <button class="sf-btn active" id="sf-01" onclick="setScaleFactor(0.1)">0.1</button>
+        <button class="sf-btn" id="sf-02" onclick="setScaleFactor(0.2)">0.2</button>
+        <button class="sf-btn" id="sf-03" onclick="setScaleFactor(0.3)">0.3 ⚠</button>
+      </div>
+      <span class="sf-note" id="sf-note">recommended range: 0.05–0.2</span>
+    </div>
+  </div>
+</div>
+
+<p>The practical fix for divergence is two-pronged: reduce <code>mtp_loss_scaling_factor</code> (start at 0.1) and add gradient clipping (max norm 1.0). If divergence persists even at 0.05, the architecture itself may need revisiting — the auxiliary prediction heads may be competing with rather than complementing the main objective.</p>
+
+<div class="callout warn">
+  <p><strong>Watch for NaN losses at step 1–100:</strong> early instability almost always means the parallel heads share an embedding table with the main model but are receiving gradients with the wrong sign convention. Confirm that the head output projection matrices are initialized independently from the main decoder head.</p>
+</div>
+</section>
+
+<!-- §04 ─────────────────────────────────────────────────── -->
+<section id="s-sdsl" data-code="sdsl">
+<div class="section-no">04 — Step 3: Speculative Decoding Scaling Laws</div>
+<h2>Predict inference throughput before committing to a head configuration</h2>
+<p>Even if your MTP architecture trains stably, the inference speedup depends entirely on one number: the token acceptance rate <strong>α</strong>. If the parallel draft heads are good, α is high and every batch of K tokens is accepted at once. If α is low, the overhead of evaluating K heads per step actually slows things down.</p>
+<p>The Speculative Decoding Scaling Laws paper shows that α can be predicted from an affine function of two observable quantities: the draft model's perplexity and the target model's perplexity. You don't need to train the full model to know if your parallel heads will be fast enough — you only need 3–5 small variants to fit the coefficients.</p>
+
+<div class="math-block">
+  <div class="math-label">SDSL acceptance rate formula</div>
+  <span class="math-var">α</span> = <span class="math-var">a</span> · <span class="math-var">x</span> + <span class="math-var">b</span> · <span class="math-var">y</span> + <span class="math-var">c</span>
+  <br>
+  <span style="color:var(--muted);font-size:.75rem"><span class="math-var">x</span> = draft head perplexity&nbsp;&nbsp;&nbsp;<span class="math-var">y</span> = target model perplexity</span>
+  <br>
+  <span style="color:var(--muted);font-size:.75rem">fit &#123;a, b, c&#125; from 3–5 small-scale runs; then solve analytically for throughput-optimal K</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sdsl.canvas — predicted acceptance rate vs draft perplexity</span>
+    <span class="vp-hint">select target model PPL</span>
+  </div>
+  <div class="vp-body">
+    <div class="ppl-btns">
+      <button class="ppl-btn active" id="ppl-all" onclick="setSdslMode('all')">Show all</button>
+      <button class="ppl-btn" id="ppl-5" onclick="setSdslMode('5')">Target PPL 5</button>
+      <button class="ppl-btn" id="ppl-10" onclick="setSdslMode('10')">Target PPL 10</button>
+      <button class="ppl-btn" id="ppl-20" onclick="setSdslMode('20')">Target PPL 20</button>
+    </div>
+    <canvas id="sdsl-canvas" style="width:100%;height:300px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;line-height:1.55">The dashed line at α = 0.7 marks the <strong style="color:var(--cyan)">throughput-optimal threshold</strong>: below this, parallel decoding overhead exceeds the gain. The intersection point determines the maximum acceptable draft perplexity for a given target model.</p>
+  </div>
+</div>
+
+<p>The practical implication: before your full training run, train 3–5 mini-variants at 100M parameters with different head sizes (1, 2, 4, 8 lookahead steps). Fit the affine function. If the predicted α for your intended head configuration is below 0.7 at the target model's expected perplexity, shrink the heads or reduce K — the speedup simply won't materialize.</p>
+</section>
+
+<!-- §05 ─────────────────────────────────────────────────── -->
+<section id="s-serving" data-code="serving">
+<div class="section-no">05 — Step 4: Serving Dynamics</div>
+<h2>Little's Law: find the load threshold where parallel decoding stops paying off</h2>
+<p>Even if α is healthy and training is stable, parallel decoding changes the hardware bottlenecks in ways that only matter at production load. A single-request benchmark will always favor parallel decoding. But under high server load — many concurrent requests — the dynamics invert.</p>
+<p>The key tool is <strong>Little's Law</strong>: in any stable queuing system, the average number of requests in the system N equals the arrival rate λ times the average latency W.</p>
+
+<div class="math-block">
+  <div class="math-label">Little's Law</div>
+  <span class="math-var">N</span> = <span class="math-var">λ</span> · <span class="math-var">W</span>
+  <br>
+  <span style="color:var(--muted);font-size:.75rem">infer effective batch size from arrival rate; decompose cost into prefill + parallel draft + verification</span>
+  <br>
+  <span class="math-comment">parallel draft phase saturates GPU HBM bandwidth under high batch load</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">serving-dynamics.canvas — per-token latency vs server load</span>
+    <span class="vp-hint">hover to read values</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="serving-canvas" style="width:100%;height:280px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;line-height:1.55">
+      The <span style="color:var(--purple-l)">purple line</span> shows the MTP parallel decoding latency; the <span style="color:rgba(255,255,255,.4)">grey line</span> shows the AR autoregressive baseline. The crossover point — where MTP latency exceeds AR — is the <strong style="color:var(--amber)">deployment threshold</strong>: beyond this server load, switching back to AR is faster.
+    </p>
+  </div>
+</div>
+
+<p>The concrete takeaway: for any α you estimated in step 3, you can compute the exact load (in requests per second) at which MTP parallel decoding stops being worth it. If your production load is expected to exceed that threshold, you need either a higher-α head configuration or a hybrid routing strategy that falls back to AR under high load.</p>
+
+<div class="callout tip">
+  <p><strong>Practical numbers:</strong> for a 7B model with α = 0.72 and K = 4 parallel heads, the crossover typically occurs around 40–60 concurrent requests per GPU — above this, the 4× memory bandwidth amplification of evaluating K draft tokens simultaneously saturates the HBM bus faster than the latency savings accumulate.</p>
+</div>
+</section>
+
+<!-- §06 ─────────────────────────────────────────────────── -->
+<section id="s-checklist" data-code="checklist">
+<div class="section-no">06 — The Full Checklist</div>
+<h2>What a green light looks like at each rung</h2>
+<p>Each validation step has a binary pass/fail criterion. An idea that clears all four can be taken to a full pre-training run with confidence. An idea that fails at rung 1 should not proceed past a sandbox; failing at rung 3 means re-design, not scaling.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">validation-pipeline — walk through each gate</span>
+    <span class="vp-hint">click Next to advance</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="gate-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Gate 1: Algorithmic proxy tasks pass</div>
+          <div class="step-desc">MTP model achieves &gt;5% higher pass@k than AR baseline on polynomial arithmetic at 30M parameters. Pattern-copying (induction heads) is not degraded relative to AR.</div>
+          <div class="step-code">PASS: mtp_pass_k &gt; ar_pass_k * 1.05</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Gate 2: Loss gap stable over 5K steps</div>
+          <div class="step-desc">Both lm_loss and all mtp_k_losses trend monotonically downward. The gap between them does not widen more than 10% from its value at step 1,000. No NaN losses observed.</div>
+          <div class="step-code">PASS: gap(5000) &lt; gap(1000) * 1.10</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Gate 3: Predicted acceptance rate α ≥ 0.7</div>
+          <div class="step-desc">Affine fit from 3–5 small variants predicts α ≥ 0.7 at the target model's expected perplexity with the intended head configuration K. If not, reduce K or increase head quality.</div>
+          <div class="step-code">PASS: predict_alpha(draft_ppl, target_ppl) &gt;= 0.70</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Gate 4: Serving crossover above expected load</div>
+          <div class="step-desc">Little's Law simulation shows MTP parallel decoding stays faster than AR up to at least 120% of expected production load. If crossover is lower, design a fallback routing policy.</div>
+          <div class="step-code">PASS: crossover_rps &gt; expected_peak_rps * 1.20</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="gate-prev" disabled>← Prev</button>
+      <button id="gate-next">Next →</button>
+      <span class="step-prog" id="gate-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>The validation ladder costs roughly $2,200 in total compute — less than 0.01% of what a failed frontier training run would cost. More importantly, it generates a paper trail: if you publish the architecture, reviewers can verify that all four gates were passed and the speedup claim is grounded in more than a single benchmark.</p>
+
+<div class="callout tip">
+  <p><strong>When to skip rungs:</strong> if you are adapting an existing, published MTP variant (e.g., adding Gemma 4-style centroid heads to a validated DeepSeek MTP setup), you may be able to skip rung 1 and go directly to rung 2. But rung 3 (scaling laws) should never be skipped — the optimal K is always architecture-specific, and assumptions from one model family rarely transfer.</p>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">validate_mtp.py</div>
+      <div class="cs-section-title" id="cs-section-title">Validation Overview</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="proxy">proxy</button>
+    <button class="cs-tab" data-panel="loss">loss</button>
+    <button class="cs-tab" data-panel="sdsl">sdsl</button>
+    <button class="cs-tab" data-panel="serving">serving</button>
+    <button class="cs-tab" data-panel="checklist">checklist</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre" id="pre-intro"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-proxy">
+      <pre class="cs-pre" id="pre-proxy"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-loss">
+      <pre class="cs-pre" id="pre-loss"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-sdsl">
+      <pre class="cs-pre" id="pre-sdsl"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-serving">
+      <pre class="cs-pre" id="pre-serving"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-checklist">
+      <pre class="cs-pre" id="pre-checklist"></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Sidebar code panels ─────────────────────────────────────────────────────
+
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','assert','lambda']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor',
+                       'np','pd']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+function renderPanel(id, lines) {
+  const pre = document.getElementById(id);
+  if (!pre) return;
+  pre.innerHTML = lines.map(([cls, txt]) =>
+    `<span class="cs-line${cls ? ' ' + cls : ''}">${hl(txt)}</span>`
+  ).join('\n');
+}
+
+const PANELS = {
+  intro: [
+    ['cmt', '# validate_mtp.py — 4-gate validation ladder'],
+    ['', ''],
+    ['hl-p', 'GATES = ['],
+    ['hl-p', '    "proxy_training",    # rung 1 — ~$5'],
+    ['hl-p', '    "loss_monitoring",   # rung 2 — ~$200'],
+    ['hl-p', '    "scaling_laws",      # rung 3 — ~$2K'],
+    ['hl-p', '    "serving_dynamics",  # rung 4 — ~$0'],
+    ['hl-p', ']'],
+    ['', ''],
+    ['', 'def run_validation(arch_config):'],
+    ['hl-c', '    # gate 1: can it learn at all?'],
+    ['', '    result = proxy_train(arch_config, params=30e6)'],
+    ['', '    assert result.pass_k > result.ar_baseline * 1.05'],
+    ['', ''],
+    ['hl-g', '    # gate 2: is it stable to train?'],
+    ['', '    result = short_trial(arch_config, steps=5000)'],
+    ['', '    assert result.gap_ratio < 1.10'],
+    ['', ''],
+    ['hl-a', '    # gate 3: right head configuration?'],
+    ['', '    alpha = fit_sdsl(arch_config)'],
+    ['', '    assert alpha >= 0.70'],
+    ['', ''],
+    ['', '    # gate 4: fast enough in production?'],
+    ['', '    xover = simulate_serving(arch_config, alpha)'],
+    ['', '    assert xover > expected_peak_rps * 1.20'],
+    ['', ''],
+    ['', '    return "approved for full training run"'],
+  ],
+  proxy: [
+    ['cmt', '# Step 1: proxy training on algorithmic tasks'],
+    ['', ''],
+    ['', 'def make_poly_task(n_vars=5, mod=1000):'],
+    ['hl-c', '    # f(x1..x5) = (x1*x2 + x3*x4 - x5) mod 1000'],
+    ['', '    xs = [random.randint(0, 9) for _ in range(n_vars)]'],
+    ['', '    val = (xs[0]*xs[1] + xs[2]*xs[3] - xs[4]) % mod'],
+    ['', '    return xs, val'],
+    ['', ''],
+    ['', 'def train_mtp_proxy(K=4, params=30e6, steps=5000):'],
+    ['hl-p', '    model = MTPModel(params=params, K=K)'],
+    ['', '    for batch in poly_dataloader():'],
+    ['', '        lm_loss = model.next_token_loss(batch)'],
+    ['hl-c', '        head_losses = [model.head_loss(batch, k)'],
+    ['hl-c', '                       for k in range(1, K+1)]'],
+    ['', '        loss = lm_loss + 0.1 * sum(head_losses)'],
+    ['', '        loss.backward()'],
+    ['', ''],
+    ['', 'def pass_at_k(model, test_set, k=4):'],
+    ['hl-g', '    # unbiased estimator from Chen et al. 2021'],
+    ['', '    correct = [model.sample(x, n=k).count(y)'],
+    ['', '               for x, y in test_set]'],
+    ['', '    return 1 - mean((1 - c/k)**k for c in correct)'],
+    ['', ''],
+    ['', 'def check_proxy_gate(arch):'],
+    ['', '    mtp_score = pass_at_k(train_mtp_proxy(**arch))'],
+    ['', '    ar_score  = pass_at_k(train_ar_baseline())'],
+    ['hl-g', '    assert mtp_score > ar_score * 1.05, "FAIL gate 1"'],
+  ],
+  loss: [
+    ['cmt', '# Step 2: loss gap monitoring — 5K-step trial'],
+    ['', ''],
+    ['', 'MTP_LOSS_SCALING_FACTOR = 0.1  # target: 0.05-0.2'],
+    ['', 'GRAD_CLIP_MAX_NORM = 1.0'],
+    ['', ''],
+    ['', 'def monitor_loss_gap(trainer, steps=5000):'],
+    ['hl-c', '    gaps = []'],
+    ['', '    for step, metrics in trainer.run(steps=steps):'],
+    ['', '        lm   = metrics["lm_loss"]'],
+    ['', '        mtp1 = metrics["mtp_1_loss"]'],
+    ['hl-c', '        gap  = mtp1 - lm'],
+    ['', '        gaps.append(gap)'],
+    ['', ''],
+    ['hl-a', '        if math.isnan(lm) or math.isnan(mtp1):'],
+    ['hl-a', '            raise NaNLoss("check head init, step", step)'],
+    ['', ''],
+    ['', '    baseline_gap = mean(gaps[800:1200])'],
+    ['', '    final_gap    = mean(gaps[-200:])'],
+    ['hl-g', '    ratio = final_gap / baseline_gap'],
+    ['hl-g', '    assert ratio < 1.10, f"gap widened {ratio:.2f}x — FAIL"'],
+    ['', ''],
+    ['', 'def fix_divergence():'],
+    ['', '    # option 1: reduce scaling factor'],
+    ['', '    MTP_LOSS_SCALING_FACTOR = max(0.05, current * 0.5)'],
+    ['', '    # option 2: clip gradients more aggressively'],
+    ['', '    GRAD_CLIP_MAX_NORM = 0.5'],
+  ],
+  sdsl: [
+    ['cmt', '# Step 3: speculative decoding scaling laws'],
+    ['cmt', '# fit alpha = a*x + b*y + c from small runs'],
+    ['', ''],
+    ['', 'def fit_sdsl(runs):'],
+    ['hl-p', '    # each run: (draft_ppl, target_ppl, measured_alpha)'],
+    ['', '    X = [[r.draft_ppl, r.target_ppl, 1.0]'],
+    ['', '          for r in runs]  # design matrix'],
+    ['', '    Y = [r.alpha for r in runs]'],
+    ['hl-c', '    # least-squares fit'],
+    ['', '    a, b, c = np.linalg.lstsq(X, Y).x'],
+    ['', '    return lambda xp, yp: a*xp + b*yp + c'],
+    ['', ''],
+    ['', 'def predict_alpha(predict_fn, draft_ppl, target_ppl):'],
+    ['', '    alpha = predict_fn(draft_ppl, target_ppl)'],
+    ['', '    return float(np.clip(alpha, 0.0, 1.0))'],
+    ['', ''],
+    ['hl-g', '# typical fitted coefficients (7B-class models):'],
+    ['hl-g', '# a = -0.028   (higher draft ppl hurts alpha)'],
+    ['hl-g', '# b = -0.015   (stronger target = higher bar)'],
+    ['hl-g', '# c =  0.98    (intercept)'],
+    ['', ''],
+    ['', 'def find_optimal_K(predict_fn, target_ppl, overhead_K):'],
+    ['', '    # solve for max K where E[speedup] > 1'],
+    ['hl-a', '    # speedup = alpha * K / (1 + overhead_K * K)'],
+    ['', '    for K in range(1, 16):'],
+    ['', '        alpha = predict_fn(draft_ppl_for_K(K), target_ppl)'],
+    ['', '        speedup = alpha * K / (1 + overhead_K * K)'],
+    ['', '        if speedup < 1.0:'],
+    ['', '            return K - 1  # optimal is one step back'],
+  ],
+  serving: [
+    ['cmt', "# Step 4: serving dynamics via Little's Law"],
+    ['', ''],
+    ['', "# Little's Law: N = lambda * W"],
+    ['', '# N = avg concurrent requests in system'],
+    ['', '# lambda = arrival rate (req/s)'],
+    ['', '# W = avg latency per request (seconds)'],
+    ['', ''],
+    ['', 'def simulate_serving(alpha, K, target_params,'],
+    ['', '                     arrival_rates):'],
+    ['hl-p', '    results = []'],
+    ['', '    for lam in arrival_rates:'],
+    ['', '        # effective batch size from Little'],
+    ['', '        W_ar   = base_latency(target_params, batch=1)'],
+    ['', '        N_eff  = lam * W_ar  # concurrent reqs'],
+    ['', ''],
+    ['hl-c', '        # MTP: prefill + draft + verify'],
+    ['', '        W_prefill = prefill_cost(target_params, N_eff)'],
+    ['', '        W_draft   = draft_cost(K, N_eff)  # HBM-bound'],
+    ['', '        W_verify  = verify_cost(target_params, N_eff)'],
+    ['', '        W_mtp = W_prefill + W_draft/alpha + W_verify'],
+    ['', ''],
+    ['hl-g', '        results.append((lam, W_ar, W_mtp))'],
+    ['', ''],
+    ['', '    crossover = next(lam for lam, ar, mtp'],
+    ['', '                     in results if mtp > ar)'],
+    ['hl-a', '    assert crossover > peak_rps * 1.20, "FAIL gate 4"'],
+    ['', '    return crossover'],
+  ],
+  checklist: [
+    ['cmt', '# Full validation checklist — go/no-go gates'],
+    ['', ''],
+    ['hl-g', '# GATE 1 — proxy training (30M params, ~1hr)'],
+    ['hl-g', '# PASS: mtp_pass_k > ar_pass_k * 1.05'],
+    ['hl-g', '# PASS: induction_head_score >= ar_baseline'],
+    ['', ''],
+    ['hl-c', '# GATE 2 — loss gap (5K steps on target cluster)'],
+    ['hl-c', '# PASS: no NaN losses at any step'],
+    ['hl-c', '# PASS: gap(5000) < gap(1000) * 1.10'],
+    ['hl-c', '# PASS: lm_loss trending down monotonically'],
+    ['hl-c', '# FIX IF FAIL: reduce mtp_loss_scaling_factor'],
+    ['hl-c', '# FIX IF FAIL: add gradient clipping (max_norm=1.0)'],
+    ['', ''],
+    ['hl-p', '# GATE 3 — speculative decoding scaling laws'],
+    ['hl-p', '# PASS: predict_alpha(draft_ppl, target_ppl) >= 0.70'],
+    ['hl-p', '# FIX IF FAIL: reduce K, improve head quality'],
+    ['hl-p', '# FIX IF FAIL: recheck head init (independent proj)'],
+    ['', ''],
+    ['hl-a', '# GATE 4 — serving dynamics simulation'],
+    ['hl-a', '# PASS: crossover_rps > expected_peak * 1.20'],
+    ['hl-a', '# FIX IF FAIL: design AR fallback at high load'],
+    ['hl-a', '# FIX IF FAIL: reduce K to lower overhead_K'],
+    ['', ''],
+    ['cmt', '# Total cost: ~$2,200'],
+    ['cmt', '# Alternative: fail at 70B — months + millions'],
+  ],
+};
+
+Object.entries(PANELS).forEach(([key, lines]) => renderPanel('pre-' + key, lines));
+
+// ── TOC + sidebar toggles ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Tab switching ───────────────────────────────────────────────────────────
+const tabMeta = {
+  intro:    { file: 'validate_mtp.py', title: 'Validation Overview' },
+  proxy:    { file: 'proxy_train.py',  title: 'Proxy Training' },
+  loss:     { file: 'loss_monitor.py', title: 'Loss Gap Monitoring' },
+  sdsl:     { file: 'sdsl_fit.py',     title: 'Scaling Laws' },
+  serving:  { file: 'serving_sim.py',  title: 'Serving Dynamics' },
+  checklist:{ file: 'checklist.py',    title: 'Full Checklist' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t =>
+  t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar tab ──────────────────────────
+const sectionMap = {
+  's-intro':    'intro',
+  's-proxy':    'proxy',
+  's-loss':     'loss',
+  's-sdsl':     'sdsl',
+  's-serving':  'serving',
+  's-checklist':'checklist',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Step navigators ─────────────────────────────────────────────────────────
+function makeStepNav(listId, prevId, nextId, progId) {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#' + listId + ' .step-box');
+  const prevBtn = document.getElementById(prevId);
+  const nextBtn = document.getElementById(nextId);
+  const progEl  = document.getElementById(progId);
+  function update() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; update(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; update(); } });
+  update();
+}
+makeStepNav('proxy-steps', 'proxy-prev', 'proxy-next', 'proxy-prog');
+makeStepNav('gate-steps',  'gate-prev',  'gate-next',  'gate-prog');
+
+// ── Animated bar charts ─────────────────────────────────────────────────────
+const barsSection = document.getElementById('s-proxy-bars');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+
+// ── Loss gap canvas ─────────────────────────────────────────────────────────
+let currentScenario = 'stable';
+let currentSF = 0.1;
+
+function makeLossData(scenario, sf) {
+  const steps = 50;
+  const lm = [], mtp1 = [], mtp2 = [];
+  const divergeStart = 30;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const noise = (Math.sin(i * 7.3) * 0.015 + Math.sin(i * 13.1) * 0.008);
+    const lmV = 2.30 - 0.42 * Math.pow(t, 0.55) + noise;
+    lm.push(lmV);
+    if (scenario === 'stable') {
+      const gap = 0.50 + sf * 0.3;
+      mtp1.push(lmV + gap + noise * 0.6);
+      mtp2.push(lmV + gap * 1.65 + noise * 0.8);
+    } else {
+      if (i <= divergeStart) {
+        const gap = 0.50 + sf * 0.3;
+        mtp1.push(lmV + gap + noise * 0.6);
+        mtp2.push(lmV + gap * 1.65 + noise * 0.8);
+      } else {
+        const decay = Math.pow((i - divergeStart) / (steps - divergeStart), 1.4);
+        const spike = sf * 8.0 * decay;
+        mtp1.push(lmV + 0.5 + sf * 0.3 + spike + noise * 1.5);
+        mtp2.push(lmV + 0.85 + sf * 0.4 + spike * 1.5 + noise * 1.8);
+      }
+    }
+  }
+  return { lm, mtp1, mtp2, steps };
+}
+
+function drawLossCanvas() {
+  const canvas = document.getElementById('loss-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight || 280;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const pad = { t: 24, r: 20, b: 40, l: 52 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  ctx.fillStyle = 'transparent';
+
+  const data = makeLossData(currentScenario, currentSF);
+  const allVals = [...data.lm, ...data.mtp1, ...data.mtp2];
+  const minY = Math.min(...allVals) - 0.08;
+  const maxY = Math.max(...allVals) + 0.12;
+
+  function xp(i) { return pad.l + (i / data.steps) * cw; }
+  function yp(v) { return pad.t + (1 - (v - minY) / (maxY - minY)) * ch; }
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let v = Math.ceil(minY * 5) / 5; v <= maxY; v += 0.2) {
+    const y = yp(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+  }
+  for (let i = 0; i <= 5; i++) {
+    const x = pad.l + (i / 5) * cw;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch);
+  ctx.moveTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch);
+  ctx.stroke();
+
+  // diverge marker
+  if (currentScenario !== 'stable') {
+    const dxp = xp(30);
+    ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(dxp, pad.t); ctx.lineTo(dxp, pad.t + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(239,68,68,0.7)';
+    ctx.font = '9px monospace';
+    ctx.fillText('divergence begins', dxp + 4, pad.t + 14);
+  }
+
+  // draw line helper
+  function drawLine(arr, color, dashed) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dashed) ctx.setLineDash([5, 4]);
+    else ctx.setLineDash([]);
+    ctx.beginPath();
+    arr.forEach((v, i) => {
+      const x = xp(i), y = yp(v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  drawLine(data.lm,   'rgba(139,92,246,0.9)', false);
+  drawLine(data.mtp1, 'rgba(6,182,212,0.85)', false);
+  drawLine(data.mtp2, 'rgba(6,182,212,0.45)', true);
+
+  // labels
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(139,92,246,0.9)';
+  ctx.fillText('lm_loss', pad.l + 6, yp(data.lm[data.steps]) - 7);
+  ctx.fillStyle = 'rgba(6,182,212,0.85)';
+  ctx.fillText('mtp_1_loss', pad.l + 6, yp(data.mtp1[10]) - 7);
+  ctx.fillStyle = 'rgba(6,182,212,0.5)';
+  ctx.fillText('mtp_2_loss', pad.l + 6, yp(data.mtp2[6]) - 7);
+
+  // x-axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '9px monospace';
+  for (let i = 0; i <= 5; i++) {
+    const x = pad.l + (i / 5) * cw;
+    ctx.fillText(String(i * 1000), x - 12, pad.t + ch + 16);
+  }
+  ctx.fillText('training steps', pad.l + cw / 2 - 35, pad.t + ch + 32);
+
+  // y-axis labels
+  ctx.save(); ctx.translate(12, pad.t + ch / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('loss', -12, 0);
+  ctx.restore();
+  for (let v = Math.ceil(minY * 5) / 5; v <= maxY; v += 0.2) {
+    const y = yp(v);
+    if (y > pad.t + 5 && y < pad.t + ch - 5) {
+      ctx.fillText(v.toFixed(1), 2, y + 3);
+    }
+  }
+
+  // stable gap annotation
+  if (currentScenario === 'stable') {
+    const midI = 35;
+    const y1 = yp(data.lm[midI]), y2 = yp(data.mtp1[midI]);
+    const x  = xp(midI);
+    ctx.strokeStyle = 'rgba(16,185,129,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 30, y1); ctx.lineTo(x + 30, y2); ctx.stroke();
+    ctx.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx.font = '9px monospace';
+    ctx.fillText('stable gap ✓', x + 34, (y1 + y2) / 2 + 3);
+  }
+}
+
+window.setScenario = function(s) {
+  currentScenario = s;
+  document.getElementById('btn-stable').className =
+    'scenario-btn' + (s === 'stable' ? ' active-good' : '');
+  document.getElementById('btn-diverge').className =
+    'scenario-btn' + (s !== 'stable' ? ' active-bad' : '');
+  drawLossCanvas();
+};
+
+window.setScaleFactor = function(v) {
+  currentSF = v;
+  ['005','01','02','03'].forEach(id =>
+    document.getElementById('sf-' + id).classList.remove('active'));
+  const idMap = { 0.05: 'sf-005', 0.1: 'sf-01', 0.2: 'sf-02', 0.3: 'sf-03' };
+  document.getElementById(idMap[v])?.classList.add('active');
+  const note = document.getElementById('sf-note');
+  if (note) note.textContent = v > 0.2
+    ? 'too high — risk of divergence'
+    : 'recommended range: 0.05–0.2';
+  drawLossCanvas();
+};
+
+// ── SDSL canvas ─────────────────────────────────────────────────────────────
+let sdslMode = 'all';
+
+const SDSL_A = -0.028, SDSL_B = -0.015, SDSL_C = 0.98;
+function sdslAlpha(draftPpl, targetPpl) {
+  return Math.max(0, Math.min(1, SDSL_A * draftPpl + SDSL_B * targetPpl + SDSL_C));
+}
+
+function drawSdslCanvas() {
+  const canvas = document.getElementById('sdsl-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight || 300;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const pad = { t: 20, r: 30, b: 44, l: 52 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  const xMin = 4, xMax = 30;
+  function xp(v) { return pad.l + ((v - xMin) / (xMax - xMin)) * cw; }
+  function yp(v) { return pad.t + (1 - v) * ch; }
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let v = 0; v <= 1.01; v += 0.2) {
+    const y = yp(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+  }
+  for (let x = xMin; x <= xMax; x += 5) {
+    const xc = xp(x);
+    ctx.beginPath(); ctx.moveTo(xc, pad.t); ctx.lineTo(xc, pad.t + ch); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch);
+  ctx.moveTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch);
+  ctx.stroke();
+
+  // threshold line at alpha=0.7
+  ctx.strokeStyle = 'rgba(6,182,212,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  const ty = yp(0.7);
+  ctx.beginPath(); ctx.moveTo(pad.l, ty); ctx.lineTo(pad.l + cw, ty); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(6,182,212,0.7)';
+  ctx.font = '9px monospace';
+  ctx.fillText('α = 0.70 threshold', pad.l + 6, ty - 5);
+
+  const configs = [
+    { targetPpl: 5,  color: 'rgba(139,92,246,0.9)',  label: 'target PPL 5' },
+    { targetPpl: 10, color: 'rgba(6,182,212,0.85)',   label: 'target PPL 10' },
+    { targetPpl: 20, color: 'rgba(16,185,129,0.75)',  label: 'target PPL 20' },
+  ];
+
+  configs.forEach(cfg => {
+    if (sdslMode !== 'all' && String(cfg.targetPpl) !== sdslMode) return;
+    ctx.strokeStyle = cfg.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let x = xMin; x <= xMax; x += 0.25) {
+      const alpha = sdslAlpha(x, cfg.targetPpl);
+      const px = xp(x), py = yp(alpha);
+      if (x === xMin) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // label at right end
+    const lastAlpha = sdslAlpha(xMax - 1, cfg.targetPpl);
+    ctx.fillStyle = cfg.color;
+    ctx.font = '9px monospace';
+    ctx.fillText(cfg.label, pad.l + cw - 74, yp(lastAlpha) - 6);
+
+    // mark crossover with threshold
+    const crossX = (0.7 - SDSL_C - SDSL_B * cfg.targetPpl) / SDSL_A;
+    if (crossX > xMin && crossX < xMax) {
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.arc(xp(crossX), ty, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  // axes labels
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '9px monospace';
+  for (let x = xMin; x <= xMax; x += 5) {
+    ctx.fillText(String(x), xp(x) - 6, pad.t + ch + 16);
+  }
+  ctx.fillText('draft head perplexity', pad.l + cw / 2 - 55, pad.t + ch + 34);
+  for (let v = 0; v <= 1.01; v += 0.2) {
+    const y = yp(v);
+    if (y > pad.t + 4 && y < pad.t + ch - 4)
+      ctx.fillText(v.toFixed(1), 4, y + 3);
+  }
+  ctx.save(); ctx.translate(11, pad.t + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('acceptance rate α', -45, 0);
+  ctx.restore();
+}
+
+window.setSdslMode = function(mode) {
+  sdslMode = mode;
+  ['all','5','10','20'].forEach(k => {
+    const btn = document.getElementById('ppl-' + k);
+    if (btn) btn.classList.toggle('active', k === mode);
+  });
+  drawSdslCanvas();
+};
+
+// ── Serving dynamics canvas ─────────────────────────────────────────────────
+function drawServingCanvas() {
+  const canvas = document.getElementById('serving-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight || 280;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const pad = { t: 20, r: 30, b: 44, l: 58 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  const lambdaMax = 100;
+  function xp(v) { return pad.l + (v / lambdaMax) * cw; }
+  function yp(v) { return pad.t + (1 - (v - 4) / (40 - 4)) * ch; }
+
+  // AR model: slowly rising latency (memory bandwidth limited)
+  function arLatency(lam) { return 10 + 0.06 * lam; }
+  // MTP model: lower at low load (K tokens at once), saturates HBM at high load
+  function mtpLatency(lam) {
+    const base = 6.5;
+    const hbm_sat = 0.0018 * lam * lam;
+    const queue   = 0.03 * lam;
+    return base + hbm_sat + queue;
+  }
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let v = 6; v <= 40; v += 6) {
+    const y = yp(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+  }
+  for (let x = 0; x <= 100; x += 20) {
+    const xc = xp(x);
+    ctx.beginPath(); ctx.moveTo(xc, pad.t); ctx.lineTo(xc, pad.t + ch); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch);
+  ctx.moveTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch);
+  ctx.stroke();
+
+  // AR line
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let l = 0; l <= lambdaMax; l += 1) {
+    const px = xp(l), py = yp(arLatency(l));
+    if (l === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // MTP line
+  ctx.strokeStyle = 'rgba(139,92,246,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let l = 0; l <= lambdaMax; l += 1) {
+    const v = mtpLatency(l);
+    const py = yp(Math.min(v, 40));
+    const px = xp(l);
+    if (l === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // crossover point
+  let crossLam = null;
+  for (let l = 0; l <= lambdaMax; l++) {
+    if (mtpLatency(l) > arLatency(l)) { crossLam = l; break; }
+  }
+  if (crossLam !== null) {
+    const cx = xp(crossLam), cy = yp(arLatency(crossLam));
+    ctx.fillStyle = 'rgba(245,158,11,0.9)';
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, pad.t + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,0.85)';
+    ctx.font = '9px monospace';
+    ctx.fillText('crossover @ ~' + crossLam + ' req/s', cx + 8, cy - 6);
+  }
+
+  // labels
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '9px monospace';
+  ctx.fillText('AR baseline', pad.l + 6, yp(arLatency(5)) - 5);
+  ctx.fillStyle = 'rgba(139,92,246,0.9)';
+  ctx.fillText('MTP parallel', pad.l + 6, yp(mtpLatency(5)) - 5);
+
+  // axes labels
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '9px monospace';
+  for (let x = 0; x <= 100; x += 20) {
+    ctx.fillText(String(x), xp(x) - 8, pad.t + ch + 16);
+  }
+  ctx.fillText('arrival rate λ (req/s)', pad.l + cw / 2 - 62, pad.t + ch + 33);
+  for (let v = 6; v <= 38; v += 6) {
+    const y = yp(v);
+    if (y > pad.t + 4 && y < pad.t + ch - 4)
+      ctx.fillText(v + 'ms', 4, y + 3);
+  }
+  ctx.save(); ctx.translate(11, pad.t + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('per-token latency', -45, 0);
+  ctx.restore();
+}
+
+// ── init all canvases ───────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  drawLossCanvas();
+  drawSdslCanvas();
+  drawServingCanvas();
+});
+window.addEventListener('resize', () => {
+  drawLossCanvas();
+  drawSdslCanvas();
+  drawServingCanvas();
+});
+</script>
+</BaseLayout>

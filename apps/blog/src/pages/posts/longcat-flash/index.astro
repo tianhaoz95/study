@@ -1,0 +1,1298 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="LongCat-Flash: 560B MoE with Dynamic Compute per Token | AI/ML Deep Dives"
+  description="Meituan's LongCat-Flash proves not every token deserves equal compute — a 560B MoE with Zero-Computation Experts, Shortcut-Connected MoE, and 100+ TPS serving."
+  crumb="LongCat-Flash: Dynamic Compute MoE"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+/* Token difficulty viz */
+.tok-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.tok-btn{padding:.3rem .7rem;border-radius:5px;font-size:.78rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.tok-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.tok-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.expert-bars{display:flex;flex-direction:column;gap:.5rem;padding:.5rem 0}
+.ebar-row{display:flex;align-items:center;gap:.75rem}
+.ebar-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);width:120px;flex-shrink:0;text-align:right}
+.ebar-track{flex:1;background:var(--card2);border-radius:3px;height:18px;overflow:hidden;position:relative}
+.ebar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.ebar-count{font-size:.65rem;font-family:var(--ff-mono);color:rgba(255,255,255,.8);position:absolute;right:.4rem;top:50%;transform:translateY(-50%)}
+.tok-stat{font-size:.75rem;font-family:var(--ff-mono);color:var(--muted2);margin-top:.75rem}
+.tok-stat span{color:var(--text2);font-weight:600}
+/* Callout box */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;color:var(--text2);line-height:1.65}
+.callout-label{font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--purple-l);margin-bottom:.35rem;font-family:var(--ff-mono)}
+/* Canvas routing */
+#routing-canvas{display:block;width:100%;height:auto;max-width:100%}
+/* Timeline SVG */
+.timeline-wrap{overflow-x:auto;padding:.5rem 0}
+.timeline-wrap svg{min-width:480px}
+</style>
+
+<!-- ══════════════════════════ HERO ══════════════════════════ -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">LongCat-Flash</span>
+    <span class="tag tag-cyan">MoE Architecture</span>
+    <span class="tag tag-cyan">Dynamic Routing</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>LongCat-Flash: 560B MoE with<br>Dynamic Compute per Token</h1>
+  <p class="lead">
+    Meituan's LongCat-Flash proves that not every token deserves the same computational budget — a 560B MoE model that dynamically allocates 18.6B to 31.3B active parameters per token, trains 20 trillion tokens in 30 days, and serves at 100+ tokens/second for $0.70/M output tokens.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~13 min read</span>
+    <span>arXiv: 2509.01322</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/abs/2509.01322" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Paper (arXiv 2509.01322)
+    </a>
+  </div>
+</header>
+
+<!-- ══════════════════════════ GRID ══════════════════════════ -->
+<div class="post-grid" id="post-grid">
+
+<!-- ══════════════ TOC ══════════════ -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents" aria-label="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-zce"><a href="#s-zce"><span class="toc-num">02</span> Zero-Comp Experts</a></li>
+    <li class="toc-item" id="toc-s-scmoe"><a href="#s-scmoe"><span class="toc-num">03</span> ScMoE Overlap</a></li>
+    <li class="toc-item" id="toc-s-scaling"><a href="#s-scaling"><span class="toc-num">04</span> Scaling Stability</a></li>
+    <li class="toc-item" id="toc-s-agentic"><a href="#s-agentic"><span class="toc-num">05</span> Agentic Training</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════ ARTICLE ══════════════ -->
+<article class="post-body">
+
+<!-- §01 — Not All Tokens Are Equal -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>Not All Tokens Are Equal</h2>
+<p>
+  Standard Mixture-of-Experts routing applies a fixed top-<em>k</em> selection: every token, without exception, activates exactly K expert FFN networks. The word "the" gets the same number of expert computations as "eigenvector". This is a fundamental mismatch between computational budget and token complexity.
+</p>
+<p>
+  For easy tokens — function words, punctuation, determiners — activating eight full FFN networks is pure waste. For hard tokens — rare technical terms, multi-step reasoning pivots, ambiguous contexts — eight experts may not be enough. A static top-k treats a comma the same as a complex mathematical symbol.
+</p>
+<p>
+  LongCat-Flash's answer is to let the model learn which tokens need more compute and which need less, while keeping the average constant. The visualization below shows the contrast: fixed routing gives both simple and complex tokens identical compute budgets, while the ZCE approach distributes compute where it matters.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">routing-comparison.canvas</span>
+    <span class="vp-hint">Fixed vs dynamic expert allocation</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <canvas id="routing-canvas" width="680" height="240"></canvas>
+  </div>
+</div>
+
+<div class="callout">
+  <div class="callout-label">Key Insight</div>
+  In a 512-expert MoE with top-8 routing, approximately 98.4% of expert capacity sits idle for every single token — yet the model cannot route more capacity to the tokens that genuinely need it. ZCE breaks this constraint by making "do nothing" a valid expert choice.
+</div>
+</section>
+
+<!-- §02 — Zero-Computation Experts -->
+<section id="s-zce" data-code="zce">
+<div class="section-no">02 — Zero-Computation Experts</div>
+<h2>Zero-Computation Experts</h2>
+<p>
+  LongCat-Flash augments the standard MoE pool with 256 <strong>Zero-Computation Experts (ZCE)</strong>. Unlike FFN experts that transform the input through a learned two-layer network, a ZCE simply returns its input unchanged: <em>E&#x2ᵢ(x) = x</em>. Routing to a ZCE costs no FLOPs — it is a mathematical identity.
+</p>
+<p>
+  The combined expert pool has N = 512 FFN experts plus Z = 256 identity experts, for 768 total. The router selects K = 12 experts per token from this pool. A token that routes to 9 identity experts activates only 3 FFN experts; a token that routes to 1 identity expert activates 11 FFN experts. The model learns this routing end-to-end.
+</p>
+
+<div class="math-block">
+  <div class="math-label">ZCE Forward Pass</div>
+  <span class="math-var">MoE(x<sub>t</sub>)</span> = &Sigma;<sub>i &isin; top-K</sub> g<sub>i</sub> &middot; E<sub>i</sub>(x<sub>t</sub>)<br>
+  where <span class="math-var">E<sub>i</sub>(x) = FFN<sub>i</sub>(x)</span> for i &le; N &nbsp;&nbsp;<span class="math-comment">// real FFN expert</span><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="math-var">E<sub>i</sub>(x) = x</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for i &gt; N &nbsp;&nbsp;<span class="math-comment">// identity (zero compute)</span>
+</div>
+
+<p>
+  A <strong>PID controller</strong> adjusts routing biases so that, averaged across all tokens in a batch, exactly ~8 FFN experts fire per token. But the per-token count has a measured standard deviation of 3 — meaning at any given token the model may use 5 FFN experts or 11. Click each token below to see how compute is distributed:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">token-difficulty.interactive</span>
+    <span class="vp-hint">Click a token to see its expert allocation</span>
+  </div>
+  <div class="vp-body">
+    <div class="tok-btns" id="tok-btns">
+      <button class="tok-btn active" data-ffn="3" data-id="0">"the"</button>
+      <button class="tok-btn" data-ffn="4" data-id="1">"and"</button>
+      <button class="tok-btn" data-ffn="6" data-id="2">"runs"</button>
+      <button class="tok-btn" data-ffn="10" data-id="3">"eigenvalue"</button>
+      <button class="tok-btn" data-ffn="11" data-id="4">"backpropagation"</button>
+    </div>
+    <div class="expert-bars" id="expert-bars">
+      <div class="ebar-row">
+        <div class="ebar-label">FFN experts</div>
+        <div class="ebar-track">
+          <div class="ebar-fill" id="ebar-ffn" style="width:25%;background:#8b5cf6"></div>
+          <div class="ebar-count" id="ebar-ffn-count">3 / 12</div>
+        </div>
+      </div>
+      <div class="ebar-row">
+        <div class="ebar-label">Identity (ZCE)</div>
+        <div class="ebar-track">
+          <div class="ebar-fill" id="ebar-zce" style="width:75%;background:#374151"></div>
+          <div class="ebar-count" id="ebar-zce-count">9 / 12</div>
+        </div>
+      </div>
+    </div>
+    <div class="tok-stat">
+      Active params this token: <span id="tok-params">~18.6B</span> &nbsp;|&nbsp;
+      Compute vs max: <span id="tok-compute">25%</span> &nbsp;|&nbsp;
+      Classification: <span id="tok-class">easy (function word)</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The key benefit: the global average remains at 8 FFN experts (27B active parameters), satisfying the overall efficiency target. But the model gains the freedom to express that "the" is trivial and "backpropagation" deserves extra capacity. Training converges to a standard deviation of 3 activated FFN experts, confirming that the model learns to use this freedom.
+</p>
+</section>
+
+<!-- §03 — ScMoE -->
+<section id="s-scmoe" data-code="scmoe">
+<div class="section-no">03 — Hiding Communication in Plain Sight</div>
+<h2>Shortcut-Connected MoE</h2>
+<p>
+  In any distributed MoE system, tokens must be dispatched to the GPUs hosting their selected experts before FFN computation can begin. This dispatch-then-compute sequence creates mandatory idle bubbles: the GPU sits waiting for all-to-all communication to finish before it can do any useful work.
+</p>
+<p>
+  For LongCat-Flash running on 128 H800 GPUs, the non-overlapping communication time was measured at <strong>25.3%</strong> of total step time — a massive inefficiency. DeepSeek-V3's Two Batch Overlap (TBO) technique reduced this to ~16% by overlapping two micro-batches, but the fundamental issue remained.
+</p>
+<p>
+  <strong>Shortcut-Connected MoE (ScMoE)</strong> takes a different approach. It adds a cross-layer shortcut so the dense FFN computation from layer <em>N-1</em> runs in parallel with the dispatch of layer <em>N</em>. The overlap window expands from a single batch to two adjacent layers, dropping non-overlapping communication to just <strong>8.4%</strong>.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">scmoe-timeline.svg</span>
+    <span class="vp-hint">Execution timeline comparison</span>
+  </div>
+  <div class="vp-body timeline-wrap">
+    <svg viewBox="0 0 640 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Background -->
+      <rect width="640" height="220" fill="rgba(0,0,0,0)" rx="6"/>
+
+      <!-- Labels left -->
+      <text x="8" y="52" font-size="9" fill="#64748b" font-weight="600">Standard</text>
+      <text x="8" y="64" font-size="9" fill="#64748b" font-weight="600">MoE</text>
+      <text x="8" y="130" font-size="9" fill="#8b5cf6" font-weight="600">ScMoE</text>
+      <text x="8" y="142" font-size="9" fill="#8b5cf6" font-weight="600">(SBO)</text>
+
+      <!-- === Standard MoE row === -->
+      <!-- Attn -->
+      <rect x="75" y="35" width="70" height="32" rx="4" fill="rgba(99,102,241,.25)" stroke="rgba(99,102,241,.5)" stroke-width="1"/>
+      <text x="110" y="56" font-size="8" fill="#a5b4fc" text-anchor="middle">Attention</text>
+      <!-- Dispatch (idle) -->
+      <rect x="147" y="35" width="60" height="32" rx="4" fill="rgba(239,68,68,.15)" stroke="rgba(239,68,68,.4)" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="177" y="51" font-size="7" fill="#fca5a5" text-anchor="middle">Dispatch</text>
+      <text x="177" y="61" font-size="7" fill="#ef4444" text-anchor="middle">[wait]</text>
+      <!-- MoE FFN -->
+      <rect x="209" y="35" width="80" height="32" rx="4" fill="rgba(139,92,246,.25)" stroke="rgba(139,92,246,.5)" stroke-width="1"/>
+      <text x="249" y="56" font-size="8" fill="#c4b5fd" text-anchor="middle">MoE FFN</text>
+      <!-- Combine (idle) -->
+      <rect x="291" y="35" width="55" height="32" rx="4" fill="rgba(239,68,68,.15)" stroke="rgba(239,68,68,.4)" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="318" y="51" font-size="7" fill="#fca5a5" text-anchor="middle">Combine</text>
+      <text x="318" y="61" font-size="7" fill="#ef4444" text-anchor="middle">[wait]</text>
+      <!-- Next Attn -->
+      <rect x="348" y="35" width="70" height="32" rx="4" fill="rgba(99,102,241,.25)" stroke="rgba(99,102,241,.5)" stroke-width="1"/>
+      <text x="383" y="56" font-size="8" fill="#a5b4fc" text-anchor="middle">Attention</text>
+      <!-- Wait indicators -->
+      <text x="177" y="82" font-size="7" fill="#ef4444" text-anchor="middle">↑ idle</text>
+      <text x="318" y="82" font-size="7" fill="#ef4444" text-anchor="middle">↑ idle</text>
+      <!-- Annotation -->
+      <text x="427" y="56" font-size="8" fill="#64748b">25.3% non-overlap</text>
+
+      <!-- === ScMoE row === -->
+      <!-- Attn N-1 -->
+      <rect x="75" y="110" width="70" height="32" rx="4" fill="rgba(99,102,241,.25)" stroke="rgba(99,102,241,.5)" stroke-width="1"/>
+      <text x="110" y="131" font-size="8" fill="#a5b4fc" text-anchor="middle">Attn N-1</text>
+      <!-- Dense FFN N-1 (overlaps with Dispatch N) — two stacked -->
+      <rect x="147" y="110" width="62" height="15" rx="3" fill="rgba(16,185,129,.2)" stroke="rgba(16,185,129,.45)" stroke-width="1"/>
+      <text x="178" y="121" font-size="7" fill="#6ee7b7" text-anchor="middle">Dense FFN</text>
+      <rect x="147" y="127" width="62" height="15" rx="3" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="178" y="138" font-size="7" fill="#67e8f9" text-anchor="middle">Dispatch N</text>
+      <!-- Overlap marker -->
+      <text x="178" y="152" font-size="7" fill="#10b981" text-anchor="middle">overlap ✓</text>
+      <!-- MoE GEMM -->
+      <rect x="211" y="110" width="78" height="32" rx="4" fill="rgba(139,92,246,.25)" stroke="rgba(139,92,246,.5)" stroke-width="1"/>
+      <text x="250" y="131" font-size="8" fill="#c4b5fd" text-anchor="middle">MoE GEMM</text>
+      <!-- Combine + Dense FFN overlapped -->
+      <rect x="291" y="110" width="60" height="15" rx="3" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="321" y="121" font-size="7" fill="#67e8f9" text-anchor="middle">Combine N</text>
+      <rect x="291" y="127" width="60" height="15" rx="3" fill="rgba(16,185,129,.2)" stroke="rgba(16,185,129,.45)" stroke-width="1"/>
+      <text x="321" y="138" font-size="7" fill="#6ee7b7" text-anchor="middle">Dense FFN N</text>
+      <text x="321" y="152" font-size="7" fill="#10b981" text-anchor="middle">overlap ✓</text>
+      <!-- Next Attn -->
+      <rect x="353" y="110" width="70" height="32" rx="4" fill="rgba(99,102,241,.25)" stroke="rgba(99,102,241,.5)" stroke-width="1"/>
+      <text x="388" y="131" font-size="8" fill="#a5b4fc" text-anchor="middle">Attn N</text>
+      <!-- Annotation -->
+      <text x="435" y="131" font-size="8" fill="#8b5cf6">8.4% non-overlap</text>
+      <text x="435" y="144" font-size="7" fill="#64748b">TPOT: 16ms (vs 30ms)</text>
+
+      <!-- Divider -->
+      <line x1="70" y1="98" x2="620" y2="98" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+
+      <!-- Title -->
+      <text x="320" y="195" font-size="8" fill="#64748b" text-anchor="middle">Time →   (non-overlapping gaps shown with dashed borders)</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  For inference, ScMoE enables the <strong>Single Batch Overlap (SBO)</strong> pipeline, which achieves a theoretical TPOT (time per output token) of 16ms — nearly half the 30ms of DeepSeek-V3's Two Batch Overlap approach. The SBO pipeline has four stages: (1) Multi-head Latent Attention alone (cannot be overlapped), (2) Dispatch overlapping with Dense FFN and QKV projection, (3) MoE GEMM independently, and (4) Combine overlapping with Core Attention and Dense FFN.
+</p>
+
+<ul>
+  <li>Non-overlapping communication: 25.3% (standard) → 8.4% (ScMoE)</li>
+  <li>Theoretical TPOT: 30ms (TBO) → 16ms (SBO)</li>
+  <li>Output token cost: $0.17/M (DSV3) → $0.09/M (LongCat-Flash)</li>
+</ul>
+</section>
+
+<!-- §04 — Scaling Without Crashing -->
+<section id="s-scaling" data-code="scaling">
+<div class="section-no">04 — Scaling Without Crashing</div>
+<h2>Scaling Without Crashing</h2>
+<p>
+  Training a 560B parameter MoE model from scratch introduces severe instability risks: gradient explosions, router collapse, BF16 overflow from massive activations, and hyperparameters that cannot be swept at full scale. LongCat-Flash addresses each with a four-technique stability framework.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">stability-framework.navigator</span>
+    <span class="vp-hint">Step through the four techniques</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="step-list">
+      <div class="step-box active" id="step-0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Model Growth — Layer Stacking</div>
+          <div class="step-desc">Train a 14-layer half-scale model first (~10B tokens), then stack two copies to initialize the 28-layer target. The stacked model's loss initially rises, then converges faster than a randomly initialized 28-layer model — better initialization at lower cost than training the full model from scratch.</div>
+          <div class="step-code">small = train(layers=14) → stack(small, small) → large</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Hyperparameter Transfer — Width Scaling</div>
+          <div class="step-desc">Use a proxy model at width 768 (scaling factor s = 6144/768 = 8) to sweep learning rate &#951; and initialization variance &#963;². Transfer to the 560B target via &#951;_target = &#951;_proxy / s and &#963;²_target = &#963;²_proxy / s. This eliminates expensive sweeps on the full model.</div>
+          <div class="step-code">&#951;_target = &#951;_proxy / 8 &nbsp;&nbsp; &#963;²_target = &#963;²_proxy / 8</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Router Stability — Gradient Norm Ratio</div>
+          <div class="step-desc">Monitor the gradient norm ratio R<sub>g</sub> = ||&#945;&#8711;L<sub>LB</sub>|| / ||&#8711;L<sub>LM</sub>||, where L<sub>LB</sub> is the load-balancing loss. Keep R<sub>g</sub> &lt; 0.1 so the balancing signal acts as a regularizer without dominating routing specialization. If R<sub>g</sub> rises, reduce the balance coefficient &#945;.</div>
+          <div class="step-code">R&#x261;  = ||&#945; &#8711;L_LB|| / ||&#8711;L_LM|| &lt; 0.1</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Hidden z-Loss + Adam &#949; = 1e-16</div>
+          <div class="step-desc">Massive hidden activations (&gt;10&#8308; magnitude) cause BF16 overflow. A tiny hidden z-loss term penalizes log-sum-exp of activation magnitudes — it kills spikes without noticeably affecting language modeling loss. Adam &#949; is set to 1e-16 (vs default 1e-5) because at large scale, gradient RMS values are tiny; default &#949; dominates the denominator and destroys the adaptive property.</div>
+          <div class="step-code">&#949; = 1e-16 &nbsp;(vs default 1e-5) &nbsp;&nbsp; Adam &#949; &lt; grad_RMS</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>&#8592; Prev</button>
+      <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">1 / 4</span>
+      <button id="step-next">Next &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  Together these four techniques allowed the team to train 20T tokens in 30 days on 6,144 H800 GPUs with 98.48% uptime — approximately 1.5% of compute lost to hardware failures and restarts, a remarkable result for a training run of this scale.
+</p>
+</section>
+
+<!-- §05 — Building Agentic Intelligence -->
+<section id="s-agentic" data-code="agentic">
+<div class="section-no">05 — Building Agentic Intelligence</div>
+<h2>Building Agentic Intelligence</h2>
+<p>
+  Post-training for agentic tasks presents a data scarcity problem. Real agentic trajectories — where a model calls tools, waits for results, and iterates — are expensive to collect and rarely cover the diversity of real-world tool ecosystems. LongCat-Flash addresses this with a <strong>multi-agent synthesis framework</strong> that generates diverse, verifiable, difficulty-calibrated training tasks.
+</p>
+<p>
+  Task difficulty is characterized on three independent axes: <em>information processing complexity</em> (length and depth of reasoning chains), <em>tool-set complexity</em> (density and branching of the tool dependency graph), and <em>user interaction complexity</em> (how many clarifying exchanges are needed before the goal is clear). The framework builds 80,000 mock tools across 1,600 apps in 40 domains.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">multi-agent-synthesis.svg</span>
+    <span class="vp-hint">Six-agent task synthesis pipeline</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 700 190" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- UserProfileAgent (amber) -->
+      <rect x="10" y="12" width="118" height="38" rx="5" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.45)" stroke-width="1.5"/>
+      <text x="69" y="27" font-size="8" fill="#fbbf24" text-anchor="middle" font-weight="600">UserProfileAgent</text>
+      <text x="69" y="40" font-size="7" fill="#92400e" text-anchor="middle">personas, styles</text>
+
+      <!-- ToolSetAgent (cyan) -->
+      <rect x="10" y="118" width="118" height="38" rx="5" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+      <text x="69" y="133" font-size="8" fill="#22d3ee" text-anchor="middle" font-weight="600">ToolSetAgent</text>
+      <text x="69" y="146" font-size="7" fill="#164e63" text-anchor="middle">80k tools, 40 domains</text>
+
+      <!-- Arrows to InstructionAgent -->
+      <line x1="128" y1="31" x2="188" y2="78" stroke="rgba(245,158,11,.45)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+      <line x1="128" y1="137" x2="188" y2="92" stroke="rgba(6,182,212,.4)" stroke-width="1.5" marker-end="url(#arr-cyan)"/>
+
+      <!-- InstructionAgent (purple) -->
+      <rect x="188" y="62" width="118" height="38" rx="5" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.45)" stroke-width="1.5"/>
+      <text x="247" y="77" font-size="8" fill="#a78bfa" text-anchor="middle" font-weight="600">InstructionAgent</text>
+      <text x="247" y="90" font-size="7" fill="#4c1d95" text-anchor="middle">task description</text>
+
+      <!-- Arrow to EnvironmentAgent -->
+      <line x1="306" y1="81" x2="365" y2="81" stroke="rgba(139,92,246,.4)" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+
+      <!-- EnvironmentAgent (green) -->
+      <rect x="365" y="62" width="118" height="38" rx="5" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.4)" stroke-width="1.5"/>
+      <text x="424" y="77" font-size="8" fill="#34d399" text-anchor="middle" font-weight="600">EnvironmentAgent</text>
+      <text x="424" y="90" font-size="7" fill="#064e3b" text-anchor="middle">enriched scenario</text>
+
+      <!-- Arrow to RubricAgent -->
+      <line x1="483" y1="81" x2="543" y2="81" stroke="rgba(16,185,129,.4)" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+      <!-- RubricAgent (teal) -->
+      <rect x="543" y="62" width="118" height="38" rx="5" fill="rgba(20,184,166,.1)" stroke="rgba(20,184,166,.4)" stroke-width="1.5"/>
+      <text x="602" y="77" font-size="8" fill="#2dd4bf" text-anchor="middle" font-weight="600">RubricAgent</text>
+      <text x="602" y="90" font-size="7" fill="#134e4a" text-anchor="middle">eval checklist</text>
+
+      <!-- Arrow from Rubric down to Validator -->
+      <line x1="602" y1="100" x2="602" y2="128" stroke="rgba(20,184,166,.4)" stroke-width="1.5" marker-end="url(#arr-teal)"/>
+
+      <!-- ValidatorAgent (muted) -->
+      <rect x="543" y="128" width="118" height="38" rx="5" fill="rgba(100,116,139,.1)" stroke="rgba(100,116,139,.35)" stroke-width="1.5"/>
+      <text x="602" y="143" font-size="8" fill="#94a3b8" text-anchor="middle" font-weight="600">ValidatorAgent</text>
+      <text x="602" y="156" font-size="7" fill="#1e293b" text-anchor="middle">+ Deduplicator</text>
+
+      <!-- Arrowhead markers -->
+      <defs>
+        <marker id="arr-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(245,158,11,.6)"/>
+        </marker>
+        <marker id="arr-cyan" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(6,182,212,.5)"/>
+        </marker>
+        <marker id="arr-purple" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(139,92,246,.5)"/>
+        </marker>
+        <marker id="arr-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(16,185,129,.5)"/>
+        </marker>
+        <marker id="arr-teal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(20,184,166,.5)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The ToolSetAgent constructs task-specific tool subgraphs via random walks on the full 80,000-tool graph, producing dense dependency structures that average 30+ tools per VitaBench-style task. The UserProfileAgent goes beyond simple personas to model communication style (verbose vs terse), willingness (cooperative vs reluctant), and disclosure patterns (upfront vs need-to-ask). These axes together produce training tasks that genuinely require multi-turn clarification and complex tool orchestration.
+</p>
+<p>
+  The result is strong performance on agentic benchmarks: 70.80 on &#964;&#178;-Bench retail (vs 64.90 for DeepSeek-V3.1 and 64.80 for Kimi-K2) and 24.30 on VitaBench (vs 20.30 and 18.20 respectively).
+</p>
+</section>
+
+<!-- §06 — Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmarks &amp; Inference</div>
+<h2>Benchmarks &amp; Inference</h2>
+<p>
+  LongCat-Flash is evaluated in non-thinking mode (no extended chain-of-thought budget) against DeepSeek-V3.1, Kimi-K2, GPT-4.1, and Qwen3. Results show strong performance across coding, math, instruction following, and agentic tasks — with notable leads on &#964;&#178;-Bench, TerminalBench, IFEval, and VitaBench.
+</p>
+
+<div id="results-chart">
+  <div class="results-bars" id="results-bars">
+    <!-- ArenaHard-V2 -->
+    <div style="margin-bottom:.25rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">ArenaHard-V2 (max 100)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="86.5" style="background:#8b5cf6"><span>86.50</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="84.1" style="background:#475569"><span>84.10</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Kimi-K2</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="88.2" style="background:#0e7490"><span>88.20</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">GPT-4.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="85.7" style="background:#1d4ed8"><span>85.70</span></div></div>
+    </div>
+
+    <!-- IFEval -->
+    <div style="margin-bottom:.25rem;margin-top:1rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">IFEval (max 100)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="89.65" style="background:#8b5cf6"><span>89.65 ★</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="86.69" style="background:#475569"><span>86.69</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Kimi-K2</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="88.91" style="background:#0e7490"><span>88.91</span></div></div>
+    </div>
+
+    <!-- AIME25 -->
+    <div style="margin-bottom:.25rem;margin-top:1rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">AIME 2025 (max 100)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="61.25" style="background:#8b5cf6"><span>61.25</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="49.27" style="background:#475569"><span>49.27</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen3-235B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="68.33" style="background:#0f766e"><span>68.33</span></div></div>
+    </div>
+
+    <!-- TerminalBench -->
+    <div style="margin-bottom:.25rem;margin-top:1rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">TerminalBench (max 60, % of max shown)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="65.85" style="background:#8b5cf6"><span>39.51</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="52.17" style="background:#475569"><span>31.30</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Kimi-K2</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="67.9" style="background:#0e7490"><span>40.74</span></div></div>
+    </div>
+
+    <!-- SWE-Bench -->
+    <div style="margin-bottom:.25rem;margin-top:1rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">SWE-Bench Verified (max 80, % of max shown)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="75.5" style="background:#8b5cf6"><span>60.40</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="82.5" style="background:#475569"><span>66.00</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Kimi-K2</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="80.75" style="background:#0e7490"><span>64.60</span></div></div>
+    </div>
+
+    <!-- τ²-Bench -->
+    <div style="margin-bottom:.25rem;margin-top:1rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase">&#964;&#178;-Bench Retail (max 100)</div>
+    <div class="bar-row">
+      <div class="bar-label">LongCat-Flash 560B</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="70.8" style="background:#8b5cf6"><span>70.80 ★</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-V3.1</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="64.9" style="background:#475569"><span>64.90</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Kimi-K2</div>
+      <div class="bar-track"><div class="bar-fill" data-pct="64.8" style="background:#0e7490"><span>64.80</span></div></div>
+    </div>
+  </div>
+</div>
+
+<h3>Inference Performance</h3>
+<p>
+  Serving at FP8 precision on 128 H800 GPUs, LongCat-Flash achieves 4,230 tokens/GPU/second and 100.5 tokens/second per user — more than 4.5× the throughput of DeepSeek-V3 while using fewer GPUs.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>GPUs</th>
+      <th>Avg Context</th>
+      <th>TGS</th>
+      <th>TPS / user</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mn">DeepSeek-V3 (blog)</td>
+      <td>144 H800</td>
+      <td>4989</td>
+      <td class="mn">1850</td>
+      <td class="mn">~22</td>
+    </tr>
+    <tr>
+      <td class="mn">LongCat-Flash BF16</td>
+      <td>128 H800</td>
+      <td>5000</td>
+      <td class="mn">3785</td>
+      <td class="mn">68.9</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">LongCat-Flash FP8</td>
+      <td>128 H800</td>
+      <td>5000</td>
+      <td class="mn best">4230</td>
+      <td class="mn best">100.5</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="callout-label">Training Stats</div>
+  20 trillion tokens trained in 30 days on 6,144 H800 GPUs with 98.48% uptime. Cost: $0.70/M output tokens at launch. The ZCE mechanism and ScMoE together account for the majority of the inference efficiency gain over baseline MoE systems.
+</div>
+</section>
+
+</article>
+
+<!-- ══════════════ CODE SIDEBAR ══════════════ -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file">moe_routing.py</div>
+      <div class="cs-section-title" id="cs-title">Standard MoE Routing</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code panel" aria-label="Hide code panel">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">routing</button>
+    <button class="cs-tab" data-panel="zce">zce</button>
+    <button class="cs-tab" data-panel="scmoe">scmoe</button>
+    <button class="cs-tab" data-panel="scaling">scaling</button>
+    <button class="cs-tab" data-panel="agentic">agents</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body" id="cs-body">
+    <!-- Panels injected by JS -->
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<!-- ═══════════════════════════════════════════ SCRIPT -->
+<script>
+// ── Syntax highlighter (single-pass tokenizer) ──────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield','async','await']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor',
+                       'PIDController','MoE','ZCE']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)            out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w))  out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else                 out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+// ── Code panel definitions ─────────────────────────────────────────
+const PANELS = {
+
+'problem': {
+  file: 'moe_routing.py',
+  title: 'Standard MoE Routing',
+  lines: [
+`# Standard MoE: fixed top-k for every token`,
+`def moe_forward(x, experts, k=8):`,
+{c:'hl-p',t:`    scores = router(x)           # [N_experts]`},
+{c:'hl-p',t:`    top_k_idx = topk(scores, k)  # always exactly k`},
+`    output = 0`,
+`    for i in top_k_idx:`,
+`        output += scores[i] * experts[i](x)`,
+`    return output`,
+``,
+`# Problem: "the" and "eigenvector" both activate k=8`,
+{c:'hl-c',t:`# "the"         → wastes 8 expert calls on trivial token`},
+{c:'hl-c',t:`# "eigenvector" → only gets 8 experts even if needs more`},
+``,
+`# MoE with 512 experts, top-8:`,
+`# - 504 experts idle per token = 98.4% idle`,
+`# - no way to give hard tokens more compute`,
+`# - no way to skip compute on easy tokens`,
+``,
+`# LongCat-Flash fix: Zero-Computation Experts`,
+`# Add 256 identity experts to the pool`,
+`# Router picks K=12 from 768 (512 FFN + 256 ZCE)`,
+{c:'hl-g',t:`# avg FFN experts = 8, but std dev = 3 per token`},
+  ]
+},
+
+'zce': {
+  file: 'zce_routing.py',
+  title: 'ZCE Routing with PID Controller',
+  lines: [
+`# Zero-Computation Expert routing`,
+`# N=512 FFN experts, Z=256 identity experts, K=12 total`,
+`def zce_moe(x_t, experts, zero_experts, K=12):`,
+{c:'hl-p',t:`    scores = softmax(router(x_t) + bias)  # biased`},
+{c:'hl-p',t:`    top_k = topk(scores, K)  # K from N+Z pool`},
+`    output = 0`,
+`    for i in top_k:`,
+{c:'hl-c',t:`        if i <= N:`},
+{c:'hl-c',t:`            output += scores[i] * experts[i](x_t)  # FFN`},
+{c:'hl-c',t:`        else:`},
+{c:'hl-c',t:`            output += scores[i] * x_t  # identity`},
+`    return output`,
+``,
+`# PID bias update (runs every step)`,
+`def update_bias(bias, tokens_routed, target_ffn=8):`,
+{c:'hl-g',t:`    delta = mu * (target_ffn/N - tokens_routed/T_all)`},
+{c:'hl-g',t:`    bias[:N] += delta   # only FFN experts updated`},
+`    # zero experts excluded — constraint auto-satisfied`,
+`    # result: avg FFN experts → 8, std dev → 3`,
+``,
+`# Dynamic allocation stats (from training):`,
+`# avg activated FFN experts: 8.0 (+-1%)`,
+`# std dev of FFN expert count: 3.0`,
+`# range: ~5 to ~11 FFN experts per token`,
+  ]
+},
+
+'scmoe': {
+  file: 'scmoe_pipeline.py',
+  title: 'ScMoE — Overlap Architecture',
+  lines: [
+`# Standard MoE: sequential, creates bubbles`,
+`# Layer N:`,
+{c:'hl-c',t:`#   1. attention(x)     → h_attn`},
+{c:'hl-c',t:`#   2. dispatch(h_attn) → experts   [WAIT for comm]`},
+{c:'hl-c',t:`#   3. expert_ffn()     → outputs`},
+{c:'hl-c',t:`#   4. combine()        → h_moe     [WAIT for comm]`},
+``,
+`# ScMoE: cross-layer shortcut expands overlap`,
+`# Layer N:`,
+{c:'hl-p',t:`#   stage 1: attention(x)          → h_attn`},
+{c:'hl-p',t:`#   stage 2: dispatch(N) || dense_ffn(N-1)  # overlap!`},
+{c:'hl-p',t:`#   stage 3: moe_gemm(N)           (independent)`},
+{c:'hl-p',t:`#   stage 4: combine(N) || dense_ffn(N)     # overlap!`},
+``,
+`# Single Batch Overlap (SBO) inference pipeline:`,
+`# Stage 1: MLA  (cannot overlap — feeds next stages)`,
+{c:'hl-g',t:`# Stage 2: Dispatch + Dense FFN + QKV projection`},
+{c:'hl-g',t:`# Stage 3: MoE GEMM   (independent)`},
+{c:'hl-g',t:`# Stage 4: Combine + Core Attention + Dense FFN`},
+``,
+`# Result metrics:`,
+`# Non-overlap comm: 25.3% → 8.4%`,
+`# Theoretical TPOT: 30ms (TBO) → 16ms (SBO)`,
+`# Inference cost:  $0.17/M → $0.09/M tokens`,
+  ]
+},
+
+'scaling': {
+  file: 'stability_framework.py',
+  title: 'Four-Technique Stability Framework',
+  lines: [
+`# 1. Model Growth (layer stacking, r=2)`,
+{c:'hl-p',t:`small = train_model(layers=14, tokens=10e9)`},
+{c:'hl-p',t:`large = stack(small, small)   # 28-layer init`},
+`# loss: initial bump → converges faster than random`,
+``,
+`# 2. Hyperparameter Transfer (width scaling s=8)`,
+`# proxy: width=768, sweep to find optimal lr, sigma`,
+`# target: width=6144`,
+{c:'hl-c',t:`lr_target = lr_proxy / s          # s = 6144/768 = 8`},
+{c:'hl-c',t:`sigma2_target = sigma2_proxy / s`},
+``,
+`# 3. Router Stability (gradient norm ratio)`,
+{c:'hl-g',t:`Rg = norm(alpha * grad_LB) / norm(grad_LM)`},
+{c:'hl-g',t:`# keep Rg < 0.1: LB acts as regularizer not driver`},
+{c:'hl-g',t:`# if Rg rises → reduce alpha (balance coefficient)`},
+``,
+`# 4. Hidden z-Loss + Adam epsilon`,
+`# suppress massive activations (BF16 overflow prevention)`,
+{c:'hl-a',t:`L_Z = lam/T * sum_t( log(sum_i( exp(abs(z_ti)) )) )**2`},
+`# lam is tiny: kills spikes, negligible LM loss effect`,
+``,
+{c:'hl-a',t:`# Adam epsilon = 1e-16 (vs default 1e-5)`},
+`# large models: grad_rms is tiny`,
+`# default eps >= grad_rms → adaptive property destroyed`,
+  ]
+},
+
+'agentic': {
+  file: 'multi_agent_synthesis.py',
+  title: 'Multi-Agent Task Synthesis',
+  lines: [
+`# Multi-agent task synthesis framework`,
+`# Complexity axes:`,
+`#   info_processing x tool_set x user_interaction`,
+``,
+`class ToolSetAgent:`,
+{c:'hl-p',t:`    # 40 domains → 1,600 apps → 80,000 mock tools`},
+{c:'hl-p',t:`    # tool graph: nodes=tools, edges=dependencies`},
+`    def sample_task_tools(self, complexity):`,
+{c:'hl-p',t:`        subgraph = random_walk(tool_graph, n=complexity)`},
+`        return subgraph  # avg 30+ tools / VitaBench task`,
+``,
+`class UserProfileAgent:`,
+{c:'hl-c',t:`    # communication style (verbose / terse)`},
+{c:'hl-c',t:`    # willingness (cooperative / reluctant)`},
+{c:'hl-c',t:`    # disclosure pattern (upfront / need-to-ask)`},
+``,
+`class InstructionAgent:`,
+`    # difficulty = constraint_complexity`,
+`    #            + n_reasoning_points`,
+`    #            + reasoning_chain_length`,
+``,
+`# Task validation pipeline:`,
+{c:'hl-g',t:`# RubricAgent builds checklist`},
+{c:'hl-g',t:`# ValidatorAgent checks trajectory against rubric`},
+{c:'hl-g',t:`# DeduplicatorAgent removes near-duplicates`},
+`# cold_start set: diverse patterns, high difficulty`,
+  ]
+},
+
+'results': {
+  file: 'benchmark_results.py',
+  title: 'Benchmark Results',
+  lines: [
+`# Benchmark results — non-thinking mode`,
+`# LCF = LongCat-Flash (560B total, 27B active avg)`,
+``,
+`# General capability`,
+{c:'hl-p',t:`ArenaHard_V2:  LCF 86.50  DSV3.1 84.10  Kimi 88.20`},
+{c:'hl-p',t:`IFEval:        LCF 89.65  DSV3.1 86.69  Kimi 88.91`},
+`MMLU:          LCF 89.71  DSV3.1 90.96  Kimi 91.75`,
+`COLLIE:        LCF 57.10  DSV3.1 43.80  Kimi 56.34`,
+``,
+`# Math`,
+`MATH500:       LCF 96.40  DSV3.1 96.08  Qwen3 98.80`,
+{c:'hl-c',t:`AIME25:        LCF 61.25  DSV3.1 49.27  Qwen3 68.33`},
+``,
+`# Code & Agentic`,
+{c:'hl-g',t:`TerminalBench: LCF 39.51  DSV3.1 31.30  Kimi 40.74`},
+`SWE_Bench:     LCF 60.40  DSV3.1 66.00  Kimi 64.60`,
+{c:'hl-g',t:`tau2_retail:   LCF 70.80  DSV3.1 64.90  Kimi 64.80`},
+{c:'hl-g',t:`VitaBench:     LCF 24.30  DSV3.1 20.30  Kimi 18.20`},
+``,
+`# Inference (H800, batch-size optimized)`,
+`#   Model        GPUs   TGS   TPS/user`,
+`#   DSV3 (blog)  144    1850  ~22`,
+`#   LCF bf16     128    3785   68.9`,
+{c:'hl-p',t:`#   LCF fp8      128    4230  100.5  <- 100+ TPS`},
+``,
+`# Cost: $0.70 / M output tokens`,
+`# Training: 20T tokens, 30 days, 98.48% uptime`,
+  ]
+},
+
+};
+
+// ── Render a panel ──────────────────────────────────────────────────
+function renderPanel(id) {
+  const p = PANELS[id];
+  if (!p) return '';
+  const html = p.lines.map(entry => {
+    const cls = (typeof entry === 'object') ? entry.c : '';
+    const txt = (typeof entry === 'object') ? entry.t : entry;
+    return `<span class="cs-line ${cls}">${hl(txt)}</span>`;
+  }).join('');
+  return `<pre class="cs-pre">${html}</pre>`;
+}
+
+function buildSidebar() {
+  const body = document.getElementById('cs-body');
+  if (!body) return;
+  body.innerHTML = Object.keys(PANELS).map(id =>
+    `<div class="cs-panel" id="panel-${id}">${renderPanel(id)}</div>`
+  ).join('');
+}
+
+function activatePanel(id) {
+  document.querySelectorAll('.cs-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.panel === id);
+  });
+  document.querySelectorAll('.cs-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `panel-${id}`);
+  });
+  const p = PANELS[id];
+  if (p) {
+    const fileEl = document.getElementById('cs-file');
+    const titleEl = document.getElementById('cs-title');
+    if (fileEl) fileEl.textContent = p.file;
+    if (titleEl) titleEl.textContent = p.title;
+  }
+  const activePanel = document.getElementById(`panel-${id}`);
+  if (activePanel) {
+    const firstHl = activePanel.querySelector('.hl-p,.hl-c,.hl-g,.hl-a');
+    const csBody = document.getElementById('cs-body');
+    if (firstHl && csBody) {
+      csBody.scrollTo({ top: firstHl.offsetTop - 40, behavior: 'smooth' });
+    } else if (csBody) {
+      csBody.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+}
+
+const SECTION_MAP = {
+  's-problem': 'problem',
+  's-zce':     'zce',
+  's-scmoe':   'scmoe',
+  's-scaling': 'scaling',
+  's-agentic': 'agentic',
+  's-results': 'results',
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  buildSidebar();
+  activatePanel('problem');
+  const firstToc = document.getElementById('toc-s-problem');
+  if (firstToc) firstToc.classList.add('toc-active');
+
+  // ── Sidebar toggle ──────────────────────────────────────────
+  const csToggle = document.getElementById('cs-toggle');
+  const csSidebar = document.getElementById('code-sidebar');
+  const postGrid = document.getElementById('post-grid');
+  if (csToggle && csSidebar) {
+    csToggle.addEventListener('click', () => {
+      const collapsed = csSidebar.classList.toggle('collapsed');
+      if (postGrid) postGrid.classList.toggle('sidebar-collapsed', collapsed);
+      csToggle.textContent = collapsed ? '‹' : '›';
+      csToggle.title = collapsed ? 'Show code panel' : 'Hide code panel';
+      csToggle.setAttribute('aria-label', collapsed ? 'Show code panel' : 'Hide code panel');
+    });
+  }
+
+  // ── TOC toggle ──────────────────────────────────────────────
+  const tocToggle = document.getElementById('toc-toggle');
+  const tocSidebar = document.getElementById('toc-sidebar');
+  if (tocToggle && tocSidebar) {
+    tocToggle.addEventListener('click', () => {
+      const collapsed = tocSidebar.classList.toggle('collapsed');
+      if (postGrid) postGrid.classList.toggle('toc-collapsed', collapsed);
+      tocToggle.textContent = collapsed ? '›' : '‹';
+      tocToggle.title = collapsed ? 'Show contents' : 'Hide contents';
+      tocToggle.setAttribute('aria-label', collapsed ? 'Show contents' : 'Hide contents');
+    });
+  }
+
+  function activateTocItem(sectionId) {
+    document.querySelectorAll('.toc-item').forEach(item => {
+      item.classList.toggle('toc-active', item.id === `toc-${sectionId}`);
+    });
+  }
+
+  // Tab clicks
+  document.querySelectorAll('.cs-tab').forEach(btn => {
+    btn.addEventListener('click', () => activatePanel(btn.dataset.panel));
+  });
+
+  // IntersectionObserver — auto-update sidebar + TOC on scroll
+  const sectionObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const panelId = SECTION_MAP[entry.target.id];
+        if (panelId) activatePanel(panelId);
+        activateTocItem(entry.target.id);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('section[id]').forEach(s => sectionObserver.observe(s));
+
+  // ── Canvas routing visualization ───────────────────────────
+  const canvas = document.getElementById('routing-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const mid = W / 2;
+
+    function drawRoutingViz() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Background panels
+      ctx.fillStyle = 'rgba(15,15,20,0.6)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Divider
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mid, 10);
+      ctx.lineTo(mid, H - 10);
+      ctx.stroke();
+
+      // Column headers
+      ctx.font = '600 11px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Standard MoE  (top-k = 8, fixed)', mid / 2, 22);
+      ctx.fillStyle = '#8b5cf6';
+      ctx.fillText('ZCE  (avg 8 FFN, dynamic)', mid + mid / 2, 22);
+
+      // Helper: draw expert block row
+      function drawExpertRow(startX, y, ffnCount, zceCount, label, tokenLabel) {
+        const total = ffnCount + zceCount;
+        const blockW = 18, blockH = 18, gap = 3;
+        const rowW = total * (blockW + gap) - gap;
+        const startBX = startX - rowW / 2;
+
+        // Token label
+        ctx.font = '600 11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(label, startX, y - 4);
+
+        for (let i = 0; i < total; i++) {
+          const bx = startBX + i * (blockW + gap);
+          const isFFN = i < ffnCount;
+          ctx.fillStyle = isFFN ? 'rgba(139,92,246,0.75)' : 'rgba(71,85,105,0.45)';
+          ctx.strokeStyle = isFFN ? 'rgba(167,139,250,0.6)' : 'rgba(100,116,139,0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(bx, y, blockW, blockH, 3);
+          ctx.fill();
+          ctx.stroke();
+          if (!isFFN) {
+            ctx.fillStyle = 'rgba(100,116,139,0.5)';
+            ctx.font = '7px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('∅', bx + blockW / 2, y + blockH / 2 + 3);
+          }
+        }
+
+        // Count label (centered below blocks)
+        ctx.font = '9px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#64748b';
+        const countTxt = zceCount > 0 ? `${ffnCount} FFN + ${zceCount} id` : `${ffnCount} FFN`;
+        ctx.fillText(countTxt, startX, y + blockH + 13);
+      }
+
+      // Left: Standard MoE — "the" (8 FFN fixed)
+      drawExpertRow(mid / 2, 45, 8, 0, '"the"', '');
+      // Left: Standard MoE — "eigenvector" (8 FFN fixed)
+      drawExpertRow(mid / 2, 100, 8, 0, '"eigenvector"', '');
+
+      // Right: ZCE — "the" (3 FFN + 9 identity)
+      drawExpertRow(mid + mid / 2, 45, 3, 9, '"the"', '');
+      // Right: ZCE — "eigenvector" (10 FFN + 2 identity)
+      drawExpertRow(mid + mid / 2, 100, 10, 2, '"eigenvector"', '');
+
+      // Legend
+      const ly = H - 30;
+      ctx.fillStyle = 'rgba(139,92,246,0.75)';
+      ctx.beginPath();
+      ctx.roundRect(20, ly, 14, 14, 2);
+      ctx.fill();
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('FFN expert  (active compute)', 40, ly + 11);
+
+      ctx.fillStyle = 'rgba(71,85,105,0.45)';
+      ctx.strokeStyle = 'rgba(100,116,139,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(mid + 20, ly, 14, 14, 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText('∅  identity (ZCE — zero compute)', mid + 40, ly + 11);
+
+      // Row labels (left annotations)
+      ctx.save();
+      ctx.font = 'italic 9px JetBrains Mono, monospace';
+      ctx.fillStyle = '#ef4444';
+      ctx.textAlign = 'center';
+      ctx.fillText('same budget for easy + hard', mid / 2, 155);
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = 'italic 9px JetBrains Mono, monospace';
+      ctx.fillStyle = '#10b981';
+      ctx.textAlign = 'center';
+      ctx.fillText('3× less for easy, more for hard', mid + mid / 2, 155);
+      ctx.restore();
+    }
+
+    drawRoutingViz();
+    // Redraw on resize
+    window.addEventListener('resize', () => {
+      setTimeout(drawRoutingViz, 50);
+    });
+  }
+
+  // ── Token difficulty interactive viz ──────────────────────
+  const tokData = [
+    { ffn: 3, id: 9,  params: '~18.6B', compute: '25%', cls: 'easy (function word)' },
+    { ffn: 4, id: 8,  params: '~21.4B', compute: '33%', cls: 'easy (conjunction)' },
+    { ffn: 6, id: 6,  params: '~24.8B', compute: '50%', cls: 'medium (common verb)' },
+    { ffn: 10, id: 2, params: '~29.7B', compute: '83%', cls: 'hard (technical term)' },
+    { ffn: 11, id: 1, params: '~31.3B', compute: '92%', cls: 'hard (ML concept)' },
+  ];
+
+  const tokBtns = document.querySelectorAll('.tok-btn');
+  const ebarFFN = document.getElementById('ebar-ffn');
+  const ebarZCE = document.getElementById('ebar-zce');
+  const ebarFFNCount = document.getElementById('ebar-ffn-count');
+  const ebarZCECount = document.getElementById('ebar-zce-count');
+  const tokParams = document.getElementById('tok-params');
+  const tokCompute = document.getElementById('tok-compute');
+  const tokClass = document.getElementById('tok-class');
+
+  function updateTokViz(idx) {
+    const d = tokData[idx];
+    if (!d) return;
+    const ffnPct = (d.ffn / 12) * 100;
+    const zcePct = (d.id / 12) * 100;
+    if (ebarFFN) ebarFFN.style.width = ffnPct + '%';
+    if (ebarZCE) ebarZCE.style.width = zcePct + '%';
+    if (ebarFFNCount) ebarFFNCount.textContent = `${d.ffn} / 12`;
+    if (ebarZCECount) ebarZCECount.textContent = `${d.id} / 12`;
+    if (tokParams) tokParams.textContent = d.params;
+    if (tokCompute) tokCompute.textContent = d.compute;
+    if (tokClass) tokClass.textContent = d.cls;
+  }
+
+  tokBtns.forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      tokBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateTokViz(i);
+    });
+  });
+
+  // ── Step navigator ─────────────────────────────────────────
+  let currentStep = 0;
+  const totalSteps = 4;
+  const stepPrev = document.getElementById('step-prev');
+  const stepNext = document.getElementById('step-next');
+  const stepProg = document.getElementById('step-prog');
+
+  function updateSteps() {
+    for (let i = 0; i < totalSteps; i++) {
+      const box = document.getElementById(`step-${i}`);
+      if (!box) continue;
+      box.classList.remove('active', 'done');
+      if (i === currentStep) box.classList.add('active');
+      else if (i < currentStep) box.classList.add('done');
+    }
+    if (stepPrev) stepPrev.disabled = currentStep === 0;
+    if (stepNext) stepNext.disabled = currentStep === totalSteps - 1;
+    if (stepProg) stepProg.textContent = `${currentStep + 1} / ${totalSteps}`;
+  }
+
+  if (stepPrev) stepPrev.addEventListener('click', () => {
+    if (currentStep > 0) { currentStep--; updateSteps(); }
+  });
+  if (stepNext) stepNext.addEventListener('click', () => {
+    if (currentStep < totalSteps - 1) { currentStep++; updateSteps(); }
+  });
+  updateSteps();
+
+  // ── Animated bar chart ─────────────────────────────────────
+  function animateBars() {
+    document.querySelectorAll('.bar-fill[data-pct]').forEach(bar => {
+      const pct = parseFloat(bar.dataset.pct);
+      bar.style.width = pct + '%';
+    });
+  }
+
+  const resultsSection = document.getElementById('s-results');
+  if (resultsSection) {
+    const barObserver = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setTimeout(animateBars, 100);
+        barObserver.disconnect();
+      }
+    }, { threshold: 0.2 });
+    barObserver.observe(resultsSection);
+  }
+});
+</script>
+
+</BaseLayout>
