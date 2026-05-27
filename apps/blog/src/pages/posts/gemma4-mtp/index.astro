@@ -2069,24 +2069,55 @@ _config_mapping["Gemma4AssistantForCausalLM"] = Gemma4TextConfig</code></pre>
 
 <!-- ════════════════════════════════════════════════════ SCRIPT -->
 <script>
-// ── Syntax highlighter ────────────────────────────────────────────
+// ── Syntax highlighter (single-pass tokenizer to avoid span-attribute re-matching) ──
 function hl(raw) {
-  let s = raw
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // comments first (before anything else)
-  s = s.replace(/(#[^\n]*)/g, '<span class="cmt">$1</span>');
-  // strings
-  s = s.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"[^"\n]*"|'[^'\n]*')/g,
-    (m, _, offset, str) => str.slice(0,offset).includes('<span class="cmt">') ? m : `<span class="str">${m}</span>`);
-  // keywords
-  s = s.replace(/\b(def|class|return|if|else|elif|for|while|import|from|None|True|False|not|and|or|in|is|with|as|self|try|except|raise|pass|super|isinstance)\b/g,'<span class="kw">$1</span>');
-  // type-ish
-  s = s.replace(/\b(int|str|bool|float|dict|list|tuple|torch|nn|F|Optional)\b/g,'<span class="cls">$1</span>');
-  // numbers
-  s = s.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="num">$1</span>');
-  // function names before (
-  s = s.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,'<span class="fn">$1</span>');
-  return s;
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
 }
 
 // ── Code panel definitions ─────────────────────────────────────────
@@ -2633,66 +2664,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ── Bonus section syntax highlighting ───────────────────────────
-  // Uses a single-pass tokenizer instead of sequential regexes to avoid
-  // the hl() bug where the string regex matches "cmt"/"str"/etc. inside
-  // already-inserted <span class="..."> attribute values.
-  function hlBonus(raw) {
-    const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const KW  = new Set(['def','class','return','if','else','elif','for','while',
-                         'import','from','None','True','False','not','and','or',
-                         'in','is','with','as','self','try','except','raise',
-                         'pass','super','isinstance']);
-    const CLS = new Set(['int','str','bool','float','dict','list','tuple',
-                         'torch','nn','F','Optional','Dict','Tuple','Tensor']);
-    let out = '', i = 0;
-    while (i < src.length) {
-      const ch = src[i];
-      // comment: # to end of line
-      if (ch === '#') {
-        const j = src.indexOf('\n', i);
-        const end = j < 0 ? src.length : j;
-        out += `<span class="cmt">${src.slice(i, end)}</span>`;
-        i = end; continue;
-      }
-      // string: single, double, or triple-quoted
-      if (ch === '"' || ch === "'") {
-        const tq = ch.repeat(3);
-        const triple = src.slice(i, i + 3) === tq;
-        const delim = triple ? tq : ch;
-        let j = i + delim.length;
-        while (j < src.length) {
-          if (src[j] === '\\') { j += 2; continue; }
-          if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
-          j++;
-        }
-        out += `<span class="str">${src.slice(i, j)}</span>`;
-        i = j; continue;
-      }
-      // identifier or keyword
-      const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
-      if (wm) {
-        const w = wm[0];
-        const isFn = /^\s*\(/.test(src.slice(i + w.length));
-        if (isFn)           out += `<span class="fn">${w}</span>`;
-        else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
-        else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
-        else                out += w;
-        i += w.length; continue;
-      }
-      // number (not preceded by a word char)
-      const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
-      if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
-        out += `<span class="num">${nm[0]}</span>`;
-        i += nm[0].length; continue;
-      }
-      out += ch; i++;
-    }
-    return out;
-  }
-
   document.querySelectorAll('code.bonus-code').forEach(el => {
-    el.innerHTML = hlBonus(el.textContent);
+    el.innerHTML = hl(el.textContent);
   });
 
   // ── Design-bet animation ─────────────────────────────────────────

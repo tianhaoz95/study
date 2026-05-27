@@ -468,6 +468,65 @@ document.querySelectorAll('.post-body section[id]').forEach(s =>
 );
 ```
 
+### Syntax highlighter for JS-rendered code panels (use instead of sequential regexes)
+
+When sidebar code is rendered at runtime via JS (PANELS objects, `innerHTML = hl(line)`), use this
+single-pass tokenizer. **Never use sequential regexes** — they re-scan their own output, so the
+string regex `"[^"\n]*"` matches `"cmt"` / `"str"` inside already-inserted `class="cmt"` attribute
+values, producing broken double-nested spans like `class=<span class="str">"cmt"</span>>`.
+
+```js
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+```
+
 ### Step navigator (use when a section has a multi-step walkthrough)
 ```js
 let step = 0;
@@ -578,6 +637,9 @@ cd apps/blog && npm run build 2>&1 | tail -20
 **If build fails:**
 - `CompilerError: Unable to assign attributes when using <> Fragment shorthand syntax` → find the offending `< <span` pattern and replace `<` with `&lt;`.
 - Other errors → read the full message and fix the indicated line.
+
+**Visual bugs to catch during spot-check:**
+- Sidebar code shows raw `class=` text or nested `<span class="str">"cmt"</span>` fragments → the `hl()` function uses sequential regexes that re-scan their own output. Replace with the single-pass tokenizer in the "Syntax highlighter" snippet above.
 
 After a clean build, optionally do a quick visual spot-check:
 ```bash
