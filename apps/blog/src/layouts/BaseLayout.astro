@@ -51,10 +51,24 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
 <script>
   const bar = document.getElementById('read-progress');
   if (bar) {
+    const parts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+    const slug = parts[0] === 'posts' && parts[1] ? parts[1] : null;
+    let saveTimer: number | null = null;
+
     const update = () => {
       const el = document.documentElement;
-      const pct = el.scrollTop / (el.scrollHeight - el.clientHeight) * 100;
-      bar.style.width = Math.min(pct, 100) + '%';
+      const scrollable = el.scrollHeight - el.clientHeight;
+      const pct = scrollable > 0 ? Math.min((el.scrollTop / scrollable) * 100, 100) : 0;
+      bar.style.width = pct + '%';
+      if (slug) {
+        if (saveTimer !== null) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          const stored = parseInt(localStorage.getItem(`heji-read-${slug}`) ?? '0', 10);
+          const next = Math.round(pct);
+          if (next > stored) localStorage.setItem(`heji-read-${slug}`, String(next));
+          saveTimer = null;
+        }, 500);
+      }
     };
     window.addEventListener('scroll', update, { passive: true });
   }
