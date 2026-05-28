@@ -1,0 +1,986 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Sparse-to-Dense Reward: Why Your Labeled Data Belongs on the Teacher | AI/ML Deep Dives"
+  description="A reward-density principle for LLM post-training: spend scarce labeled data on RL-training the teacher, then bridge to the student via dense token-level supervision. Outperforms direct GRPO at fixed data budget."
+  crumb="Sparse-to-Dense Reward"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-family:var(--ff-mono);margin:.875rem 0 .25rem}
+
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+.callout{border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.83rem;line-height:1.65;display:flex;gap:.75rem;align-items:flex-start}
+.callout-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.callout-body{flex:1;min-width:0;color:var(--muted2)}
+.callout-body strong{color:var(--text2)}
+.callout.c-purple{background:var(--purple-dim);border:1px solid rgba(139,92,246,.25)}
+.callout.c-cyan{background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.25)}
+.callout.c-amber{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22)}
+.callout.c-green{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22)}
+
+.toggle-btns{display:flex;gap:.5rem;margin:.875rem 0}
+.toggle-btn{padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.toggle-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.toggle-btn:hover:not(.active){border-color:var(--border-hi);color:var(--text2)}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">LLM Post-Training</span>
+    <span class="tag tag-cyan">Distillation</span>
+    <span class="tag tag-amber">RL</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Sparse-to-Dense Reward: Why Your Labeled Data Belongs on the Teacher</h1>
+  <p class="lead">Spending scarce verifiable training data on the small deployment model is a misallocation. Use it on the strongest teacher via sparse RL, then transfer the reward-shaped behavior to the student through dense token-level supervision. A four-stage workflow beats direct GRPO by 3.4 MATH points and 5.4 AIME points — at the same labeled-data budget.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.12483</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.12483" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Allocation Problem</a></li>
+    <li class="toc-item" id="toc-s-signals"><a href="#s-signals"><span class="toc-num">02</span> Sparse vs Dense Signals</a></li>
+    <li class="toc-item" id="toc-s-workflow"><a href="#s-workflow"><span class="toc-num">03</span> The 4-Stage Workflow</a></li>
+    <li class="toc-item" id="toc-s-math"><a href="#s-math"><span class="toc-num">04</span> OPD as Implicit RL</a></li>
+    <li class="toc-item" id="toc-s-ablation"><a href="#s-ablation"><span class="toc-num">05</span> Stage-by-Stage Ablation</a></li>
+    <li class="toc-item" id="toc-s-replication"><a href="#s-replication"><span class="toc-num">06</span> Cross-Family Replication</a></li>
+  </ol>
+</nav>
+
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Allocation Problem</div>
+<h2>Where Should Labeled Data Go?</h2>
+<p>
+  LLM post-training has a scarce resource: labeled verifiable examples. Each one needs a problem with a checkable answer and a reliable grader. The standard recipe spends every labeled example on the deployment model—if the target is a 1.7B student, run GRPO on it directly.
+</p>
+<p>
+  This paper asks whether that's the right allocation. The answer is no—and the intuition is straightforward: sparse reward is useful only where exploration is productive. A 1.7B model solving AIME 2024 problems has near-zero initial pass rate. GRPO's rollouts are almost all failures. There's no gradient signal to exploit because the model can barely find any correct trajectories to reinforce.
+</p>
+<p>
+  The 8B and 14B models are in a qualitatively different position. They solve many more problems correctly, so their rollouts contain genuine signal. The same labeled data produces a much better reward-shaped distribution when applied to them.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">direct GRPO performance by model size — same algorithm, same data</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="s-problem-bars">
+    <div class="bar-section-label">MATH-500 (avg@16)</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-1.7B (deployment student)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="75.9" style="background:rgba(139,92,246,.55)"><span>75.9%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-8B (potential teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="88.4" style="background:rgba(6,182,212,.55)"><span>88.4%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-14B (potential teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="89.5" style="background:rgba(6,182,212,.55)"><span>89.5%</span></div></div>
+      </div>
+    </div>
+    <div class="bar-section-label">AIME 2024 (avg@16) — harder benchmark</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-1.7B (deployment student)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="19.8" style="background:rgba(139,92,246,.55)"><span>19.8%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-8B (potential teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="47.7" style="background:rgba(6,182,212,.55)"><span>47.7%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-14B (potential teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="47.1" style="background:rgba(6,182,212,.55)"><span>47.1%</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  On AIME, the 8B model gets 47.7% — more than double the 1.7B's 19.8%. That gap is exactly the exploration headroom the paper exploits: spend the labeled data on the 8B to make it even better at finding correct reasoning chains, then transfer that behavior to the 1.7B via dense supervision.
+</p>
+
+<div class="callout c-purple">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>The allocation question:</strong> Given a fixed pool of labeled math problems, is it better to run GRPO on the 1.7B deployment student, or to run GRPO on the 8B teacher and then distill? The paper's answer: teacher-first, always — but only if the teacher has actually been RL-shaped first.
+  </div>
+</div>
+</section>
+
+<!-- §02 -->
+<section id="s-signals" data-code="signals">
+<div class="section-no">02 — Sparse vs Dense Signals</div>
+<h2>Two Kinds of Learning Signal</h2>
+<p>
+  Post-training methods differ in the density of the reward signal they provide. Understanding the distinction is key to the whole paper.
+</p>
+<p>
+  A <strong>sparse reward</strong> is sequence-level: you generate a complete response, then get a single binary score — correct or incorrect. That's one learning signal per trajectory, no matter how many tokens it contains. For a 500-token AIME solution, sparse RL delivers one bit of feedback.
+</p>
+<p>
+  A <strong>dense reward</strong> is token-level: at every position in the response, you receive a quality score. If a teacher model has already solved the problem correctly, its log-probabilities at each token represent a dense, per-step signal about how good that token choice was. For the same 500-token solution, dense supervision delivers 500 gradient targets.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sparse vs dense signal — walk through an example reasoning step</span>
+    <span class="vp-hint">click Prev / Next</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="signals-steps">
+      <div class="step-box active">
+        <div class="step-num" id="sig-num-0">1</div>
+        <div class="step-body">
+          <div class="step-title">The problem</div>
+          <div class="step-desc">Model receives: <em>"Find all integer solutions to x² − 5x + 6 = 0."</em> It generates a 120-token solution. With sparse reward, nothing happens until the answer is submitted.</div>
+          <div class="step-code">prompt → [generate 120 tokens] → submit answer</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="sig-num-1">2</div>
+        <div class="step-body">
+          <div class="step-title">Sparse: one signal at the end</div>
+          <div class="step-desc">Verifier checks final answer. Student wrote "x = 2 or x = 3" — correct! Score = +1. Or wrote "x = 1 or x = 6" — wrong! Score = 0. Either way, only one learning signal for all 120 tokens.</div>
+          <div class="step-code">R(x, y) = 1[final_answer_correct]  # one bit per trajectory</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="sig-num-2">3</div>
+        <div class="step-body">
+          <div class="step-title">Dense: teacher logprobs at every token</div>
+          <div class="step-desc">Teacher (RL-trained 8B) is queried at each of the student's 120 token positions. At token 14 ("factor"), teacher assigns high probability. At token 47 ("add"), teacher assigns low probability — student is drifting off track. Per-token gradient at every step.</div>
+          <div class="step-code">r_T(s_t, y_t) = β · log π_T(y_t | s_t)  # per-token implicit reward</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="sig-num-3">4</div>
+        <div class="step-body">
+          <div class="step-title">Why density matters at cold start</div>
+          <div class="step-desc">A 1.7B student at cold start solves &lt;20% of AIME problems. With sparse reward, 80%+ of rollouts contribute zero gradient. Dense teacher supervision provides gradient even on failed trajectories — the teacher's logprobs signal which early tokens were already going wrong.</div>
+          <div class="step-code">sparse: 80% of rollouts → zero gradient
+dense:  100% of rollouts → gradient signal</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="sig-prev" disabled>← Prev</button>
+      <span id="sig-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+      <button id="sig-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The paper frames this as an <em>allocation</em> problem. Dense teacher supervision requires a teacher that is itself reward-shaped — a raw pre-trained teacher has high-entropy logprobs that don't represent correct reasoning chains. The dense signal is only as good as its source.
+</p>
+</section>
+
+<!-- §03 -->
+<section id="s-workflow" data-code="workflow">
+<div class="section-no">03 — The 4-Stage Workflow</div>
+<h2>Teacher First, Student Second</h2>
+<p>
+  The reward-density principle yields a four-stage pipeline. The same pool of labeled training data powers all four stages, but different models receive different signal densities at different times.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">four-stage workflow — labeled data allocation</span>
+    <span class="vp-hint">click Next to walk through</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="workflow-steps">
+      <div class="step-box active">
+        <div class="step-num" id="wf-num-0">1</div>
+        <div class="step-body">
+          <div class="step-title">Stage 1 — Teacher RL (sparse reward on teacher)</div>
+          <div class="step-desc">Run GRPO on the 8B teacher using the full labeled data pool D. Teacher explores with high-quality rollouts, concentrating its distribution on correct reasoning chains. Output: reward-shaped teacher π_T that approximates the KL-regularized optimal policy.</div>
+          <div class="step-code">teacher_rl(π_T, D)  # GRPO with verifier reward R(x, y)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="wf-num-1">2</div>
+        <div class="step-body">
+          <div class="step-title">Stage 2a — Forward-KL Warmup (off-policy dense)</div>
+          <div class="step-desc">Sample K rollouts from the RL-shaped teacher. Train the 1.7B student to match the teacher's next-token distribution on those rollouts. This is supervised training under teacher occupancy — mode-covering and well-conditioned because it runs on teacher-supported tokens.</div>
+          <div class="step-code">L_F(θ) = E_{s~d_π_T} KL(π_T(·|s) ‖ π_θ(·|s))
+# student trains on teacher rollouts (off-policy)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="wf-num-2">3</div>
+        <div class="step-body">
+          <div class="step-title">Stage 2b — On-Policy Distillation / OPD (on-policy dense)</div>
+          <div class="step-desc">Now sample rollouts from the warmed-up student. Query the frozen teacher for logprobs at each student token position. Minimize reverse-KL under student occupancy. The student gets corrected on its own failure modes — token positions it visits but the teacher considers wrong.</div>
+          <div class="step-code">L_R(θ) = E_{s~d_π_θ} KL(π_θ(·|s) ‖ π_T(·|s))
+# student rollouts, teacher scores (on-policy)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num" id="wf-num-3">4</div>
+        <div class="step-body">
+          <div class="step-title">Stage 3 — Post-Bridge Student RL (optional)</div>
+          <div class="step-desc">If any labeled data was held out from Stages 1–2, run GRPO on the now-trained student. The bridge changed student trainability: sparse reward that was nearly useless on a cold 1.7B now gives a +3.1 MATH-point lift. Only makes sense after the bridge has warmed the student up.</div>
+          <div class="step-code">student_rl(π_θ_bridged, D_held_out)  # sparse on warm student</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="wf-prev" disabled>← Prev</button>
+      <span id="wf-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+      <button id="wf-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The two-stage bridge (2a + 2b) handles a specific problem: coverage mismatch. A cold 1.7B student has very different token distributions than a post-RL 8B teacher. If you run OPD directly without warmup, the per-token implicit reward has extremely high variance — the teacher assigns near-zero probability to tokens the student commonly generates, producing unstable gradient updates. Stage 2a closes that gap first.
+</p>
+
+<div class="callout c-cyan">
+  <span class="callout-icon">🔗</span>
+  <div class="callout-body">
+    <strong>Relation to existing methods:</strong> DeepSeek-R1 distillation = Stage 1 + off-policy half of Stage 2a only. Standalone OPD = Stage 2b alone. Standard SFT-then-RL = skip Stages 1–2 entirely. Each omission costs points, as the ablation shows.
+  </div>
+</div>
+</section>
+
+<!-- §04 -->
+<section id="s-math" data-code="math">
+<div class="section-no">04 — OPD as Implicit RL</div>
+<h2>The Math: On-Policy Distillation is Trust-Region RL</h2>
+<p>
+  The paper provides a clean theoretical grounding for why the workflow's stage order matters. The key insight: each OPD step is mathematically equivalent to a trust-region RL update with a dense teacher-induced implicit reward.
+</p>
+
+<div class="math-block">
+  <div class="math-label">OPD Gradient = Dense Implicit RL (Eq. 3)</div>
+  −β ∇<sub>θ</sub> KL(π<sub>θ</sub> ‖ π<sub>T</sub>)|<sub>θ_k</sub>
+  = E<sub>y~π_k</sub> [ <span class="math-var">R̃_k</span>(x,y) · ∇<sub>θ</sub> log π<sub>θ</sub>(y|x) ]
+  <br>
+  where &nbsp;<span class="math-var">R̃_k</span>(x,y) = Σ<sub>t</sub> β log [ π<sub>T</sub>(y_t|s_t) / π_k(y_t|s_t) ]
+  <div class="math-comment">  ← per-token log-ratio: how much teacher prefers this token over current student</div>
+</div>
+
+<p>
+  Each OPD gradient step equals the policy gradient of a dense per-token reward: the teacher's log-probability relative to the current student. This is exactly a local trust-region update maximizing expected implicit reward minus a KL penalty to the current student.
+</p>
+<p>
+  This framing reveals two necessary conditions for OPD to be informative:
+</p>
+
+<div class="callout c-amber">
+  <span class="callout-icon">⚠</span>
+  <div class="callout-body">
+    <strong>Condition C1 — Teacher must be reward-shaped.</strong> If π<sub>T</sub> has not been trained by sparse reward, the implicit reward R̃ pushes the student toward an unshaped distribution — larger, but not correct-answer-aware. The signal is wrong, not just noisy. This is why transferring a raw teacher (no Stage 1) is <em>worse</em> than cold GRPO: you're doing RL toward the wrong target.
+  </div>
+</div>
+
+<div class="callout c-amber">
+  <span class="callout-icon">⚠</span>
+  <div class="callout-body">
+    <strong>Condition C2 — Teacher must be close to student.</strong> When teacher and student have little coverage overlap, the per-token ratio log(π<sub>T</sub>/π_k) is high-variance: large magnitudes on tokens the teacher likes but the student rarely generates. OPD gradients become dominated by a few outlier token positions, making updates unstable. Stage 2a's forward-KL warmup brings the student onto teacher-supported tokens, satisfying C2 before OPD begins.
+  </div>
+</div>
+
+<p>
+  The theory makes three falsifiable predictions, all confirmed by the ablation:
+</p>
+<ul>
+  <li><strong>P1:</strong> Remove Stage 1 (raw teacher) → bridge endpoint falls below direct student GRPO. Raw teacher violates C1.</li>
+  <li><strong>P2:</strong> Remove Stage 2a (OPD-only, no warmup) → endpoint drops. Cold student violates C2.</li>
+  <li><strong>P3:</strong> Add Stage 3 after bridge → sparse reward now lifts the student. Bridge changes trainability.</li>
+</ul>
+</section>
+
+<!-- §05 -->
+<section id="s-ablation" data-code="ablation">
+<div class="section-no">05 — Stage-by-Stage Ablation</div>
+<h2>Every Stage is Load-Bearing</h2>
+<p>
+  The central experiment removes each stage in turn while holding everything else fixed. The results confirm all three predictions — and the most striking finding is that <em>a raw teacher is worse than no teacher at all.</em>
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">MATH-500 ablation — same 1.7B student, same labeled data, stages removed one at a time</span>
+    <span class="vp-hint">toggle teacher size · scroll to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="toggle-btns">
+      <button class="toggle-btn active" id="btn-8b">8B teacher</button>
+      <button class="toggle-btn" id="btn-14b">14B teacher</button>
+    </div>
+
+    <div id="ablation-8b">
+      <div class="bar-section-label">Full workflow</div>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">Full bridge: Stage 1+2a+2b</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="79.3" style="background:rgba(139,92,246,.7)"><span>79.3%</span></div></div>
+        </div>
+      </div>
+      <div class="bar-section-label">Remove one stage</div>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">− Stage 2a (no FKL warmup)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="77.6" style="background:rgba(6,182,212,.5)"><span>77.6%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">− Stage 2b (no OPD)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="76.0" style="background:rgba(6,182,212,.5)"><span>76.0%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Direct GRPO baseline (no bridge)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="75.9" style="background:rgba(255,255,255,.15)"><span>75.9%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">− Stage 1 (raw 8B teacher!)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="71.5" style="background:rgba(239,68,68,.5)"><span>71.5% ← worse than GRPO</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ablation-14b" style="display:none">
+      <div class="bar-section-label">Full workflow</div>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">Full bridge: Stage 1+2a+2b</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="78.6" style="background:rgba(139,92,246,.7)"><span>78.6%</span></div></div>
+        </div>
+      </div>
+      <div class="bar-section-label">Remove one stage</div>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">− Stage 2a (no FKL warmup)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="77.1" style="background:rgba(6,182,212,.5)"><span>77.1%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">− Stage 2b (no OPD)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="76.5" style="background:rgba(6,182,212,.5)"><span>76.5%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Direct GRPO baseline (no bridge)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="75.9" style="background:rgba(255,255,255,.15)"><span>75.9%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">− Stage 1 (raw 14B teacher!)</div>
+          <div class="bar-track"><div class="bar-fill abl-bar" data-w="72.8" style="background:rgba(239,68,68,.5)"><span>72.8% ← worse than GRPO</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The raw-teacher result is the paper's most counterintuitive finding: using a 14× larger raw teacher as the source of dense supervision produces a student that performs <em>4.4 MATH points worse</em> than just running GRPO on the student directly. This is C1 at work — the raw teacher hasn't been shaped by the verifier, so its implicit reward pushes the student toward an irrelevant distribution.
+</p>
+
+<h3>Post-Bridge Student RL (Stage 3)</h3>
+<p>
+  The half-split experiment tests whether Stage 3 adds real value after the bridge. The labeled data is split: half goes to Stages 1–2, half is held out for Stage 3 or a replay control.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Configuration</th>
+      <th>MATH-500</th>
+      <th>AIME 2024</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td>Full workflow: bridge (½) + Stage 3 (½) [8B]</td>
+      <td class="mn best">78.5%</td>
+      <td class="mn">23.7%</td>
+    </tr>
+    <tr>
+      <td>Bridge only on ½ data (no Stage 3)</td>
+      <td class="mn">75.4%</td>
+      <td class="mn">22.0%</td>
+    </tr>
+    <tr>
+      <td>Replay control: Stage 3 reuses bridge data</td>
+      <td class="mn">75.7%</td>
+      <td class="mn">21.6%</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Stage 3 adds +3.1 MATH points over bridge-only. The replay control — which runs the same number of student update steps but on already-seen bridge data — gains only 0.3 points, confirming the lift comes from fresh labeled examples, not extra compute. Cold GRPO without the bridge gives 75.9%, confirming the bridge genuinely changes trainability rather than just providing a better initialization.
+</p>
+</section>
+
+<!-- §06 -->
+<section id="s-replication" data-code="replication">
+<div class="section-no">06 — Cross-Family Replication</div>
+<h2>The Ordering Holds Across Families</h2>
+<p>
+  The paper tests whether the teacher-quality ordering — raw-teacher transfer &lt; direct GRPO &lt; RL-teacher transfer — generalizes beyond Qwen3. The Llama experiment uses Llama-3.1-8B-Instruct as the deployment student and Llama-3.3-70B-Instruct as the teacher: a 9× scale ratio, cross-architecture.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Llama cross-family replication — same ordering, different family</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="llama-bars-section">
+    <div class="bar-section-label">MATH-500 (avg@16) — Llama-3.1-8B student</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">Bridge ← RL'd 70B teacher</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="62.1" style="background:rgba(139,92,246,.7)"><span>62.1%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Direct GRPO (cold student)</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="59.8" style="background:rgba(255,255,255,.15)"><span>59.8%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Bridge ← raw 70B teacher</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="55.4" style="background:rgba(239,68,68,.5)"><span>55.4% ← still worse than GRPO</span></div></div>
+      </div>
+    </div>
+    <div class="bar-section-label">AIME 2024 (avg@16)</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">Bridge ← RL'd 70B teacher</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="14.9" style="background:rgba(139,92,246,.7)"><span>14.9%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Direct GRPO (cold student)</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="12.5" style="background:rgba(255,255,255,.15)"><span>12.5%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Bridge ← raw 70B teacher</div>
+        <div class="bar-track"><div class="bar-fill llama-bar" data-w="8.8" style="background:rgba(239,68,68,.5)"><span>8.8% ← 9× larger but worse</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The same three-way ordering reproduces. A 9× larger raw teacher is still worse than cold GRPO on the 8B student (55.4% vs 59.8% MATH). The same teacher after Stage 1 RL outperforms both. Scale does not satisfy Condition C1 — reward-shaping does.
+</p>
+<p>
+  The absolute gains are smaller in the Llama experiment (+2.3 MATH points vs +3.4 for Qwen3-1.7B). The paper attributes this to the 8B Llama student having higher base capacity than the 1.7B Qwen3 student — less recoverable headroom from the allocation shift.
+</p>
+
+<h3>Operational Takeaways</h3>
+<ul>
+  <li>Don't spend labeled post-training data on the deployment model first. Allocate it to the strongest available teacher.</li>
+  <li>Teacher scale alone doesn't help — the teacher must be RL-trained on the verifier. A raw large teacher distilled densely is <em>actively harmful.</em></li>
+  <li>The FKL warmup before OPD is not optional. Coverage mismatch between a cold small student and a post-RL large teacher destabilizes OPD gradients.</li>
+  <li>After the bridge, sparse reward on the student works. Reserve held-out labeled data for a post-bridge student RL stage.</li>
+  <li>The recipe requires a shared tokenizer between teacher and student — this is the main constraint on which teacher-student pairs can use OPD.</li>
+</ul>
+</section>
+
+</article>
+
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">workflow.py</div>
+      <div class="cs-section-title" id="cs-section-title">Allocation Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="signals">signals</button>
+    <button class="cs-tab" data-panel="workflow">workflow</button>
+    <button class="cs-tab" data-panel="math">math</button>
+    <button class="cs-tab" data-panel="ablation">ablation</button>
+    <button class="cs-tab" data-panel="replication">replication</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Direct GRPO baselines — same algorithm, all Qwen3 sizes</span>
+<span class="cs-line cmt"># Table 1: avg@16 accuracy</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Model         MATH    AIME24  AIME25</span>
+<span class="cs-line cmt"># Qwen3-1.7B    75.9%   19.8%   17.1%   ← deployment student</span>
+<span class="cs-line cmt"># Qwen3-8B      88.4%   47.7%   36.7%   ← potential teacher</span>
+<span class="cs-line cmt"># Qwen3-14B     89.5%   47.1%   39.0%   ← potential teacher</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># The allocation question:</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Given a fixed labeled pool D, which policy should receive it?</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">grpo_on_student</span>(student, D):</span>
+<span class="cs-line">    <span class="cmt"># Standard: run RL on deployment model directly</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">grpo</span>(student, D)</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">teacher_first</span>(teacher, student, D):</span>
+<span class="cs-line">    <span class="cmt"># Proposed: allocate to teacher, then bridge</span></span>
+<span class="cs-line">    teacher_rl = <span class="fn">grpo</span>(teacher, D)  <span class="cmt"># stage 1</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">bridge</span>(teacher_rl, student)  <span class="cmt"># stages 2a+2b</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># AIME 2024 exploration rate (approx pass@1):</span>
+<span class="cs-line cmt"># 1.7B: ~20% → most rollouts are failures → near-zero gradient</span>
+<span class="cs-line cmt"># 8B:   ~48% → half the rollouts succeed → rich gradient signal</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-signals">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Two reward densities in LLM post-training</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># SPARSE: one signal per trajectory (sequence-level)</span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">sparse_reward</span>(x, y):</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> <span class="fn">verifier</span>(x, y)  <span class="cmt"># 0 or 1, end of sequence only</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># For 500-token AIME solution: 1 bit of feedback total</span>
+<span class="cs-line cmt"># Cold 1.7B: ~80% fail → 80% of rollouts → zero gradient</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DENSE: per-token signal via teacher log-probs</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">dense_reward</span>(s_t, y_t, teacher):</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> beta * <span class="fn">log</span>(teacher(y_t | s_t))</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># For 500-token solution: 500 gradient targets</span>
+<span class="cs-line cmt"># Signal on every rollout, including failures</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># KL-regularized optimal policy (reward-shaped target):</span>
+<span class="cs-line cmt"># π*_R(y|x) ∝ π_ref(y|x) · exp(R(x,y)/β)</span>
+<span class="cs-line cmt"># Teacher goal: approximate π*_R via Stage 1 RL</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-workflow">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Four-stage workflow (FKL-to-OPD bridge)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Stage 1: Teacher RL (sparse reward on teacher)</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">stage1</span>(teacher, D):</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> <span class="fn">grpo</span>(teacher, D)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Stage 2a: Forward-KL warmup (off-policy dense)</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">stage2a</span>(teacher_rl, student, D):</span>
+<span class="cs-line hl-c">    rollouts = <span class="fn">sample</span>(teacher_rl, D, K=<span class="num">4</span>)</span>
+<span class="cs-line hl-c">    <span class="cmt"># minimize forward-KL on teacher occupancy</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> <span class="fn">train</span>(student, rollouts, loss=<span class="str">'cross_entropy'</span>)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Stage 2b: OPD — on-policy distillation (on-policy dense)</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">stage2b</span>(teacher_rl, student_warmed, D):</span>
+<span class="cs-line hl-g">    rollouts = <span class="fn">sample</span>(student_warmed, D)</span>
+<span class="cs-line hl-g">    teacher_logprobs = <span class="fn">score</span>(teacher_rl, rollouts)  <span class="cmt"># frozen</span></span>
+<span class="cs-line hl-g">    <span class="kw">return</span> <span class="fn">train</span>(student_warmed, rollouts, teacher_logprobs,</span>
+<span class="cs-line hl-g">                 loss=<span class="str">'reverse_kl'</span>)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Stage 3: Post-bridge student RL (optional)</span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">stage3</span>(student_bridged, D_held_out):</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> <span class="fn">grpo</span>(student_bridged, D_held_out)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-math">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OPD is trust-region RL with dense implicit reward</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># OPD objective (reverse-KL minimization):</span>
+<span class="cs-line cmt"># L_R(θ) = E_{s~d_πθ} KL(πθ(·|s) ‖ πT(·|s))</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Its gradient equals policy gradient of implicit reward:</span>
+<span class="cs-line hl-p"><span class="cmt"># -β ∇θ KL(πθ ‖ πT)|θk</span></span>
+<span class="cs-line hl-p"><span class="cmt">#  = E_{y~πk} [R̃k(x,y) · ∇θ log πθ(y|x)]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># where the dense implicit reward is:</span>
+<span class="cs-line hl-g"><span class="cmt"># R̃k(x,y) = Σ_t β log(πT(yt|st) / πk(yt|st))</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Two conditions for this to be informative:</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># C1 (optimality): πT must be reward-shaped</span>
+<span class="cs-line hl-a"><span class="cmt">#   If πT is raw (no Stage 1), R̃ pushes toward wrong target</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   → raw teacher &lt; cold GRPO (empirically confirmed)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># C2 (proximity): KL(πT ‖ πθ) must be small</span>
+<span class="cs-line hl-a"><span class="cmt">#   Cold 1.7B vs post-RL 8B → high variance log-ratio</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   → Stage 2a (FKL warmup) enforces C2 before OPD</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-ablation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Component ablation — Qwen3-1.7B student, avg@16</span>
+<span class="cs-line cmt"># Table 2 key rows (MATH-500 / AIME2024)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ─── 8B RL teacher ───────────────────────────────</span>
+<span class="cs-line hl-g"><span class="cmt"># Full bridge (S1+2a+2b):   79.3%  25.2%  ← best</span></span>
+<span class="cs-line hl-c"><span class="cmt"># − Stage 2a (OPD only):    77.6%  23.0%  ← C2 violated</span></span>
+<span class="cs-line hl-c"><span class="cmt"># − Stage 2b (FKL only):    76.0%  22.4%  ← no student feedback</span></span>
+<span class="cs-line cmt"># Direct GRPO baseline:     75.9%  19.8%</span>
+<span class="cs-line hl-a"><span class="cmt"># − Stage 1 (raw 8B):       71.5%  15.0%  ← C1 violated!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ─── 14B RL teacher ──────────────────────────────</span>
+<span class="cs-line hl-g"><span class="cmt"># Full bridge (S1+2a+2b):   78.6%  24.6%</span></span>
+<span class="cs-line hl-c"><span class="cmt"># − Stage 2a (OPD only):    77.1%  22.8%</span></span>
+<span class="cs-line hl-c"><span class="cmt"># − Stage 2b (FKL only):    76.5%  21.5%</span></span>
+<span class="cs-line cmt"># Direct GRPO baseline:     75.9%  19.8%</span>
+<span class="cs-line hl-a"><span class="cmt"># − Stage 1 (raw 14B):      72.8%  16.7%  ← C1 violated!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ─── Stage 3 (half-split, 8B teacher) ────────────</span>
+<span class="cs-line hl-g"><span class="cmt"># Bridge (½D) + Stage3 (½D): 78.5%  23.7%</span></span>
+<span class="cs-line cmt"># Bridge only (½D):           75.4%  22.0%</span>
+<span class="cs-line cmt"># Replay control (½D):        75.7%  21.6%  ← no new data</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-replication">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Cross-family replication — Llama</span>
+<span class="cs-line cmt"># Student: Llama-3.1-8B-Instruct</span>
+<span class="cs-line cmt"># Teacher: Llama-3.3-70B-Instruct (9× larger)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Table 3: avg@16 accuracy</span>
+<span class="cs-line hl-g"><span class="cmt"># RL'd 70B → bridge:  62.1%  14.9%   9.2%  ← best</span></span>
+<span class="cs-line cmt"># Direct GRPO:        59.8%  12.5%   7.2%</span>
+<span class="cs-line hl-a"><span class="cmt"># Raw 70B → bridge:   55.4%   8.8%   3.1%  ← 9x larger but worse!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Same three-way ordering: raw &lt; GRPO &lt; RL-teacher</span>
+<span class="cs-line cmt"># Confirms: scale ≠ C1 satisfaction</span>
+<span class="cs-line cmt"># Need reward-shaping, not just model size</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Absolute gains smaller (+2.3 vs +3.4 MATH pts)</span>
+<span class="cs-line cmt"># because 8B Llama student has higher base capacity</span>
+<span class="cs-line cmt"># than 1.7B Qwen3 → less recoverable headroom</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key constraint: shared tokenizer required for OPD</span>
+<span class="cs-line cmt"># Cross-architecture requires same vocab to compute</span>
+<span class="cs-line cmt"># per-token teacher log-probs on student rollouts</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// TOC + sidebar toggles
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// Code sidebar tab switching
+const tabMeta = {
+  problem:     { file: 'workflow.py',    title: 'Allocation Problem' },
+  signals:     { file: 'reward.py',      title: 'Sparse vs Dense Signals' },
+  workflow:    { file: 'pipeline.py',    title: '4-Stage Workflow' },
+  math:        { file: 'theory.py',      title: 'OPD as Implicit RL' },
+  ablation:    { file: 'results.py',     title: 'Stage-by-Stage Ablation' },
+  replication: { file: 'llama.py',       title: 'Cross-Family Replication' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// IntersectionObserver — sync TOC + sidebar
+const sectionMap = {
+  's-problem':     'problem',
+  's-signals':     'signals',
+  's-workflow':    'workflow',
+  's-math':        'math',
+  's-ablation':    'ablation',
+  's-replication': 'replication',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// Animated bar charts — §01 direct GRPO bars
+const problemBars = document.getElementById('s-problem-bars');
+if (problemBars) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        problemBars.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(problemBars);
+}
+
+// Ablation bars — trigger on §05
+const ablationSection = document.getElementById('s-ablation');
+if (ablationSection) {
+  let fired = false;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !fired) {
+        fired = true;
+        ablationSection.querySelectorAll('.abl-bar[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.1 }).observe(ablationSection);
+}
+
+// Llama bars — trigger on §06
+const llamaSection = document.getElementById('llama-bars-section');
+if (llamaSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        llamaSection.querySelectorAll('.llama-bar[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(llamaSection);
+}
+
+// Signals step navigator
+let sigStep = 0;
+const sigBoxes = document.querySelectorAll('#signals-steps .step-box');
+const sigPrev  = document.getElementById('sig-prev');
+const sigNext  = document.getElementById('sig-next');
+const sigProg  = document.getElementById('sig-prog');
+function updateSigSteps() {
+  sigBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === sigStep) b.classList.add('active');
+    else if (i < sigStep) b.classList.add('done');
+  });
+  sigBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < sigStep ? '✓' : String(i + 1);
+  });
+  if (sigPrev) sigPrev.disabled = sigStep === 0;
+  if (sigNext) sigNext.disabled = sigStep === sigBoxes.length - 1;
+  if (sigProg) sigProg.textContent = 'Step ' + (sigStep + 1) + ' of ' + sigBoxes.length;
+}
+sigPrev?.addEventListener('click', () => { if (sigStep > 0) { sigStep--; updateSigSteps(); } });
+sigNext?.addEventListener('click', () => { if (sigStep < sigBoxes.length - 1) { sigStep++; updateSigSteps(); } });
+updateSigSteps();
+
+// Workflow step navigator
+let wfStep = 0;
+const wfBoxes = document.querySelectorAll('#workflow-steps .step-box');
+const wfPrev  = document.getElementById('wf-prev');
+const wfNext  = document.getElementById('wf-next');
+const wfProg  = document.getElementById('wf-prog');
+function updateWfSteps() {
+  wfBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === wfStep) b.classList.add('active');
+    else if (i < wfStep) b.classList.add('done');
+  });
+  wfBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < wfStep ? '✓' : String(i + 1);
+  });
+  if (wfPrev) wfPrev.disabled = wfStep === 0;
+  if (wfNext) wfNext.disabled = wfStep === wfBoxes.length - 1;
+  if (wfProg) wfProg.textContent = 'Step ' + (wfStep + 1) + ' of ' + wfBoxes.length;
+}
+wfPrev?.addEventListener('click', () => { if (wfStep > 0) { wfStep--; updateWfSteps(); } });
+wfNext?.addEventListener('click', () => { if (wfStep < wfBoxes.length - 1) { wfStep++; updateWfSteps(); } });
+updateWfSteps();
+
+// Ablation toggle: 8B vs 14B
+const btn8b  = document.getElementById('btn-8b');
+const btn14b = document.getElementById('btn-14b');
+const abl8b  = document.getElementById('ablation-8b');
+const abl14b = document.getElementById('ablation-14b');
+function switchAblation(which) {
+  const is8b = which === '8b';
+  btn8b.classList.toggle('active', is8b);
+  btn14b.classList.toggle('active', !is8b);
+  abl8b.style.display  = is8b ? '' : 'none';
+  abl14b.style.display = is8b ? 'none' : '';
+  // animate bars in the newly shown panel
+  const panel = is8b ? abl8b : abl14b;
+  setTimeout(() => {
+    panel.querySelectorAll('.abl-bar[data-w]').forEach(b => {
+      b.style.width = '0%';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { b.style.width = parseFloat(b.dataset.w) + '%'; });
+      });
+    });
+  }, 50);
+}
+btn8b?.addEventListener('click',  () => switchAblation('8b'));
+btn14b?.addEventListener('click', () => switchAblation('14b'));
+</script>
+</BaseLayout>
