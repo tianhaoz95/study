@@ -28,3 +28,7 @@ setLink('footer-github',    GITHUB_URL)
 // Year
 const yearEl = document.getElementById('year')
 if (yearEl) yearEl.textContent = String(new Date().getFullYear())
+
+// Post count (injected at build time from apps/blog/src/pages/posts/)
+const postCountEl = document.getElementById('post-count')
+if (postCountEl) postCountEl.textContent = String(__POST_COUNT__)
