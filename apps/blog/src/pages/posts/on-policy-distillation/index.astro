@@ -447,6 +447,14 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <p>
   CEPO's fix: per-token credit assignment via a contrastive question — does the correct-answer rollout favour this token, <em>and</em> does the wrong-answer rollout disfavour it? Only tokens satisfying both conditions receive weight as genuine reasoning steps. Result: <strong>43.43% vs. GRPO's 41.17%</strong> at 2B scale; <strong>60.56% vs. 57.43%</strong> at 4B scale on competitive math benchmarks.
 </p>
+
+<h3>The sparse-to-dense principle: teacher quality matters as much as training regime</h3>
+<p>
+  <strong>Beyond GRPO and On-Policy Distillation</strong> (arXiv:2605.12483, May 2026) sharpens the debate with a clean empirical hierarchy across the Qwen3 and Llama families: <em>RL-improved-teacher distillation &gt; direct student GRPO &gt; raw-teacher distillation</em>. The finding directly challenges the emerging view that per-student RL is always preferable for small models — a 1.7B student trained via on-policy distillation from an RL-strengthened 8B teacher reaches <strong>79.3% MATH / 25.2% AIME 2024</strong>, versus 75.9% / 19.8% for the same student trained directly with GRPO. Ablations quantify the contributions: removing the RL-improved teacher costs −7.8 MATH points; removing on-policy distillation costs −3.3 points.
+</p>
+<p>
+  The paper frames this as a <em>reward-density allocation principle</em>: sparse sequence-level rewards are best for training a strong teacher (exploration-heavy regime), while dense token-level supervision compresses that knowledge more effectively into small students (exploitation-heavy regime). The two paradigms are complements in a prescribed order — RL first to build a strong teacher, then on-policy distillation to transfer efficiently.
+</p>
 </section>
 
 <!-- ─────────────────────────────────────── §06 LANDSCAPE -->
@@ -470,6 +478,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     <tr><td>SSB</td><td class="mn">self</td><td class="mn">FKL (self)</td><td>no external teacher; +10.6% over GRPO</td><td>Dec 2025</td></tr>
     <tr class="highlight-row"><td>CEPO</td><td class="mn">student ✓</td><td class="mn">contrastive credit</td><td>prevents answer leakage; beats GRPO</td><td>May 2026</td></tr>
     <tr><td>dGRPO</td><td class="mn">student ✓</td><td class="mn">OPD + GRPO</td><td>combines RL rewards + distillation signal</td><td>May 2026</td></tr>
+    <tr class="highlight-row"><td>SDPO</td><td class="mn">self ✓</td><td class="mn">feedback-conditioned</td><td>model distills its own error-corrected self; no external teacher</td><td>Jan 2026</td></tr>
+    <tr class="highlight-row"><td>Lightning OPD</td><td class="mn">offline</td><td class="mn">FKL (cached logits)</td><td>offline OPD via precomputed teacher log-probs; teacher consistency theorem</td><td>Apr 2026</td></tr>
+    <tr><td>Beyond GRPO</td><td class="mn">student ✓</td><td class="mn">sparse→dense</td><td>RL-teacher &gt; direct student RL; +3.4pp MATH over GRPO on 1.7B</td><td>May 2026</td></tr>
+    <tr><td>CoDistill-GRPO</td><td class="mn">co-train ↔</td><td class="mn">OPD reward</td><td>large+small co-train bidirectionally; 18% speedup via small-model rollouts</td><td>May 2026</td></tr>
   </tbody>
 </table>
 
@@ -511,14 +523,32 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
       <div class="bar-label">DeepSeek-R1 (full, ref)</div>
       <div class="bar-track"><div class="bar-fill" data-w="97.3" style="background:rgba(245,158,11,.65)"><span>97.3%</span></div></div>
     </div>
+    <div class="bar-group-head" style="margin-top:1.25rem">AIME 2024 — efficiency + RL-teacher comparisons</div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen3-1.7B + GRPO (direct)</div>
+      <div class="bar-track"><div class="bar-fill" data-w="19.8" style="background:rgba(6,182,212,.45)"><span>19.8%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen3-1.7B + Beyond GRPO</div>
+      <div class="bar-track"><div class="bar-fill" data-w="25.2" style="background:rgba(139,92,246,.6)"><span>25.2% (+5.4pp)</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen3-8B + Lightning OPD</div>
+      <div class="bar-track"><div class="bar-fill" data-w="69.9" style="background:rgba(16,185,129,.6)"><span>69.9% (30 GPU-hrs)</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen3-30B-A3B + Lightning OPD</div>
+      <div class="bar-track"><div class="bar-fill" data-w="71.0" style="background:rgba(16,185,129,.7)"><span>71.0%</span></div></div>
+    </div>
   </div>
 </div>
 
 <h3>Emerging directions (mid-2026)</h3>
 <ul>
-  <li><strong>Self-distillation without external teachers</strong> — SSB (2512.05105), ROSD (2605.28014), SSOPD (2605.17497): single-model distillation using different contexts or verified rollouts</li>
+  <li><strong>Self-distillation without external teachers</strong> — SSB (2512.05105), ROSD (2605.28014), SSOPD (2605.17497): single-model distillation using different contexts or verified rollouts. <strong>SDPO</strong> (2601.20802) is architecturally distinct: rather than contrasting a current vs. past model, the student conditions on <em>textual feedback about its own errors</em> (e.g., runtime error messages, judge critiques) to generate corrective token-level supervision — the model distills its own feedback-conditioned self back into the unconditioned policy, achieving 3× better sample efficiency than GRPO on scientific reasoning and LiveCodeBench</li>
+  <li><strong>Offline OPD — removing the live-teacher requirement</strong> — <strong>Lightning OPD</strong> (2604.13010) precomputes teacher log-probabilities over SFT rollouts once, then reuses them throughout training, achieving <strong>4× training efficiency</strong> over standard OPD. Its key theoretical finding is "teacher consistency": the SFT teacher and OPD teacher <em>must be the same model</em> — mixing them introduces gradient bias that degrades performance even when the OPD teacher is stronger. This retroactively explains failures that practitioners have likely seen empirically. Qwen3-8B trained with Lightning OPD reaches 69.9% AIME 2024 on a single 8×H100 node in 30 GPU hours</li>
   <li><strong>Stabilisation under long horizons</strong> — f-OPD (2605.17862) addresses sample staleness in async OPD; Veto/Stable-OPD (2601.07155) handles pathological FKL/RKL gradients</li>
-  <li><strong>RL + OPD jointly</strong> — dGRPO (2605.12227), SDAR (2605.15155), Search-E1 (2605.22511): combine sparse RL rewards with dense distillation supervision for long-context and agentic tasks</li>
+  <li><strong>RL + OPD jointly</strong> — dGRPO (2605.12227), SDAR (2605.15155), Search-E1 (2605.22511): combine sparse RL rewards with dense distillation supervision. <strong>CoDistill-GRPO</strong> (2605.08873) inverts the usual teacher-fixed assumption: a large and small model co-train from the start — the small model's rollouts train the large model (via importance reweighting), while the large model's output distribution provides an OPD reward to the small model, yielding 18% faster large-model training by offloading rollout generation</li>
   <li><strong>Multimodal extension</strong> — vision-OPD (2605.21924) adds visual advantage weighting; VLA-OPD (2603.26666) extends to robot action models</li>
   <li><strong>Theoretical grounding</strong> — "Post-Training is About States, Not Tokens" (2605.22731) unifies SFT, RL, and OPD through a state-distribution lens, suggesting on-policy state coverage is as important as the loss form</li>
 </ul>
