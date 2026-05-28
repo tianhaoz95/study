@@ -332,9 +332,14 @@ const deferredPosts = latestPosts.slice(BATCH);
 <style is:global>
   .hero {
     padding: 6.5rem 2rem 4rem;
-    max-width: 860px;
+    max-width: 1040px;
     margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 3rem;
+    align-items: center;
   }
+  .hero-text { display: flex; flex-direction: column; }
   .hero-eyebrow {
     display: inline-flex;
     align-items: center;
@@ -353,7 +358,7 @@ const deferredPosts = latestPosts.slice(BATCH);
     height: 1px;
     background: var(--purple);
   }
-  .hero h1 {
+  .hero-text h1 {
     font-size: clamp(2rem, 5vw, 3.4rem);
     font-weight: 800;
     letter-spacing: -.03em;
@@ -364,11 +369,96 @@ const deferredPosts = latestPosts.slice(BATCH);
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .hero p {
+  .hero-text p {
     font-size: 1.075rem;
     color: var(--muted2);
     max-width: 560px;
     line-height: 1.75;
+  }
+  /* Viz */
+  .viz-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    user-select: none;
+  }
+  .viz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .viz-label { font-family: var(--ff-mono); font-size: .72rem; color: var(--purple-l); }
+  .viz-step  { font-family: var(--ff-mono); font-size: .68rem; color: var(--muted); }
+  .viz-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .viz-token {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color .4s;
+  }
+  .viz-mask {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .35s ease;
+  }
+  .viz-mask::after {
+    content: '';
+    display: block;
+    width: 56%;
+    height: 7px;
+    background: var(--border-hi);
+    border-radius: 3px;
+    animation: viz-shimmer 1.8s ease-in-out infinite;
+  }
+  @keyframes viz-shimmer {
+    0%, 100% { opacity: .4; }
+    50%       { opacity: .85; }
+  }
+  .viz-word {
+    font-family: var(--ff-mono);
+    font-size: .67rem;
+    color: var(--purple-l);
+    opacity: 0;
+    transition: opacity .35s ease;
+    position: relative;
+    z-index: 1;
+    white-space: nowrap;
+  }
+  .viz-token.revealed               { border-color: rgba(139,92,246,.38); }
+  .viz-token.revealed .viz-mask     { opacity: 0; }
+  .viz-token.revealed .viz-word     { opacity: 1; }
+  .viz-token.flash                  { animation: viz-flash .4s ease; }
+  @keyframes viz-flash {
+    0%   { background: rgba(139,92,246,.22); }
+    100% { background: var(--surface); }
+  }
+  .viz-footer { margin-top: 1rem; }
+  .viz-progress { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .viz-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--purple), var(--cyan));
+    border-radius: 1px;
+    width: 0%;
+    transition: width .2s ease;
+  }
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-viz { display: none; }
   }
   .posts-section {
     max-width: 860px;
@@ -503,9 +593,12 @@ const deferredPosts = latestPosts.slice(BATCH);
 </style>
 
 <section class="hero">
-  <div class="hero-eyebrow" data-i18n="hero-eyebrow">Personal Research Blog</div>
-  <h1 data-i18n="hero-title">Exploring the frontier of AI &amp; ML</h1>
-  <p data-i18n="hero-desc">Deep dives into research papers, model architectures, and open-source implementations — with interactive visualizations and annotated source code.</p>
+  <div class="hero-text">
+    <div class="hero-eyebrow" data-i18n="hero-eyebrow">Personal Research Blog</div>
+    <h1 data-i18n="hero-title">Exploring the frontier of AI &amp; ML</h1>
+    <p data-i18n="hero-desc">Deep dives into research papers, model architectures, and open-source implementations — with interactive visualizations and annotated source code.</p>
+  </div>
+  <div class="hero-viz" id="hero-viz" aria-hidden="true"></div>
 </section>
 
 <section class="posts-section">
@@ -558,6 +651,11 @@ const deferredPosts = latestPosts.slice(BATCH);
 
 <footer data-i18n="blog-footer">Built with curiosity. Source on GitHub.</footer>
 </BaseLayout>
+
+<script>
+  import { initViz } from '../lib/viz';
+  initViz();
+</script>
 
 <script>
   function applyReadProgress() {
