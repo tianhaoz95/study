@@ -1,7 +1,9 @@
 import { initAnalytics } from './firebase'
 import { initUI } from './ui'
+import { initViz } from './viz'
 initAnalytics()
 initUI()
+initViz()
 
 const BLOG_URL      = import.meta.env.VITE_BLOG_URL      ?? '#'
 const SUBSCRIBE_URL = import.meta.env.VITE_SUBSCRIBE_URL  ?? '#'
