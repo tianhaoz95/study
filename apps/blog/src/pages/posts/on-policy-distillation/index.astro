@@ -280,6 +280,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <p>
   The key insight shared by all three: <strong>off-policy vs. on-policy is a training-data choice, not an objective choice</strong>. The divergence (forward KL, reverse KL, skew KL) is a separate axis. You can use any objective on-policy; which you choose determines mode-seeking vs. mode-covering behaviour.
 </p>
+<p>
+  <strong>Lightning OPD</strong> (arXiv:2604.13010) extends this axis with a third option — <em>offline on-policy</em>: sample from the student once during SFT, precompute the teacher's log-probabilities over those rollouts, then reuse them throughout OPD training without a live teacher server. The key theoretical guarantee is the <em>teacher consistency condition</em>: the SFT teacher and the OPD teacher must be the same model. Swapping in a stronger OPD teacher violates the gradient alignment that makes the cached logprobs a valid substitute for online scoring — and degrades results even though the teacher is objectively better. Lightning OPD reduces training cost by <strong>4×</strong> while matching the convergence of fully online OPD.
+</p>
 </section>
 
 <!-- ─────────────────────────────────────── §03 DIVERGENCE ZOO -->
@@ -325,6 +328,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <h3>Stabilisation: avoiding diffusion and collapse</h3>
 <p>
   The two failure modes of pure FKL and RKL are well-documented. FKL causes <strong>over-diffusion</strong>: the student spreads mass across all teacher modes, producing generic, hedging responses. RKL causes <strong>mode collapse</strong>: the student locks onto a single mode and ignores valid alternatives. The 2026 paper arXiv:2603.07079 proposes <em>entropy-aware OPD</em> that monitors per-step entropy and switches objectives to stay in a healthy operating range.
+</p>
+<p>
+  <strong>SDPO</strong> (arXiv:2601.20802) sidesteps the FKL/RKL axis entirely by redefining what the reference distribution <em>is</em>. Instead of an external teacher, it uses the model's own <em>feedback-conditioned self</em> as the reference — the same model, but conditioned on a textual description of its error (a runtime exception, a judge critique, or a wrong-answer trace). Distilling from feedback-conditioned predictions back into the unconditioned policy produces dense, token-level supervision that is structurally on-policy and requires no external teacher. In this framing the FKL/RKL choice becomes secondary to the prior question: <em>what does the reference distribution represent?</em>
 </p>
 </section>
 
@@ -402,6 +408,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 </p>
 <p>
   The <strong>cognitive behaviors paper</strong> (arXiv:2503.01307) adds a nuance: whether RL succeeds at all depends on whether the base model already exhibits verification, backtracking, subgoal-setting, and backward chaining. Distilling those <em>reasoning behaviors</em> — even from wrong-answer traces — is a prerequisite for RL to work. This positions on-policy distillation as a necessary first step before RL, not just an alternative to it.
+</p>
+<p>
+  <strong>Beyond GRPO and On-Policy Distillation</strong> (arXiv:2605.12483) provides the theoretical framing for why this ordering is optimal: sparse sequence-level rewards (GRPO) are best for building a strong teacher in an exploration-heavy regime, while dense token-level supervision (on-policy distillation) compresses that knowledge into students most efficiently in an exploitation-heavy regime. The two paradigms aren't competing — each is optimal for a different phase, and their correct sequencing (RL to strengthen the teacher, then OPD to transfer) reliably outperforms either alone.
 </p>
 </section>
 
