@@ -86,3 +86,11 @@ emailForm?.addEventListener('submit', async (e) => {
 })
 
 emailInput?.addEventListener('input', () => setFieldError(null))
+
+// Topic chips — injected at build time from blog post tags
+const chipsEl = document.querySelector<HTMLElement>('.topic-chips')
+if (chipsEl) {
+  chipsEl.innerHTML = __RECENT_TOPICS__
+    .map(t => `<span class="chip">${t}</span>`)
+    .join('')
+}
