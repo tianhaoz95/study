@@ -1,0 +1,1239 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="On-Policy Distillation: A 2026 Field Guide | AI/ML Deep Dives"
+  description="Exposure bias silently breaks knowledge distillation for long sequences. On-policy distillation fixes it — but which objective, and can RL do better? An interactive survey of the 2024–2026 landscape."
+  crumb="On-Policy Distillation"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.canvas-wrap{position:relative;width:100%}
+.canvas-wrap canvas{display:block;width:100%}
+.canvas-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.875rem}
+.canvas-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:210px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-head{font-size:.67rem;font-family:var(--ff-mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .4rem;padding-left:1px}
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--text2)}
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- ═══════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Knowledge Distillation</span>
+    <span class="tag tag-cyan">LLM Training</span>
+    <span class="tag tag-amber">Survey</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>On-Policy Distillation: A 2026 Field Guide</h1>
+  <p class="lead">
+    Exposure bias silently breaks knowledge distillation for long sequences — errors in the student's own output compound, and the model was never trained to handle them. On-policy distillation fixes this by training on the student's own generations. But which divergence objective? Can RL do better? This post maps every major method from GKD (2023) through the 2026 frontier.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~16 min read</span>
+    <span>Survey: <code>arXiv:2604.00626</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2604.00626" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Survey PDF
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/abs/2306.13649" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      GKD (ICLR 2024)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/abs/2306.08543" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      MiniLLM (ICLR 2024)
+    </a>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════ GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- ── TOC ── -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bias"><a href="#s-bias"><span class="toc-num">01</span> Exposure Bias</a></li>
+    <li class="toc-item" id="toc-s-fix"><a href="#s-fix"><span class="toc-num">02</span> The On-Policy Fix</a></li>
+    <li class="toc-item" id="toc-s-divergence"><a href="#s-divergence"><span class="toc-num">03</span> Divergence Zoo</a></li>
+    <li class="toc-item" id="toc-s-reasoning"><a href="#s-reasoning"><span class="toc-num">04</span> Reasoning Frontier</a></li>
+    <li class="toc-item" id="toc-s-debate"><a href="#s-debate"><span class="toc-num">05</span> RL vs. Distillation</a></li>
+    <li class="toc-item" id="toc-s-landscape"><a href="#s-landscape"><span class="toc-num">06</span> 2026 Landscape</a></li>
+  </ol>
+</nav>
+
+<!-- ── ARTICLE ── -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────────── §01 EXPOSURE BIAS -->
+<section id="s-bias" data-code="intro">
+<div class="section-no">01 — The Problem</div>
+<h2>Exposure bias: why off-policy KD silently fails</h2>
+<p>
+  Standard knowledge distillation fine-tunes a student model on sequences generated by the teacher — or on human-written data with the teacher providing soft token-level labels. At training time the student <em>always sees correct, teacher-quality prefixes</em> as context. At inference time it must condition on its <em>own previously generated tokens</em>, including any mistakes it makes along the way.
+</p>
+<p>
+  This mismatch is called <strong>exposure bias</strong> (Ranzato et al., 2015). One wrong token shifts the context distribution out-of-distribution for everything that follows. The model was never trained to recover from its own errors; subsequent predictions are built on an increasingly incorrect foundation. The survey (arXiv:2604.00626) formalises this as O(T²) scaling — the cumulative bias grows with the square of sequence length.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">exposure-bias.canvas</span>
+    <span class="vp-hint">Press Play to watch the error cascade unfold</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="exp-canvas" height="210"></canvas>
+    </div>
+    <div class="canvas-btns">
+      <button class="canvas-btn" id="exp-play">▶ Play</button>
+      <button class="canvas-btn" id="exp-reset">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The cascade is concrete: the student generates "India" when the correct continuation was "sunny" — now every subsequent token is conditioned on a wrong premise. At inference, there is no teacher to steer back. For short sequences the effect is mild; for chain-of-thought reasoning traces that run thousands of tokens, the compounding is catastrophic.
+</p>
+<div class="callout">
+  <strong>Why it matters now:</strong> Modern reasoning models generate multi-step traces of 1,000–8,000 tokens. Each step's correctness depends on all prior steps. Off-policy distillation's exposure bias is not a subtle statistical quirk — it is a structural failure mode that grows worse the longer your reasoning chain is.
+</div>
+</section>
+
+<!-- ─────────────────────────────────────── §02 THE FIX -->
+<section id="s-fix" data-code="fix">
+<div class="section-no">02 — The On-Policy Fix</div>
+<h2>Training on the student's own generations</h2>
+<p>
+  On-policy distillation (OPD) closes the train/inference gap by a single change: the <strong>student generates its own sequences during training</strong>, and the teacher provides feedback — soft logits or a reward — on those student-generated sequences. The training distribution is now π<sub>student</sub> instead of π<sub>teacher</sub>, exactly matching inference.
+</p>
+
+<!-- Training loop comparison SVG -->
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">training-loop-comparison.svg</span></div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 170" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Left panel: off-policy -->
+      <rect x="4" y="4" width="308" height="162" rx="6" fill="rgba(239,68,68,.04)" stroke="rgba(239,68,68,.2)"/>
+      <text x="158" y="20" font-size="8" fill="#f87171" text-anchor="middle" font-weight="700" letter-spacing=".07em">OFF-POLICY (SeqKD)</text>
+      <!-- Teacher box -->
+      <rect x="18" y="30" width="110" height="44" rx="5" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)"/>
+      <text x="73" y="52" font-size="8.5" fill="#f59e0b" text-anchor="middle" font-weight="600">Teacher</text>
+      <text x="73" y="65" font-size="7" fill="#64748b" text-anchor="middle">fixed corpus</text>
+      <!-- Arrow down to dataset -->
+      <line x1="73" y1="74" x2="73" y2="90" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+      <polygon points="70,87 73,93 76,87" fill="rgba(245,158,11,.6)"/>
+      <!-- Dataset box -->
+      <rect x="18" y="92" width="110" height="36" rx="4" fill="rgba(100,116,139,.08)" stroke="rgba(100,116,139,.25)"/>
+      <text x="73" y="115" font-size="7.5" fill="#94a3b8" text-anchor="middle">static sequences</text>
+      <!-- Arrow right to student -->
+      <line x1="130" y1="110" x2="166" y2="110" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <polygon points="163,107 169,110 163,113" fill="rgba(6,182,212,.6)"/>
+      <!-- Student box -->
+      <rect x="168" y="88" width="110" height="44" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)"/>
+      <text x="223" y="108" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">Student</text>
+      <text x="223" y="121" font-size="7" fill="#64748b" text-anchor="middle">∇ trains on these</text>
+      <!-- Mismatch annotation -->
+      <rect x="12" y="142" width="290" height="18" rx="4" fill="rgba(239,68,68,.08)" stroke="rgba(239,68,68,.2)"/>
+      <text x="157" y="154" font-size="7" fill="#f87171" text-anchor="middle">⚠ train context ≠ inference context  →  exposure bias</text>
+
+      <!-- Right panel: on-policy -->
+      <rect x="348" y="4" width="308" height="162" rx="6" fill="rgba(16,185,129,.04)" stroke="rgba(16,185,129,.2)"/>
+      <text x="502" y="20" font-size="8" fill="#10b981" text-anchor="middle" font-weight="700" letter-spacing=".07em">ON-POLICY (GKD / MiniLLM)</text>
+      <!-- Student generates -->
+      <rect x="362" y="28" width="110" height="44" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)"/>
+      <text x="417" y="48" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="600">Student</text>
+      <text x="417" y="61" font-size="7" fill="#64748b" text-anchor="middle">generates sequences</text>
+      <!-- Arrow right to teacher scoring -->
+      <line x1="474" y1="50" x2="510" y2="50" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+      <polygon points="507,47 513,50 507,53" fill="rgba(245,158,11,.6)"/>
+      <text x="492" y="44" font-size="7" fill="#f59e0b" text-anchor="middle">score</text>
+      <!-- Teacher box -->
+      <rect x="512" y="28" width="110" height="44" rx="5" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)"/>
+      <text x="567" y="48" font-size="8.5" fill="#f59e0b" text-anchor="middle" font-weight="600">Teacher</text>
+      <text x="567" y="61" font-size="7" fill="#64748b" text-anchor="middle">soft labels / KL</text>
+      <!-- Arrow back to student (gradient loop) -->
+      <path d="M 567 72 Q 567 115 417 115 Q 362 115 362 100" stroke="rgba(139,92,246,.5)" stroke-width="1.5" fill="none" stroke-dasharray="4,2"/>
+      <polygon points="365,103 362,97 359,103" fill="rgba(139,92,246,.6)"/>
+      <text x="490" y="130" font-size="7" fill="#a78bfa" text-anchor="middle">∇ gradient feedback</text>
+      <!-- Match annotation -->
+      <rect x="356" y="142" width="290" height="18" rx="4" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.2)"/>
+      <text x="501" y="154" font-size="7" fill="#10b981" text-anchor="middle">✓ train context ≈ inference context  →  no exposure bias</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Three foundational methods</h3>
+<p>
+  <strong>GKD — Generalized Knowledge Distillation</strong> (arXiv:2306.13649, ICLR 2024) is the canonical reference. It formalises OPD as minimising a chosen f-divergence over student-sampled sequences, and shows seamless integration with RLHF pipelines. The student generates, the teacher provides soft labels, the student updates.
+</p>
+<p>
+  <strong>MiniLLM</strong> (arXiv:2306.08543, ICLR 2024) takes a specific divergence stance: minimise <em>reverse</em> KL(student ‖ teacher) rather than the standard forward KL. Reverse KL requires student samples by definition, making MiniLLM inherently on-policy. It reduces over-diffusion at the cost of slightly reduced output diversity.
+</p>
+<p>
+  <strong>DistiLLM</strong> (arXiv:2402.03898, ICML 2024) introduces <em>skew KL</em> — a parametric blend of forward and reverse KL — and an adaptive off-policy replay that reuses past student rollouts. Result: competitive quality at up to <strong>4.3× lower training cost</strong> vs. pure on-policy methods.
+</p>
+<p>
+  The key insight shared by all three: <strong>off-policy vs. on-policy is a training-data choice, not an objective choice</strong>. The divergence (forward KL, reverse KL, skew KL) is a separate axis. You can use any objective on-policy; which you choose determines mode-seeking vs. mode-covering behaviour.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §03 DIVERGENCE ZOO -->
+<section id="s-divergence" data-code="divergence">
+<div class="section-no">03 — The Divergence Zoo</div>
+<h2>Which objective: mode-covering vs. mode-seeking</h2>
+<p>
+  Given a teacher distribution and an on-policy student, which divergence to minimise is not obvious. The choice determines whether the student <em>covers all teacher modes</em> (broad but sometimes incoherent) or <em>locks onto the strongest mode</em> (precise but potentially narrow). The visualisation below uses a bimodal teacher representing a question with two valid answers — for example "capital of France" answered with "Paris" (dominant) or "Île-de-France" (less common but correct).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">divergence-objectives.canvas</span>
+    <span class="vp-hint">Select an objective to see how the student distribution aligns</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="div-canvas" height="200"></canvas>
+    </div>
+    <div class="canvas-btns">
+      <button class="canvas-btn active" id="div-fkl">Forward KL</button>
+      <button class="canvas-btn" id="div-rkl">Reverse KL</button>
+      <button class="canvas-btn" id="div-skew">Skew-KL</button>
+      <button class="canvas-btn" id="div-todi">Per-token (ToDi)</button>
+    </div>
+    <div id="div-desc" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.65;min-height:2.5rem"></div>
+  </div>
+</div>
+
+<div class="math-block">
+  <div class="math-label">Objective comparison</div>
+  <span class="math-var">Forward KL</span>    KL(π<sub>T</sub> ‖ π<sub>S</sub>) = E<sub>x~π<sub>T</sub></sub>[log π<sub>T</sub> − log π<sub>S</sub>]   <span class="math-comment">← off-policy; mode-covering</span>
+  <span class="math-var">Reverse KL</span>   KL(π<sub>S</sub> ‖ π<sub>T</sub>) = E<sub>x~π<sub>S</sub></sub>[log π<sub>S</sub> − log π<sub>T</sub>]   <span class="math-comment">← on-policy; mode-seeking</span>
+  <span class="math-var">Skew-KL</span>     (1−α)·KL(π<sub>S</sub> ‖ π<sub>T</sub>) + α·KL(π<sub>T</sub> ‖ π<sub>S</sub>)           <span class="math-comment">← interpolates; α∈[0,1]</span>
+  <span class="math-var">ToDi</span>         w(t)·FKL + (1−w(t))·RKL,  w(t) = σ(log π<sub>T</sub>(t)/π<sub>S</sub>(t))   <span class="math-comment">← per-token adaptive</span>
+</div>
+
+<h3>ToDi: token-level adaptive weighting</h3>
+<p>
+  <strong>ToDi</strong> (arXiv:2505.16297, EMNLP 2025 Oral) provides a gradient-level explanation for why neither FKL nor RKL is universally better: at the token level, forward KL <em>boosts underestimated tokens</em> (where student probability is too low) while reverse KL <em>suppresses overestimated tokens</em> (where student is over-confident). A per-token sigmoid weighting based on log π<sub>T</sub>/π<sub>S</sub> selects the right treatment for each token, consistently outperforming either fixed objective.
+</p>
+
+<h3>Stabilisation: avoiding diffusion and collapse</h3>
+<p>
+  The two failure modes of pure FKL and RKL are well-documented. FKL causes <strong>over-diffusion</strong>: the student spreads mass across all teacher modes, producing generic, hedging responses. RKL causes <strong>mode collapse</strong>: the student locks onto a single mode and ignores valid alternatives. The 2026 paper arXiv:2603.07079 proposes <em>entropy-aware OPD</em> that monitors per-step entropy and switches objectives to stay in a healthy operating range.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §04 REASONING -->
+<section id="s-reasoning" data-code="reasoning">
+<div class="section-no">04 — The Reasoning Frontier</div>
+<h2>Where the stakes are highest: long chain-of-thought</h2>
+<p>
+  Reasoning models generate chains of thought that can run 1,000–8,000 tokens before the final answer. At that length, off-policy distillation's O(T²) exposure bias is not a theoretical concern — it is a wall. Three patterns have emerged for handling it.
+</p>
+
+<!-- STILL Pipeline -->
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">still-pipeline.svg</span></div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 660 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Stage 1: Imitate -->
+      <rect x="8" y="20" width="145" height="70" rx="6" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)"/>
+      <text x="80" y="44" font-size="9" fill="#f59e0b" text-anchor="middle" font-weight="700">① Imitate</text>
+      <text x="80" y="58" font-size="7.5" fill="#64748b" text-anchor="middle">SFT on teacher traces</text>
+      <text x="80" y="72" font-size="7" fill="#475569" text-anchor="middle">off-policy bootstrap</text>
+      <text x="80" y="84" font-size="6.5" fill="#f59e0b" text-anchor="middle">warm-start; stable</text>
+      <!-- Arrow -->
+      <line x1="153" y1="55" x2="183" y2="55" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <polygon points="180,52 186,55 180,58" fill="rgba(255,255,255,.3)"/>
+      <!-- Stage 2: Explore -->
+      <rect x="185" y="20" width="145" height="70" rx="6" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)"/>
+      <text x="257" y="44" font-size="9" fill="#06b6d4" text-anchor="middle" font-weight="700">② Explore</text>
+      <text x="257" y="58" font-size="7.5" fill="#64748b" text-anchor="middle">rollouts on hard problems</text>
+      <text x="257" y="72" font-size="7" fill="#475569" text-anchor="middle">on-policy generation</text>
+      <text x="257" y="84" font-size="6.5" fill="#06b6d4" text-anchor="middle">surface good trajectories</text>
+      <!-- Arrow -->
+      <line x1="330" y1="55" x2="360" y2="55" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <polygon points="357,52 363,55 357,58" fill="rgba(255,255,255,.3)"/>
+      <!-- Stage 3: Self-Improve -->
+      <rect x="362" y="20" width="145" height="70" rx="6" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)"/>
+      <text x="434" y="44" font-size="9" fill="#10b981" text-anchor="middle" font-weight="700">③ Self-Improve</text>
+      <text x="434" y="58" font-size="7.5" fill="#64748b" text-anchor="middle">update on best rollouts</text>
+      <text x="434" y="72" font-size="7" fill="#475569" text-anchor="middle">on-policy refinement</text>
+      <text x="434" y="84" font-size="6.5" fill="#10b981" text-anchor="middle">iterative; self-corrects</text>
+      <!-- Arrow -->
+      <line x1="507" y1="55" x2="537" y2="55" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <polygon points="534,52 540,55 534,58" fill="rgba(255,255,255,.3)"/>
+      <!-- Stage 4: RL (optional) -->
+      <rect x="539" y="20" width="118" height="70" rx="6" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.3)" stroke-dasharray="4,2"/>
+      <text x="598" y="44" font-size="9" fill="#a78bfa" text-anchor="middle" font-weight="700">④ RL</text>
+      <text x="598" y="58" font-size="7.5" fill="#64748b" text-anchor="middle">GRPO fine-tune</text>
+      <text x="598" y="72" font-size="7" fill="#475569" text-anchor="middle">optional polish</text>
+      <text x="598" y="84" font-size="6.5" fill="#a78bfa" text-anchor="middle">STILL-3 pattern</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Pattern A — STILL: off-policy warm-start, then on-policy refinement</h3>
+<p>
+  <strong>STILL-2</strong> (arXiv:2412.09413) uses the three-stage pipeline above. Stage 1 is off-policy SFT on long-form "slow thinking" traces from a strong teacher — this provides a stable warm-start without early on-policy instability. Stages 2–3 shift to on-policy generation and iterative self-improvement. <strong>STILL-3</strong> (arXiv:2503.04548) then shows that RL (GRPO) on top of the distilled model yields further gains — reaching <strong>39.33% on AIME 2024</strong> with tool use.
+</p>
+
+<h3>Pattern B — rStar-Math: pure on-policy self-evolution</h3>
+<p>
+  <strong>rStar-Math</strong> (arXiv:2501.04519) needs no external teacher. It runs four rounds of: (1) MCTS rollouts generating step-by-step solutions, (2) a process preference model (PPM) that scores the steps, (3) retraining on the best-scored traces. The model provides its own training signal at every round.
+</p>
+
+<table class="results-table">
+  <thead><tr><th>Model</th><th>MATH (baseline)</th><th>MATH (after rStar)</th><th>AIME 2024</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td>Qwen2.5-Math-7B</td><td class="mn">58.8%</td><td class="mn best">90.0%</td><td class="mn">53.3%</td></tr>
+    <tr><td>Phi3-mini-3.8B</td><td class="mn">41.4%</td><td class="mn best">86.4%</td><td class="mn">—</td></tr>
+  </tbody>
+</table>
+
+<h3>Pattern C — DeepSeek-R1: RL first, distill the traces</h3>
+<p>
+  <strong>DeepSeek-R1</strong> (arXiv:2501.12948) takes the reverse order: train the large model with pure RL (GRPO) until it develops robust reasoning, then distil those RL-generated traces into smaller student models via standard SFT. The distillation step is technically off-policy — but it distils from an on-policy RL distribution, not from human data. DeepSeek-R1-Distill-7B reaches <strong>92.8% on MATH-500</strong> with this approach.
+</p>
+<p>
+  The <strong>cognitive behaviors paper</strong> (arXiv:2503.01307) adds a nuance: whether RL succeeds at all depends on whether the base model already exhibits verification, backtracking, subgoal-setting, and backward chaining. Distilling those <em>reasoning behaviors</em> — even from wrong-answer traces — is a prerequisite for RL to work. This positions on-policy distillation as a necessary first step before RL, not just an alternative to it.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §05 DEBATE -->
+<section id="s-debate" data-code="debate">
+<div class="section-no">05 — The Central Debate</div>
+<h2>Does RL actually introduce new capabilities?</h2>
+<p>
+  The dominant view through 2024 was that RLVR (RL with verifiable rewards) <em>elicits</em> reasoning capabilities that base models and distilled models cannot reach. A NeurIPS 2025 Oral paper (arXiv:2504.13837) challenged this directly with a pass@k sweep.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">pass-at-k.canvas</span>
+    <span class="vp-hint">Click a k button — at high k, base model catches up</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="passk-canvas" height="240"></canvas>
+    </div>
+    <div class="canvas-btns">
+      <button class="canvas-btn active" id="pk-1">k = 1</button>
+      <button class="canvas-btn" id="pk-8">k = 8</button>
+      <button class="canvas-btn" id="pk-32">k = 32</button>
+      <button class="canvas-btn" id="pk-128">k = 128</button>
+    </div>
+    <div id="pk-desc" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.65;min-height:2.5rem"></div>
+  </div>
+</div>
+
+<p>
+  The finding: at <strong>k = 1</strong>, RLVR models substantially outperform base models — this is what motivates RL training. But at <strong>large k</strong>, the base model's distribution already contains the correct solution; its pass@k converges to the RLVR model's. RLVR reshapes <em>which answers get sampled first</em> but does not add fundamentally new answers. Six different RLVR algorithms showed the same pattern — it is not an artifact of any specific method.
+</p>
+
+<div class="callout">
+  <strong>The implication for distillation:</strong> If RL only reshapes probability within the base model's existing distribution, but distillation can inject teacher reasoning patterns the student does not have, then on-policy distillation from a stronger teacher may be the only mechanism that genuinely expands student capabilities — not just re-orders them.
+</div>
+
+<h3>The CEPO failure mode: answer leakage</h3>
+<p>
+  Not all on-policy distillation is safe. <strong>CEPO</strong> (arXiv:2605.19436, May 2026) documents a sharp failure mode: when the teacher is conditioned on the correct answer and the student is trained to imitate those teacher logits, the answer information leaks into the gradient. The student learns to "look up" the answer from its context rather than reason to it. In CEPO's experiments, naïve on-policy self-distillation (OPSD, SDPO) <em>fell below the untrained baseline</em>.
+</p>
+<p>
+  CEPO's fix: per-token credit assignment via a contrastive question — does the correct-answer rollout favour this token, <em>and</em> does the wrong-answer rollout disfavour it? Only tokens satisfying both conditions receive weight as genuine reasoning steps. Result: <strong>43.43% vs. GRPO's 41.17%</strong> at 2B scale; <strong>60.56% vs. 57.43%</strong> at 4B scale on competitive math benchmarks.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────── §06 LANDSCAPE -->
+<section id="s-landscape" data-code="landscape">
+<div class="section-no">06 — 2026 Landscape</div>
+<h2>Where the field stands</h2>
+<p>
+  The table below maps the major methods across three axes: whether training sequences are drawn from the student's policy (on-policy), what divergence objective is used, and the primary application domain. Scroll down for benchmark numbers.
+</p>
+
+<table class="results-table">
+  <thead><tr><th>Method</th><th>Sequences from</th><th>Objective</th><th>Key contribution</th><th>Venue</th></tr></thead>
+  <tbody>
+    <tr><td>SeqKD</td><td class="mn">teacher</td><td class="mn">FKL</td><td>baseline; generates teacher sequences</td><td>EMNLP 2016</td></tr>
+    <tr class="highlight-row"><td>GKD</td><td class="mn">student ✓</td><td class="mn">flexible f-div</td><td>canonical OPD formulation</td><td>ICLR 2024</td></tr>
+    <tr class="highlight-row"><td>MiniLLM</td><td class="mn">student ✓</td><td class="mn">reverse KL</td><td>mode-seeking; less over-diffusion</td><td>ICLR 2024</td></tr>
+    <tr><td>DistiLLM</td><td class="mn">mixed</td><td class="mn">skew-KL</td><td>4.3× cost reduction; replay buffer</td><td>ICML 2024</td></tr>
+    <tr><td>OKD</td><td class="mn">teacher (adaptive)</td><td class="mn">FKL</td><td>teacher adapts to student capacity</td><td>Sep 2024</td></tr>
+    <tr><td>AdaSwitch</td><td class="mn">dynamic</td><td class="mn">adaptive</td><td>per-sequence on/off switching</td><td>Oct 2025</td></tr>
+    <tr class="highlight-row"><td>ToDi</td><td class="mn">student ✓</td><td class="mn">per-token adaptive</td><td>FKL + RKL per token; EMNLP Oral</td><td>EMNLP 2025</td></tr>
+    <tr><td>SSB</td><td class="mn">self</td><td class="mn">FKL (self)</td><td>no external teacher; +10.6% over GRPO</td><td>Dec 2025</td></tr>
+    <tr class="highlight-row"><td>CEPO</td><td class="mn">student ✓</td><td class="mn">contrastive credit</td><td>prevents answer leakage; beats GRPO</td><td>May 2026</td></tr>
+    <tr><td>dGRPO</td><td class="mn">student ✓</td><td class="mn">OPD + GRPO</td><td>combines RL rewards + distillation signal</td><td>May 2026</td></tr>
+  </tbody>
+</table>
+
+<h3>Benchmark results — math reasoning at 3B–8B scale</h3>
+
+<div id="s-results-bars">
+  <div class="bar-group-head">MATH benchmark (competition math, ~10K problems)</div>
+  <div class="results-bars">
+    <div class="bar-row">
+      <div class="bar-label">Qwen2.5-Math-7B (base)</div>
+      <div class="bar-track"><div class="bar-fill" data-w="58.8" style="background:rgba(100,116,139,.5)"><span>58.8%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Phi3-mini-3.8B (base)</div>
+      <div class="bar-track"><div class="bar-fill" data-w="41.4" style="background:rgba(100,116,139,.5)"><span>41.4%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Phi3-mini + rStar-Math</div>
+      <div class="bar-track"><div class="bar-fill" data-w="86.4" style="background:rgba(139,92,246,.55)"><span>86.4%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen2.5-Math-7B + rStar</div>
+      <div class="bar-track"><div class="bar-fill" data-w="90.0" style="background:rgba(139,92,246,.65)"><span>90.0%</span></div></div>
+    </div>
+    <div class="bar-group-head" style="margin-top:1.25rem">MATH-500 (representative 500-problem subset)</div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen2.5-3B + GRPO</div>
+      <div class="bar-track"><div class="bar-fill" data-w="62" style="background:rgba(6,182,212,.45)"><span>~62%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Qwen2.5-3B + SSB</div>
+      <div class="bar-track"><div class="bar-fill" data-w="72.6" style="background:rgba(16,185,129,.55)"><span>~72.6% (+10.6)</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-R1-Distill-7B</div>
+      <div class="bar-track"><div class="bar-fill" data-w="92.8" style="background:rgba(139,92,246,.7)"><span>92.8%</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-R1 (full, ref)</div>
+      <div class="bar-track"><div class="bar-fill" data-w="97.3" style="background:rgba(245,158,11,.65)"><span>97.3%</span></div></div>
+    </div>
+  </div>
+</div>
+
+<h3>Emerging directions (mid-2026)</h3>
+<ul>
+  <li><strong>Self-distillation without external teachers</strong> — SSB (2512.05105), ROSD (2605.28014), SSOPD (2605.17497): single-model distillation using different contexts or verified rollouts</li>
+  <li><strong>Stabilisation under long horizons</strong> — f-OPD (2605.17862) addresses sample staleness in async OPD; Veto/Stable-OPD (2601.07155) handles pathological FKL/RKL gradients</li>
+  <li><strong>RL + OPD jointly</strong> — dGRPO (2605.12227), SDAR (2605.15155), Search-E1 (2605.22511): combine sparse RL rewards with dense distillation supervision for long-context and agentic tasks</li>
+  <li><strong>Multimodal extension</strong> — vision-OPD (2605.21924) adds visual advantage weighting; VLA-OPD (2603.26666) extends to robot action models</li>
+  <li><strong>Theoretical grounding</strong> — "Post-Training is About States, Not Tokens" (2605.22731) unifies SFT, RL, and OPD through a state-distribution lens, suggesting on-policy state coverage is as important as the loss form</li>
+</ul>
+</section>
+
+</article><!-- /post-body -->
+
+<!-- ── CODE SIDEBAR ── -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">training/seq_kd.py</div>
+      <div class="cs-section-title" id="cs-section-title">Exposure Bias</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">bias</button>
+    <button class="cs-tab" data-panel="fix">on-policy</button>
+    <button class="cs-tab" data-panel="divergence">objectives</button>
+    <button class="cs-tab" data-panel="reasoning">reasoning</button>
+    <button class="cs-tab" data-panel="debate">pass@k</button>
+    <button class="cs-tab" data-panel="landscape">landscape</button>
+  </div>
+  <div class="cs-body" id="cs-body">
+    <!-- panels injected by JS -->
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Single-pass syntax highlighter ──────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','log']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i); const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`; i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3); const triple = src.slice(i,i+3) === tq;
+      const delim = triple ? tq : ch; let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j,j+delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i,j)}</span>`; i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0]; const isFn = /^\s*\(/.test(src.slice(i+w.length));
+      if (isFn) out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i-1]))) {
+      out += `<span class="num">${nm[0]}</span>`; i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+// ── Code sidebar panels ──────────────────────────────────────────
+const PANELS = {
+intro: { file: 'training/seq_kd.py', title: 'Exposure Bias', lines: [
+`# Standard (off-policy) sequence KD`,
+`# Student trains on TEACHER sequences`,
+`# — never on its own generated text`,
+``,
+`def seq_kd_step(student, teacher, batch):`,
+{c:'hl-c',t:`    # batch drawn from teacher distribution`},
+{c:'hl-c',t:`    teacher_ids = teacher.generate(batch['prompt'])`},
+`    `,
+{c:'hl-p',t:`    # student trains on teacher's sequences`},
+{c:'hl-p',t:`    loss = cross_entropy(`},
+{c:'hl-p',t:`        student(teacher_ids),  # inputs = teacher's`},
+{c:'hl-p',t:`        teacher_ids[:, 1:]     # targets = teacher's`},
+{c:'hl-p',t:`    )`},
+`    `,
+`    # At inference: student uses its OWN`,
+`    # tokens as context → distribution`,
+`    # shifts → error compounds each step`,
+`    return loss`,
+``,
+`# Exposure bias grows as O(T²)`,
+`# where T = sequence length`,
+`# — catastrophic for 1000-token CoT`,
+] },
+
+fix: { file: 'training/on_policy_gkd.py', title: 'On-Policy Training Loop', lines: [
+`# GKD — on-policy distillation`,
+`# Student generates; teacher scores`,
+``,
+`def opd_step(student, teacher, batch):`,
+{c:'hl-c',t:`    # 1. Student generates its OWN sequences`},
+{c:'hl-c',t:`    with torch.no_grad():`},
+{c:'hl-c',t:`        student_ids = student.generate(`},
+{c:'hl-c',t:`            batch['prompt'],`},
+{c:'hl-c',t:`            do_sample=True, temperature=0.9`},
+{c:'hl-c',t:`        )`},
+`    `,
+{c:'hl-p',t:`    # 2. Teacher scores the student's text`},
+{c:'hl-p',t:`    with torch.no_grad():`},
+{c:'hl-p',t:`        teacher_logits = teacher(student_ids).logits`},
+{c:'hl-p',t:`    teacher_probs = softmax(teacher_logits, dim=-1)`},
+`    `,
+{c:'hl-g',t:`    # 3. Student minimises KL vs teacher logits`},
+{c:'hl-g',t:`    student_logits = student(student_ids).logits`},
+{c:'hl-g',t:`    loss = kl_div(`},
+{c:'hl-g',t:`        log_softmax(student_logits, -1),`},
+{c:'hl-g',t:`        teacher_probs.detach(),`},
+{c:'hl-g',t:`        reduction='batchmean'`},
+{c:'hl-g',t:`    )`},
+`    `,
+`    # Train context = inference context`,
+`    # → no exposure bias`,
+`    return loss`,
+] },
+
+divergence: { file: 'training/objectives.py', title: 'Divergence Objectives', lines: [
+`# The four key divergence objectives`,
+``,
+`# Forward KL (off-policy, mode-covering)`,
+{c:'hl-p',t:`def forward_kl(teacher_p, student_logp):`},
+{c:'hl-p',t:`    # E[teacher] of (log teacher - log student)`},
+{c:'hl-p',t:`    return (teacher_p * (teacher_p.log() - student_logp)).sum(-1)`},
+``,
+`# Reverse KL (on-policy, mode-seeking)`,
+{c:'hl-c',t:`def reverse_kl(student_p, teacher_logp):`},
+{c:'hl-c',t:`    # E[student] of (log student - log teacher)`},
+{c:'hl-c',t:`    return (student_p * (student_p.log() - teacher_logp)).sum(-1)`},
+``,
+`# Skew-KL [DistiLLM] (interpolated)`,
+{c:'hl-g',t:`def skew_kl(student_p, teacher_p, alpha=0.5):`},
+{c:'hl-g',t:`    mixed = alpha * teacher_p + (1-alpha) * student_p`},
+{c:'hl-g',t:`    return (mixed * (mixed.log() - student_p.log())).sum(-1)`},
+``,
+`# Per-token adaptive [ToDi]`,
+{c:'hl-a',t:`def todi_weight(student_p, teacher_p):`},
+{c:'hl-a',t:`    ratio = (teacher_p / student_p.clamp(1e-9)).log()`},
+{c:'hl-a',t:`    return torch.sigmoid(ratio)  # per token`},
+`    # w > 0.5 → token is underestimated → use FKL`,
+`    # w < 0.5 → token is overestimated → use RKL`,
+] },
+
+reasoning: { file: 'training/still2.py', title: 'STILL-2 Pipeline', lines: [
+`# STILL-2: Imitate → Explore → Self-Improve`,
+``,
+`# Stage 1: Off-policy bootstrap (stable start)`,
+{c:'hl-a',t:`def stage1_imitate(model, teacher_traces):`},
+{c:'hl-a',t:`    # SFT on long-form reasoning traces`},
+{c:'hl-a',t:`    # teacher_traces: slow-thinking CoT data`},
+{c:'hl-a',t:`    return finetune(model, teacher_traces)`},
+``,
+`# Stage 2: On-policy exploration`,
+{c:'hl-c',t:`def stage2_explore(model, hard_problems, N=16):`},
+{c:'hl-c',t:`    rollouts = []`},
+{c:'hl-c',t:`    for p in hard_problems:`},
+{c:'hl-c',t:`        for _ in range(N):  # N rollouts per problem`},
+{c:'hl-c',t:`            r = model.generate(p, do_sample=True)`},
+{c:'hl-c',t:`            rollouts.append((p, r, verify(p, r)))`},
+{c:'hl-c',t:`    return rollouts`},
+``,
+`# Stage 3: Iterative self-improvement`,
+{c:'hl-g',t:`def stage3_self_improve(model, rollouts, rounds=3):`},
+{c:'hl-g',t:`    for _ in range(rounds):`},
+{c:'hl-g',t:`        best = [r for r in rollouts if r[2]]  # correct`},
+{c:'hl-g',t:`        model = finetune(model, best)`},
+{c:'hl-g',t:`        rollouts = stage2_explore(model, hard_problems)`},
+{c:'hl-g',t:`    return model`},
+``,
+`# Optional Stage 4 [STILL-3]: RL polish`,
+`# grpo_train(model) → +further gains`,
+] },
+
+debate: { file: 'eval/pass_at_k.py', title: 'Pass@k Experiment', lines: [
+`# "Does RL Really Incentivize Reasoning?"`,
+`# arXiv:2504.13837  (NeurIPS 2025 Oral)`,
+``,
+`def pass_at_k(model, problems, k):`,
+`    """Generate k rollouts, check if any correct."""`,
+`    correct = 0`,
+`    for p in problems:`,
+`        solutions = [model.generate(p) for _ in range(k)]`,
+`        if any(verify(p, s) for s in solutions):`,
+`            correct += 1`,
+`    return correct / len(problems)`,
+``,
+`# Key finding: sweep k from 1 to 128`,
+{c:'hl-c',t:`# At k=1:   RLVR 72%  vs  Base 55%  (RL wins)`},
+{c:'hl-p',t:`# At k=128: RLVR 95%  vs  Base 95%  (tied!)`},
+``,
+`# RL raises P(correct at first try)`,
+`# but does NOT add new correct solutions`,
+`# → the base model already "knows" them`,
+``,
+{c:'hl-g',t:`# Implication: distillation can inject`},
+{c:'hl-g',t:`# genuinely new solutions (from teacher);`},
+{c:'hl-g',t:`# RL only re-ranks within existing dist.`},
+] },
+
+landscape: { file: 'results/benchmark_2026.py', title: '2026 Benchmark Results', lines: [
+`# Math reasoning benchmarks (as of May 2026)`,
+``,
+`# MATH (competition math, 10K problems)`,
+`results_math = {`,
+{c:'hl-c',t:`    'Qwen2.5-Math-7B (base)':         58.8,`},
+{c:'hl-c',t:`    'Phi3-mini-3.8B (base)':          41.4,`},
+{c:'hl-p',t:`    'Phi3-mini + rStar-Math (OPD)':   86.4,  # +45pt`},
+{c:'hl-p',t:`    'Qwen2.5-7B + rStar-Math (OPD)':  90.0,  # +31pt`},
+`}`,
+``,
+`# MATH-500 (representative 500 subset)`,
+`results_math500 = {`,
+{c:'hl-c',t:`    'Qwen2.5-3B + GRPO':             62.0,`},
+{c:'hl-g',t:`    'Qwen2.5-3B + SSB (self-distil)': 72.6,  # +10.6`},
+{c:'hl-p',t:`    'DeepSeek-R1-Distill-7B':         92.8,`},
+{c:'hl-a',t:`    'DeepSeek-R1 (full model, ref)':  97.3,`},
+`}`,
+``,
+`# AIME 2024 (15 very hard math problems)`,
+`results_aime = {`,
+{c:'hl-c',t:`    'o1-preview':                     44.0,`},
+{c:'hl-p',t:`    'DeepSeek-R1':                    79.8,`},
+{c:'hl-p',t:`    'STILL-3 + tool use':             86.7,`},
+`}`,
+] },
+};
+
+function renderPanel(name) {
+  const p = PANELS[name];
+  if (!p) return '';
+  return '<pre class="cs-pre">' +
+    p.lines.map(e => {
+      const cls = typeof e === 'object' ? e.c : '';
+      const txt = typeof e === 'object' ? e.t : e;
+      return `<span class="cs-line ${cls}">${hl(txt)}</span>`;
+    }).join('') +
+    '</pre>';
+}
+
+const csBody = document.getElementById('cs-body');
+Object.keys(PANELS).forEach(name => {
+  const div = document.createElement('div');
+  div.className = 'cs-panel' + (name === 'intro' ? ' active' : '');
+  div.id = 'panel-' + name;
+  div.innerHTML = renderPanel(name);
+  csBody.appendChild(div);
+});
+
+// ── Tab switching ────────────────────────────────────────────────
+const tabMeta = {
+  intro:     { file: 'training/seq_kd.py',        title: 'Exposure Bias' },
+  fix:       { file: 'training/on_policy_gkd.py', title: 'On-Policy Fix' },
+  divergence:{ file: 'training/objectives.py',    title: 'Divergence Zoo' },
+  reasoning: { file: 'training/still2.py',        title: 'Reasoning Distillation' },
+  debate:    { file: 'eval/pass_at_k.py',         title: 'RL vs. Distillation' },
+  landscape: { file: 'results/benchmark_2026.py', title: '2026 Landscape' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) { document.getElementById('cs-file-label').textContent = m.file; document.getElementById('cs-section-title').textContent = m.title; }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── TOC + sidebar toggles ────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── IntersectionObserver ─────────────────────────────────────────
+const sectionMap = { 's-bias':'intro','s-fix':'fix','s-divergence':'divergence','s-reasoning':'reasoning','s-debate':'debate','s-landscape':'landscape' };
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li => li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id]; if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ══════════════════════════════════════════════════════════════════
+// CANVAS 1 — Exposure Bias Animation
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('exp-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = 210 * DPR;
+    canvas.style.height = '210px';
+    draw();
+  }
+  const ctx = canvas.getContext('2d');
+
+  const tokensPrompt   = ['The', 'weather', 'in', 'Paris'];
+  const tokensTeacher  = ['is', 'sunny', 'and', 'warm'];
+  const tokensStudent  = ['is', 'raining', 'heavily', 'today'];
+  const studentOK      = [true, false, false, false];
+
+  let step = 0; // 0..8 inclusive (8 = all shown)
+  let animId = null;
+
+  function W() { return canvas.width / DPR; }
+
+  function drawToken(x, y, text, fillColor, borderColor) {
+    const R = 20;
+    ctx.beginPath(); ctx.arc(x * DPR, y * DPR, R * DPR, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor; ctx.fill();
+    ctx.strokeStyle = borderColor; ctx.lineWidth = 1.5 * DPR; ctx.stroke();
+    const fs = text.length > 5 ? 7.5 : 8.5;
+    ctx.font = `bold ${fs * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x * DPR, y * DPR);
+  }
+
+  function draw() {
+    const w = W();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(1, 1);
+
+    const labelX = 6, rowA = 78, rowB = 158;
+    const tokStart = 52, tokSpacing = (w - tokStart - 18) / 8;
+
+    // Row labels
+    ctx.font = `bold ${8 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('TRAIN', labelX * DPR, rowA * DPR);
+    ctx.fillText('INFER', labelX * DPR, rowB * DPR);
+
+    // Prompt / generated separator
+    const sepX = tokStart + 4 * tokSpacing - tokSpacing * 0.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = DPR;
+    ctx.setLineDash([4 * DPR, 3 * DPR]);
+    ctx.beginPath(); ctx.moveTo(sepX * DPR, 48 * DPR); ctx.lineTo(sepX * DPR, 190 * DPR); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = `${6.5 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#475569'; ctx.textAlign = 'center';
+    ctx.fillText('← prompt →', (tokStart + 2 * tokSpacing) * DPR, 202 * DPR);
+    ctx.fillText('← generated →', (tokStart + 6 * tokSpacing) * DPR, 202 * DPR);
+
+    // Draw tokens
+    for (let i = 0; i < 8 && i < step; i++) {
+      const ti = i < 4 ? i : i - 4;
+      const x = tokStart + i * tokSpacing;
+      if (i < 4) {
+        // Prompt — both rows, purple
+        drawToken(x, rowA, tokensPrompt[i], 'rgba(139,92,246,.7)', '#a78bfa');
+        drawToken(x, rowB, tokensPrompt[i], 'rgba(139,92,246,.7)', '#a78bfa');
+      } else {
+        // Teacher continuation (row A) — gold
+        drawToken(x, rowA, tokensTeacher[ti], 'rgba(245,158,11,.7)', '#f59e0b');
+        // Student inference (row B)
+        const cascaded = ti > 0 && studentOK.slice(0, ti).some(v => !v);
+        const wrong = !studentOK[ti] || cascaded;
+        const fill = wrong ? 'rgba(239,68,68,.72)' : 'rgba(16,185,129,.72)';
+        const border = wrong ? '#ef4444' : '#10b981';
+        drawToken(x, rowB, tokensStudent[ti], fill, border);
+        // Error arrow between consecutive wrong tokens
+        if (wrong && ti > 0 && i > 4) {
+          const prevX = tokStart + (i - 1) * tokSpacing;
+          ctx.beginPath();
+          ctx.arc(x * DPR, (rowB + 28) * DPR, 3 * DPR, 0, Math.PI * 2);
+          ctx.fillStyle = '#ef4444'; ctx.fill();
+          ctx.strokeStyle = 'rgba(239,68,68,.5)'; ctx.lineWidth = 1.2 * DPR;
+          ctx.beginPath(); ctx.moveTo(prevX * DPR, (rowB + 28) * DPR); ctx.lineTo((x - 4) * DPR, (rowB + 28) * DPR); ctx.stroke();
+        }
+      }
+    }
+
+    // Legend
+    const lx = w - 130, ly = 8;
+    [[  'rgba(139,92,246,.7)', '#a78bfa', 'prompt'],
+     [  'rgba(245,158,11,.7)', '#f59e0b', 'teacher (train)'],
+     [  'rgba(16,185,129,.7)', '#10b981', 'correct'],
+     [  'rgba(239,68,68,.7)',  '#ef4444', 'wrong / cascade'],
+    ].forEach(([fill, stroke, label], i) => {
+      const cy = (ly + i * 16 + 8);
+      ctx.beginPath(); ctx.arc((lx + 6) * DPR, cy * DPR, 5 * DPR, 0, Math.PI * 2);
+      ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = DPR; ctx.stroke();
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#64748b'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, (lx + 14) * DPR, cy * DPR);
+    });
+  }
+
+  function playStep() {
+    if (step >= 8) { document.getElementById('exp-play').textContent = '▶ Play'; return; }
+    step++; draw();
+    animId = setTimeout(playStep, step <= 4 ? 380 : 600);
+  }
+
+  document.getElementById('exp-play').addEventListener('click', function() {
+    if (animId) { clearTimeout(animId); animId = null; this.textContent = '▶ Play'; return; }
+    if (step >= 8) { step = 0; draw(); }
+    this.textContent = '⏸ Pause';
+    playStep();
+  });
+  document.getElementById('exp-reset').addEventListener('click', () => {
+    clearTimeout(animId); animId = null; step = 0; draw();
+    document.getElementById('exp-play').textContent = '▶ Play';
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// CANVAS 2 — Divergence Zoo
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('div-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = 200 * DPR;
+    canvas.style.height = '200px';
+    render();
+  }
+  const ctx = canvas.getContext('2d');
+
+  function gauss(x, mu, sigma) {
+    const d = x - mu; return Math.exp(-(d * d) / (2 * sigma * sigma)) / (sigma * Math.sqrt(2 * Math.PI));
+  }
+
+  const teacherFn = x => 0.58 * gauss(x, 0.28, 0.068) + 0.42 * gauss(x, 0.72, 0.058);
+  const fklFn     = x => gauss(x, 0.48, 0.195);
+  const rklFn     = x => gauss(x, 0.28, 0.052);
+  const skewFn    = x => 0.52 * gauss(x, 0.28, 0.082) + 0.48 * gauss(x, 0.72, 0.075);
+  const todiFn    = x => 0.56 * gauss(x, 0.28, 0.072) + 0.44 * gauss(x, 0.72, 0.062);
+
+  const objectives = {
+    fkl:  { fn: fklFn,  color: '#06b6d4', fill: 'rgba(6,182,212,.22)',   name: 'Forward KL',  desc: 'Mode-covering: student spreads probability across both modes, including low-density regions between them. At extreme, produces generic, hedging responses — "it could be Paris or somewhere in France."' },
+    rkl:  { fn: rklFn,  color: '#ef4444', fill: 'rgba(239,68,68,.22)',   name: 'Reverse KL',  desc: 'Mode-seeking: student locks onto the dominant mode ("Paris") and nearly ignores the secondary mode. Produces precise answers but can be overconfident and miss valid alternatives.' },
+    skew: { fn: skewFn, color: '#a78bfa', fill: 'rgba(139,92,246,.22)',  name: 'Skew-KL',     desc: 'DistiLLM\'s interpolation (α=0.5): covers both modes reasonably well while avoiding the extreme diffusion of FKL. 4.3× cheaper than pure on-policy training.' },
+    todi: { fn: todiFn, color: '#10b981', fill: 'rgba(16,185,129,.22)',  name: 'Per-token (ToDi)', desc: 'Adaptive per-token weighting: FKL for underestimated tokens, RKL for overestimated ones. Closely matches the teacher\'s bimodal structure without imposing a global mode choice. EMNLP 2025 Oral.' },
+  };
+
+  let current = 'fkl';
+  let prevFn = fklFn, targetFn = fklFn, animT = 1.0, rafId = null;
+
+  function interpFn(x) {
+    if (animT >= 1) return targetFn(x);
+    return prevFn(x) * (1 - animT) + targetFn(x) * animT;
+  }
+
+  function drawCurve(fn, color, fillColor, W, H, pad, scale) {
+    const N = 250;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const px = (pad + t * (W - 2 * pad)) * DPR;
+      const py = (H - pad - fn(t) * scale) * DPR;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.lineTo((pad + (W - 2 * pad)) * DPR, (H - pad) * DPR);
+    ctx.lineTo(pad * DPR, (H - pad) * DPR);
+    ctx.closePath();
+    ctx.fillStyle = fillColor; ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const px = (pad + t * (W - 2 * pad)) * DPR;
+      const py = (H - pad - fn(t) * scale) * DPR;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 2 * DPR; ctx.stroke();
+  }
+
+  function render() {
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const pad = 20, baseY = H - pad;
+    const maxT = teacherFn(0.28) * 1.1;
+    const scale = (H - pad - 30) / maxT;
+
+    // X-axis
+    ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.moveTo(pad * DPR, baseY * DPR); ctx.lineTo((W - pad) * DPR, baseY * DPR); ctx.stroke();
+
+    // Mode labels
+    const modeA = pad + 0.28 * (W - 2 * pad);
+    const modeB = pad + 0.72 * (W - 2 * pad);
+    ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#64748b'; ctx.textAlign = 'center';
+    ctx.fillText('Mode A', modeA * DPR, (baseY + 12) * DPR);
+    ctx.fillText('"Paris"', modeA * DPR, (baseY + 22) * DPR);
+    ctx.fillText('Mode B', modeB * DPR, (baseY + 12) * DPR);
+    ctx.fillText('"Île-de-France"', modeB * DPR, (baseY + 22) * DPR);
+
+    // Teacher distribution (grey)
+    drawCurve(teacherFn, 'rgba(148,163,184,.6)', 'rgba(148,163,184,.12)', W, H, pad, scale);
+    ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'left';
+    ctx.fillText('teacher', (pad + 2) * DPR, (30) * DPR);
+
+    // Student distribution (animated)
+    const obj = objectives[current];
+    drawCurve(interpFn, obj.color, obj.fill, W, H, pad, scale);
+    ctx.font = `bold ${7.5 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = obj.color; ctx.textAlign = 'right';
+    ctx.fillText('student (' + obj.name + ')', (W - pad - 2) * DPR, 30 * DPR);
+
+    if (animT < 1) {
+      animT = Math.min(1, animT + 0.055);
+      rafId = requestAnimationFrame(render);
+    }
+  }
+
+  const descEl = document.getElementById('div-desc');
+  function selectObj(key) {
+    if (key === current) return;
+    prevFn = interpFn; animT = 0; current = key; targetFn = objectives[key].fn;
+    descEl.textContent = objectives[key].desc;
+    document.querySelectorAll('#div-fkl,#div-rkl,#div-skew,#div-todi').forEach(b => b.classList.remove('active'));
+    document.getElementById('div-' + key).classList.add('active');
+    if (rafId) cancelAnimationFrame(rafId);
+    render();
+  }
+  descEl.textContent = objectives.fkl.desc;
+
+  document.getElementById('div-fkl').addEventListener('click',  () => selectObj('fkl'));
+  document.getElementById('div-rkl').addEventListener('click',  () => selectObj('rkl'));
+  document.getElementById('div-skew').addEventListener('click', () => selectObj('skew'));
+  document.getElementById('div-todi').addEventListener('click', () => selectObj('todi'));
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// CANVAS 3 — Pass@k Chart
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('passk-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = 240 * DPR;
+    canvas.style.height = '240px';
+    render();
+  }
+  const ctx = canvas.getContext('2d');
+
+  const kVals   = [1, 2, 4, 8, 16, 32, 64, 128];
+  const rlvrP   = [72, 78, 83, 88, 92, 94, 95, 95.5];
+  const baseP   = [55, 63, 71, 79, 86, 91, 94, 95];
+
+  let selectedK = 1;
+
+  function kToX(k, W, padL, padR) {
+    const logMin = Math.log2(1), logMax = Math.log2(128);
+    return padL + (Math.log2(k) - logMin) / (logMax - logMin) * (W - padL - padR);
+  }
+  function passToY(p, H, padT, padB, mn=40, mx=100) {
+    return H - padB - (p - mn) / (mx - mn) * (H - padT - padB);
+  }
+
+  function render() {
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const padL = 46, padR = 18, padT = 22, padB = 38;
+    const mn = 40, mx = 100;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = DPR;
+    [50,60,70,80,90,100].forEach(y => {
+      const cy = passToY(y, H, padT, padB, mn, mx);
+      ctx.beginPath(); ctx.moveTo(padL * DPR, cy * DPR); ctx.lineTo((W - padR) * DPR, cy * DPR); ctx.stroke();
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#475569'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(y + '%', (padL - 4) * DPR, cy * DPR);
+    });
+    kVals.forEach(k => {
+      const cx = kToX(k, W, padL, padR);
+      ctx.beginPath(); ctx.moveTo(cx * DPR, padT * DPR); ctx.lineTo(cx * DPR, (H - padB) * DPR); ctx.stroke();
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#475569'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('k=' + k, cx * DPR, (H - padB + 4) * DPR);
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.moveTo(padL * DPR, padT * DPR); ctx.lineTo(padL * DPR, (H - padB) * DPR); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padL * DPR, (H - padB) * DPR); ctx.lineTo((W - padR) * DPR, (H - padB) * DPR); ctx.stroke();
+
+    // Axis labels
+    ctx.save(); ctx.translate(10 * DPR, (H / 2) * DPR); ctx.rotate(-Math.PI / 2);
+    ctx.font = `${7.5 * DPR}px 'JetBrains Mono', monospace`; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('pass@k (%)', 0, 0); ctx.restore();
+    ctx.font = `${7.5 * DPR}px 'JetBrains Mono', monospace`; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center';
+    ctx.fillText('number of rollouts k  (log scale)', (padL + (W - padL - padR) / 2) * DPR, (H - 6) * DPR);
+
+    function drawLine(data, color) {
+      ctx.beginPath();
+      data.forEach((p, i) => {
+        const cx = kToX(kVals[i], W, padL, padR);
+        const cy = passToY(p, H, padT, padB, mn, mx);
+        i === 0 ? ctx.moveTo(cx * DPR, cy * DPR) : ctx.lineTo(cx * DPR, cy * DPR);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2.2 * DPR; ctx.lineJoin = 'round'; ctx.stroke();
+      data.forEach((p, i) => {
+        const cx = kToX(kVals[i], W, padL, padR);
+        const cy = passToY(p, H, padT, padB, mn, mx);
+        ctx.beginPath(); ctx.arc(cx * DPR, cy * DPR, 3.5 * DPR, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
+      });
+    }
+
+    drawLine(baseP,  '#06b6d4');
+    drawLine(rlvrP,  '#a78bfa');
+
+    // Legend
+    ctx.font = `${7.5 * DPR}px 'JetBrains Mono', monospace`; ctx.textBaseline = 'middle';
+    [[padL + 10, padT + 10, '#a78bfa', 'RLVR model'],
+     [padL + 10, padT + 24, '#06b6d4', 'Base model']].forEach(([x, y, c, label]) => {
+      ctx.beginPath(); ctx.moveTo(x * DPR, y * DPR); ctx.lineTo((x + 18) * DPR, y * DPR);
+      ctx.strokeStyle = c; ctx.lineWidth = 2 * DPR; ctx.stroke();
+      ctx.font = `${7.5 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'left';
+      ctx.fillText(label, (x + 22) * DPR, y * DPR);
+    });
+
+    // Selected-k vertical line + callout
+    const kIdx = kVals.indexOf(selectedK);
+    if (kIdx >= 0) {
+      const cx = kToX(selectedK, W, padL, padR);
+      ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1.5 * DPR; ctx.setLineDash([4 * DPR, 3 * DPR]);
+      ctx.beginPath(); ctx.moveTo(cx * DPR, padT * DPR); ctx.lineTo(cx * DPR, (H - padB) * DPR); ctx.stroke();
+      ctx.setLineDash([]);
+      const rv = rlvrP[kIdx], bv = baseP[kIdx];
+      const gap = (rv - bv).toFixed(1);
+      const boxX = cx + 6, boxY = 60;
+      ctx.fillStyle = 'rgba(15,23,42,.85)'; ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = DPR;
+      ctx.beginPath(); ctx.roundRect(boxX * DPR, boxY * DPR, 98 * DPR, 44 * DPR, 4 * DPR); ctx.fill(); ctx.stroke();
+      ctx.font = `bold ${7.5 * DPR}px 'JetBrains Mono', monospace`; ctx.textAlign = 'left';
+      ctx.fillStyle = '#a78bfa'; ctx.fillText('RLVR: ' + rv + '%', (boxX + 5) * DPR, (boxY + 12) * DPR);
+      ctx.fillStyle = '#06b6d4'; ctx.fillText('Base: ' + bv + '%', (boxX + 5) * DPR, (boxY + 25) * DPR);
+      ctx.fillStyle = +gap > 4 ? '#f87171' : '#10b981';
+      ctx.fillText('Gap: ' + gap + ' pp', (boxX + 5) * DPR, (boxY + 38) * DPR);
+    }
+  }
+
+  const pkDescs = {
+    1:   'k=1: RLVR wins by 17 pp — this is what motivates RL training. But it only means RL promotes the correct answer to the top of the distribution, not that it created new knowledge.',
+    8:   'k=8: gap narrows to 9 pp. The base model is finding correct solutions when given more tries — they were already in the distribution.',
+    32:  'k=32: gap is now just 3 pp. The base model\'s latent capability is nearly fully expressed.',
+    128: 'k=128: essentially tied at 95% vs 95.5%. RL did not add fundamentally new capabilities — it only re-ranked existing ones. Six RLVR algorithms showed this same pattern (arXiv:2504.13837).',
+  };
+  const pkDescEl = document.getElementById('pk-desc');
+  pkDescEl.textContent = pkDescs[1];
+
+  function selectK(k) {
+    selectedK = k;
+    [1,8,32,128].forEach(v => document.getElementById('pk-'+v).classList.toggle('active', v === k));
+    pkDescEl.textContent = pkDescs[k];
+    render();
+  }
+  [1,8,32,128].forEach(k => document.getElementById('pk-'+k).addEventListener('click', () => selectK(k)));
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// Animated bar chart (IntersectionObserver)
+// ══════════════════════════════════════════════════════════════════
+const barsSection = document.getElementById('s-results-bars');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(barsSection);
+}
+</script>
+
+</BaseLayout>
