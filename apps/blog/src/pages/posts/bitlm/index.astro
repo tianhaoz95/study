@@ -1,0 +1,1389 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="BitLM: Generating Phrases, Not Tokens, with Binary Diffusion | AI/ML Deep Dives"
+  description="BitLM replaces the vocabulary softmax with an 18-bit binary code and a diffusion head that jointly denoises a block of 4 tokens at once — making parallel block-level generation native, not a post-hoc trick."
+  crumb="BitLM"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Callout */
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* BitLM-specific */
+.gen-compare{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+@media(max-width:680px){.gen-compare{grid-template-columns:1fr}}
+.gen-panel{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.gen-panel-title{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.gen-panel-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-red{background:#ef4444}
+.dot-purple{background:var(--purple)}
+.token-slots{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.625rem}
+.token-slot{min-width:48px;height:36px;border-radius:6px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-family:var(--ff-mono);color:var(--muted);transition:all .4s}
+.token-slot.filled-ar{border-color:var(--cyan);background:rgba(6,182,212,.12);color:var(--cyan)}
+.token-slot.filled-bm{border-color:var(--purple);background:rgba(139,92,246,.15);color:var(--purple-l)}
+.token-step-label{font-size:.67rem;color:var(--muted);font-family:var(--ff-mono);margin-top:.4rem}
+.gen-controls{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.gen-controls button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.gen-controls button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.gen-progress{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* Hypercube canvas container */
+.cube-wrap{display:flex;justify-content:center;padding:.5rem 0}
+
+/* Denoising canvas */
+.denoise-controls{display:flex;align-items:center;gap:.75rem;margin-top:.875rem;flex-wrap:wrap}
+.denoise-controls button{padding:.3rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.denoise-controls button:hover:not(:disabled){border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.denoise-controls button:disabled{opacity:.35;cursor:default}
+.k-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);padding:.3rem .7rem;border-radius:5px;border:1px solid var(--border);background:var(--card2)}
+.step-info{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LM</span>
+    <span class="tag tag-cyan">Tokenization</span>
+    <span class="tag tag-amber">Architecture</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>BitLM: Generating Phrases, Not Tokens, with Binary Diffusion</h1>
+  <p class="lead">Every autoregressive LLM commits to one token at a time through a softmax over 128k vocabulary items — a choice so ubiquitous it feels inevitable. BitLM questions the premise: represent each token as an 18-bit binary code, then use a lightweight diffusion head to jointly denoise an entire block of 4 tokens at once. Parallel generation becomes native to the model's output interface, not a post-hoc trick bolted on at inference time.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.11577</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.11577" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-binary"><a href="#s-binary"><span class="toc-num">02</span> Binary Codes</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Architecture</a></li>
+    <li class="toc-item" id="toc-s-denoise"><a href="#s-denoise"><span class="toc-num">04</span> Iterative Denoising</a></li>
+    <li class="toc-item" id="toc-s-ablation"><a href="#s-ablation"><span class="toc-num">05</span> CFG &amp; Steps</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Scaling &amp; Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ── §01 ── -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The One-Token Bottleneck</div>
+<h2>Why does AR generate one token at a time?</h2>
+<p>When a standard autoregressive model generates "the cat sat on the mat," it makes six independent categorical decisions — one per token. Each decision samples from a softmax distribution over the entire vocabulary (often 128k entries), appends the result, and starts again. The sequential dependency is baked into the architecture: token <em>i+1</em> can only be produced once token <em>i</em> is known.</p>
+<p>This interface has two costs. At training time, the model learns to predict one token conditional on all previous ones — it never learns to jointly commit to, say, the noun phrase "the cat" as a unit. At inference time, each token requires a full forward pass through the backbone, making generation latency proportional to output length.</p>
+
+<div class="callout">
+  <strong>The key question BitLM asks:</strong> Is the vocabulary softmax a fundamental requirement of language modeling, or is it just a historical interface choice? If tokens can be represented differently, do better generation regimes become possible?
+</div>
+
+<p>Speculative decoding and multi-token prediction heads are the usual answers — but both keep the large-vocabulary softmax intact and add machinery on top. BitLM's answer is more radical: replace the softmax with a completely different output interface.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">generation-compare.canvas</span>
+    <span class="vp-hint">press Play to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="gen-compare">
+      <div class="gen-panel">
+        <div class="gen-panel-title">
+          <span class="dot dot-red"></span>
+          Standard AR — one token at a time
+        </div>
+        <div class="token-slots" id="ar-slots"></div>
+        <div class="token-step-label" id="ar-step-label">waiting...</div>
+      </div>
+      <div class="gen-panel">
+        <div class="gen-panel-title">
+          <span class="dot dot-purple"></span>
+          BitLM — block of 4, committed together
+        </div>
+        <div class="token-slots" id="bm-slots"></div>
+        <div class="token-step-label" id="bm-step-label">waiting...</div>
+      </div>
+    </div>
+    <div class="gen-controls">
+      <button id="gen-play">▶ Play</button>
+      <button id="gen-reset">↺ Reset</button>
+      <span class="gen-progress" id="gen-progress">step 0 / 16</span>
+    </div>
+  </div>
+</div>
+
+<p>In the animation above, AR spends one step per token while BitLM's backbone runs once per <em>block</em> of 4 tokens — the diffusion head handles sub-steps internally. The result: half the backbone calls for the same 8-token output.</p>
+</section>
+
+<!-- ── §02 ── -->
+<section id="s-binary" data-code="binary">
+<div class="section-no">02 — Tokens as Binary Codes</div>
+<h2>Each token becomes a point on a binary hypercube</h2>
+<p>BitLM's core idea starts with a simple observation: a vocabulary of size V can be uniquely indexed with <code>B = ⌈log₂ V⌉</code> bits. For a typical 128k tokenizer, that's B = 17. BitLM uses B = 18 to give a comfortable margin. Every token id <em>y</em> ∈ &#123;0, ..., V−1&#125; gets a fixed binary code:</p>
+
+<div class="math-block">
+  <div class="math-label">Binary Encoding</div>
+  <span class="math-var">φ(y)</span> = 2 · bin<sub>18</sub>(<span class="math-var">y</span>) − 1  ∈  &#123;−1, +1&#125;¹⁸
+  <div class="math-comment">  &lt;!-- maps 0→−1, 1→+1, placing each token on a vertex of the 18-dim hypercube --&gt;</div>
+</div>
+
+<p>The crucial point: this is a <em>fixed</em> identifier, not a learned codebook. The tokenizer doesn't change. Only the output layer changes — instead of a 128k-dimensional softmax, the model now deals with an 18-dimensional binary vector.</p>
+
+<h3>Why does this help?</h3>
+<p>On a softmax simplex, every vocabulary item is equidistant from every other — there's no geometry to exploit. On a binary hypercube, tokens that share many bits are nearby. Two tokens in the same byte-range of the tokenizer (say, token 1000 = <code>1111101000</code> and token 1001 = <code>1111101001</code>) differ by exactly one bit. The geometry now carries information about the token index structure.</p>
+<p>More importantly, the hypercube geometry makes joint denoising natural. A diffusion process can start from continuous Gaussian noise anywhere in ℝ¹⁸ and iteratively commit to the nearest ±1 vertex. This is the same idea as "Analog Bits" in image generation — applied to text.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">hypercube.canvas — 3-bit toy vocabulary (8 tokens)</span>
+    <span class="vp-hint">hover a token to highlight</span>
+  </div>
+  <div class="vp-body">
+    <div class="cube-wrap">
+      <canvas id="cube-canvas" width="480" height="300" style="max-width:100%;border-radius:6px"></canvas>
+    </div>
+  </div>
+</div>
+
+<p>The 3-bit toy above shows 8 tokens at the corners of a cube. In BitLM's actual 18-bit space, 128k tokens occupy 128k of the 2¹⁸ = 262,144 possible vertices — with 134,144 unused corners acting as "void" states that the sign() projection maps to real tokens by clamping.</p>
+</section>
+
+<!-- ── §03 ── -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — Architecture</div>
+<h2>A causal backbone plus a lightweight diffusion head</h2>
+<p>BitLM's design separates two responsibilities cleanly: the backbone <em>reasons about what comes next</em>, and the diffusion head <em>realizes it as discrete tokens</em>.</p>
+
+<svg id="arch-svg" viewBox="0 0 780 320" style="width:100%;max-width:780px;display:block;margin:1.75rem auto;font-family:var(--ff-mono);font-size:11px">
+  <!-- Background -->
+  <rect width="780" height="320" fill="none"/>
+
+  <!-- Input block -->
+  <rect x="20" y="130" width="110" height="60" rx="7" fill="rgba(6,182,212,.12)" stroke="#06b6d4" stroke-width="1.3"/>
+  <text x="75" y="155" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">Input Block</text>
+  <text x="75" y="170" text-anchor="middle" fill="#94a3b8" font-size="9">y⁽ⁿ⁻¹⁾ tokens</text>
+  <text x="75" y="183" text-anchor="middle" fill="#94a3b8" font-size="9">binary codes</text>
+
+  <!-- Arrow 1 -->
+  <path d="M130 160 L165 160" stroke="#475569" stroke-width="1.3" marker-end="url(#arr)"/>
+
+  <!-- MLP lift -->
+  <rect x="165" y="130" width="90" height="60" rx="7" fill="rgba(6,182,212,.08)" stroke="#0e7490" stroke-width="1.3"/>
+  <text x="210" y="152" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">MLP</text>
+  <text x="210" y="165" text-anchor="middle" fill="#94a3b8" font-size="9">B → d</text>
+  <text x="210" y="178" text-anchor="middle" fill="#94a3b8" font-size="9">lift to hidden</text>
+
+  <!-- Arrow 2 -->
+  <path d="M255 160 L290 160" stroke="#475569" stroke-width="1.3" marker-end="url(#arr)"/>
+
+  <!-- Backbone -->
+  <rect x="290" y="80" width="160" height="160" rx="7" fill="rgba(139,92,246,.12)" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="370" y="108" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Causal LLM</text>
+  <text x="370" y="122" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Backbone</text>
+  <text x="370" y="140" text-anchor="middle" fill="#94a3b8" font-size="9">Qwen-3 arch</text>
+  <!-- Block-causal mask inset -->
+  <rect x="310" y="152" width="120" height="68" rx="4" fill="rgba(0,0,0,.3)" stroke="#334155" stroke-width="1"/>
+  <text x="370" y="168" text-anchor="middle" fill="#64748b" font-size="8">block-causal mask</text>
+  <!-- Mini mask grid 4x4 -->
+  <g transform="translate(330,174)">
+    <!-- cells: within-block attend, across-block causal -->
+    <rect x="0" y="0" width="12" height="12" rx="1" fill="rgba(16,185,129,.35)"/>
+    <rect x="14" y="0" width="12" height="12" rx="1" fill="rgba(0,0,0,0)" stroke="#1e293b" stroke-width=".5"/>
+    <rect x="28" y="0" width="12" height="12" rx="1" fill="rgba(0,0,0,0)" stroke="#1e293b" stroke-width=".5"/>
+    <rect x="42" y="0" width="12" height="12" rx="1" fill="rgba(0,0,0,0)" stroke="#1e293b" stroke-width=".5"/>
+
+    <rect x="0" y="14" width="12" height="12" rx="1" fill="rgba(16,185,129,.35)"/>
+    <rect x="14" y="14" width="12" height="12" rx="1" fill="rgba(16,185,129,.35)"/>
+    <rect x="28" y="14" width="12" height="12" rx="1" fill="rgba(0,0,0,0)" stroke="#1e293b" stroke-width=".5"/>
+    <rect x="42" y="14" width="12" height="12" rx="1" fill="rgba(0,0,0,0)" stroke="#1e293b" stroke-width=".5"/>
+
+    <rect x="0" y="28" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="14" y="28" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="28" y="28" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="42" y="28" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+
+    <rect x="0" y="42" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="14" y="42" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="28" y="42" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+    <rect x="42" y="42" width="12" height="12" rx="1" fill="rgba(139,92,246,.35)"/>
+  </g>
+  <text x="310" y="234" fill="#10b981" font-size="7">■ within block</text>
+  <text x="360" y="234" fill="#8b5cf6" font-size="7">■ causal cross</text>
+
+  <!-- Arrow 3 -->
+  <path d="M450 160 L490 160" stroke="#475569" stroke-width="1.3" marker-end="url(#arr)"/>
+  <text x="470" y="153" text-anchor="middle" fill="#64748b" font-size="8">C⁽ⁿ⁻¹⁾</text>
+
+  <!-- Diffusion Head -->
+  <rect x="490" y="80" width="130" height="160" rx="7" fill="rgba(245,158,11,.1)" stroke="#f59e0b" stroke-width="1.3"/>
+  <text x="555" y="108" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="700">Diffusion</text>
+  <text x="555" y="121" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="700">Head</text>
+  <text x="555" y="140" text-anchor="middle" fill="#94a3b8" font-size="9">BitDance arch</text>
+  <!-- AdaLN note -->
+  <rect x="504" y="150" width="102" height="30" rx="3" fill="rgba(245,158,11,.07)" stroke="#92400e" stroke-width=".8"/>
+  <text x="555" y="163" text-anchor="middle" fill="#fcd34d" font-size="8">AdaLN(C⁽ⁿ⁻¹⁾, t)</text>
+  <text x="555" y="176" text-anchor="middle" fill="#94a3b8" font-size="7.5">context + timestep</text>
+  <!-- K steps loop -->
+  <text x="555" y="200" text-anchor="middle" fill="#94a3b8" font-size="9">K=15 steps</text>
+  <path d="M540 205 Q520 220 540 235 Q555 244 570 235 Q590 220 570 205" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="555" y="227" text-anchor="middle" fill="#f59e0b" font-size="7">ODE loop</text>
+
+  <!-- Arrow 4 -->
+  <path d="M620 160 L655 160" stroke="#475569" stroke-width="1.3" marker-end="url(#arr)"/>
+
+  <!-- sign() box -->
+  <rect x="655" y="140" width="70" height="40" rx="5" fill="rgba(16,185,129,.1)" stroke="#10b981" stroke-width="1.3"/>
+  <text x="690" y="156" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">sign()</text>
+  <text x="690" y="171" text-anchor="middle" fill="#94a3b8" font-size="9">→ &#123;−1,+1&#125;¹⁸</text>
+
+  <!-- Arrow 5 down -->
+  <path d="M690 180 L690 220" stroke="#475569" stroke-width="1.3" marker-end="url(#arr)"/>
+
+  <!-- Token IDs output -->
+  <rect x="635" y="220" width="110" height="50" rx="7" fill="rgba(16,185,129,.12)" stroke="#10b981" stroke-width="1.3"/>
+  <text x="690" y="242" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">Token IDs</text>
+  <text x="690" y="257" text-anchor="middle" fill="#94a3b8" font-size="9">y⁽ⁿ⁾ = φ⁻¹(·)</text>
+
+  <!-- Noise input arrow to diff head -->
+  <path d="M555 50 L555 80" stroke="#475569" stroke-width="1.3" stroke-dasharray="4,2" marker-end="url(#arr)"/>
+  <text x="555" y="45" text-anchor="middle" fill="#64748b" font-size="9">ε ∼ 𝒩(0, I_&#123;m×B&#125;)</text>
+  <text x="555" y="57" text-anchor="middle" fill="#64748b" font-size="8">Gaussian noise start</text>
+
+  <!-- CFG label -->
+  <text x="555" y="290" text-anchor="middle" fill="#f59e0b" font-size="8">CFG scale ω = 9.0</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+</svg>
+
+<p>The block-causal mask (inset in the SVG) is the key structural choice. Within a block, all positions can attend to each other — so the backbone builds a joint representation of the block before the diffusion head decides which tokens to emit. Across blocks, strictly causal order is maintained, so left-to-right language structure is preserved.</p>
+
+<p>When block size <strong>m = 1</strong>, the block-causal mask degenerates to standard causal attention and BitLM is equivalent to standard AR in binary space. At <strong>m = 4</strong> (the setting used in experiments), the model emits 4 tokens per backbone call — a 4× inference parallelism factor in the backbone.</p>
+
+<div class="callout">
+  <strong>Separation of concerns:</strong> The backbone handles <em>what</em> to say (left-to-right causal computation), the diffusion head handles <em>how</em> to say it (joint lexical realization). This is different from speculative decoding, where a draft model handles "what" while the verifier corrects it — here there is no correction step, just progressive commitment.
+</div>
+</section>
+
+<!-- ── §04 ── -->
+<section id="s-denoise" data-code="denoise">
+<div class="section-no">04 — Iterative Denoising</div>
+<h2>From Gaussian noise to committed tokens in K steps</h2>
+<p>Once the backbone produces the context latent C⁽ⁿ⁻¹⁾ for block n, the diffusion head takes over. It starts from pure Gaussian noise and iteratively "commits" bit-by-bit toward the target binary block.</p>
+
+<div class="math-block">
+  <div class="math-label">Denoising Schedule (straight-line ODE)</div>
+  <span class="math-var">A</span><sub>t</sub> = (1 − t) · <span class="math-var">A</span><sub>0</sub> + t · ε
+  <div class="math-comment">  &lt;!-- t=1: pure noise;  t=0: clean binary block --&gt;</div>
+  <br/>
+  Each step: <span class="math-var">Â</span><sub>0</sub> = DiffHead(<span class="math-var">A</span><sub>t_k</sub>, t_k; C<sup>(n-1)</sup>)
+  <br/>
+  <span class="math-var">A</span><sub>t_&#123;k-1&#125;</sub> = (t_&#123;k-1&#125;/t_k) · <span class="math-var">A</span><sub>t_k</sub>  +  (1 − t_&#123;k-1&#125;/t_k) · <span class="math-var">Â</span><sub>0</sub>
+</div>
+
+<p>After K=15 steps, the model applies a hard <code>sign()</code> projection to snap the continuous values back to the ±1 binary hypercube. The 18 resulting bits are interpreted as a token ID via the inverse map φ⁻¹.</p>
+
+<p>The visualization below shows how a block of 4 token slots starts from noise and progressively commits as denoising steps accumulate. Each row represents one token in the block; each column represents one of the 18 bits. Gray = uncertain, blue = committed to +1, red = committed to −1.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">denoising.canvas — target: "the" | "cat" | "sat" | "on"</span>
+    <span class="vp-hint">step through or watch full denoising</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="denoise-canvas" style="width:100%;border-radius:6px;display:block"></canvas>
+    <div class="denoise-controls">
+      <button id="dn-prev" disabled>← Prev</button>
+      <button id="dn-next">Next →</button>
+      <button id="dn-play">▶ Play</button>
+      <button id="dn-reset">↺ Reset</button>
+      <span class="k-label" id="dn-k-label">step 0 / 15</span>
+      <span class="step-info" id="dn-info">noise — no commitment yet</span>
+    </div>
+  </div>
+</div>
+
+<p>Notice that commitment isn't uniform: some bits "lock in" early (usually the high-order bits that determine the token's coarse identity), while lower-order bits stay uncertain longer. This mirrors how humans resolve ambiguous words — first the grammatical category, then the specific lexeme.</p>
+</section>
+
+<!-- ── §05 ── -->
+<section id="s-ablation" data-code="ablation">
+<div class="section-no">05 — CFG &amp; Denoising Steps</div>
+<h2>K = 15 steps and CFG = 9.0 are the sweet spot</h2>
+<p>Two inference hyperparameters determine output quality: the number of denoising steps K and the classifier-free guidance (CFG) scale ω. Both follow the familiar diffusion quality-speed trade-off.</p>
+
+<p>Classifier-free guidance amplifies the conditional signal: the model is run twice per denoising step — once conditioned on the context C⁽ⁿ⁻¹⁾ and once with a null context — and the prediction is extrapolated in the direction of the conditional:</p>
+
+<div class="math-block">
+  <div class="math-label">Classifier-Free Guidance</div>
+  <span class="math-var">Â</span><sub>0,CFG</sub> = (1+ω) · DiffHead(<span class="math-var">A</span><sub>t</sub>, t; C) − ω · DiffHead(<span class="math-var">A</span><sub>t</sub>, t; ∅)
+  <div class="math-comment">  &lt;!-- ω=0: no guidance;  ω=9: strong guidance used in BitLM experiments --&gt;</div>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">cfg-ablation.canvas — ROUGE-1 vs denoising steps, 3 CFG values</span>
+    <span class="vp-hint">hover to read values</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cfg-canvas" style="width:100%;border-radius:6px;display:block"></canvas>
+    <div style="display:flex;gap:1.25rem;margin-top:.625rem;flex-wrap:wrap">
+      <span style="font-size:.68rem;font-family:var(--ff-mono);color:#ef4444">■ CFG = 1.0 (no guidance)</span>
+      <span style="font-size:.68rem;font-family:var(--ff-mono);color:#f59e0b">■ CFG = 5.0</span>
+      <span style="font-size:.68rem;font-family:var(--ff-mono);color:#8b5cf6">■ CFG = 9.0 (used in paper)</span>
+    </div>
+  </div>
+</div>
+
+<p>More steps always help up to a point — beyond K≈15, the improvement plateaus and computation grows linearly. High CFG scales require more steps to stabilize (the guidance gradient is sharper), which is why the K=15, CFG=9 combination wins: enough steps to resolve the sharp gradient, not so many as to waste compute.</p>
+<p>There's also an interesting interaction: at K=1 with strong CFG, quality is worse than no guidance at all (the model overshoots in a single step). This mirrors observations in continuous diffusion for images.</p>
+</section>
+
+<!-- ── §06 ── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Scaling &amp; Results</div>
+<h2>Smooth scaling, promising XSum numbers</h2>
+<p>BitLM was pretrained on FineWeb-350BT (350B tokens from FineWeb) and fine-tuned on XSum summarization. The model follows the Qwen-3 backbone architecture with a BitDance-style diffusion head, trained at four scales: 0.6B, 1.7B, 4B, and 8B parameters.</p>
+
+<h3>Scaling behavior</h3>
+<p>Pretraining loss decreases smoothly across all four scales with no signs of instability — evidence that the binary-space output interface is compatible with standard scaling recipes. The model doesn't require any special architecture modifications beyond swapping the softmax head for the diffusion head.</p>
+
+<h3>XSum ROUGE results</h3>
+<p>After supervised fine-tuning on XSum, BitLM 8B with the diffusion head achieves ROUGE-1/2/L of <strong>26.05 / 6.44 / 20.12</strong> — above the Lead-3 baseline and approaching (but not yet matching) the pointer-generator baselines from 2017. The paper is transparent about this gap: the current result validates the binary-space approach is viable, while identifying concrete directions for improvement (better fine-tuning, adaptive block sizes, hybrid designs).</p>
+
+<div class="results-bars" id="rouge-bars">
+  <div class="bar-row">
+    <span class="bar-label">Lead-3 (baseline)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="54.9" style="background:#475569"><span>16.30</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label">PTGEN (See et al., 2017)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:#0e7490"><span>29.70</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label">PTGEN + Coverage</span>
+    <div class="bar-track"><div class="bar-fill" data-w="94.6" style="background:#0e7490"><span>28.10</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label">BitLM 8B — LM Head (FT)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="78.1" style="background:#6d28d9"><span>23.20</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label">BitLM 8B — Diff Head (FT) ★</span>
+    <div class="bar-track"><div class="bar-fill" data-w="87.7" style="background:#8b5cf6"><span>26.05</span></div></div>
+  </div>
+</div>
+
+<p>Notably, the diffusion head outperforms the LM head on the same backbone — the binary denoising interface is not just comparable to the softmax, it's better on this task after fine-tuning. This suggests that joint within-block token generation has a real inductive bias advantage for language tasks with multi-word coherence requirements.</p>
+
+<h3>Full results table</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>ROUGE-1</th>
+      <th>ROUGE-2</th>
+      <th>ROUGE-L</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Lead-3</td>
+      <td class="mn">16.30</td>
+      <td class="mn">1.60</td>
+      <td class="mn">11.95</td>
+    </tr>
+    <tr>
+      <td>PTGEN (See et al., 2017)</td>
+      <td class="mn best">29.70</td>
+      <td class="mn best">9.21</td>
+      <td class="mn best">23.24</td>
+    </tr>
+    <tr>
+      <td>PTGEN + Coverage</td>
+      <td class="mn">28.10</td>
+      <td class="mn">8.02</td>
+      <td class="mn">21.72</td>
+    </tr>
+    <tr>
+      <td>BitLM 8B — LM Head (pretrain)</td>
+      <td class="mn">10.06</td>
+      <td class="mn">2.64</td>
+      <td class="mn">8.78</td>
+    </tr>
+    <tr>
+      <td>BitLM 8B — LM Head (fine-tune)</td>
+      <td class="mn">23.20</td>
+      <td class="mn">4.45</td>
+      <td class="mn">18.04</td>
+    </tr>
+    <tr>
+      <td>BitLM 8B — Diff Head (pretrain)</td>
+      <td class="mn">19.49</td>
+      <td class="mn">2.03</td>
+      <td class="mn">15.19</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>BitLM 8B — Diff Head (fine-tune)</td>
+      <td class="mn">26.05</td>
+      <td class="mn">6.44</td>
+      <td class="mn">20.12</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>The bigger takeaway:</strong> BitLM shows that replacing the vocabulary softmax with binary-space diffusion is <em>viable at scale</em>. The remaining performance gap versus optimized seq2seq baselines is a tuning gap, not an architectural ceiling — and those baselines were themselves replaced by LLMs years ago. BitLM's contribution is proving the design space exists, not declaring it closed.
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">bitlm/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="binary">binary</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="denoise">denoise</button>
+    <button class="cs-tab" data-panel="ablation">ablation</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body" id="cs-panels"></div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Sidebar toggle ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Single-pass syntax highlighter ──
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+// ── Code sidebar panels ──
+const PANELS = {
+  bottleneck: {
+    file: 'bitlm/ar_baseline.py',
+    title: 'The One-Token Bottleneck',
+    lines: [
+      '# Standard autoregressive decoding',
+      '# Every token needs a full backbone forward pass',
+      '',
+      'def ar_generate(model, prompt_ids, max_new=128):',
+      '    ids = list(prompt_ids)',
+      '    for _ in range(max_new):',
+      '        # O(seq_len) compute per token',
+      '        logits = model(ids)[-1]      # [V]',
+      '        next_id = sample(softmax(logits))',
+      '        ids.append(next_id)',
+      '        if next_id == EOS_ID: break',
+      '    return ids',
+      '',
+      '# Throughput: ~1 token / backbone call',
+      '# At m=4 block size, BitLM does 4 tokens',
+      '# per backbone call — 4x fewer calls',
+    ]
+  },
+  binary: {
+    file: 'bitlm/binary_interface.py',
+    title: 'Binary Token Encoding',
+    lines: [
+      '# Vocab size V=128000 needs B=ceil(log2(V))=17',
+      '# BitLM uses B=18 for margin',
+      'B = 18',
+      '',
+      'def phi(token_id):',
+      '    """Map token id -> {-1,+1}^18 binary code."""',
+      '    bits = []',
+      '    for b in range(B):',
+      '        bit = (token_id >> b) & 1     # 0 or 1',
+      '        bits.append(2*bit - 1)        # -1 or +1',
+      '    return bits   # length-18 vector',
+      '',
+      'def phi_inv(bits):',
+      '    """Binary code -> token id (nearest vertex)."""',
+      '    token_id = 0',
+      '    for b, v in enumerate(bits):',
+      '        token_id |= (1 if v > 0 else 0) << b',
+      '    return token_id',
+      '',
+      '# Example: token_id=279 ("the")',
+      '# bin18(279) = 000000000100010111',
+      '# phi(279)   = -1,-1,-1,-1,-1,+1,-1,-1,-1,+1,-1,-1,-1,+1,+1,-1,-1,-1',
+    ]
+  },
+  arch: {
+    file: 'bitlm/block_causal.py',
+    title: 'Block-Causal Mask',
+    lines: [
+      '# Block-causal mask: within-block full attn,',
+      '# cross-block strict causal',
+      '',
+      'def block_causal_mask(seq_len, block_size):',
+      '    """Returns mask where True = attend."""',
+      '    mask = torch.zeros(seq_len, seq_len, dtype=bool)',
+      '    for i in range(seq_len):',
+      '        for j in range(seq_len):',
+      '            bi = i // block_size   # block of i',
+      '            bj = j // block_size   # block of j',
+      '            # attend if same block OR earlier block',
+      '            mask[i, j] = (bj <= bi)',
+      '    return mask',
+      '',
+      '# block_size=4, seq_len=8:',
+      '# Tokens 0-3 are block 0; 4-7 are block 1',
+      '# Token 5 attends to: 0,1,2,3,4,5  (not 6,7)',
+      '# Token 2 attends to: 0,1,2  (not 3=same block!)',
+      '# Wait — within same block: bi==bj -> attend',
+      '# Token 2 attends to: 0,1,2,3  (full block 0)',
+      '',
+      '# m=1 -> standard causal mask',
+      '# m=seq_len -> non-causal (full attend)',
+    ]
+  },
+  denoise: {
+    file: 'bitlm/inference.py',
+    title: 'Block Denoising Inference',
+    lines: [
+      '# Algorithm 2 from the paper: sampling loop',
+      '',
+      'def generate_block(backbone, diff_head, context,',
+      '                   K=15, cfg=9.0, m=4, B=18):',
+      '    # Start from Gaussian noise',
+      '    A = torch.randn(m, B)',
+      '    # Denoising schedule: t from 1.0 down to 0.0',
+      '    ts = torch.linspace(1.0, 0.0, K+1)',
+      '',
+      '    for k in range(K, 0, -1):',
+      '        tk, tk1 = ts[k], ts[k-1]',
+      '        # Conditional prediction',
+      '        A0_cond = diff_head(A, tk, context)',
+      '        # Null prediction for CFG',
+      '        A0_null = diff_head(A, tk, None)',
+      '        # Guidance interpolation',
+      '        A0_hat = (1+cfg)*A0_cond - cfg*A0_null',
+      '        # Move A toward predicted clean',
+      '        A = (tk1/tk)*A + (1 - tk1/tk)*A0_hat',
+      '',
+      '    # Snap to binary hypercube vertices',
+      '    bits = torch.sign(A)              # {-1, +1}^(m x B)',
+      '    token_ids = phi_inv_batch(bits)   # back to vocab ids',
+      '    return token_ids',
+    ]
+  },
+  ablation: {
+    file: 'bitlm/ablation.py',
+    title: 'CFG & Steps Ablation',
+    lines: [
+      '# From Fig. 4 in paper:',
+      '# optimal: K=15 denoising steps, CFG=9.0',
+      '',
+      '# Key observations:',
+      '# 1. More steps always helps up to K~15',
+      '# 2. Strong CFG (9.0) > weak CFG at K>=10',
+      '# 3. CFG=9 with K=1 is WORSE than no CFG',
+      '#    (overshooting in a single step)',
+      '',
+      '# XSum ROUGE-1 (approx from Fig. 4):',
+      'results = {',
+      '    # (K, cfg) -> ROUGE-1',
+      '    (1,  1.0): 18.2,',
+      '    (5,  1.0): 20.8,',
+      '    (10, 1.0): 21.4,',
+      '    (15, 1.0): 21.7,',
+      '    (1,  5.0): 16.9,',
+      '    (5,  5.0): 22.3,',
+      '    (10, 5.0): 23.6,',
+      '    (15, 5.0): 24.1,',
+      '    (1,  9.0): 14.5,',
+      '    (5,  9.0): 22.0,',
+      '    (10, 9.0): 24.8,',
+      '    (15, 9.0): 26.05,  # best',
+      '}',
+    ]
+  },
+  results: {
+    file: 'bitlm/results.py',
+    title: 'Scaling & XSum Results',
+    lines: [
+      '# Pretraining: FineWeb-350BT, 1 epoch',
+      '# Architecture: Qwen-3 backbone + BitDance diff head',
+      '# Block size m=4, binary code length B=18',
+      '',
+      '# Scaling: smooth loss decrease 0.6B -> 8B',
+      '# (no architecture changes needed)',
+      '',
+      '# XSum ROUGE-1 / ROUGE-2 / ROUGE-L',
+      'xsum_results = {',
+      '    "Lead-3":          (16.30, 1.60, 11.95),',
+      '    "PTGEN":           (29.70, 9.21, 23.24),',
+      '    "PTGEN+COV":       (28.10, 8.02, 21.72),',
+      '    "BitLM_LMHead_PT": (10.06, 2.64,  8.78),',
+      '    "BitLM_LMHead_FT": (23.20, 4.45, 18.04),',
+      '    "BitLM_DiffHd_PT": (19.49, 2.03, 15.19),',
+      '    "BitLM_DiffHd_FT": (26.05, 6.44, 20.12),  # best',
+      '}',
+      '',
+      '# Key: Diff Head FT > LM Head FT',
+      '# Binary denoising beats softmax on same backbone',
+      '# Gap to PTGEN = future work (fine-tuning, schedules)',
+      '',
+      '# Inference: K=15 steps, CFG=9.0, block_size=4',
+      '# -> 4x fewer backbone calls vs standard AR',
+    ]
+  }
+};
+
+// Render panels
+const panelsEl = document.getElementById('cs-panels');
+Object.entries(PANELS).forEach(([key, p]) => {
+  const div = document.createElement('div');
+  div.className = 'cs-panel' + (key === 'bottleneck' ? ' active' : '');
+  div.id = 'panel-' + key;
+  const pre = document.createElement('pre');
+  pre.className = 'cs-pre';
+  pre.innerHTML = p.lines.map(l => `<span class="cs-line">${hl(l)}</span>`).join('\n');
+  div.appendChild(pre);
+  panelsEl.appendChild(div);
+});
+
+const tabMeta = {
+  bottleneck: { file: 'bitlm/ar_baseline.py',       title: 'The Bottleneck' },
+  binary:     { file: 'bitlm/binary_interface.py',   title: 'Binary Codes' },
+  arch:       { file: 'bitlm/block_causal.py',       title: 'Architecture' },
+  denoise:    { file: 'bitlm/inference.py',           title: 'Iterative Denoising' },
+  ablation:   { file: 'bitlm/ablation.py',            title: 'CFG & Steps' },
+  results:    { file: 'bitlm/results.py',             title: 'Scaling & Results' },
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: TOC + sidebar tab sync ──
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-binary':     'binary',
+  's-arch':       'arch',
+  's-denoise':    'denoise',
+  's-ablation':   'ablation',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §01: Generation compare animation ──
+(function() {
+  const tokens = ['the', 'cat', 'sat', 'on', 'the', 'mat', 'by', 'now'];
+  const arSlotsEl  = document.getElementById('ar-slots');
+  const bmSlotsEl  = document.getElementById('bm-slots');
+  const arLabel    = document.getElementById('ar-step-label');
+  const bmLabel    = document.getElementById('bm-step-label');
+  const progEl     = document.getElementById('gen-progress');
+  const playBtn    = document.getElementById('gen-play');
+  const resetBtn   = document.getElementById('gen-reset');
+
+  function buildSlots(container, n) {
+    container.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('div');
+      s.className = 'token-slot';
+      s.textContent = '?';
+      container.appendChild(s);
+    }
+  }
+  buildSlots(arSlotsEl, 8);
+  buildSlots(bmSlotsEl, 8);
+
+  let step = 0;
+  const TOTAL_STEPS = 16; // 8 AR steps + (2 backbone calls * 4 = 8 block steps for BitLM)
+
+  function getArState(s) {
+    // AR fills token by token, 1 token per step (step 1-8)
+    const filled = Math.min(s, 8);
+    return filled;
+  }
+  function getBmState(s) {
+    // BitLM fills in 2 backbone calls: block1 at step 8, block2 at step 16
+    // We represent as: K denoising sub-steps happen before each commit
+    if (s <= 8) {
+      // First block denoising: progress 0->1 over steps 0-8
+      return { block: 0, progress: s / 8, committed1: false, committed2: false };
+    } else {
+      return { block: 1, progress: (s - 8) / 8, committed1: true, committed2: (s >= 16) };
+    }
+  }
+
+  function render() {
+    const arFilled = getArState(step);
+    const arSlots = arSlotsEl.querySelectorAll('.token-slot');
+    arSlots.forEach((slot, i) => {
+      if (i < arFilled) {
+        slot.className = 'token-slot filled-ar';
+        slot.textContent = tokens[i];
+      } else {
+        slot.className = 'token-slot';
+        slot.textContent = '?';
+      }
+    });
+    arLabel.textContent = step <= 8
+      ? `backbone call ${arFilled} / 8 — token "${tokens[arFilled-1] || '?'}"${arFilled > 0 ? ' committed' : ''}`
+      : `done — 8 backbone calls total`;
+
+    const bm = getBmState(step);
+    const bmSlots = bmSlotsEl.querySelectorAll('.token-slot');
+    bmSlots.forEach((slot, i) => {
+      const inBlock1 = i < 4;
+      const inBlock2 = i >= 4;
+      if (bm.committed1 && inBlock1) {
+        slot.className = 'token-slot filled-bm';
+        slot.textContent = tokens[i];
+      } else if (bm.committed2 && inBlock2) {
+        slot.className = 'token-slot filled-bm';
+        slot.textContent = tokens[i];
+      } else if (!bm.committed1 && inBlock1) {
+        const p = bm.progress;
+        slot.className = 'token-slot';
+        slot.textContent = p > 0.6 ? `~${tokens[i]}` : (p > 0.3 ? '...' : '?');
+        slot.style.opacity = 0.4 + p * 0.6;
+        slot.style.borderColor = `rgba(139,92,246,${p * 0.8})`;
+      } else if (bm.committed1 && !bm.committed2 && inBlock2) {
+        const p = bm.progress;
+        slot.className = 'token-slot';
+        slot.textContent = p > 0.6 ? `~${tokens[i]}` : (p > 0.3 ? '...' : '?');
+        slot.style.opacity = 0.4 + p * 0.6;
+        slot.style.borderColor = `rgba(139,92,246,${p * 0.8})`;
+      } else {
+        slot.className = 'token-slot';
+        slot.textContent = '?';
+        slot.style.opacity = '';
+        slot.style.borderColor = '';
+      }
+    });
+    const bcalls = bm.committed2 ? 2 : (bm.committed1 ? 1 : 0);
+    bmLabel.textContent = bm.committed2
+      ? 'done — 2 backbone calls (4 tokens each)'
+      : (bm.committed1
+        ? `backbone call 2 / 2 — denoising block 2 (${Math.round(bm.progress*100)}%)`
+        : `backbone call 1 / 2 — denoising block 1 (${Math.round(bm.progress*100)}%)`);
+
+    progEl.textContent = `step ${step} / ${TOTAL_STEPS}`;
+    playBtn.disabled = step >= TOTAL_STEPS;
+  }
+
+  let raf = null;
+  function animate() {
+    if (step >= TOTAL_STEPS) { playBtn.textContent = '▶ Play'; return; }
+    step++;
+    render();
+    raf = setTimeout(animate, 280);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (step >= TOTAL_STEPS) return;
+    playBtn.disabled = true;
+    animate();
+  });
+  resetBtn.addEventListener('click', () => {
+    clearTimeout(raf);
+    step = 0;
+    playBtn.disabled = false;
+    playBtn.textContent = '▶ Play';
+    buildSlots(arSlotsEl, 8);
+    buildSlots(bmSlotsEl, 8);
+    arLabel.textContent = 'waiting...';
+    bmLabel.textContent = 'waiting...';
+    progEl.textContent = 'step 0 / 16';
+  });
+  render();
+})();
+
+// ── §02: Hypercube canvas ──
+(function() {
+  const canvas = document.getElementById('cube-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 480;
+  const H = 300;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // 3-bit cube: 8 vertices at (±1, ±1, ±1)
+  // Project to 2D with isometric-like projection
+  // bit0 -> X-right, bit1 -> X-left (isometric), bit2 -> Y-up
+  const cx = W/2, cy = H/2;
+  function proj(b0, b1, b2) {
+    const x3 = b0 * 60 + b1 * (-40);
+    const y3 = -b2 * 80 + b1 * 30;
+    return [cx + x3, cy + y3];
+  }
+
+  // Vertices: bit values 0/1 -> display as -1/+1
+  const vertices = [];
+  for (let b2=0; b2<=1; b2++) for (let b1=0; b1<=1; b1++) for (let b0=0; b0<=1; b0++) {
+    vertices.push({b0,b1,b2, id: b0 | (b1<<1) | (b2<<2)});
+  }
+
+  const LABELS = [
+    { id: 0, name: '"a"',   color: '#06b6d4' },
+    { id: 1, name: '"the"', color: '#06b6d4' },
+    { id: 2, name: '"cat"', color: '#8b5cf6' },
+    { id: 3, name: '"dog"', color: '#8b5cf6' },
+    { id: 4, name: '"sat"', color: '#10b981' },
+    { id: 5, name: '"on"',  color: '#10b981' },
+    { id: 6, name: '"in"',  color: '#f59e0b' },
+    { id: 7, name: '"mat"', color: '#f59e0b' },
+  ];
+
+  let hovered = -1;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw edges
+    const edges = [
+      [0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]
+    ];
+    edges.forEach(([a,b]) => {
+      const va = vertices[a], vb = vertices[b];
+      const [ax,ay] = proj(va.b0*2-1, va.b1*2-1, va.b2*2-1);
+      const [bx,by] = proj(vb.b0*2-1, vb.b1*2-1, vb.b2*2-1);
+      ctx.beginPath();
+      ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+      ctx.strokeStyle = 'rgba(71,85,105,0.6)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Draw vertices + labels
+    vertices.forEach((v,i) => {
+      const [x,y] = proj(v.b0*2-1, v.b1*2-1, v.b2*2-1);
+      const lbl = LABELS[i];
+      const isHov = hovered === i;
+
+      ctx.beginPath();
+      ctx.arc(x, y, isHov ? 7 : 5, 0, Math.PI*2);
+      ctx.fillStyle = lbl.color;
+      ctx.globalAlpha = isHov ? 1 : 0.75;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.font = isHov ? 'bold 11px var(--ff-mono,monospace)' : '10px var(--ff-mono,monospace)';
+      ctx.fillStyle = lbl.color;
+      ctx.fillText(lbl.name, x + 9, y + 4);
+
+      // bit code
+      ctx.font = '8px var(--ff-mono,monospace)';
+      ctx.fillStyle = 'rgba(100,116,139,0.8)';
+      const bits = `${v.b2}${v.b1}${v.b0}`;
+      ctx.fillText(bits, x + 9, y + 15);
+    });
+
+    // Axis labels
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(100,116,139,0.6)';
+    ctx.fillText('bit₀', cx+65, cy+8);
+    ctx.fillText('bit₁', cx-70, cy+25);
+    ctx.fillText('bit₂', cx+6, cy-82);
+
+    // Title
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(100,116,139,0.5)';
+    ctx.fillText('3-bit hypercube — 8 token vocabulary at corners', 10, H-10);
+  }
+
+  draw();
+
+  // Hover detection
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left);
+    const my = (e.clientY - rect.top);
+    let closest = -1, minDist = 20;
+    vertices.forEach((v,i) => {
+      const [x,y] = proj(v.b0*2-1, v.b1*2-1, v.b2*2-1);
+      const d = Math.hypot(mx-x, my-y);
+      if (d < minDist) { minDist = d; closest = i; }
+    });
+    if (closest !== hovered) { hovered = closest; draw(); }
+  });
+  canvas.addEventListener('mouseleave', () => { hovered = -1; draw(); });
+})();
+
+// ── §04: Denoising canvas ──
+(function() {
+  const canvas = document.getElementById('denoise-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.parentElement.clientWidth - 40;
+    const H = 220;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.height = H + 'px';
+    ctx.scale(DPR, DPR);
+    return [W, H];
+  }
+  let [W, H] = resize();
+
+  const K_MAX = 15;
+  let currentStep = 0;
+  let rafId = null;
+
+  // Target tokens: "the"=279, "cat"=7114, "sat"=7156, "on"=389
+  const TARGET_IDS = [279, 7114, 7156, 389];
+  const TOKEN_NAMES = ['"the"', '"cat"', '"sat"', '"on"'];
+  const B = 18;
+
+  function getBit(tokenId, b) { return ((tokenId >> b) & 1) === 1 ? 1 : -1; }
+
+  // Seeded PRNG for reproducible noise
+  function seededRand(seed) {
+    let s = seed;
+    return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s / 0x7fffffff) * 2 - 1; };
+  }
+
+  // Compute bit values at step k (linear interpolation from noise to target)
+  function bitValue(tokenIdx, bitIdx, step) {
+    const rng = seededRand(tokenIdx * 100 + bitIdx * 7 + 42);
+    const noise = rng() * 0.8;   // initial noise value in (-0.8, 0.8)
+    const target = getBit(TARGET_IDS[tokenIdx], bitIdx);
+    const t = step / K_MAX;      // 0 = no denoise, 1 = fully denoised
+    return noise * (1 - t) + target * t;
+  }
+
+  function draw() {
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.save();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const margin = 10;
+    const labelW = 60;
+    const bitW = (W - margin*2 - labelW) / B;
+    const rowH = (H - 40) / 4;
+
+    // Column header (bit indices)
+    ctx.font = '8px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(100,116,139,0.5)';
+    for (let b = 0; b < B; b++) {
+      if (b % 3 === 0) {
+        const x = margin + labelW + b * bitW + bitW/2;
+        ctx.fillText(`b${b}`, x - 6, 12);
+      }
+    }
+
+    for (let tok = 0; tok < 4; tok++) {
+      const y = 24 + tok * rowH;
+
+      // Token label
+      ctx.font = 'bold 10px var(--ff-mono,monospace)';
+      ctx.fillStyle = '#c4b5fd';
+      ctx.fillText(TOKEN_NAMES[tok], margin, y + rowH/2 + 4);
+
+      for (let b = 0; b < B; b++) {
+        const val = bitValue(tok, b, currentStep);
+        const x = margin + labelW + b * bitW;
+        const absVal = Math.abs(val);
+
+        // Background
+        ctx.fillStyle = val > 0
+          ? `rgba(59,130,246,${absVal * 0.7})`
+          : `rgba(239,68,68,${absVal * 0.7})`;
+        ctx.fillRect(x+1, y+4, bitW-2, rowH-8);
+
+        // Committed marker (near ±1)
+        if (absVal > 0.85) {
+          ctx.fillStyle = val > 0 ? 'rgba(96,165,250,0.9)' : 'rgba(252,165,165,0.9)';
+          ctx.fillRect(x+2, y+5, bitW-4, rowH-10);
+          ctx.font = '7px var(--ff-mono,monospace)';
+          ctx.fillStyle = '#fff';
+          ctx.fillText(val > 0 ? '+1' : '-1', x+1, y + rowH/2 + 3);
+        }
+      }
+    }
+
+    // Step indicator
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(139,92,246,0.8)';
+    ctx.fillText(`t = ${(1 - currentStep/K_MAX).toFixed(2)}  →  step ${currentStep} / ${K_MAX}`, margin, H - 6);
+    ctx.restore();
+  }
+
+  draw();
+
+  const prevBtn  = document.getElementById('dn-prev');
+  const nextBtn  = document.getElementById('dn-next');
+  const playBtn  = document.getElementById('dn-play');
+  const resetBtn = document.getElementById('dn-reset');
+  const kLabel   = document.getElementById('dn-k-label');
+  const infoEl   = document.getElementById('dn-info');
+
+  function updateUI() {
+    kLabel.textContent = `step ${currentStep} / ${K_MAX}`;
+    prevBtn.disabled = currentStep <= 0;
+    nextBtn.disabled = currentStep >= K_MAX;
+    if (currentStep === 0) infoEl.textContent = 'noise — no commitment yet';
+    else if (currentStep < 5) infoEl.textContent = 'early steps — coarse bit direction forming';
+    else if (currentStep < 10) infoEl.textContent = 'mid steps — high-order bits locking in';
+    else if (currentStep < K_MAX) infoEl.textContent = 'late steps — fine bits committing';
+    else infoEl.textContent = 'done — all bits committed, sign() → token IDs';
+    playBtn.disabled = currentStep >= K_MAX;
+  }
+
+  prevBtn.addEventListener('click', () => { if (currentStep > 0) { currentStep--; draw(); updateUI(); } });
+  nextBtn.addEventListener('click', () => { if (currentStep < K_MAX) { currentStep++; draw(); updateUI(); } });
+  playBtn.addEventListener('click', () => {
+    if (currentStep >= K_MAX) return;
+    function tick() {
+      currentStep++;
+      draw(); updateUI();
+      if (currentStep < K_MAX) rafId = setTimeout(tick, 200);
+    }
+    tick();
+  });
+  resetBtn.addEventListener('click', () => {
+    clearTimeout(rafId);
+    currentStep = 0; draw(); updateUI();
+  });
+  updateUI();
+})();
+
+// ── §05: CFG ablation line chart ──
+(function() {
+  const canvas = document.getElementById('cfg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 500;
+  const H = 200;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.height = H + 'px';
+  ctx.scale(DPR, DPR);
+
+  const data = {
+    cfg10: [18.2, 19.5, 20.2, 20.8, 21.1, 21.3, 21.4, 21.5, 21.6, 21.7, 21.7, 21.7, 21.7, 21.8, 21.7],
+    cfg50: [16.9, 19.0, 20.7, 22.3, 22.9, 23.3, 23.5, 23.6, 23.7, 23.9, 24.0, 24.1, 24.1, 24.1, 24.0],
+    cfg90: [14.5, 17.8, 20.0, 22.0, 23.1, 23.8, 24.3, 24.7, 24.9, 25.1, 25.3, 25.6, 25.8, 26.0, 26.05],
+  };
+
+  const pad = { l: 45, r: 20, t: 20, b: 30 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+  const minY = 12, maxY = 28;
+
+  function xp(i) { return pad.l + (i / 14) * pw; }
+  function yp(v) { return pad.t + (1 - (v - minY) / (maxY - minY)) * ph; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let v = 14; v <= 28; v += 2) {
+    ctx.beginPath(); ctx.moveTo(pad.l, yp(v)); ctx.lineTo(pad.l + pw, yp(v)); ctx.stroke();
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(100,116,139,0.7)';
+    ctx.fillText(v.toFixed(0), pad.l - 28, yp(v) + 3);
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
+
+  // X labels
+  [1,5,10,15].forEach(k => {
+    const i = k-1;
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = 'rgba(100,116,139,0.7)';
+    ctx.fillText(`K=${k}`, xp(i) - 10, pad.t + ph + 15);
+  });
+
+  // Axis labels
+  ctx.save();
+  ctx.translate(12, pad.t + ph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.font = '9px var(--ff-mono,monospace)';
+  ctx.fillStyle = 'rgba(100,116,139,0.5)';
+  ctx.fillText('ROUGE-1', -22, 0);
+  ctx.restore();
+
+  // Lines
+  function drawLine(vals, color) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    vals.forEach((v,i) => {
+      const x = xp(i), y = yp(v);
+      i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Dot at K=15
+    const last = vals[14];
+    ctx.beginPath();
+    ctx.arc(xp(14), yp(last), 4, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.font = '9px var(--ff-mono,monospace)';
+    ctx.fillStyle = color;
+    ctx.fillText(last.toFixed(1), xp(14)+6, yp(last)+4);
+  }
+
+  drawLine(data.cfg10, '#ef4444');
+  drawLine(data.cfg50, '#f59e0b');
+  drawLine(data.cfg90, '#8b5cf6');
+
+  // Star marker at best
+  ctx.font = '11px serif';
+  ctx.fillStyle = '#8b5cf6';
+  ctx.fillText('★ best', xp(14)-38, yp(26.05)-8);
+})();
+
+// ── §06: Animated bar chart ──
+new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+        const maxR = 29.70;
+        const pct = parseFloat(b.dataset.w);
+        b.style.width = (pct / 100 * 100) + '%';
+      });
+    }
+  });
+}, { threshold: 0.3 }).observe(document.getElementById('s-results'));
+</script>
+</BaseLayout>

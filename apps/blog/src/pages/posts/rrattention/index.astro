@@ -1,0 +1,1084 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="RRAttention: Dynamic Sparse Attention via Round-Robin Head Sampling | AI/ML Deep Dives"
+  description="How RRAttention's head round-robin strategy delivers 2.4× speedup at 128K tokens while recovering 99.7% of full attention accuracy — by satisfying all five desirable sparse-attention properties simultaneously."
+  crumb="RRAttention"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+/* ── Three-column layout ────────────────────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+/* ── Viz panels ─────────────────────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+/* ── TOC sidebar ────────────────────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+/* ── Code sidebar ───────────────────────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+/* ── Math blocks ────────────────────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+/* ── Results table ──────────────────────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+/* ── Animated bar chart ─────────────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+/* ── Step navigator ─────────────────────────────────────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+/* ── Head selector buttons ──────────────────────────────────────────────── */
+.head-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.head-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.head-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.head-btn:hover:not(.active){border-color:var(--muted);color:var(--text2)}
+.rr-caption{font-size:.75rem;color:var(--muted);margin-top:.625rem;font-family:var(--ff-mono)}
+/* ── Callout boxes ──────────────────────────────────────────────────────── */
+.callout{border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0;font-size:.85rem;line-height:1.65;border:1px solid}
+.callout-purple{background:var(--purple-dim);border-color:rgba(139,92,246,.3);color:var(--text2)}
+.callout-cyan{background:rgba(6,182,212,.08);border-color:rgba(6,182,212,.25);color:var(--text2)}
+.callout-amber{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);color:var(--text2)}
+.callout strong{color:var(--text);font-weight:700}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Attention</span>
+    <span class="tag tag-cyan">Long Context</span>
+    <span class="tag tag-cyan">Inference Efficiency</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>RRAttention: 2.4× Faster Long-Context Inference via Round-Robin Head Sampling</h1>
+  <p class="lead">Every dynamic sparse attention method trades off some desirable property to gain another — global coverage requires mixing queries, query independence requires local scope. RRAttention breaks this deadlock by rotating which position each attention head samples within a stride, achieving all five properties simultaneously and recovering 99.7% of full-attention accuracy while computing only half the blocks.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2602.05853</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2602.05853" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#8249;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The O(L²) Problem</a></li>
+    <li class="toc-item" id="toc-s-tradeoffs"><a href="#s-tradeoffs"><span class="toc-num">02</span> Five-Dimension Space</a></li>
+    <li class="toc-item" id="toc-s-roundrobin"><a href="#s-roundrobin"><span class="toc-num">03</span> Round-Robin Insight</a></li>
+    <li class="toc-item" id="toc-s-algorithm"><a href="#s-algorithm"><span class="toc-num">04</span> Three-Stage Pipeline</a></li>
+    <li class="toc-item" id="toc-s-efficiency"><a href="#s-efficiency"><span class="toc-num">05</span> 2.4× Speedup</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmark Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ─── The Problem ──────────────────────────────────────────────── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The O(L²) Problem</div>
+<h2>Full Attention Doesn't Scale to Long Contexts</h2>
+<p>Modern LLMs routinely process 128K-token contexts for tasks like multi-document reasoning and repository-level code analysis. But standard attention scores every query against every key — O(L²) work. At 128K tokens that means over <strong>16 billion query-key dot products</strong> per layer, per forward pass.</p>
+<p>The chart below shows how attention time explodes quadratically. At 8K tokens the overhead is negligible. By 128K it dominates end-to-end inference, making long-context serving prohibitively expensive at scale.</p>
+
+<!-- Canvas: O(L²) growth chart -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">attention compute vs. context length</span>
+    <span class="vp-hint">quadratic wall</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cost-canvas" style="width:100%;height:220px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>Sparse attention addresses this by skipping computation for unimportant query-block × key-block pairs. The question is: how do you <em>decide which blocks to skip</em> without (a) expensive preprocessing, (b) poor coverage, or (c) corrupting attention distributions?</p>
+
+<div class="callout callout-purple">
+  <strong>Key intuition:</strong> Only a small fraction of key blocks are truly relevant to any given query. In practice, skipping ~50% of blocks loses less than 0.5% of accuracy — because most attention mass concentrates in a handful of blocks.
+</div>
+</section>
+
+<!-- §02 ─── Five-Dimension Tradeoff ─────────────────────────────────── -->
+<section id="s-tradeoffs" data-code="tradeoffs">
+<div class="section-no">02 — Five-Dimension Design Space</div>
+<h2>Why Every Existing Method Has a Blind Spot</h2>
+<p>Dynamic sparse attention methods adaptively choose which blocks to compute based on the input. But through systematic analysis, the paper identifies five critical properties that determine effectiveness — and <strong>no prior method satisfies all five</strong>.</p>
+
+<table class="results-table" id="props-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Preprocessing-free</th>
+      <th>Global Evaluation</th>
+      <th>Query Independence</th>
+      <th>Pattern-agnostic</th>
+      <th>Softmax Granularity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="mn">SeerAttention</span></td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td><span class="mn">Block</span></td>
+    </tr>
+    <tr>
+      <td><span class="mn">MInference</span></td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td><span class="mn">Token</span></td>
+    </tr>
+    <tr>
+      <td><span class="mn">FlexPrefill</span></td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td><span class="mn">Token</span></td>
+    </tr>
+    <tr>
+      <td><span class="mn">XAttention</span></td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--red,#f87171)">✗</td>
+      <td style="color:var(--green)">✓</td>
+      <td><span class="mn">Stride</span></td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>RRAttention</strong></td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td style="color:var(--green)">✓</td>
+      <td><span class="mn best">Stride</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The critical conflict: achieving <strong>global evaluation</strong> (seeing the whole sequence to find important blocks) while preserving <strong>query independence</strong> (not mixing attention distributions across different queries). XAttention gets global coverage by sampling anti-diagonal elements and summing across queries — but this mixes information from different queries, potentially corrupting the importance estimate. FlexPrefill stays query-independent but only looks at the <em>last</em> query block, missing patterns in earlier positions.</p>
+
+<div class="callout callout-cyan">
+  <strong>The deadlock:</strong> If you use multiple queries to estimate importance globally, you're mixing their distributions. If you use only one query, you lose global coverage. RRAttention escapes this by using one query per stride <em>per head</em>, rotating which query is used across heads.
+</div>
+</section>
+
+<!-- §03 ─── Round-Robin Insight ─────────────────────────────────────── -->
+<section id="s-roundrobin" data-code="roundrobin">
+<div class="section-no">03 — The Round-Robin Key Insight</div>
+<h2>Rotate Which Position Each Head Samples</h2>
+<p>For a stride of S=4 tokens, there are 4 positions within each stride interval: positions 0, 1, 2, 3. Naive approaches pick the <em>same</em> position for all heads (usually the last). RRAttention rotates: head 0 gets position 3, head 1 gets position 2, head 2 gets position 1, head 3 gets position 0.</p>
+
+<div class="math-block">
+  <div class="math-label">Sampling Position Formula</div>
+  P(i, h) = i·S + (S − 1 − (h mod S))
+  <br>
+  <span class="math-comment">  i = stride index,  h = head index,  S = stride size</span>
+  <br><br>
+  Head 0: P(i,0) = i·4 + 3 <span class="math-comment">  ← last position in stride</span>
+  <br>
+  Head 1: P(i,1) = i·4 + 2 <span class="math-comment">  ← second-to-last</span>
+  <br>
+  Head 2: P(i,2) = i·4 + 1 <span class="math-comment">  ← second-from-first</span>
+  <br>
+  Head 3: P(i,3) = i·4 + 0 <span class="math-comment">  ← first position</span>
+</div>
+
+<p>The result: every position within a stride is sampled by exactly one head. Across all heads, <strong>full coverage is achieved</strong> — without any single head ever mixing distributions from multiple queries.</p>
+
+<!-- Interactive Round-Robin Canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">round-robin sampling — stride S=4, 4 heads</span>
+    <span class="vp-hint">click a head to see its samples</span>
+  </div>
+  <div class="vp-body">
+    <div class="head-btns">
+      <button class="head-btn active" id="hb-all">All heads</button>
+      <button class="head-btn" id="hb-0">Head 0</button>
+      <button class="head-btn" id="hb-1">Head 1</button>
+      <button class="head-btn" id="hb-2">Head 2</button>
+      <button class="head-btn" id="hb-3">Head 3</button>
+    </div>
+    <canvas id="rr-canvas" style="width:100%;height:260px;display:block;"></canvas>
+    <div class="rr-caption" id="rr-caption">Each head independently estimates importance from its own query — no cross-head mixing.</div>
+  </div>
+</div>
+
+<p>This design intersects naturally with the two most common attention patterns in transformer models: <em>vertical patterns</em> (certain key positions matter across all queries) and <em>slash patterns</em> (attention forms diagonal bands). By systematically varying the sampled position, the round-robin strategy catches both types regardless of which head exhibits which pattern.</p>
+</section>
+
+<!-- §04 ─── Three-Stage Algorithm ───────────────────────────────────── -->
+<section id="s-algorithm" data-code="algorithm">
+<div class="section-no">04 — Three-Stage Pipeline</div>
+<h2>Query Sampling → Importance Estimation → Block Selection</h2>
+<p>RRAttention operates in three stages at each layer during prefill. Walk through them below.</p>
+
+<div class="step-list">
+  <div class="step-box active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Query Sampling with Head Round-Robin</div>
+      <div class="step-desc">For each stride interval [i·S, (i+1)·S), head h samples one query at position P(i,h) = i·S + (S−1−(h mod S)). The sampled set covers all positions across heads — no position is left unrepresented.</div>
+      <div class="step-code">Q_sample[h] = &#123; Q[P(i,h)] for each stride i &#125;</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Stride-level Importance Estimation</div>
+      <div class="step-desc">For each (query stride i, key stride j) pair, aggregate all S key vectors within stride j by summation, then dot-product with the sampled query. Apply row-wise softmax over key strides to get normalized importance scores. Complexity: O(L²/S²) — S² cheaper than full attention.</div>
+      <div class="step-code">I[i,j] = Q_sample[i] · sum(K[j·S : (j+1)·S]) / (S·sqrt(d))</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Top-τ Block Selection</div>
+      <div class="step-desc">Aggregate stride-level scores to block level. For each query block, sort key blocks by cumulative importance and keep the minimal set whose scores sum to ≥ τ. Always retain all blocks for the final query block (protecting generation quality). The result: a sparse block selection matrix used for the actual attention computation.</div>
+      <div class="step-code">keep blocks until cumulative_score &gt;= tau (e.g. tau=0.95)</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 3</span>
+  <button id="step-next">Next →</button>
+</div>
+</section>
+
+<!-- §05 ─── Efficiency ───────────────────────────────────────────────── -->
+<section id="s-efficiency" data-code="efficiency">
+<div class="section-no">05 — 2.4× Speedup at 128K</div>
+<h2>The Efficiency Advantage Grows with Context Length</h2>
+<p>At short contexts (8K), all methods are fast — sparsity barely helps. The gap widens dramatically as context length grows. At 128K tokens, RRAttention achieves a <strong>2.4× end-to-end speedup</strong> over full attention, beating both FlexPrefill and XAttention.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">attention time vs. context length — Llama-3.1-8B</span>
+    <span class="vp-hint">2.4× gap at 128K</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="timing-canvas" style="width:100%;height:240px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>RRAttention's efficiency advantage comes from two sources: (1) the stride-level softmax reduces complexity from O(L²) to <strong>O(L²/S²)</strong>, and (2) the round-robin strategy avoids redundant computation through systematic query sampling. At S=8, that's a theoretical 64× reduction in importance-estimation work.</p>
+
+<p>Pattern search overhead — the time to decide <em>which</em> blocks to compute — is reduced by <strong>18.2% vs XAttention</strong> at 128K, because RRAttention's stride-level aggregation requires fewer operations than XAttention's anti-diagonal scan.</p>
+
+<div class="callout callout-amber">
+  <strong>Practical note:</strong> All sparse attention experiments cover the <em>prefill stage only</em> — decoding uses standard dense attention for all methods. The speedup is most impactful for long-prompt inference (RAG, document summarization, code context), where prefill dominates total latency.
+</div>
+</section>
+
+<!-- §06 ─── Results ─────────────────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmark Results</div>
+<h2>Higher Accuracy at Higher Sparsity</h2>
+<p>On the HELMET benchmark (7 task categories including RAG, long-doc QA, summarization, and synthetic recall), RRAttention achieves the best accuracy <em>and</em> the highest sparsity among dynamic sparse methods. This Pareto-dominance — more sparse <em>and</em> more accurate — is the main claim.</p>
+
+<p>Results below for <strong>Llama-3.1-8B-Instruct</strong>, averaged across all HELMET tasks at context lengths 8K–128K (τ=0.95 for XAttention and RRAttention, γ=0.99 for FlexPrefill):</p>
+
+<div class="results-bars">
+  <div class="bar-row">
+    <div class="bar-label">Full Attention (0% sparse)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(100,100,120,.6)"><span>56.42</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">FlexPrefill γ=0.99 (38.6% sparse)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="99.3" style="background:rgba(6,182,212,.5)"><span>56.02</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">XAttention τ=0.95 (47.5% sparse)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="98.8" style="background:rgba(6,182,212,.35)"><span>55.74</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">RRAttention τ=0.95 (48.7% sparse)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="99.7" style="background:var(--purple)"><span>56.24</span></div></div>
+  </div>
+</div>
+
+<p>RRAttention scores <strong>56.24</strong> — above XAttention (55.74) while also achieving <strong>higher sparsity</strong> (48.7% vs 47.5%). It recovers 99.7% of full attention performance. FlexPrefill scores higher (56.02) but does so at much lower sparsity (38.6%), meaning it computes far more blocks for only marginally better accuracy.</p>
+
+<h3>Video Understanding (Video-MME)</h3>
+<p>On Video-MME with Qwen2-VL-7B-Instruct, RRAttention achieves <strong>67.7 average</strong> — above full attention's 67.8 at the conservative setting, and 64.3 vs 63.9 at aggressive sparsity. The gains are especially pronounced on medium and long videos (60+ seconds), where temporal dependencies span many frames and global evaluation matters most.</p>
+
+<p>Generalization experiments on Yi-9B-200K and Qwen3-30B-A3B show consistent improvements, confirming the approach is architecture-agnostic.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">rrattn/complexity.py</div>
+      <div class="cs-section-title" id="cs-section-title">The O(L²) Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#8250;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="tradeoffs">tradeoffs</button>
+    <button class="cs-tab" data-panel="roundrobin">round-robin</button>
+    <button class="cs-tab" data-panel="algorithm">algorithm</button>
+    <button class="cs-tab" data-panel="efficiency">efficiency</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full attention: O(L²) complexity</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># At context length L, attention head dim d:</span>
+<span class="cs-line cmt">#   QK^T  → L×L matrix  = L² dot products</span>
+<span class="cs-line cmt">#   cost grows quadratically with sequence len</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">full_attn_flops</span>(L, d, num_heads):</span>
+<span class="cs-line hl-p">    <span class="cmt"># QK^T: L×d · d×L = L² per head</span></span>
+<span class="cs-line hl-p">    qkt = L * L * d * num_heads</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> qkt  <span class="cmt"># × 2 for FMA</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Concrete numbers:</span>
+<span class="cs-line">L_8K  = <span class="num">8192</span>;  L_128K = <span class="num">131072</span></span>
+<span class="cs-line">ratio = (L_128K / L_8K) ** <span class="num">2</span>  <span class="cmt"># = 256×</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 128K tokens: 131072² ≈ 17.2 billion QK pairs</span>
+<span class="cs-line cmt"># per layer, per forward pass, per attention head</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Block-wise sparse attention target:</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">sparse_attn_flops</span>(L, B, rho):</span>
+<span class="cs-line hl-c">    <span class="cmt"># rho = sparsity (fraction of blocks skipped)</span></span>
+<span class="cs-line hl-c">    Nb = L // B  <span class="cmt"># number of blocks</span></span>
+<span class="cs-line hl-c">    kept = (1 - rho) * Nb * Nb</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> kept * B * B  <span class="cmt"># token-level ops</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># At 50% sparsity: half the blocks, half the cost</span>
+<span class="cs-line cmt"># Challenge: how to PICK which blocks to keep?</span>
+      </pre>
+    </div>
+
+    <!-- panel: tradeoffs -->
+    <div class="cs-panel" id="panel-tradeoffs">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># FlexPrefill: uses last query block only</span>
+<span class="cs-line cmt">#   ✓ query-independent  ✗ not global</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">flexprefill_importance</span>(Q, K, S):</span>
+<span class="cs-line hl-a">    q_last = Q[-S:]  <span class="cmt"># only last stride!</span></span>
+<span class="cs-line hl-a">    scores = q_last @ K.T  <span class="cmt"># local estimate</span></span>
+<span class="cs-line hl-a">    <span class="kw">return</span> scores  <span class="cmt"># misses earlier patterns</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># XAttention: anti-diagonal aggregation</span>
+<span class="cs-line cmt">#   ✓ global  ✗ mixes query distributions</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">xattention_importance</span>(Q, K, S):</span>
+<span class="cs-line hl-c">    <span class="cmt"># sum anti-diagonal elements across queries</span></span>
+<span class="cs-line hl-c">    scores = <span class="fn">antidiag_sum</span>(Q, K, S)</span>
+<span class="cs-line hl-c">    <span class="cmt"># PROBLEM: mixes Q[0]·K[j] + Q[1]·K[j-1]</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># different queries' signals contaminate each other</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> scores</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># RRAttention: both global AND independent</span>
+<span class="cs-line cmt">#   ✓ global (different positions per head)</span>
+<span class="cs-line cmt">#   ✓ query-independent (one query per stride/head)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">rr_importance</span>(Q, K, S, h):</span>
+<span class="cs-line hl-g">    <span class="cmt"># each stride: one query, chosen by head index</span></span>
+<span class="cs-line hl-g">    pos = [(i*S + S-<span class="num">1</span> - (h % S))</span></span>
+<span class="cs-line hl-g">           <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(L // S)]</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> Q[pos] @ K.T  <span class="cmt"># no mixing!</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: roundrobin -->
+    <div class="cs-panel" id="panel-roundrobin">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Head Round-Robin Sampling Strategy</span>
+<span class="cs-line cmt"># S = stride size (default 8 in experiments)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">sample_position</span>(stride_i, head_h, S):</span>
+<span class="cs-line hl-p">    <span class="cmt"># which token in stride i does head h sample?</span></span>
+<span class="cs-line hl-p">    offset = S - <span class="num">1</span> - (head_h % S)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> stride_i * S + offset</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example: S=4, first stride (i=0)</span>
+<span class="cs-line cmt">#  Head 0  offset=3  → samples token 3</span>
+<span class="cs-line cmt">#  Head 1  offset=2  → samples token 2</span>
+<span class="cs-line cmt">#  Head 2  offset=1  → samples token 1</span>
+<span class="cs-line cmt">#  Head 3  offset=0  → samples token 0</span>
+<span class="cs-line cmt"># All 4 positions covered — full information!</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">build_sample_set</span>(L, S, head_h):</span>
+<span class="cs-line hl-c">    <span class="cmt"># one query per stride for this head</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> [<span class="fn">sample_position</span>(i, head_h, S)</span>
+<span class="cs-line hl-c">            <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(L // S)]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why this catches vertical/slash patterns:</span>
+<span class="cs-line cmt"># - Vertical: some key pos j is important for all</span>
+<span class="cs-line cmt">#   queries → any sampled head will see it</span>
+<span class="cs-line cmt"># - Slash: important block follows diagonal</span>
+<span class="cs-line cmt">#   → varied offsets intersect diagonal naturally</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">num_sample_queries = L // S</span>
+<span class="cs-line hl-g"><span class="cmt"># vs full attention: L queries</span></span>
+<span class="cs-line hl-g"><span class="cmt"># S× cheaper per head for importance estimation</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: algorithm -->
+    <div class="cs-panel" id="panel-algorithm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full RRAttention pipeline (per layer, per head)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="cmt"># Stage 1: Query sampling</span></span>
+<span class="cs-line hl-p">sample_pos = <span class="fn">build_sample_set</span>(L, S, h)</span>
+<span class="cs-line hl-p">Q_s = Q[sample_pos]  <span class="cmt"># shape: (L/S, d)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="cmt"># Stage 2: Stride-level importance estimation</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Aggregate keys within each stride</span></span>
+<span class="cs-line hl-c">K_agg = K.<span class="fn">reshape</span>(L//S, S, d).<span class="fn">sum</span>(dim=<span class="num">1</span>)</span>
+<span class="cs-line hl-c">I = Q_s @ K_agg.T / (S * d**<span class="num">0.5</span>)  <span class="cmt"># (L/S)²</span></span>
+<span class="cs-line hl-c">P = <span class="fn">softmax</span>(I, dim=-<span class="num">1</span>)  <span class="cmt"># row-wise</span></span>
+<span class="cs-line cmt"># complexity: O(L²/S²) vs O(L²)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="cmt"># Stage 3: Top-τ block selection</span></span>
+<span class="cs-line hl-g"><span class="kw">for</span> q_block <span class="kw">in</span> query_blocks:</span>
+<span class="cs-line hl-g">    block_scores = <span class="fn">agg_to_blocks</span>(P, q_block)</span>
+<span class="cs-line hl-g">    sorted_keys  = <span class="fn">argsort</span>(block_scores, desc)</span>
+<span class="cs-line hl-g">    cumsum = <span class="fn">cumsum</span>(block_scores[sorted_keys])</span>
+<span class="cs-line hl-g">    keep = sorted_keys[cumsum &lt;= tau]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Always protect final query block:</span>
+<span class="cs-line">B_final = B_dynamic | B_static_last_block</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Actual sparse attention with selected blocks</span>
+<span class="cs-line">out = <span class="fn">sparse_flash_attn</span>(Q, K, V, B_final)</span>
+      </pre>
+    </div>
+
+    <!-- panel: efficiency -->
+    <div class="cs-panel" id="panel-efficiency">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Complexity comparison</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Full attention importance search:</span>
+<span class="cs-line hl-a">full_flops = L * L  <span class="cmt"># O(L²)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># RRAttention importance search:</span>
+<span class="cs-line hl-g">rr_flops = (L/S) * (L/S)  <span class="cmt"># O(L²/S²)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># S=8: 64× fewer dot products</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Empirical runtime at 128K (Llama-3.1-8B)</span>
+<span class="cs-line cmt"># on NVIDIA H100 GPUs:</span>
+<span class="cs-line"></span>
+<span class="cs-line">results = {</span>
+<span class="cs-line hl-a">    <span class="str">"FullAttention"</span>: <span class="num">11843</span>,   <span class="cmt"># ms</span></span>
+<span class="cs-line">    <span class="str">"FlexPrefill-0.99"</span>: <span class="num">11200</span>, <span class="cmt"># barely faster</span></span>
+<span class="cs-line">    <span class="str">"XAttention-0.95"</span>:  <span class="num">6840</span>,  <span class="cmt"># 1.7× faster</span></span>
+<span class="cs-line hl-g">    <span class="str">"RRAttention-0.95"</span>: <span class="num">4935</span>,  <span class="cmt"># 2.4× faster</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Pattern search overhead at 128K:</span>
+<span class="cs-line">xattn_search  = <span class="num">1269</span>  <span class="cmt"># ms</span></span>
+<span class="cs-line hl-g">rr_search     = <span class="num">1038</span>  <span class="cmt"># ms  (−18.2%)</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># HELMET benchmark — Llama-3.1-8B-Instruct</span>
+<span class="cs-line cmt"># Average over 7 task categories × 5 ctx lengths</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Conservative setting (τ=0.95 / γ=0.99):</span>
+<span class="cs-line">scores = {</span>
+<span class="cs-line">    <span class="str">"FullAttention"</span>:  (<span class="num">56.42</span>, <span class="num">0.0</span>),</span>
+<span class="cs-line">    <span class="str">"FlexPrefill"</span>:    (<span class="num">56.02</span>, <span class="num">38.6</span>),</span>
+<span class="cs-line">    <span class="str">"XAttention"</span>:     (<span class="num">55.74</span>, <span class="num">47.5</span>),</span>
+<span class="cs-line hl-g">    <span class="str">"RRAttention"</span>:    (<span class="num">56.24</span>, <span class="num">48.7</span>),  <span class="cmt"># best!</span></span>
+<span class="cs-line">}  <span class="cmt"># (score, sparsity %)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># RRAttention recovers 99.7% of full attention</span>
+<span class="cs-line hl-g">recovery = <span class="num">56.24</span> / <span class="num">56.42</span>  <span class="cmt"># = 99.68%</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Aggressive setting (τ=0.90 / γ=0.95):</span>
+<span class="cs-line cmt"># RRAttention 55.67 vs XAttention 54.82</span>
+<span class="cs-line cmt"># gap widens when sparsity is pushed harder</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Qwen — similar story:</span>
+<span class="cs-line">qwen = {</span>
+<span class="cs-line">    <span class="str">"FullAttention"</span>: <span class="num">47.68</span>,</span>
+<span class="cs-line">    <span class="str">"FlexPrefill"</span>:   <span class="num">45.45</span>,</span>
+<span class="cs-line">    <span class="str">"XAttention"</span>:    <span class="num">46.64</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"RRAttention"</span>:   <span class="num">47.17</span>,</span>
+<span class="cs-line">}  <span class="cmt"># recovers 99.0% of full attention</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ── TOC + sidebar toggles ────────────────────────────────────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ── Code sidebar tab switching ───────────────────────────────────────── */
+const tabMeta = {
+  problem:    { file: 'rrattn/complexity.py',   title: 'The O(L²) Problem' },
+  tradeoffs:  { file: 'rrattn/comparison.py',   title: 'Five-Dimension Space' },
+  roundrobin: { file: 'rrattn/sampling.py',     title: 'Round-Robin Sampling' },
+  algorithm:  { file: 'rrattn/pipeline.py',     title: 'Three-Stage Pipeline' },
+  efficiency: { file: 'rrattn/benchmarks.py',   title: '2.4× Speedup' },
+  results:    { file: 'rrattn/results.py',       title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ── IntersectionObserver — sync TOC + tab on scroll ─────────────────── */
+const sectionMap = {
+  's-problem':    'problem',
+  's-tradeoffs':  'tradeoffs',
+  's-roundrobin': 'roundrobin',
+  's-algorithm':  'algorithm',
+  's-efficiency': 'efficiency',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ── §01 Cost canvas — O(L²) vs sparse ──────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('cost-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD = { l: 56, r: 20, t: 20, b: 36 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+
+  const lengths = [8, 16, 32, 48, 64, 80, 96, 112, 128]; // K tokens
+  const maxL = 128;
+  // Full: quadratic, normalized to 1 at 128K
+  const full  = lengths.map(l => (l / maxL) ** 2);
+  // Sparse (50% blocks): half of full
+  const sparse = lengths.map(l => (l / maxL) ** 2 * 0.5);
+
+  function xp(l) { return PAD.l + (l / maxL) * cW; }
+  function yp(v) { return PAD.t + cH - v * cH; }
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1.0].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(PAD.l, yp(v));
+    ctx.lineTo(PAD.l + cW, yp(v));
+    ctx.stroke();
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath();
+  ctx.moveTo(PAD.l, PAD.t);
+  ctx.lineTo(PAD.l, PAD.t + cH);
+  ctx.lineTo(PAD.l + cW, PAD.t + cH);
+  ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = '#5c6370';
+  ctx.font = `${11 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'center';
+  [8, 32, 64, 96, 128].forEach(l => {
+    ctx.fillText(l + 'K', xp(l), H - 8);
+  });
+
+  // Full attention curve (red)
+  ctx.beginPath();
+  ctx.strokeStyle = '#f87171';
+  ctx.lineWidth = 2.5;
+  lengths.forEach((l, i) => {
+    if (i === 0) ctx.moveTo(xp(l), yp(full[i]));
+    else ctx.lineTo(xp(l), yp(full[i]));
+  });
+  ctx.stroke();
+
+  // Sparse curve (purple)
+  ctx.beginPath();
+  ctx.strokeStyle = '#8b5cf6';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([5, 3]);
+  lengths.forEach((l, i) => {
+    if (i === 0) ctx.moveTo(xp(l), yp(sparse[i]));
+    else ctx.lineTo(xp(l), yp(sparse[i]));
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.font = `${11 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f87171';
+  ctx.fillText('Full attention  O(L²)', xp(32), yp(full[3]) - 8);
+  ctx.fillStyle = '#8b5cf6';
+  ctx.fillText('Sparse (50% blocks skipped)', xp(48), yp(sparse[4]) + 16);
+
+  // 2.4× annotation at 128K
+  const x128 = xp(128);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(x128, yp(full[8]));
+  ctx.lineTo(x128, yp(sparse[8]));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#a1a1aa';
+  ctx.textAlign = 'right';
+  ctx.fillText('2.4×', x128 - 4, (yp(full[8]) + yp(sparse[8])) / 2 + 4);
+})();
+
+/* ── §03 Round-Robin Canvas ──────────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('rr-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 260;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const S = 4; // stride size
+  const NUM_STRIDES = 5;
+  const NUM_HEADS = 4;
+  const CELL = Math.min(38, Math.floor((W - 80) / (S * NUM_STRIDES)));
+  const TOKEN_W = CELL;
+  const TOKEN_H = 26;
+  const PAD_L = 72;
+  const PAD_T = 30;
+  const HEAD_GAP = 8;
+  const STRIDE_GAP = 6;
+  const ROW_H = TOKEN_H + HEAD_GAP;
+
+  // Colors per head
+  const headColors = ['#8b5cf6','#06b6d4','#10b981','#f59e0b'];
+  const headNames  = ['Head 0','Head 1','Head 2','Head 3'];
+
+  let activeHead = -1; // -1 = all
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Column header: stride labels
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `${10 * DPR / DPR}px monospace`;
+    ctx.textAlign = 'center';
+    for (let si = 0; si < NUM_STRIDES; si++) {
+      const sx = PAD_L + si * (S * TOKEN_W + STRIDE_GAP) + (S * TOKEN_W) / 2;
+      ctx.fillText('Stride ' + si, sx, PAD_T - 10);
+    }
+
+    // Head rows
+    for (let h = 0; h < NUM_HEADS; h++) {
+      const y = PAD_T + h * ROW_H * 1.5;
+      const isActive = activeHead === -1 || activeHead === h;
+      const alpha = isActive ? 1.0 : 0.18;
+
+      // Head label
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = headColors[h];
+      ctx.textAlign = 'right';
+      ctx.font = `bold ${10 * DPR / DPR}px monospace`;
+      ctx.fillText(headNames[h], PAD_L - 8, y + TOKEN_H / 2 + 4);
+
+      for (let si = 0; si < NUM_STRIDES; si++) {
+        const baseX = PAD_L + si * (S * TOKEN_W + STRIDE_GAP);
+        // Sampled offset for this head: S-1 - (h mod S)
+        const sampledOffset = S - 1 - (h % S);
+
+        for (let pos = 0; pos < S; pos++) {
+          const x = baseX + pos * TOKEN_W;
+          const isSampled = pos === sampledOffset;
+
+          // Token cell background
+          if (isSampled && isActive) {
+            ctx.fillStyle = headColors[h];
+            ctx.globalAlpha = alpha;
+          } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            ctx.globalAlpha = isActive ? 0.8 : 0.12;
+          }
+          ctx.beginPath();
+          ctx.roundRect(x + 1, y, TOKEN_W - 2, TOKEN_H, 3);
+          ctx.fill();
+
+          // Border
+          ctx.strokeStyle = isSampled && isActive ? headColors[h] : 'rgba(255,255,255,0.08)';
+          ctx.lineWidth = isSampled && isActive ? 1.5 : 0.5;
+          ctx.globalAlpha = isActive ? 0.9 : 0.12;
+          ctx.beginPath();
+          ctx.roundRect(x + 1, y, TOKEN_W - 2, TOKEN_H, 3);
+          ctx.stroke();
+
+          // Position label inside cell
+          ctx.globalAlpha = isActive ? 1 : 0.15;
+          ctx.fillStyle = isSampled ? '#fff' : '#5c6370';
+          ctx.textAlign = 'center';
+          ctx.font = `${9 * DPR / DPR}px monospace`;
+          ctx.fillText('t' + pos, x + TOKEN_W / 2, y + TOKEN_H / 2 + 3);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Legend: "sampled" indicator
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#71717a';
+    ctx.textAlign = 'left';
+    ctx.font = `${10 * DPR / DPR}px monospace`;
+    ctx.fillText('filled = sampled by this head', PAD_L, H - 8);
+
+    // Show sampling formula for active head
+    if (activeHead >= 0) {
+      const h = activeHead;
+      const offset = S - 1 - (h % S);
+      ctx.fillStyle = headColors[h];
+      ctx.textAlign = 'right';
+      ctx.font = `${10 * DPR / DPR}px monospace`;
+      ctx.fillText(`P(i,${h}) = i×${S} + ${offset}  (offset=${offset})`, W - 10, H - 8);
+    } else {
+      ctx.fillStyle = '#71717a';
+      ctx.textAlign = 'right';
+      ctx.font = `${10 * DPR / DPR}px monospace`;
+      ctx.fillText('all 4 positions covered across 4 heads', W - 10, H - 8);
+    }
+  }
+
+  draw();
+
+  // Button handlers
+  document.getElementById('hb-all')?.addEventListener('click', function() {
+    activeHead = -1;
+    document.querySelectorAll('.head-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('rr-caption').textContent = 'Each head independently estimates importance from its own query — no cross-head mixing.';
+    draw();
+  });
+  [0,1,2,3].forEach(h => {
+    document.getElementById('hb-' + h)?.addEventListener('click', function() {
+      activeHead = h;
+      document.querySelectorAll('.head-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      const offset = S - 1 - (h % S);
+      document.getElementById('rr-caption').textContent =
+        `Head ${h} samples position ${offset} within each stride (t${offset} highlighted). One clean, independent estimate.`;
+      draw();
+    });
+  });
+})();
+
+/* ── §04 Step navigator ──────────────────────────────────────────────── */
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('.step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+/* ── §05 Timing canvas ────────────────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('timing-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD = { l: 64, r: 20, t: 20, b: 36 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+
+  // Context lengths and timing data (ms, approx from paper Figure 3)
+  const ctxLens  = [8,  16,  32,   48,   64,   80,    96,    112,   128];
+  const tFull    = [55, 200, 750,  1800, 3500, 5800,  8200,  10200, 12000];
+  const tFlex    = [55, 195, 730,  1750, 3420, 5650,  8000,  9900,  11200];
+  const tXAttn   = [52, 175, 600,  1350, 2600, 4000,  5000,  5900,  6840];
+  const tRR      = [50, 165, 560,  1200, 2200, 3200,  3900,  4500,  4935];
+  const maxT = 12000;
+
+  function xp(l) { return PAD.l + ((l - 8) / (128 - 8)) * cW; }
+  function yp(t) { return PAD.t + cH - (t / maxT) * cH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [3000, 6000, 9000, 12000].forEach(t => {
+    ctx.beginPath();
+    ctx.moveTo(PAD.l, yp(t));
+    ctx.lineTo(PAD.l + cW, yp(t));
+    ctx.stroke();
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `${10 * DPR / DPR}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText((t / 1000) + 's', PAD.l - 4, yp(t) + 4);
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD.l, PAD.t);
+  ctx.lineTo(PAD.l, PAD.t + cH);
+  ctx.lineTo(PAD.l + cW, PAD.t + cH);
+  ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = '#5c6370';
+  ctx.textAlign = 'center';
+  ctx.font = `${10 * DPR / DPR}px monospace`;
+  [8, 32, 64, 96, 128].forEach(l => {
+    ctx.fillText(l + 'K', xp(l), H - 8);
+  });
+
+  function drawLine(data, color, dashed) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dashed) ctx.setLineDash([5, 3]);
+    else ctx.setLineDash([]);
+    ctxLens.forEach((l, i) => {
+      if (i === 0) ctx.moveTo(xp(l), yp(data[i]));
+      else ctx.lineTo(xp(l), yp(data[i]));
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  drawLine(tFull,  '#f87171', false);
+  drawLine(tFlex,  '#a1a1aa', true);
+  drawLine(tXAttn, '#06b6d4', false);
+  drawLine(tRR,    '#8b5cf6', false);
+
+  // Labels at right edge
+  const rightX = xp(128) + 4;
+  ctx.textAlign = 'left';
+  ctx.font = `${10 * DPR / DPR}px monospace`;
+  ctx.fillStyle = '#f87171'; ctx.fillText('Full',         rightX, yp(tFull[8])  + 3);
+  ctx.fillStyle = '#a1a1aa'; ctx.fillText('FlexPrefill',  rightX, yp(tFlex[8])  - 6);
+  ctx.fillStyle = '#06b6d4'; ctx.fillText('XAttention',   rightX, yp(tXAttn[8]) + 3);
+  ctx.fillStyle = '#8b5cf6'; ctx.fillText('RRAttention',  rightX, yp(tRR[8])    + 3);
+
+  // 2.4× annotation
+  const x128 = xp(128);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(x128 - 22, yp(tFull[8]));
+  ctx.lineTo(x128 - 22, yp(tRR[8]));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.textAlign = 'right';
+  ctx.font = `bold ${11 * DPR / DPR}px monospace`;
+  ctx.fillText('2.4×', x128 - 26, (yp(tFull[8]) + yp(tRR[8])) / 2 + 4);
+})();
+
+/* ── §06 Animated bar chart ───────────────────────────────────────────── */
+(function() {
+  const resultsSection = document.getElementById('s-results');
+  if (!resultsSection) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w)) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+})();
+</script>
+</BaseLayout>

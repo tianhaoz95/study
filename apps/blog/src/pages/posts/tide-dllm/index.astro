@@ -1,0 +1,1159 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="TIDE: Shrinking Diffusion LLMs 22× Without Losing the Code Superpower | AI/ML Deep Dives"
+  description="Cross-architecture distillation compresses a 16B MoE diffusion LLM into a 0.6B student with 22× memory savings and a 16-point HumanEval advantage over same-size autoregressive models."
+  crumb="TIDE dLLM Distillation"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bars-header{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;padding:.3rem .5rem;font-family:var(--ff-mono)}
+
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-tokens{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.tok{display:inline-flex;align-items:center;justify-content:center;padding:.2rem .45rem;border-radius:4px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;border:1px solid var(--border);background:var(--card2);color:var(--text2);min-width:36px}
+.tok.masked{background:#0f172a;color:var(--muted);border-style:dashed;border-color:var(--border-hi)}
+.tok.demo-a{background:rgba(139,92,246,.15);color:var(--purple-l);border-color:var(--purple)}
+.tok.demo-b{background:rgba(6,182,212,.1);color:var(--cyan);border-color:var(--cyan)}
+.tok.target{background:rgba(16,185,129,.1);color:var(--green);border-color:var(--green)}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+.tok-legend{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)}
+.tok-legend span{display:flex;align-items:center;gap:.35rem}
+.tok-legend .dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Knowledge Distillation</span>
+    <span class="tag tag-amber">Cross-Architecture</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>TIDE: Shrinking Diffusion LLMs 22× Without Losing the Code Superpower</h1>
+  <p class="lead">Diffusion language models generate all tokens simultaneously — giving them a structural edge on code, where global coherence matters. The catch: competitive dLLMs need 8–100B parameters. TIDE is the first cross-architecture distillation framework, compressing a 16B MoE teacher into a 0.6B student with 22× less memory and a 16-point HumanEval advantage over same-size autoregressive models.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2604.26951</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2604.26951" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-gap"><a href="#s-gap"><span class="toc-num">01</span> Deployment Gap</a></li>
+    <li class="toc-item" id="toc-s-dlm"><a href="#s-dlm"><span class="toc-num">02</span> Diffusion LLMs</a></li>
+    <li class="toc-item" id="toc-s-challenges"><a href="#s-challenges"><span class="toc-num">03</span> Three Barriers</a></li>
+    <li class="toc-item" id="toc-s-tidal"><a href="#s-tidal"><span class="toc-num">04</span> TIDAL Scheduling</a></li>
+    <li class="toc-item" id="toc-s-compdemo"><a href="#s-compdemo"><span class="toc-num">05</span> CompDemo + Rev-CALM</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<article class="post-body">
+
+<!-- ===== §01 DEPLOYMENT GAP ===== -->
+<section id="s-gap" data-code="gap">
+<div class="section-no">01 — The Deployment Gap</div>
+<h2>Great at Code, Stuck at 31 GB</h2>
+<p>Diffusion language models like LLaDA and Dream have reached competitive performance on reasoning, knowledge, and code benchmarks — but only at 8–100B parameters. The 16B MoE teacher used in this work requires 31.3 GB of GPU memory and produces just 7.8 tokens/second. Nobody deploys that on commodity hardware.</p>
+<p>TIDE distills these giants into a 0.6B student that fits in 1.4 GB — a <strong style="color:var(--purple-l)">22× memory reduction</strong> — while preserving the dLLM's most striking advantage: code generation scores that beat an equivalently-sized autoregressive model by 16+ points on HumanEval.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Model comparison — memory footprint and HumanEval score</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="bars-header">Peak GPU memory (GB, lower is better)</div>
+    <div class="results-bars" id="bars-mem">
+      <div class="bar-row">
+        <div class="bar-label">LLaDA2-mini (16B MoE teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="31.3" data-max="35" style="background:rgba(239,68,68,.7)"><span>31.3 GB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">WeDLM-8B (dense teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="15.5" data-max="35" style="background:rgba(245,158,11,.7)"><span>15.5 GB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">AR baseline (Qwen3-0.6B)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="1.2" data-max="35" style="background:rgba(100,116,139,.6)"><span>1.2 GB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TIDE student (BD3LM-0.6B)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="1.4" data-max="35" style="background:rgba(139,92,246,.8)"><span>1.4 GB</span></div></div>
+      </div>
+    </div>
+    <div class="bars-header" style="margin-top:1.25rem">HumanEval pass@1 (higher is better)</div>
+    <div class="results-bars" id="bars-he">
+      <div class="bar-row">
+        <div class="bar-label">AR baseline (Qwen3-0.6B)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="32.3" data-max="60" style="background:rgba(100,116,139,.6)"><span>32.3</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">BD3LM, no distillation</div>
+        <div class="bar-track"><div class="bar-fill" data-w="46.34" data-max="60" style="background:rgba(6,182,212,.6)"><span>46.34</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TIDE-Shared (WeDLM teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="48.78" data-max="60" style="background:rgba(139,92,246,.8)"><span>48.78</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TIDE-Cross (LLaDA2 teacher)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="49.39" data-max="60" style="background:rgba(139,92,246,1)"><span>49.39</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The 0.6B TIDE student occupies the same memory as a small AR model yet scores 17 points higher on HumanEval — nearly matching the much larger teacher. This asymmetry between memory and capability is the distillation payoff.</p>
+</section>
+
+<!-- ===== §02 DIFFUSION LLMs ===== -->
+<section id="s-dlm" data-code="dlm">
+<div class="section-no">02 — Diffusion LLMs</div>
+<h2>Parallel Decoding: Why All Tokens at Once</h2>
+<p>An autoregressive model generates tokens left to right: predict token 1, then token 2 given token 1, and so on. Each token only sees the tokens before it. A diffusion language model works differently: start with an entirely masked sequence and <em>simultaneously</em> predict all positions over multiple denoising steps. Because every token attends to every other token (bidirectional attention), the model maintains global consistency throughout generation.</p>
+<p>For code this matters a lot. Generating a function body requires keeping the signature, variable names, return types, and syntactic structure consistent across the whole output — something that's easier when you can revise all positions together rather than commit to each token irreversibly.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dLLM vs AR — denoising animation for "I don't wanna go"</span>
+    <span class="vp-hint">click Play</span>
+  </div>
+  <div class="vp-body">
+    <div style="margin-bottom:.875rem">
+      <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem;letter-spacing:.04em">dLLM (TIDE) — parallel, bidirectional</div>
+      <div id="dlm-row" style="display:flex;gap:.5rem;flex-wrap:wrap"></div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem;letter-spacing:.04em">AR model — sequential, left-to-right</div>
+      <div id="ar-row" style="display:flex;gap:.5rem;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-top:1rem">
+      <button id="dlm-play" style="padding:.35rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s">▶ Play</button>
+      <button id="dlm-reset" style="padding:.35rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s">↺ Reset</button>
+      <span id="dlm-step-label" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">step 0 / 4 — t = 1.00</span>
+    </div>
+  </div>
+</div>
+
+<p>Key observation in the animation: the dLLM unmasked "wan" (token 4) before "don't" (tokens 2–3) were revealed. That's bidirectional context — later tokens can inform earlier positions. The AR model must generate left-to-right, committing to each word before seeing what comes next.</p>
+</section>
+
+<!-- ===== §03 THREE BARRIERS ===== -->
+<section id="s-challenges" data-code="challenges">
+<div class="section-no">03 — Three Cross-Architecture Barriers</div>
+<h2>Why dLLM Distillation Is Harder Than AR Distillation</h2>
+<p>Standard AR distillation (MiniLLM, GKD, DistiLLM) copies a teacher's token probabilities into a smaller student. For dLLMs with <em>heterogeneous</em> teacher and student architectures, three fundamental challenges make this impossible to do directly.</p>
+
+<div style="overflow-x:auto;margin:1.75rem 0">
+<svg viewBox="0 0 720 300" style="width:100%;min-width:580px;font-family:var(--ff-mono);font-size:11px" aria-label="TIDE architecture overview">
+  <!-- Teacher box -->
+  <rect x="10" y="80" width="148" height="140" rx="8" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+  <text x="84" y="100" text-anchor="middle" fill="rgba(245,158,11,.9)" font-weight="700" font-size="11">TEACHER</text>
+  <text x="84" y="118" text-anchor="middle" fill="rgba(245,158,11,.7)" font-size="10">LLaDA2-mini</text>
+  <text x="84" y="133" text-anchor="middle" fill="rgba(245,158,11,.6)" font-size="9">16B MoE / GQA</text>
+  <text x="84" y="148" text-anchor="middle" fill="rgba(245,158,11,.6)" font-size="9">Ling tokenizer</text>
+  <text x="84" y="168" text-anchor="middle" fill="rgba(245,158,11,.7)" font-size="10">WeDLM-8B</text>
+  <text x="84" y="183" text-anchor="middle" fill="rgba(245,158,11,.6)" font-size="9">8B dense / MHA</text>
+  <text x="84" y="198" text-anchor="middle" fill="rgba(245,158,11,.6)" font-size="9">Qwen3 tokenizer</text>
+
+  <!-- Arrow teacher → TIDE -->
+  <line x1="158" y1="150" x2="192" y2="150" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+  <!-- TIDE box -->
+  <rect x="195" y="30" width="330" height="240" rx="10" fill="rgba(139,92,246,.05)" stroke="rgba(139,92,246,.35)" stroke-width="1.5"/>
+  <text x="360" y="52" text-anchor="middle" fill="rgba(139,92,246,.9)" font-weight="700" font-size="12">TIDE FRAMEWORK</text>
+
+  <!-- TIDAL sub-box -->
+  <rect x="215" y="62" width="290" height="60" rx="6" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+  <text x="260" y="82" text-anchor="middle" fill="var(--purple-l, #a78bfa)" font-weight="600" font-size="10">TIDAL</text>
+  <text x="260" y="96" text-anchor="middle" fill="rgba(167,139,250,.7)" font-size="9">dual-axis λ scheduling</text>
+  <text x="360" y="110" text-anchor="middle" fill="rgba(148,163,184,.6)" font-size="9">λ(t,p) = λ_train(p) × (1−t)</text>
+
+  <!-- CompDemo sub-box -->
+  <rect x="215" y="132" width="290" height="58" rx="6" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+  <text x="265" y="151" text-anchor="middle" fill="rgba(6,182,212,.9)" font-weight="600" font-size="10">CompDemo</text>
+  <text x="265" y="165" text-anchor="middle" fill="rgba(6,182,212,.7)" font-size="9">complementary mask splitting</text>
+  <text x="360" y="179" text-anchor="middle" fill="rgba(148,163,184,.6)" font-size="9">2-pass teacher inference per sample</text>
+
+  <!-- RevCALM sub-box -->
+  <rect x="215" y="200" width="290" height="55" rx="6" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.25)" stroke-width="1"/>
+  <text x="268" y="220" text-anchor="middle" fill="rgba(16,185,129,.9)" font-weight="600" font-size="10">Reverse CALM</text>
+  <text x="268" y="234" text-anchor="middle" fill="rgba(16,185,129,.7)" font-size="9">cross-tokenizer BCE alignment</text>
+  <text x="360" y="247" text-anchor="middle" fill="rgba(148,163,184,.6)" font-size="9">BCE(p_s ∥ p_t) — bounded gradients</text>
+
+  <!-- Arrow TIDE → Student -->
+  <line x1="525" y1="150" x2="558" y2="150" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+
+  <!-- Student box -->
+  <rect x="561" y="80" width="148" height="140" rx="8" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+  <text x="635" y="100" text-anchor="middle" fill="rgba(139,92,246,.9)" font-weight="700" font-size="11">STUDENT</text>
+  <text x="635" y="118" text-anchor="middle" fill="rgba(139,92,246,.7)" font-size="10">BD3LM-0.6B</text>
+  <text x="635" y="133" text-anchor="middle" fill="rgba(139,92,246,.6)" font-size="9">Qwen3-0.6B base</text>
+  <text x="635" y="148" text-anchor="middle" fill="rgba(139,92,246,.6)" font-size="9">block diffusion</text>
+  <text x="635" y="168" text-anchor="middle" fill="rgba(16,185,129,.8)" font-size="9">1.4 GB · 41 tok/s</text>
+  <text x="635" y="183" text-anchor="middle" fill="rgba(16,185,129,.8)" font-size="9">HumanEval 49.39</text>
+  <text x="635" y="198" text-anchor="middle" fill="rgba(16,185,129,.7)" font-size="9">vs AR 32.3 (+17)</text>
+
+  <!-- Barrier labels on arrows -->
+  <text x="175" y="140" text-anchor="middle" fill="rgba(239,68,68,.7)" font-size="8">temporal</text>
+  <text x="175" y="150" text-anchor="middle" fill="rgba(239,68,68,.7)" font-size="8">spatial</text>
+  <text x="175" y="160" text-anchor="middle" fill="rgba(239,68,68,.7)" font-size="8">vocab</text>
+
+  <defs>
+    <marker id="arr-amber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="rgba(245,158,11,.5)"/>
+    </marker>
+    <marker id="arr-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="rgba(139,92,246,.5)"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+
+<ul>
+  <li><strong>Temporal reliability.</strong> At diffusion timestep t≈1, nearly all tokens are masked and the teacher is essentially guessing. Using noisy teacher signals at high t corrupts distillation. AR models don't have this issue — the teacher always sees the full left context.</li>
+  <li><strong>Spatial scarcity.</strong> With 70–80% of tokens masked, the teacher has little context to form reliable predictions. Standard distillation uses the same masked input for teacher and student — wasting the teacher's capacity.</li>
+  <li><strong>Vocabulary mismatch.</strong> LLaDA2 uses the Ling tokenizer; BD3LM uses Qwen3's tokenizer. Token-level KL divergence is undefined when vocabularies differ — you can't directly compare probability distributions over different token sets.</li>
+</ul>
+
+<p>TIDE's three components address each barrier in sequence: TIDAL handles the temporal problem, CompDemo the spatial problem, and Reverse CALM the vocabulary problem.</p>
+</section>
+
+<!-- ===== §04 TIDAL ===== -->
+<section id="s-tidal" data-code="tidal">
+<div class="section-no">04 — TIDAL</div>
+<h2>Knowing When to Trust the Teacher</h2>
+<p>The key insight is that teacher signal quality in dLLMs varies along <em>two independent axes</em>: the current diffusion timestep and the training progress of the student.</p>
+<p>At high noise (t≈1, most tokens masked), the teacher's predictions are unreliable — it can barely see anything. At low noise (t≈0, few tokens masked), the teacher sees nearly the entire sequence and predicts confidently. Separately, early in training, the student is too immature to absorb complex teacher distributions without collapsing; later it can handle full supervision.</p>
+
+<div class="math-block">
+  <div class="math-label">TIDAL — dual-axis lambda scheduling</div>
+  <span class="math-var">λ_train</span>(p) = λ_init + (λ_max − λ_init) × ½(1 − cos(π·p))  <span class="math-comment">  ← cosine ramp over training progress p ∈ [0,1]</span>
+  <br>
+  <span class="math-var">λ_t</span>(t, p) = λ_train(p) × (1 − t)  <span class="math-comment">                        ← zero out at high noise (t→1)</span>
+  <br>
+  <span class="math-comment">  defaults: λ_init = 0.1, λ_max = 0.9</span>
+</div>
+
+<p>The interactive heatmap below shows how much weight is placed on the teacher signal — <strong>brighter = trust teacher more</strong>. The sweet spot is the top-left corner: low masking (t≈0, teacher is confident) combined with late training (p≈1, student is mature enough to learn).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">λ(t, p) — how much to trust the teacher at each training moment</span>
+    <span class="vp-hint">hover canvas to inspect value</span>
+  </div>
+  <div class="vp-body" style="min-width:0">
+    <canvas id="tidal-canvas" style="width:100%;display:block;cursor:crosshair"></canvas>
+    <div id="tidal-tooltip" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.5rem;min-height:1.4em">hover to inspect λ value</div>
+  </div>
+</div>
+
+<p>Compare this to single-axis AR distillation (TAID): it only schedules along the training progress axis — a horizontal slice through this heatmap. TIDAL adds the vertical axis, suppressing the noisy high-t region that AR distillation never had to worry about.</p>
+
+<h3>The interpolated target</h3>
+<p>At each masked position, the actual training target blends the student's own predictions with the teacher's predictions, weighted by λ_t:</p>
+
+<div class="math-block">
+  <div class="math-label">Interpolated target and loss</div>
+  r_t = softmax( (1−λ_t)·<span class="math-var">s</span> + λ_t·<span class="math-var">t</span> ) / T   <span class="math-comment">  detached — no gradient through target</span>
+  <br>
+  L_TIDAL = DKL( r_t ∥ softmax(s/T) ) × T²
+</div>
+
+<p>When λ_t=0 (high noise or early training), the target equals the student's own output — the student trains against itself, which is a stable self-distillation objective. When λ_t=0.9 (low noise, late training), the target is dominated by the teacher.</p>
+</section>
+
+<!-- ===== §05 COMPDEMO + REV-CALM ===== -->
+<section id="s-compdemo" data-code="compdemo">
+<div class="section-no">05 — CompDemo + Reverse CALM</div>
+<h2>Richer Teacher Context and Cross-Tokenizer Alignment</h2>
+
+<h3>CompDemo: let the teacher see more</h3>
+<p>Even with TIDAL suppressing high-noise signals, the teacher's context is still limited by masking. CompDemo exploits the discrete diffusion structure: randomly split the masked positions into two complementary subsets, run the teacher twice — each time revealing one subset as context — and merge the resulting logits.</p>
+
+<div class="step-list" id="compdemo-steps">
+  <div class="step-box">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Standard masked input (masking ratio ≈ 50%)</div>
+      <div class="step-desc">Normal dLLM training input. The teacher sees this and must predict all masked positions — but with limited context.</div>
+      <div class="step-tokens">
+        <span class="tok">I</span>
+        <span class="tok masked">[M]</span>
+        <span class="tok masked">[M]</span>
+        <span class="tok">wan</span>
+        <span class="tok masked">[M]</span>
+        <span class="tok">go</span>
+      </div>
+      <div class="tok-legend">
+        <span><span class="dot" style="background:rgba(100,116,139,.5)"></span> visible token</span>
+        <span><span class="dot" style="background:#0f172a;border:1px dashed var(--border-hi)"></span> masked [M]</span>
+      </div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Random mask split: M_A = &#123;"don", "na"&#125;, M_B = &#123;"'t"&#125;</div>
+      <div class="step-desc">The three masked positions are partitioned into two complementary subsets (ρ = 0.5 split ratio).</div>
+      <div class="step-tokens">
+        <span class="tok">I</span>
+        <span class="tok demo-a">[don] M_A</span>
+        <span class="tok demo-b">['t] M_B</span>
+        <span class="tok">wan</span>
+        <span class="tok demo-a">[na] M_A</span>
+        <span class="tok">go</span>
+      </div>
+      <div class="tok-legend">
+        <span><span class="dot" style="background:rgba(139,92,246,.15);border:1px solid var(--purple)"></span> M_A (will become context in Pass 1)</span>
+        <span><span class="dot" style="background:rgba(6,182,212,.1);border:1px solid var(--cyan)"></span> M_B (will become context in Pass 2)</span>
+      </div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Pass 1 — reveal M_A, predict M_B</div>
+      <div class="step-desc">Teacher sees "don" and "na" as demonstration context. Now it can leverage these tokens to better predict "'t" at the M_B position.</div>
+      <div class="step-tokens">
+        <span class="tok">I</span>
+        <span class="tok demo-a">don ✓</span>
+        <span class="tok target">[M] ← predict</span>
+        <span class="tok">wan</span>
+        <span class="tok demo-a">na ✓</span>
+        <span class="tok">go</span>
+      </div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Pass 2 — reveal M_B, predict M_A</div>
+      <div class="step-desc">Teacher sees "'t" as demonstration context. Now it can better predict "don" and "na" at the M_A positions — with information about the middle of the phrase.</div>
+      <div class="step-tokens">
+        <span class="tok">I</span>
+        <span class="tok target">[M] ← predict</span>
+        <span class="tok demo-b">'t ✓</span>
+        <span class="tok">wan</span>
+        <span class="tok target">[M] ← predict</span>
+        <span class="tok">go</span>
+      </div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Merge logits — every masked position gets richer teacher signal</div>
+      <div class="step-desc">Logits from Pass 1 (M_B positions) and Pass 2 (M_A positions) are merged. Every masked position now has a teacher prediction conditioned on complementary context. Cost: ~1.5× training time (teacher is frozen, no gradients).</div>
+      <div class="step-tokens">
+        <span class="tok">I</span>
+        <span class="tok target">don ✓✓</span>
+        <span class="tok target">'t ✓✓</span>
+        <span class="tok">wan</span>
+        <span class="tok target">na ✓✓</span>
+        <span class="tok">go</span>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <button id="step-next">Next →</button>
+  <span class="step-prog" id="step-prog">Step 1 of 5</span>
+</div>
+
+<h3>Reverse CALM: cross-tokenizer alignment without gradient explosion</h3>
+<p>When teacher and student use different tokenizers (LLaDA2 uses Ling tokens; BD3LM uses Qwen3 tokens), token-level KL divergence is undefined. TIDE aligns them at the <em>chunk</em> level: find the minimal text spans that contain complete tokens from both vocabularies, then compare chunk-level probabilities.</p>
+<p>The natural forward BCE objective has a dangerous failure mode: when the student is uncertain (p_s → 0) but the teacher is confident (p_t → 1), the gradient coefficient p_t/p_s diverges. Reverse CALM fixes this by swapping the arguments:</p>
+
+<div class="math-block">
+  <div class="math-label">Forward CALM (unstable) vs Reverse CALM (bounded)</div>
+  L_Fwd  = − [ p_t · log p_s  + (1−p_t) · log(1−p_s) ]  <span class="math-comment">  gradient ∝ p_t/p_s  → explodes when p_s→0</span>
+  <br>
+  L_Rev  = − [ p_s · log p_t  + (1−p_s) · log(1−p_t) ]  <span class="math-comment">  gradient ∝ log(p_t/(1−p_t))  → bounded by teacher</span>
+  <br>
+  <span class="math-comment">  dual-end filtering: p_t≈0.5 (poorly aligned chunk) zeroes the gradient; low p_s suppresses noise via ∂p_s/∂θ</span>
+</div>
+
+<p>Reverse CALM is equivalent to minimizing the Bernoulli KL KL(p_s ∥ p_t) — a mode-seeking objective in scalar chunk space. Because TIDAL's interpolated target requires a stable gradient, it is counterproductive with the reverse objective and is not applied in the cross-tokenizer pipeline.</p>
+</section>
+
+<!-- ===== §06 RESULTS ===== -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Code Is Where Diffusion Wins</h2>
+<p>TIDE evaluates across eight benchmarks: reasoning (GSM8K, MATH, BBH), knowledge (MMLU-Pro, MMLU), commonsense (HellaSwag), and code (HumanEval, MBPP). Both distillation pipelines are tested — cross-tokenizer (LLaDA2 → BD3LM) and shared-tokenizer (WeDLM → BD3LM).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">HumanEval pass@1 — code generation benchmark</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="bars-results">
+      <div class="bars-header">Baselines</div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3-0.6B (AR)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="32.3" data-max="60" style="background:rgba(100,116,139,.55)"><span>32.3</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">BD3LM, no distill</div>
+        <div class="bar-track"><div class="bar-fill" data-w="46.34" data-max="60" style="background:rgba(6,182,212,.55)"><span>46.34</span></div></div>
+      </div>
+      <div class="bars-header" style="margin-top:.75rem">Shared-tokenizer pipeline (WeDLM → BD3LM)</div>
+      <div class="bar-row">
+        <div class="bar-label">KL baseline</div>
+        <div class="bar-track"><div class="bar-fill" data-w="41.46" data-max="60" style="background:rgba(139,92,246,.45)"><span>41.46</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TIDE-Shared (TIDAL + CompDemo)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="48.78" data-max="60" style="background:rgba(139,92,246,.8)"><span>48.78</span></div></div>
+      </div>
+      <div class="bars-header" style="margin-top:.75rem">Cross-tokenizer pipeline (LLaDA2 → BD3LM)</div>
+      <div class="bar-row">
+        <div class="bar-label">CALM baseline</div>
+        <div class="bar-track"><div class="bar-fill" data-w="43.90" data-max="60" style="background:rgba(139,92,246,.45)"><span>43.90</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TIDE-Cross (Reverse CALM)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="49.39" data-max="60" style="background:rgba(139,92,246,1)"><span>49.39</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>All eight benchmarks</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Benchmark</th>
+      <th>AR (0.6B)</th>
+      <th>BD3LM</th>
+      <th>KL</th>
+      <th>TIDE-Shared</th>
+      <th>CALM</th>
+      <th class="best">TIDE-Cross</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>GSM8K</td><td class="mn">59.60</td><td class="mn">45.56</td><td class="mn">43.97</td><td class="mn">48.98</td><td class="mn">48.60</td><td class="mn best">52.24</td></tr>
+    <tr><td>MATH</td><td class="mn">32.40</td><td class="mn">13.08</td><td class="mn">9.40</td><td class="mn">11.16</td><td class="mn">13.14</td><td class="mn best">13.20</td></tr>
+    <tr><td>BBH</td><td class="mn">41.50</td><td class="mn">26.32</td><td class="mn">25.79</td><td class="mn">26.79</td><td class="mn">24.21</td><td class="mn best">27.37</td></tr>
+    <tr><td>MMLU-Pro</td><td class="mn">24.70</td><td class="mn">13.80</td><td class="mn">13.19</td><td class="mn">14.48</td><td class="mn">13.47</td><td class="mn best">14.52</td></tr>
+    <tr><td>HellaSwag</td><td class="mn">47.40</td><td class="mn">39.28</td><td class="mn">39.78</td><td class="mn">40.50</td><td class="mn">40.42</td><td class="mn best">39.88</td></tr>
+    <tr><td>MMLU</td><td class="mn">52.80</td><td class="mn">39.15</td><td class="mn">39.57</td><td class="mn">39.92</td><td class="mn">39.42</td><td class="mn best">39.59</td></tr>
+    <tr><td>HumanEval</td><td class="mn">32.30</td><td class="mn">46.34</td><td class="mn">41.46</td><td class="mn">48.78</td><td class="mn">43.90</td><td class="mn best">49.39</td></tr>
+    <tr><td>MBPP</td><td class="mn">36.60</td><td class="mn">37.80</td><td class="mn">31.20</td><td class="mn">37.80</td><td class="mn">34.80</td><td class="mn best">38.40</td></tr>
+    <tr class="highlight-row"><td><strong>Average</strong></td><td class="mn">40.91</td><td class="mn">32.67</td><td class="mn">30.55</td><td class="mn">33.55</td><td class="mn">32.25</td><td class="mn">34.20</td></tr>
+  </tbody>
+</table>
+
+<p>A clear asymmetry emerges: the AR model dominates on reasoning tasks (GSM8K 59.6 vs 52.2, MATH 32.4 vs 13.2), while TIDE-distilled dLLMs win on code (HumanEval 49.4 vs 32.3, MBPP 38.4 vs 36.6). The parallel generation process maintains global coherence across the whole output — and that structural property is exactly what structured code generation needs.</p>
+
+<h3>Deployment efficiency</h3>
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>Params</th><th>Peak Mem</th><th>Tokens/s</th><th>HumanEval</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>LLaDA2-mini (teacher)</td><td class="mn">16.3B</td><td class="mn">31.3 GB</td><td class="mn">7.8</td><td class="mn">—</td></tr>
+    <tr><td>WeDLM-8B (teacher)</td><td class="mn">8.2B</td><td class="mn">15.5 GB</td><td class="mn">37.7</td><td class="mn">—</td></tr>
+    <tr><td>Qwen3-0.6B (AR baseline)</td><td class="mn">0.6B</td><td class="mn">1.2 GB</td><td class="mn">51.3</td><td class="mn">32.3</td></tr>
+    <tr><td>BD3LM-0.6B, no distill</td><td class="mn">0.6B</td><td class="mn">1.4 GB</td><td class="mn">42.1</td><td class="mn">46.3</td></tr>
+    <tr class="highlight-row"><td>TIDE distilled (best)</td><td class="mn">0.6B</td><td class="mn">1.4 GB</td><td class="mn">41.0</td><td class="mn best">49.4</td></tr>
+  </tbody>
+</table>
+
+<p>Distillation adds only 2.6% throughput overhead over the undistilled BD3LM (41.0 vs 42.1 tok/s), confirming that the quality gains come entirely from training — not from any architectural change that would affect inference.</p>
+</section>
+
+</article>
+
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">tide/model_sizes.py</div>
+      <div class="cs-section-title" id="cs-section-title">Deployment Gap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="gap">gap</button>
+    <button class="cs-tab" data-panel="dlm">dlm</button>
+    <button class="cs-tab" data-panel="challenges">barriers</button>
+    <button class="cs-tab" data-panel="tidal">tidal</button>
+    <button class="cs-tab" data-panel="compdemo">compdemo</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-gap">
+      <pre class="cs-pre" id="pre-gap"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-dlm">
+      <pre class="cs-pre" id="pre-dlm"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-challenges">
+      <pre class="cs-pre" id="pre-challenges"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-tidal">
+      <pre class="cs-pre" id="pre-tidal"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-compdemo">
+      <pre class="cs-pre" id="pre-compdemo"></pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre" id="pre-results"></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tabs ───────────────────────────────────────────────────────
+const tabMeta = {
+  gap:        { file: 'tide/model_sizes.py',   title: 'Deployment Gap' },
+  dlm:        { file: 'tide/dlm_inference.py', title: 'dLLM Inference' },
+  challenges: { file: 'tide/challenges.py',    title: 'Cross-Arch Barriers' },
+  tidal:      { file: 'tide/tidal.py',         title: 'TIDAL Scheduling' },
+  compdemo:   { file: 'tide/compdemo.py',      title: 'CompDemo + Reverse CALM' },
+  results:    { file: 'tide/results.py',       title: 'Benchmarks' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent  = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — sync TOC + sidebar ───────────────────────────────
+const sectionMap = {
+  's-gap':        'gap',
+  's-dlm':        'dlm',
+  's-challenges': 'challenges',
+  's-tidal':      'tidal',
+  's-compdemo':   'compdemo',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Single-pass syntax highlighter ─────────────────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','math']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+function renderPanel(id, lines) {
+  const pre = document.getElementById(id);
+  if (!pre) return;
+  pre.innerHTML = lines.map(([cls, text]) =>
+    `<span class="cs-line${cls ? ' ' + cls : ''}">${hl(text)}</span>`
+  ).join('\n');
+}
+
+// ─── Code panel content ──────────────────────────────────────────────────────
+renderPanel('pre-gap', [
+  ['cmt', '# TIDE — model size vs. deployment cost'],
+  ['',    ''],
+  ['cmt', '# Teacher models (not deployable at edge)'],
+  ['hl-a','llada2_mini   = { "params": "16.3B", "mem": "31.3 GB",'],
+  ['hl-a','                  "tokens_per_s": 7.8,  "arch": "MoE" }'],
+  ['hl-a','wedlm_8b      = { "params": "8.2B",  "mem": "15.5 GB",'],
+  ['hl-a','                  "tokens_per_s": 37.7, "arch": "dense" }'],
+  ['',    ''],
+  ['cmt', '# AR baseline (0.6B, same size as student)'],
+  ['',    'ar_baseline   = { "params": "0.6B",  "mem": "1.2 GB",'],
+  ['',    '                  "tokens_per_s": 51.3, "humaneval": 32.3 }'],
+  ['',    ''],
+  ['cmt', '# TIDE distilled student (0.6B)'],
+  ['hl-g','tide_student  = { "params": "0.6B",  "mem": "1.4 GB",'],
+  ['hl-g','                  "tokens_per_s": 41.0, "humaneval": 49.4 }'],
+  ['',    ''],
+  ['cmt', '# The payoff:'],
+  ['hl-p','mem_ratio   = 31.3 / 1.4          # 22x smaller than LLaDA2'],
+  ['hl-p','speed_ratio = 41.0 / 7.8          # 5x faster than LLaDA2'],
+  ['hl-p','he_gain     = 49.4 - 32.3         # +17 pts vs AR of same size'],
+]);
+
+renderPanel('pre-dlm', [
+  ['cmt', '# Masked diffusion LM — training and inference'],
+  ['',    ''],
+  ['cmt', '# Training: predict masked tokens at all positions jointly'],
+  ['hl-p','def train_step(model, x0, t):'],
+  ['hl-p','    xt = mask_tokens(x0, mask_ratio=t)   # e.g. t=0.7 → 70% masked'],
+  ['hl-p','    logits = model(xt)                   # bidirectional attention'],
+  ['hl-p','    loss = cross_entropy(logits[masked_pos], x0[masked_pos])'],
+  ['hl-p','    return loss'],
+  ['',    ''],
+  ['cmt', '# Inference: iterative denoising (parallel at every step)'],
+  ['hl-c','def generate(model, seq_len, steps=32):'],
+  ['hl-c','    xt = all_masked(seq_len)'],
+  ['hl-c','    for t in reversed(linspace(0, 1, steps)):'],
+  ['hl-c','        logits = model(xt)               # attend to ALL positions'],
+  ['hl-c','        probs  = softmax(logits)         # probability over vocab'],
+  ['hl-c','        # unmask highest-confidence positions (not left-to-right!)'],
+  ['hl-c','        xt = unmask_confident(xt, probs, ratio=1/steps)'],
+  ['hl-c','    return xt'],
+  ['',    ''],
+  ['cmt', '# AR contrast: tokens revealed one-by-one, left-to-right'],
+  ['',    '# for pos in range(seq_len):'],
+  ['',    '#     xt[pos] = argmax(model(xt[:pos]))  # causal attention only'],
+]);
+
+renderPanel('pre-challenges', [
+  ['cmt', '# Three barriers unique to cross-architecture dLLM distillation'],
+  ['',    ''],
+  ['cmt', '# 1. Temporal reliability (absent in AR distillation)'],
+  ['hl-a','# AR: teacher always sees full left context → consistent reliability'],
+  ['hl-a','# dLLM: at t=1.0 (all masked), teacher is guessing (~uniform dist)'],
+  ['hl-a','#       at t=0.0 (all revealed), teacher is confident'],
+  ['hl-a','# → naive KD at high t teaches the student to guess too'],
+  ['',    ''],
+  ['cmt', '# 2. Spatial scarcity'],
+  ['hl-c','# With 70% masking, teacher has only 30% of tokens as context'],
+  ['hl-c','# Predictions at high masking ratio are noisy even for a 16B teacher'],
+  ['hl-c','# CompDemo enriches context via complementary mask splitting'],
+  ['',    ''],
+  ['cmt', '# 3. Vocabulary mismatch'],
+  ['hl-p','# LLaDA2 uses Ling tokenizer (V_T)'],
+  ['hl-p','# BD3LM uses Qwen3 tokenizer (V_S)'],
+  ['hl-p','# Token-level KL divergence is undefined: V_T != V_S'],
+  ['hl-p','# "don\'t" → ["don", "\'t"] in V_S  vs  ["don\'t"] in V_T'],
+  ['hl-p','# → must align at byte-level chunk boundaries (Reverse CALM)'],
+]);
+
+renderPanel('pre-tidal', [
+  ['cmt', '# TIDAL — Time-Iteration Dual-Axis Lambda Modulation'],
+  ['',    ''],
+  ['hl-p','def lambda_train(p, l_init=0.1, l_max=0.9):'],
+  ['hl-p','    """Cosine ramp from l_init to l_max over training progress p."""'],
+  ['hl-p','    return l_init + (l_max - l_init) * 0.5 * (1 - math.cos(math.pi * p))'],
+  ['',    ''],
+  ['hl-c','def lambda_t(t, p):'],
+  ['hl-c','    """Combined lambda: trust teacher only at low t, late p."""'],
+  ['hl-c','    return lambda_train(p) * (1 - t)'],
+  ['',    ''],
+  ['hl-g','def tidal_loss(s_logits, t_logits, t, p, T=1.0):'],
+  ['hl-g','    lam = lambda_t(t, p)                         # 0 → 0.9'],
+  ['hl-g','    # interpolate teacher into target (no gradient through target)'],
+  ['hl-g','    mix = (1 - lam) * s_logits + lam * t_logits'],
+  ['hl-g','    r_t = softmax(mix / T).detach()              # detach!'],
+  ['hl-g','    loss = KL(r_t, softmax(s_logits / T)) * T**2'],
+  ['hl-g','    return loss'],
+  ['',    ''],
+  ['cmt', '# Midrange timestep weighting (optional)'],
+  ['',    '# w(t) = exp(-(t-0.5)**2 / (2*0.15**2))  ← emphasize t≈0.5'],
+  ['',    ''],
+  ['cmt', '# λ(t=0.0, p=1.0) = 0.9  ← trust teacher fully (confident + mature)'],
+  ['cmt', '# λ(t=1.0, p=any) = 0.0  ← ignore teacher (all masked = guessing)'],
+  ['cmt', '# λ(t=any, p=0.0) ≈ 0.1  ← mostly ignore (student just started)'],
+]);
+
+renderPanel('pre-compdemo', [
+  ['cmt', '# CompDemo — Complementary Demonstration-Conditioned Denoising'],
+  ['',    ''],
+  ['hl-p','def compdemo_teacher_logits(teacher, x0, xt, M, rho=0.5):'],
+  ['hl-p','    """Split M into M_A, M_B; run teacher twice; merge logits."""'],
+  ['hl-p','    M_A, M_B = random_split(M, ratio=rho)       # |M_A|/|M| ≈ ρ'],
+  ['hl-p','    # Pass 1: reveal M_A, predict M_B positions'],
+  ['hl-p','    x_pass1 = xt.clone()'],
+  ['hl-p','    x_pass1[M_A] = x0[M_A]                      # reveal M_A'],
+  ['hl-p','    t1 = teacher(x_pass1)                        # logits at M_B'],
+  ['hl-p','    # Pass 2: reveal M_B, predict M_A positions'],
+  ['hl-p','    x_pass2 = xt.clone()'],
+  ['hl-p','    x_pass2[M_B] = x0[M_B]                      # reveal M_B'],
+  ['hl-p','    t2 = teacher(x_pass2)                        # logits at M_A'],
+  ['hl-p','    # Merge: every masked position now has enriched teacher signal'],
+  ['hl-p','    merged = xt.clone()'],
+  ['hl-p','    merged[M_B] = t1[M_B]'],
+  ['hl-p','    merged[M_A] = t2[M_A]'],
+  ['hl-p','    return merged   # cost: ~1.5x training time (teacher is frozen)'],
+  ['',    ''],
+  ['cmt', '# Reverse CALM — cross-tokenizer objective (bounded gradients)'],
+  ['',    ''],
+  ['hl-c','def reverse_calm(p_s, p_t):'],
+  ['hl-c','    """Chunk-level BCE with swapped arguments."""'],
+  ['hl-c','    # Forward: -(p_t*log(p_s) + (1-p_t)*log(1-p_s))  → explodes if p_s→0'],
+  ['hl-c','    # Reverse: -(p_s*log(p_t) + (1-p_s)*log(1-p_t))  → bounded by teacher'],
+  ['hl-c','    loss = -(p_s * log(p_t) + (1 - p_s) * log(1 - p_t))'],
+  ['hl-c','    # Dual-end filtering:'],
+  ['hl-c','    #   p_t ≈ 0.5 → coefficient ≈ 0 (poorly aligned chunk)'],
+  ['hl-c','    #   low p_s  → suppressed by ∂p_s/∂θ → noise filtered'],
+  ['hl-c','    return loss'],
+]);
+
+renderPanel('pre-results', [
+  ['cmt', '# TIDE — 8-benchmark results summary'],
+  ['',    ''],
+  ['cmt', '# Cross-tokenizer pipeline (LLaDA2 → BD3LM) — best config'],
+  ['hl-p','tide_cross = {'],
+  ['hl-p','    "GSM8K":     52.24,   # reasoning  (+6.7 vs no-distill)'],
+  ['hl-p','    "MATH":      13.20,   # reasoning  (+0.1)'],
+  ['hl-p','    "BBH":       27.37,   # reasoning  (+1.1)'],
+  ['hl-p','    "MMLU_Pro":  14.52,   # knowledge  (+0.7)'],
+  ['hl-p','    "HellaSwag": 39.88,   # commonsense(+0.6)'],
+  ['hl-p','    "MMLU":      39.59,   # knowledge  (+0.4)'],
+  ['hl-p','    "HumanEval": 49.39,   # code       (+3.1) vs TIDE-Shared'],
+  ['hl-p','    "MBPP":      38.40,   # code       (+0.6)'],
+  ['hl-p','    "avg":       34.20,   # +1.53 over baseline BD3LM (32.67)'],
+  ['hl-p','}'],
+  ['',    ''],
+  ['cmt', '# Code advantage over AR (same 0.6B size):'],
+  ['hl-g','he_gap = 49.39 - 32.30   # +17.09 HumanEval'],
+  ['hl-g','mbpp_gap = 38.40 - 36.60 # +1.80  MBPP'],
+  ['',    ''],
+  ['cmt', '# Reasoning gap vs AR (dLLMs still trail):'],
+  ['hl-a','gsm_gap  = 52.24 - 59.60  # -7.36  GSM8K'],
+  ['hl-a','math_gap = 13.20 - 32.40  # -19.2  MATH'],
+  ['',    ''],
+  ['cmt', '# Inference efficiency (H100-80GB, bfloat16, 256 tokens)'],
+  ['',    'distilled_student = { "mem": "1.4 GB", "tps": 41.0, "latency": 6.25 }'],
+  ['',    'llada2_teacher    = { "mem": "31.3 GB","tps": 7.8,  "latency": 32.55 }'],
+  ['hl-g','speedup = 32.55 / 6.25    # 5.2x faster inference than teacher'],
+]);
+
+// ─── Animated bar charts (IntersectionObserver trigger) ──────────────────────
+function animateBars(containerId, maxVal) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      container.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+        const pct = parseFloat(b.dataset.w) / maxVal * 100;
+        b.style.width = pct + '%';
+      });
+    });
+  }, { threshold: 0.3 }).observe(container);
+}
+animateBars('bars-mem', 35);
+animateBars('bars-he', 60);
+animateBars('bars-results', 60);
+
+// ─── dLLM vs AR denoising animation ─────────────────────────────────────────
+(function() {
+  const tokens = ['I', "don", "'t", 'wan', 'na', 'go'];
+  // dLLM: parallel unmasking order (not left-to-right)
+  const dlmSteps = [
+    [false,false,false,false,false,false],  // step 0: all masked
+    [true, false,false,true, false,true ],  // step 1: I, wan, go revealed (non-sequential)
+    [true, false,false,true, true, true ],  // step 2: na added
+    [true, true, false,true, true, true ],  // step 3: don added
+    [true, true, true, true, true, true ],  // step 4: 't added (last)
+  ];
+  // AR: left-to-right
+  const arSteps = [
+    [false,false,false,false,false,false],
+    [true, false,false,false,false,false],
+    [true, true, false,false,false,false],
+    [true, true, true, false,false,false],
+    [true, true, true, true, true, true ],  // all at once at end for visual clarity
+  ];
+  const stepLabels = ['step 0 / 4 — t = 1.00','step 1 / 4 — t = 0.75','step 2 / 4 — t = 0.50','step 3 / 4 — t = 0.25','step 4 / 4 — t = 0.00'];
+  let curStep = 0, timer = null;
+
+  function tokBox(text, revealed, style) {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;padding:.25rem .55rem;border-radius:5px;font-family:var(--ff-mono);font-size:.78rem;font-weight:600;border:1px solid;min-width:38px;transition:all .4s;' + style;
+    div.textContent = revealed ? text : '[M]';
+    return div;
+  }
+
+  function render(step) {
+    const dlmRow = document.getElementById('dlm-row');
+    const arRow  = document.getElementById('ar-row');
+    if (!dlmRow || !arRow) return;
+    dlmRow.innerHTML = '';
+    arRow.innerHTML  = '';
+    tokens.forEach((t, i) => {
+      const dlmRev = dlmSteps[step][i];
+      const arRev  = arSteps[step][i];
+      dlmRow.appendChild(tokBox(t, dlmRev,
+        dlmRev ? 'background:rgba(139,92,246,.15);color:var(--purple-l);border-color:rgba(139,92,246,.5)'
+               : 'background:#0f172a;color:var(--muted);border-color:var(--border-hi);border-style:dashed'));
+      arRow.appendChild(tokBox(t, arRev,
+        arRev  ? 'background:rgba(6,182,212,.1);color:var(--cyan);border-color:rgba(6,182,212,.4)'
+               : 'background:#0f172a;color:var(--muted);border-color:var(--border-hi);border-style:dashed'));
+    });
+    const lbl = document.getElementById('dlm-step-label');
+    if (lbl) lbl.textContent = stepLabels[step];
+  }
+
+  render(0);
+
+  document.getElementById('dlm-play')?.addEventListener('click', () => {
+    if (timer) return;
+    const run = () => {
+      curStep++;
+      render(curStep);
+      if (curStep < dlmSteps.length - 1) timer = setTimeout(run, 1200);
+      else timer = null;
+    };
+    if (curStep >= dlmSteps.length - 1) { curStep = 0; render(0); }
+    timer = setTimeout(run, 500);
+  });
+  document.getElementById('dlm-reset')?.addEventListener('click', () => {
+    clearTimeout(timer); timer = null; curStep = 0; render(0);
+  });
+})();
+
+// ─── TIDAL 2D heatmap ────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('tidal-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const H_CSS = 260;
+  const PAD = { l: 58, r: 20, t: 20, b: 44 };
+
+  function lambdaTrain(p) {
+    return 0.1 + 0.8 * 0.5 * (1 - Math.cos(Math.PI * p));
+  }
+  function lambdaFull(t, p) {
+    return lambdaTrain(p) * (1 - t);
+  }
+
+  function draw() {
+    const W_CSS = canvas.clientWidth;
+    canvas.width  = W_CSS  * DPR;
+    canvas.height = H_CSS  * DPR;
+    ctx.scale(DPR, DPR);
+
+    const PW = W_CSS - PAD.l - PAD.r;
+    const PH = H_CSS - PAD.t - PAD.b;
+
+    // draw heatmap pixel by pixel (use imageData for speed)
+    const imgData = ctx.createImageData(Math.round(PW), Math.round(PH));
+    for (let px = 0; px < Math.round(PW); px++) {
+      for (let py = 0; py < Math.round(PH); py++) {
+        const t = px / (PW - 1);
+        const p = 1 - py / (PH - 1);
+        const lam = lambdaFull(t, p);
+        // color: black → purple
+        const r = Math.round(lam / 0.9 * 139);
+        const g = Math.round(lam / 0.9 * 92);
+        const b = Math.round(lam / 0.9 * 246);
+        const idx = (py * Math.round(PW) + px) * 4;
+        imgData.data[idx]   = r;
+        imgData.data[idx+1] = g;
+        imgData.data[idx+2] = b;
+        imgData.data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, PAD.l, PAD.t);
+
+    // X-axis: masking ratio t
+    ctx.fillStyle = 'rgba(148,163,184,.6)';
+    ctx.font = `${10 * DPR / DPR}px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('0.0 (low noise)', PAD.l + 0, H_CSS - 6);
+    ctx.fillText('0.5', PAD.l + PW * 0.5, H_CSS - 6);
+    ctx.fillText('1.0 (all masked)', PAD.l + PW, H_CSS - 6);
+    ctx.fillText('masking ratio t  →', PAD.l + PW * 0.5, H_CSS - 6 + 14);
+
+    // Y-axis: training progress p
+    ctx.textAlign = 'right';
+    ctx.fillText('0%', PAD.l - 6, H_CSS - PAD.b);
+    ctx.fillText('50%', PAD.l - 6, PAD.t + PH * 0.5);
+    ctx.fillText('100%', PAD.l - 6, PAD.t + 4);
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.t + PH * 0.5);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('training progress p  →', 0, 0);
+    ctx.restore();
+
+    // annotations
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.font = '11px var(--ff-mono)';
+    ctx.textAlign = 'left';
+    ctx.fillText('trust teacher', PAD.l + 4, PAD.t + 16);
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font = '10px var(--ff-mono)';
+    ctx.fillText('λ ≈ 0.9', PAD.l + 4, PAD.t + 30);
+
+    ctx.fillStyle = 'rgba(148,163,184,.7)';
+    ctx.font = '11px var(--ff-mono)';
+    ctx.textAlign = 'right';
+    ctx.fillText('ignore teacher', PAD.l + PW - 4, PAD.t + 16);
+    ctx.fillStyle = 'rgba(148,163,184,.4)';
+    ctx.font = '10px var(--ff-mono)';
+    ctx.fillText('λ ≈ 0.0', PAD.l + PW - 4, PAD.t + 30);
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+
+  // hover tooltip
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const W_CSS = canvas.clientWidth;
+    const PW = W_CSS - PAD.l - PAD.r;
+    const PH = H_CSS - PAD.t - PAD.b;
+    const t = Math.max(0, Math.min(1, (mx - PAD.l) / PW));
+    const p = Math.max(0, Math.min(1, 1 - (my - PAD.t) / PH));
+    const lam = lambdaFull(t, p);
+    const tooltip = document.getElementById('tidal-tooltip');
+    if (tooltip) {
+      tooltip.textContent = `t = ${t.toFixed(2)}  |  p = ${p.toFixed(2)}  |  λ(t,p) = ${lam.toFixed(3)}  — teacher weight: ${Math.round(lam / 0.9 * 100)}%`;
+    }
+  });
+  canvas.addEventListener('mouseleave', () => {
+    const tooltip = document.getElementById('tidal-tooltip');
+    if (tooltip) tooltip.textContent = 'hover to inspect λ value';
+  });
+})();
+
+// ─── CompDemo step navigator ─────────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#compdemo-steps .step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+
+  function update() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; update(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; update(); } });
+  update();
+})();
+</script>
+</BaseLayout>

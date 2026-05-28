@@ -1,0 +1,1469 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="RePlaid: Continuous Diffusion Rivals Discrete | AI/ML Deep Dives"
+  description="RePlaid closes the continuous diffusion compute gap from 64× to 20×, matching or beating MDLM with a principled ELBO that naturally structures token embeddings and distributes denoising difficulty evenly."
+  crumb="RePlaid"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+/* Tables */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+/* Bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-head{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.75rem 0 .25rem;font-family:var(--ff-mono)}
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+/* Embed viz */
+.embed-btns{display:flex;gap:.5rem;margin-bottom:.75rem}
+.embed-btn{padding:.3rem .85rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.embed-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.embed-ppl{font-size:.75rem;font-family:var(--ff-mono);color:var(--muted2);margin-left:auto;padding:.3rem .85rem;background:var(--card2);border-radius:5px;border:1px solid var(--border)}
+.embed-ppl strong{color:var(--text2)}
+/* Callout */
+.callout{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.25);border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.82rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+.callout-cyan{background:rgba(6,182,212,.08);border-color:rgba(6,182,212,.25)}
+.callout-cyan strong{color:var(--cyan)}
+.callout-green{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)}
+.callout-green strong{color:var(--green)}
+.inline-hl{color:var(--purple-l)}.inline-purple{color:var(--purple)}.inline-cyan{color:var(--cyan)}.inline-green{color:var(--green)}.inline-amber{color:var(--amber)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LMs</span>
+    <span class="tag tag-cyan">Scaling Laws</span>
+    <span class="tag tag-cyan">Continuous Diffusion</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>RePlaid: Continuous Diffusion Scales<br/>Competitively with Discrete</h1>
+  <p class="lead">
+    Continuous diffusion language models were written off after Plaid reported a 64× compute gap versus autoregressive models.
+    RePlaid fixes the comparison: align the architecture with modern discrete DLMs, train with the same protocol,
+    and the gap shrinks to 20× — on par with Duo (22×) and approaching MDLM (14×).
+    The result is a 22.1 PPL on OpenWebText, the best among all continuous DLMs and better than MDLM.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.18530</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.18530" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-myth"><a href="#s-myth"><span class="toc-num">01</span> The 64× Myth</a></li>
+    <li class="toc-item" id="toc-s-plaid"><a href="#s-plaid"><span class="toc-num">02</span> Plaid Background</a></li>
+    <li class="toc-item" id="toc-s-replaid"><a href="#s-replaid"><span class="toc-num">03</span> RePlaid Architecture</a></li>
+    <li class="toc-item" id="toc-s-embed"><a href="#s-embed"><span class="toc-num">04</span> Embedding Geometry</a></li>
+    <li class="toc-item" id="toc-s-noise"><a href="#s-noise"><span class="toc-num">05</span> Noise Schedule</a></li>
+    <li class="toc-item" id="toc-s-scaling"><a href="#s-scaling"><span class="toc-num">06</span> Scaling Laws</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">07</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ====== §01 ====== -->
+<section id="s-myth" data-code="myth">
+<div class="section-no">01 — The 64× Myth</div>
+<h2>A 64× Number That Was Never a Fair Fight</h2>
+<p>
+  When Plaid (2023) reported that continuous diffusion language models needed 64× more compute than
+  autoregressive models to reach the same validation loss, the community largely concluded continuous
+  diffusion was impractical at scale. That number became a citation shorthand for "continuous DLMs don't scale."
+</p>
+<p>
+  The problem: Plaid used a different transformer architecture than the modern discrete DLMs it was being
+  compared against. Different dataset, different optimizer hyperparameters, different attention variant,
+  different normalization — making the 64× figure a measurement of "everything different at once" rather
+  than a measurement of the continuous diffusion inductive bias itself.
+</p>
+<p>
+  RePlaid asks: what if we hold everything else equal? Use the same DiT backbone, same SlimPajama dataset,
+  same AdamW schedule, same FLOP-counting methodology as MDLM and Duo — and just change continuous vs. discrete.
+  The answer: the compute gap falls to <strong class="inline-hl">20×</strong>, placing
+  continuous diffusion squarely between MDLM (14×) and Duo (22×).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">compute gap to match AR validation loss — lower is better</span>
+    <span class="vp-hint">animates on scroll</span>
+  </div>
+  <div class="vp-body">
+    <div class="bar-section-head">Autoregressive Baseline</div>
+    <div class="results-bars" id="gap-bars">
+      <div class="bar-row">
+        <div class="bar-label">AR (reference)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="1.6" style="background:var(--amber)"><span>1×</span></div></div>
+      </div>
+      <div class="bar-section-head" style="margin-top:.5rem">Discrete Diffusion</div>
+      <div class="bar-row">
+        <div class="bar-label">MDLM (low var.)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="21.9" style="background:var(--cyan)"><span>14×</span></div></div>
+      </div>
+      <div class="bar-section-head" style="margin-top:.5rem">Continuous Diffusion</div>
+      <div class="bar-row">
+        <div class="bar-label">RePlaid (s.c.) — ours</div>
+        <div class="bar-track"><div class="bar-fill" data-w="31.3" style="background:var(--purple)"><span>20×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Duo</div>
+        <div class="bar-track"><div class="bar-fill" data-w="34.4" style="background:rgba(100,100,120,.6)"><span>22×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">RePlaid (no s.c.)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="42.2" style="background:rgba(139,92,246,.4)"><span>27×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Original Plaid</div>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(239,68,68,.55)"><span>64×</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Key insight:</strong> The 64× figure was never an inherent limitation of continuous diffusion —
+  it was an artifact of an apples-to-oranges architectural comparison. With a fair setup,
+  continuous diffusion is competitive with discrete DLMs.
+</div>
+</section>
+
+<!-- ====== §02 ====== -->
+<section id="s-plaid" data-code="plaid">
+<div class="section-no">02 — Plaid Background</div>
+<h2>How Plaid Works: Gaussian Noise on Token Embeddings</h2>
+<p>
+  Plaid is a Variational Diffusion Model (VDM) for text. Rather than operating on discrete token IDs
+  directly (as MDLM and Duo do), Plaid first embeds each token into a low-dimensional
+  <em>continuous</em> vector space using a learned embedding matrix
+  <strong class="inline-cyan">E ∈ ℝ<sup>V×d_e</sup></strong> with d_e = 16 (not 768).
+  Gaussian noise is then added to these embeddings, not to one-hot token vectors.
+</p>
+<p>
+  This has a key efficiency benefit: projecting V-dimensional one-hot vectors (V ≈ 32K) through the
+  transformer hidden size h requires [L, V] × [V, h] multiplications. Plaid reduces this to
+  [L, d_e] × [d_e, h] — roughly 50× fewer FLOPs at V=32K, h=768, d_e=16.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">plaid forward & reverse diffusion — text as continuous embeddings</span>
+  </div>
+  <div class="vp-body" style="min-height:200px">
+    <div id="plaid-arch-svg" style="overflow-x:auto;padding:.25rem 0"></div>
+  </div>
+</div>
+
+<p>
+  Training minimizes the Negative ELBO (NELBO), which has three terms: a prior KL loss, a
+  reconstruction loss at t=0, and a diffusion loss across all timesteps. The denoiser
+  <code>x_θ(z_t, t)</code> outputs a probability distribution over the vocabulary at each position —
+  it's a transformer with bidirectional attention conditioned on the noise level t.
+</p>
+<p>
+  The noise schedule γ(t) controls how much signal remains at time t. Plaid inherits VDM's
+  learnable schedule: the endpoints γ₀ and γ₁ plus a monotone neural net for the interior shape.
+  Crucially, this schedule is <em>learned</em> by minimizing the Monte Carlo variance of the ELBO —
+  a key mechanism explored in §05.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Plaid NELBO (training objective)</div>
+  <span class="math-var">L</span> = KL(q(z₁|x) ‖ p(z₁))&nbsp;&nbsp;<span class="math-comment">← prior loss</span>
+  + 𝔼[−log⟨x_θ(z₀, 0), x⟩]&nbsp;&nbsp;<span class="math-comment">← reconstruction at t=0</span>
+  − ½ 𝔼<sub>t,z_t</sub>[SNR′(t) · ‖ê_θ(z_t, t) − e‖²]&nbsp;&nbsp;<span class="math-comment">← diffusion loss</span>
+</div>
+</section>
+
+<!-- ====== §03 ====== -->
+<section id="s-replaid" data-code="replaid">
+<div class="section-no">03 — RePlaid Architecture</div>
+<h2>The Architecture Fix: Aligning with Modern Discrete DLMs</h2>
+<p>
+  To make a fair comparison with MDLM and Duo, RePlaid adopts the exact same Diffusion Transformer (DiT)
+  backbone: bidirectional attention, RoPE positional embeddings, and AdaLN-Zero modulation.
+  The original Plaid used different choices for each of these, making its 64× gap impossible to attribute
+  to the continuous diffusion training objective alone.
+</p>
+<p>
+  Five concrete changes bring Plaid's architecture in line. Walk through them below — each is small
+  individually, but together they drop the compute gap from 64× to 27× (without self-conditioning)
+  and to 20× (with self-conditioning).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">replaid architecture alignment — 5 changes from plaid to replaid</span>
+    <span class="vp-hint">step through to explore</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="align-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Bidirectional Attention + RoPE</div>
+          <div class="step-desc">Plaid used standard learned positional embeddings with unspecified attention. RePlaid switches to RoPE (rotary position embeddings) with bidirectional attention — matching MDLM/Duo exactly.</div>
+          <div class="step-code">attn = BidirectionalAttention(RoPE=True)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">LayerNorm + MLP Biases</div>
+          <div class="step-desc">Enable biases in all MLP layers and use LayerNorm with learnable scale/shift. These small capacity additions are standard in modern transformers but were not present in original Plaid.</div>
+          <div class="step-code">LayerNorm(bias=True); MLP(bias=True)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">GELU(tanh) Activation</div>
+          <div class="step-desc">Replace the MLP activation with GELU with tanh approximation — the standard choice in modern language model transformers (GPT-4, Llama, MDLM).</div>
+          <div class="step-code">act = GELU(approximate='tanh')</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">AdaLN-Zero with Learnable Gating</div>
+          <div class="step-desc">Inject the noise timestep t via AdaLN-Zero modulation — scale and shift the LayerNorm outputs as a function of t. Learnable zero-initialized gates on the residual branches allow stable training.</div>
+          <div class="step-code">y = x + gate * Attn(AdaLN(x, t))</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Remove FP32 Logit Head</div>
+          <div class="step-desc">Original Plaid computed the final output prior logits in FP32 (not BF16) — a major numerical confounder in FLOP-matched comparisons. RePlaid removes this and runs the full forward pass in BF16.</div>
+          <div class="step-code">head = Linear(h, V, dtype=bfloat16)</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="align-prev" disabled>← Prev</button>
+      <span id="align-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+      <button id="align-next">Next →</button>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ====== §04 ====== -->
+<section id="s-embed" data-code="embed">
+<div class="section-no">04 — Embedding Geometry</div>
+<h2>Why ELBO Beats Cross-Entropy: The Structured Embedding Space</h2>
+<p>
+  Other continuous DLMs — FLM, LangFlow, CDCD — train with a cross-entropy (CE) loss instead of the
+  ELBO's MSE-style diffusion loss. A natural question: can RePlaid just use CE loss too?
+  The answer is no, and the reason is visible in the embedding geometry.
+</p>
+<p>
+  RePlaid's ELBO objective enforces a <strong class="inline-hl">low-rank, structured</strong>
+  embedding space: after training, 90% of the variance in E is explained by just 6 principal components,
+  and a t-SNE plot shows clear clustering by part-of-speech (nouns cluster together, verbs cluster
+  separately, etc.). Adding an auxiliary CE loss disperses the embeddings — 90% variance now requires
+  13 principal components — and the PPL bound degrades from 22.1 to 26.1.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">learned token embedding geometry (d_e = 16, shown in 2D via t-SNE)</span>
+    <span class="vp-hint">toggle to compare</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <div class="embed-btns">
+        <button class="embed-btn active" id="embed-elbo">ELBO training (22.1 PPL)</button>
+        <button class="embed-btn" id="embed-ce">ELBO + CE training (26.1 PPL)</button>
+      </div>
+    </div>
+    <canvas id="embed-canvas" style="width:100%;height:280px;border-radius:8px;background:var(--card2)"></canvas>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.875rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)">
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#06b6d4;display:inline-block"></span>NOUN</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block"></span>VERB</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span>ADJ</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span>DET</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span>PREP</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span>PUNCT</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  This low-rank geometry is not a coincidence — it's a consequence of the ELBO's signal-to-noise
+  weighting. The ELBO's diffusion loss pays more attention to denoising at low noise levels (near
+  clean data), which forces the model to create tight, discriminable clusters that are easy to
+  recover from slightly corrupted versions. CE training, by contrast, applies uniform pressure across
+  all token pairs, creating a more dispersed embedding geometry that is harder to denoise.
+</p>
+
+<table class="results-table">
+  <thead><tr><th>Component removed</th><th>OWT PPL (1M steps)</th><th>Delta</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td>RePlaid (s.c.) — full model</td><td class="mn best">22.1</td><td class="mn">—</td></tr>
+    <tr><td>w/o output prior logits</td><td class="mn">22.5</td><td class="mn">+0.4</td></tr>
+    <tr><td>w/o self-conditioning</td><td class="mn">23.6</td><td class="mn">+1.5</td></tr>
+    <tr><td>w/o learnable noise schedule</td><td class="mn">24.4</td><td class="mn">+2.3</td></tr>
+    <tr><td>w/o learnable embeddings (frozen random)</td><td class="mn" class="inline-amber">39.4</td><td class="mn">+17.3</td></tr>
+  </tbody>
+</table>
+<p style="font-size:.8rem;color:var(--muted);margin-top:-.5rem">Freezing token embeddings causes the single largest PPL collapse — from 22.1 to 39.4, making RePlaid the <em>worst</em> DLM on OWT. Embedding geometry is the primary driver of RePlaid's gains.</p>
+</section>
+
+<!-- ====== §05 ====== -->
+<section id="s-noise" data-code="noise">
+<div class="section-no">05 — Noise Schedule</div>
+<h2>The Schedule Secret: Linear CE Emerges Automatically</h2>
+<p>
+  A recurring challenge in diffusion language models is distributing denoising difficulty evenly
+  across timesteps. If the model has to do most of its work at a narrow range of t values,
+  training is inefficient. Recent CE-based methods (CDCD, FLM, LangFlow) hand-engineer time
+  reparameterizations to achieve a near-linear per-timestep cross-entropy loss.
+</p>
+<p>
+  RePlaid doesn't need this heuristic. The ELBO's Monte Carlo variance is minimized by making the
+  <strong class="inline-cyan">per-timestep diffusion loss flat</strong> (Proposition 1).
+  And a flat diffusion loss, under a near-optimal denoiser, implies a
+  <strong class="inline-green">near-linear per-timestep CE loss</strong> (Proposition 2) —
+  exactly what CE-based methods manually engineer. The schedule learns it for free.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">per-timestep CE loss vs t — linear distribution = even denoising difficulty</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="schedule-canvas" style="width:100%;height:220px"></canvas>
+  </div>
+</div>
+
+<div class="math-block">
+  <div class="math-label">Proposition 2 — Per-Timestep CE Under Optimality</div>
+  CE*<sub>γ*</sub>(t) = H(x) − I(e; z₀)&nbsp;<span class="math-comment">← constant offset</span>
+  + <span class="math-var">κ</span> · t&nbsp;<span class="math-comment">← linear trend (κ = avg diffusion loss)</span>
+  + C(x | z_t)&nbsp;<span class="math-comment">← conditional total correlation (non-negative, increasing in t)</span>
+</div>
+
+<p>
+  The linear trend term <span class="inline-cyan">κ · t</span> dominates in practice, so the
+  CE loss is approximately linear in t. This means no manual time reparameterization is needed:
+  optimizing the ELBO variance automatically provides what LangFlow engineers by hand.
+</p>
+<div class="callout callout-green">
+  <strong>Practical upshot:</strong> A frozen cosine noise schedule (standard for image diffusion)
+  concentrates denoising difficulty in the middle of the trajectory — easy at both ends, hard in
+  the middle. The learned schedule redistributes work evenly, which improves both training efficiency
+  and final likelihood.
+</div>
+</section>
+
+<!-- ====== §06 ====== -->
+<section id="s-scaling" data-code="scaling">
+<div class="section-no">06 — Scaling Laws</div>
+<h2>On Par with Discrete: The First Fair Scaling Comparison</h2>
+<p>
+  To measure scaling behavior, the authors perform an IsoFLOP analysis: for each of 5 compute budgets
+  (6×10¹⁸ to 10²⁰ FLOPs), they train models of varying sizes and find the compute-optimal (Chinchilla-style)
+  validation loss. These optimal (FLOPs, loss) pairs are then fit to a power law: <em>L* ∝ C<sup>α</sup></em>.
+</p>
+<p>
+  All five methods — AR, MDLM, Duo, RePlaid (s.c.), RePlaid (no s.c.) — exhibit nearly identical
+  power-law exponents. The curves are parallel on a log-log plot; only their horizontal positions differ.
+  RePlaid (s.c.) sits 20× to the right of AR, between MDLM (14×) and Duo (22×).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">compute-optimal scaling laws — validation loss vs non-embedding FLOPs</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="scaling-canvas" style="width:100%;height:260px"></canvas>
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.875rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)">
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--amber);display:inline-block"></span>AR (baseline)</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--cyan);display:inline-block"></span>MDLM (14×)</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--purple);display:inline-block"></span>RePlaid s.c. (20×)</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:rgba(100,100,130,.8);display:inline-block"></span>Duo (22×)</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:24px;height:2px;background:rgba(139,92,246,.45);border-top:2px dashed rgba(139,92,246,.5);display:inline-block"></span>RePlaid no s.c. (27×)</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  One unexpected finding: in the <em>over-trained regime</em> (training a smaller model for much longer
+  than compute-optimal), RePlaid (s.c.) overtakes MDLM. For a 66M parameter model, RePlaid achieves
+  lower loss than MDLM when both are pushed past their compute-optimal points. This is significant for
+  production scenarios where small, cheap-to-serve models are over-trained on large data budgets.
+</p>
+
+<table class="results-table">
+  <thead><tr><th>Method</th><th>Compute gap vs AR</th><th>Params vs AR (optimal)</th></tr></thead>
+  <tbody>
+    <tr><td>AR (reference)</td><td class="mn">1×</td><td class="mn">1×</td></tr>
+    <tr><td>MDLM (low var.)</td><td class="mn">14×</td><td class="mn">3.4×</td></tr>
+    <tr class="highlight-row"><td>RePlaid (s.c.) — ours</td><td class="mn best">20×</td><td class="mn best">1.0×</td></tr>
+    <tr><td>Duo</td><td class="mn">22×</td><td class="mn">3.4×</td></tr>
+    <tr><td>RePlaid (no s.c.)</td><td class="mn">27×</td><td class="mn">—</td></tr>
+    <tr><td>Original Plaid</td><td class="mn" class="inline-amber">64×</td><td class="mn">—</td></tr>
+  </tbody>
+</table>
+<p style="font-size:.8rem;color:var(--muted);margin-top:-.5rem">RePlaid (s.c.) uses 3.4× fewer parameters than MDLM and Duo to reach its compute-optimal frontier — a side-effect of the low-dimensional (d_e=16) embeddings avoiding the large embedding tables discrete DLMs need.</p>
+</section>
+
+<!-- ====== §07 ====== -->
+<section id="s-results" data-code="results">
+<div class="section-no">07 — Results</div>
+<h2>State-of-the-Art Perplexity and Generation Quality</h2>
+<p>
+  At the standard 0.1B-parameter, 1M-step benchmark, RePlaid (s.c.) achieves <strong class="inline-hl">22.1 PPL</strong>
+  on OpenWebText — the best among all continuous DLMs, and even lower than the discrete MDLM (23.1).
+  On LM1B, it reaches 31.6, surpassing Duo (33.7) but behind MDLM (30.8).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">test perplexity on OpenWebText — lower is better (animates on scroll)</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="ppl-bars">
+      <div class="bar-section-head">Autoregressive</div>
+      <div class="bar-row">
+        <div class="bar-label">AR Transformer-XL</div>
+        <div class="bar-track"><div class="bar-fill" data-w="17.5" style="background:var(--amber)"><span>17.5</span></div></div>
+      </div>
+      <div class="bar-section-head" style="margin-top:.5rem">Discrete Diffusion</div>
+      <div class="bar-row">
+        <div class="bar-label">MDLM (low var.)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="23.1" style="background:var(--cyan)"><span>23.1</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Duo</div>
+        <div class="bar-track"><div class="bar-fill" data-w="25.2" style="background:rgba(80,80,110,.6)"><span>25.2</span></div></div>
+      </div>
+      <div class="bar-section-head" style="margin-top:.5rem">Continuous Diffusion</div>
+      <div class="bar-row">
+        <div class="bar-label">RePlaid (s.c.) — ours</div>
+        <div class="bar-track"><div class="bar-fill" data-w="22.1" style="background:var(--purple)"><span>22.1</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">RePlaid (no s.c.) — ours</div>
+        <div class="bar-track"><div class="bar-fill" data-w="23.6" style="background:rgba(139,92,246,.45)"><span>23.6</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Plaid (original)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="24.4" style="background:rgba(139,92,246,.3)"><span>24.4</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">LangFlow</div>
+        <div class="bar-track"><div class="bar-fill" data-w="38.4" style="background:rgba(100,100,100,.4)"><span>38.4</span></div></div>
+      </div>
+    </div>
+    <p style="font-size:.67rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono)">PPL scale normalized to 50 = 100% bar width. AR reference = 17.5 nats.</p>
+  </div>
+</div>
+
+<p>
+  For generation quality, RePlaid (no s.c.) consistently beats Duo at all sampling step counts T.
+  Self-conditioning helps at large T (≥64 steps) and produces a GenPPL of ~21 at T=1024, the best
+  among all diffusion LMs — but hurts at small T because the self-conditioning loop sharpens the
+  sampling distribution below the reference entropy, reducing diversity.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">generative perplexity vs sampling steps T — lower is better</span>
+    <span class="vp-hint">shows quality-compute tradeoff</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="genppl-canvas" style="width:100%;height:240px"></canvas>
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.875rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)">
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--purple);display:inline-block"></span>RePlaid s.c.</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:rgba(139,92,246,.55);display:inline-block;border-top:2px dashed rgba(139,92,246,.7)"></span>RePlaid no s.c.</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--cyan);display:inline-block"></span>Duo</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:var(--amber);display:inline-block"></span>MDLM</span>
+      <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:18px;height:2px;background:rgba(100,100,100,.7);display:inline-block"></span>LangFlow</span>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-cyan">
+  <strong>Why does this matter?</strong> Unlike discrete DLMs which can only sample token-by-token
+  (like AR), continuous DLMs can use ODE solvers and distillation to collapse the full sampling
+  trajectory into far fewer steps. RePlaid's strong performance at T=32–64 steps (competitive with
+  discrete methods' best) makes it a compelling foundation for few-step text generation research.
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">replaid/background.py</div>
+      <div class="cs-section-title" id="cs-section-title">The 64× Myth</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="myth">myth</button>
+    <button class="cs-tab" data-panel="plaid">plaid</button>
+    <button class="cs-tab" data-panel="replaid">replaid</button>
+    <button class="cs-tab" data-panel="embed">embed</button>
+    <button class="cs-tab" data-panel="noise">noise</button>
+    <button class="cs-tab" data-panel="scaling">scaling</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-myth">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The 64× figure — why it wasn't a fair comparison</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Original Plaid vs MDLM differences:</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Plaid used:   BERT-style transformer</span></span>
+<span class="cs-line hl-a"><span class="cmt">#               learned absolute pos. embeddings</span></span>
+<span class="cs-line hl-a"><span class="cmt">#               SiLU activations</span></span>
+<span class="cs-line hl-a"><span class="cmt">#               FP32 logit head (!)  </span></span>
+<span class="cs-line hl-a"><span class="cmt">#               different dataset (OWT subset)</span></span>
+<span class="cs-line hl-a"><span class="cmt">#               different optimizer config</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># MDLM used:    DiT transformer</span></span>
+<span class="cs-line hl-g"><span class="cmt">#               RoPE positional embeddings</span></span>
+<span class="cs-line hl-g"><span class="cmt">#               GELU(tanh) activations</span></span>
+<span class="cs-line hl-g"><span class="cmt">#               BF16 throughout</span></span>
+<span class="cs-line hl-g"><span class="cmt">#               SlimPajama dataset</span></span>
+<span class="cs-line hl-g"><span class="cmt">#               AdamW 2e-4 → 2e-5 cosine</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># RePlaid: retain Plaid's training objective</span>
+<span class="cs-line cmt"># (NELBO), adopt MDLM's architecture exactly.</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Result: 64× gap → 20× gap</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   continuous diffusion is competitive.</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-plaid">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Plaid forward diffusion process</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">forward</span>(x, t, E, gamma):</span>
+<span class="cs-line"><span class="cmt">    # x: token ids [L], E: embedding matrix [V, d_e]</span></span>
+<span class="cs-line"><span class="cmt">    # d_e = 16 (not 768 — 50× cheaper!)</span></span>
+<span class="cs-line hl-c">    e = E[x]  <span class="cmt"># [L, d_e], unit-norm rows</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    alpha_t = sigmoid(-gamma(t)) ** 0.5</span>
+<span class="cs-line">    sigma_t = sigmoid( gamma(t)) ** 0.5</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    z_t = alpha_t * e + sigma_t * randn_like(e)</span>
+<span class="cs-line hl-p"><span class="cmt">    # z_t ~ N(alpha_t * e, sigma_t^2 * I)</span></span>
+<span class="cs-line">    <span class="kw">return</span> z_t</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Denoiser: predict clean embedding from noisy</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">denoise</span>(z_t, t, theta):</span>
+<span class="cs-line"><span class="cmt">    # returns p(x | z_t): vocab distribution [L, V]</span></span>
+<span class="cs-line">    logits = transformer(z_t, t)  <span class="cmt"># bidirectional</span></span>
+<span class="cs-line">    logits += output_prior(z_t, E)  <span class="cmt"># Gaussian log-density</span></span>
+<span class="cs-line hl-g">    <span class="kw">return</span> softmax(logits, dim=-1)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Diffusion loss (MSE in embedding space)</span>
+<span class="cs-line">loss = -0.5 * SNR_prime(t) * ||e_hat(z_t,t) - e||^2</span>
+<span class="cs-line"><span class="cmt"># where e_hat = softmax(logits) @ E (predicted embed)</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-replaid">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># RePlaid = Plaid NELBO + modern DiT architecture</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">RePlaidBlock</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, h, heads):</span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.norm1 = LayerNorm(h)  <span class="cmt"># ← added</span></span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.norm2 = LayerNorm(h)</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.attn = BidirectionalAttention(h, heads,</span>
+<span class="cs-line hl-c">                        rope=<span class="cls">True</span>)  <span class="cmt"># ← RoPE added</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.mlp = MLP(h, 4*h, bias=<span class="cls">True</span>,  <span class="cmt"># ← biases</span></span>
+<span class="cs-line hl-p">                   act=GELU(approx=<span class="str">'tanh'</span>))  <span class="cmt"># ← GELU</span></span>
+<span class="cs-line hl-a">        <span class="kw">self</span>.adaLN = AdaLNZero(h)  <span class="cmt"># ← timestep cond.</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, x, t_emb):</span>
+<span class="cs-line">        scale1, shift1, gate1, \</span>
+<span class="cs-line">        scale2, shift2, gate2 = <span class="kw">self</span>.adaLN(t_emb)</span>
+<span class="cs-line">        x = x + gate1 * <span class="kw">self</span>.attn(</span>
+<span class="cs-line">                <span class="kw">self</span>.norm1(x) * scale1 + shift1)</span>
+<span class="cs-line">        x = x + gate2 * <span class="kw">self</span>.mlp(</span>
+<span class="cs-line">                <span class="kw">self</span>.norm2(x) * scale2 + shift2)</span>
+<span class="cs-line">        <span class="kw">return</span> x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Final logit head: BF16 throughout (no FP32 head)</span>
+<span class="cs-line hl-g">self.head = Linear(h, V, dtype=bfloat16)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-embed">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Embedding geometry: ELBO vs CE training</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ELBO training (RePlaid default):</span>
+<span class="cs-line"><span class="cmt">#   E in R^&#123;V x 16&#125;, unit-norm rows</span></span>
+<span class="cs-line"><span class="cmt">#   Learned jointly with theta via NELBO</span></span>
+<span class="cs-line"><span class="cmt">#   Result: low-rank, POS-structured</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   PCA: 90% variance in top-6 PCs ← tight clusters</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   PPL: 22.1 on OWT</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ELBO + auxiliary CE training:</span>
+<span class="cs-line"><span class="cmt">#   CE loss adds a separative force on E</span></span>
+<span class="cs-line"><span class="cmt">#   Makes embeddings discriminative but dispersed</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   PCA: 90% variance needs 13 PCs ← spread out</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   PPL: 26.1 on OWT  (delta = +4.0)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The ELBO naturally regularizes embeddings</span>
+<span class="cs-line cmt"># to be tight / easily denoised. CE training</span>
+<span class="cs-line cmt"># fights against this: it wants maximum margin</span>
+<span class="cs-line cmt"># between tokens, which spreads them out and</span>
+<span class="cs-line cmt"># makes the denoising task harder.</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Ablation: freeze embeddings → PPL 39.4</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   Learnable E is the #1 factor in RePlaid.</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-noise">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Noise schedule: learned to minimize variance</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># gamma(t) = gamma0 + (gamma1-gamma0) * gamma_tilde(t)</span>
+<span class="cs-line cmt"># gamma_tilde: monotone neural net [0,1]->[0,1]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Optimized for: minimize Var_t[diffusion_loss(t)]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Proposition 1: the unique optimal schedule γ*</span>
+<span class="cs-line cmt"># makes per-timestep diffusion loss CONSTANT:</span>
+<span class="cs-line hl-g">    <span class="cmt"># ℓ(t) ≡ κ for all t ∈ [0,1]</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># Var_t[ℓ(t)] = 0  ← minimum variance</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Proposition 2 (Bayes-optimal denoiser):</span>
+<span class="cs-line cmt"># CE(t) = H(x) - I(e;z0) + κ·t + C(x|zt)</span>
+<span class="cs-line hl-c">    <span class="cmt"># κ·t is the dominant linear trend</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># CE is approximately linear in t !</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># No manual time reparameterization needed —</span>
+<span class="cs-line cmt"># the ELBO variance minimization provides it.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Compare: LangFlow manually matches the noise</span>
+<span class="cs-line cmt"># density to the information-gain rate.</span>
+<span class="cs-line cmt"># RePlaid achieves the same property for free.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-scaling">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># IsoFLOP scaling law analysis</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cmt"># For each compute budget C:</span></span>
+<span class="cs-line">budgets = [6e18, 1e19, 3e19, 6e19, 1e20]</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">iso_flop</span>(C, method):</span>
+<span class="cs-line">    losses = []</span>
+<span class="cs-line">    <span class="kw">for</span> N <span class="kw">in</span> param_sizes:  <span class="cmt"># sweep model sizes</span></span>
+<span class="cs-line">        D = C / (6 * N)  <span class="cmt"># tokens budget</span></span>
+<span class="cs-line hl-p">        L = train(method, N, D)  <span class="cmt"># val loss</span></span>
+<span class="cs-line">        losses.append((N, L))</span>
+<span class="cs-line">    <span class="cmt"># fit quadratic in log-log to find N*, L*</span></span>
+<span class="cs-line">    N_star, L_star = fit_quadratic(losses)</span>
+<span class="cs-line">    <span class="kw">return</span> N_star, L_star</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Fit power law: L* ∝ C^α</span>
+<span class="cs-line hl-g">alpha, beta = fit_power_law(budgets, L_stars)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Compute gaps (FLOPs to match AR loss):</span>
+<span class="cs-line cmt">#   MDLM:            14×</span>
+<span class="cs-line cmt">#   RePlaid (s.c.):  20×  ← ours</span>
+<span class="cs-line cmt">#   Duo:             22×</span>
+<span class="cs-line cmt">#   RePlaid (no sc): 27×</span>
+<span class="cs-line cmt">#   Original Plaid:  64×  ← old (unfair) baseline</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark results (OWT, 0.1B, 1M steps)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># PPL (NELBO bound, lower = better):</span>
+<span class="cs-line"><span class="cmt">#   AR Transformer-XL:   17.5  (gold standard)</span></span>
+<span class="cs-line"><span class="cmt"># ---- discrete diffusion ----</span></span>
+<span class="cs-line"><span class="cmt">#   MDLM (low var):      23.1</span></span>
+<span class="cs-line"><span class="cmt">#   Duo:                 25.2</span></span>
+<span class="cs-line"><span class="cmt"># ---- continuous diffusion ----</span></span>
+<span class="cs-line hl-p">    <span class="cmt">#   RePlaid (s.c.):  22.1  ← SOTA continuous</span></span>
+<span class="cs-line hl-p">    <span class="cmt">#   RePlaid (no sc): 23.6</span></span>
+<span class="cs-line"><span class="cmt">#   Plaid (original):    24.4</span></span>
+<span class="cs-line"><span class="cmt">#   LangFlow:            38.4</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Generation (DDPM sampler, T steps):</span>
+<span class="cs-line cmt"># GenPPL at T=1024:</span>
+<span class="cs-line hl-g">    <span class="cmt">#   RePlaid s.c.:   ~21  ← best DLM</span></span>
+<span class="cs-line hl-g">    <span class="cmt">#   RePlaid no sc:  ~25</span></span>
+<span class="cs-line"><span class="cmt">#   Duo:            ~26</span></span>
+<span class="cs-line"><span class="cmt">#   MDLM:           ~28</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key: RePlaid no s.c. beats Duo at ALL T values.</span>
+<span class="cs-line cmt"># RePlaid s.c. best at T &gt;= 64 steps.</span>
+<span class="cs-line hl-c"><span class="cmt"># At few steps (T=8): use DPM-Solver++(2M).</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ======= TOC + Sidebar toggles =======
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ======= Code sidebar tabs =======
+const tabMeta = {
+  myth:    { file: 'replaid/comparison.py',    title: 'The 64× Myth' },
+  plaid:   { file: 'replaid/plaid_vdm.py',     title: 'Plaid Background' },
+  replaid: { file: 'replaid/architecture.py',  title: 'RePlaid Architecture' },
+  embed:   { file: 'replaid/embeddings.py',    title: 'Embedding Geometry' },
+  noise:   { file: 'replaid/noise_sched.py',   title: 'Noise Schedule' },
+  scaling: { file: 'replaid/scaling.py',       title: 'Scaling Laws' },
+  results: { file: 'replaid/results.py',       title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ======= IntersectionObserver — TOC + tab sync =======
+const sectionMap = {
+  's-myth':    'myth',
+  's-plaid':   'plaid',
+  's-replaid': 'replaid',
+  's-embed':   'embed',
+  's-noise':   'noise',
+  's-scaling': 'scaling',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ======= Animated bar charts on scroll =======
+function animateBars(barsId, sectionId) {
+  const sec = document.getElementById(sectionId);
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll(`#${barsId} .bar-fill[data-w]`).forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 100 * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(sec);
+}
+animateBars('gap-bars',  's-myth');
+animateBars('ppl-bars',  's-results');
+
+// ======= Step navigator =======
+let alignStep = 0;
+const alignBoxes  = document.querySelectorAll('#align-steps .step-box');
+const alignPrev   = document.getElementById('align-prev');
+const alignNext   = document.getElementById('align-next');
+const alignProg   = document.getElementById('align-prog');
+function updateAlignSteps() {
+  alignBoxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === alignStep) b.classList.add('active');
+    else if (i < alignStep) b.classList.add('done');
+  });
+  if (alignPrev) alignPrev.disabled = alignStep === 0;
+  if (alignNext) alignNext.disabled = alignStep === alignBoxes.length - 1;
+  if (alignProg) alignProg.textContent = `Step ${alignStep+1} of ${alignBoxes.length}`;
+  alignBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < alignStep ? '✓' : String(i+1);
+  });
+}
+alignPrev?.addEventListener('click', () => { if (alignStep>0){alignStep--;updateAlignSteps();} });
+alignNext?.addEventListener('click', () => { if (alignStep<alignBoxes.length-1){alignStep++;updateAlignSteps();} });
+updateAlignSteps();
+
+// ======= Architecture SVG =======
+const archDiv = document.getElementById('plaid-arch-svg');
+if (archDiv) {
+  archDiv.innerHTML = `<svg viewBox="0 0 680 170" width="100%" style="max-width:680px;display:block;margin:0 auto">
+    <defs>
+      <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0,0 8,3 0,6" fill="#6b7280"/>
+      </marker>
+      <marker id="ahp" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0,0 8,3 0,6" fill="#8b5cf6"/>
+      </marker>
+      <marker id="ahc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0,0 8,3 0,6" fill="#06b6d4"/>
+      </marker>
+      <marker id="ahg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0,0 8,3 0,6" fill="#10b981"/>
+      </marker>
+    </defs>
+    <!-- Token IDs box -->
+    <rect x="10" y="65" width="80" height="40" rx="6" fill="rgba(30,32,40,1)" stroke="#374151" stroke-width="1.2"/>
+    <text x="50" y="81" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">Token IDs</text>
+    <text x="50" y="94" text-anchor="middle" fill="#6b7280" font-size="8" font-family="monospace">[L]</text>
+    <!-- Arrow: tokens → embed -->
+    <line x1="90" y1="85" x2="120" y2="85" stroke="#6b7280" stroke-width="1.2" marker-end="url(#ah)"/>
+    <!-- Embedding box -->
+    <rect x="122" y="55" width="90" height="60" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.2"/>
+    <text x="167" y="74" text-anchor="middle" fill="#06b6d4" font-size="9" font-family="monospace" font-weight="600">Embed E</text>
+    <text x="167" y="87" text-anchor="middle" fill="#9ca3af" font-size="8" font-family="monospace">d_e = 16</text>
+    <text x="167" y="101" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">≈50× cheaper</text>
+    <!-- Arrow: embed → noise -->
+    <line x1="212" y1="85" x2="244" y2="85" stroke="#6b7280" stroke-width="1.2" marker-end="url(#ah)"/>
+    <text x="228" y="78" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">+noise</text>
+    <!-- Noisy latent box -->
+    <rect x="246" y="55" width="90" height="60" rx="6" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.35)" stroke-width="1.2"/>
+    <text x="291" y="74" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="600">z_t  ∈ ℝ^de</text>
+    <text x="291" y="87" text-anchor="middle" fill="#9ca3af" font-size="8" font-family="monospace">t ~ U[0,1]</text>
+    <text x="291" y="101" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">VP process</text>
+    <!-- Arrow: z_t → denoiser -->
+    <line x1="336" y1="85" x2="368" y2="85" stroke="#6b7280" stroke-width="1.2" marker-end="url(#ah)"/>
+    <text x="352" y="78" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">denoise</text>
+    <!-- Transformer box -->
+    <rect x="370" y="45" width="105" height="80" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.2"/>
+    <text x="423" y="68" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="monospace" font-weight="600">Transformer</text>
+    <text x="423" y="81" text-anchor="middle" fill="#9ca3af" font-size="8" font-family="monospace">Bidir. attn</text>
+    <text x="423" y="94" text-anchor="middle" fill="#9ca3af" font-size="8" font-family="monospace">AdaLN(t)</text>
+    <text x="423" y="107" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">x_θ(z_t, t)</text>
+    <!-- Arrow: transformer → decode -->
+    <line x1="475" y1="85" x2="507" y2="85" stroke="#6b7280" stroke-width="1.2" marker-end="url(#ah)"/>
+    <!-- Decode box -->
+    <rect x="509" y="55" width="85" height="60" rx="6" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.35)" stroke-width="1.2"/>
+    <text x="551" y="74" text-anchor="middle" fill="#10b981" font-size="9" font-family="monospace" font-weight="600">Decode</text>
+    <text x="551" y="87" text-anchor="middle" fill="#9ca3af" font-size="8" font-family="monospace">p(x|z_t)</text>
+    <text x="551" y="101" text-anchor="middle" fill="#6b7280" font-size="7.5" font-family="monospace">argmax</text>
+    <!-- Arrow: decode → tokens out -->
+    <line x1="594" y1="85" x2="624" y2="85" stroke="#6b7280" stroke-width="1.2" marker-end="url(#ah)"/>
+    <!-- Token output box -->
+    <rect x="626" y="65" width="46" height="40" rx="6" fill="rgba(30,32,40,1)" stroke="#374151" stroke-width="1.2"/>
+    <text x="649" y="81" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">Tokens</text>
+    <text x="649" y="94" text-anchor="middle" fill="#6b7280" font-size="8" font-family="monospace">out</text>
+    <!-- Forward process label -->
+    <text x="200" y="145" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="monospace">← forward process (training)</text>
+    <!-- Reverse process label -->
+    <text x="460" y="145" text-anchor="middle" fill="#8b5cf6" font-size="8" font-family="monospace">reverse process (inference) →</text>
+    <!-- Forward arrow below -->
+    <line x1="90" y1="138" x2="336" y2="138" stroke="rgba(245,158,11,.4)" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ah)"/>
+    <!-- Reverse arrow below -->
+    <line x1="594" y1="138" x2="368" y2="138" stroke="rgba(139,92,246,.4)" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ahp)"/>
+  </svg>`;
+}
+
+// ======= Embedding canvas =======
+const embedCanvas = document.getElementById('embed-canvas');
+if (embedCanvas) {
+  const ctx = embedCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function sizeEmbed() {
+    const W = embedCanvas.clientWidth, H = 280;
+    embedCanvas.width = W * DPR; embedCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return [W, H];
+  }
+
+  // Seeded PRNG
+  function seeded(s) {
+    let seed = s;
+    return () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
+  }
+
+  // Groups: [label, color, cx, cy for ELBO mode]
+  const GROUPS = [
+    ['NOUN', '#06b6d4', 0.22, 0.28],
+    ['VERB', '#8b5cf6', 0.60, 0.22],
+    ['ADJ',  '#10b981', 0.42, 0.62],
+    ['DET',  '#f59e0b', 0.18, 0.65],
+    ['PREP', '#ef4444', 0.75, 0.58],
+    ['PUNCT','#9ca3af', 0.55, 0.12],
+  ];
+  const TOKENS = [
+    ['cat','king','river','brain','world','night','door','time'],
+    ['runs','made','think','grows','flies','told','went','knows'],
+    ['bright','cold','huge','fast','dark','quiet','small','new'],
+    ['the','a','an','this','that','these','those','my'],
+    ['in','on','at','by','for','to','of','from'],
+    [',','.',';',':','!','?','-','...'],
+  ];
+
+  let embedMode = 'elbo'; // 'elbo' or 'ce'
+  let embedAnim = 0;
+  let embedAnimFrame = null;
+  let embedDots = null;
+
+  function buildDots(W, H) {
+    const rand = seeded(42);
+    const dots = [];
+    GROUPS.forEach(([label, color, cx, cy], gi) => {
+      for (let i = 0; i < 8; i++) {
+        const r = seeded(gi * 100 + i * 17);
+        const angle = r() * Math.PI * 2;
+        const rad   = r() * 0.07; // tight cluster radius in normalized coords
+        dots.push({
+          gi,
+          color,
+          token: TOKENS[gi][i],
+          // ELBO position: tight cluster around (cx, cy)
+          ex: cx + Math.cos(angle) * rad * (gi < 3 ? 1.2 : 1.0),
+          ey: cy + Math.sin(angle) * rad * (gi < 3 ? 1.0 : 0.9),
+          // CE position: dispersed
+          cx2: 0.15 + r() * 0.70,
+          cy2: 0.15 + r() * 0.70,
+        });
+      }
+    });
+    return dots;
+  }
+
+  function lerpDots(dots, t, W, H) {
+    return dots.map(d => ({
+      ...d,
+      px: (d.ex + (d.cx2 - d.ex) * t) * W,
+      py: (d.ey + (d.cy2 - d.ey) * t) * H,
+    }));
+  }
+
+  function drawEmbed(t_anim) {
+    const [W, H] = [embedCanvas.width / DPR, embedCanvas.height / DPR];
+    ctx.clearRect(0, 0, W, H);
+    if (!embedDots) embedDots = buildDots(W, H);
+
+    const pts = lerpDots(embedDots, t_anim, W, H);
+
+    // Draw faint cluster ellipses when in ELBO mode
+    if (t_anim < 0.3) {
+      GROUPS.forEach(([, color, cx, cy], gi) => {
+        ctx.save();
+        ctx.globalAlpha = (0.3 - t_anim) / 0.3 * 0.18;
+        ctx.beginPath();
+        ctx.ellipse(cx * W, cy * H, 0.10 * W, 0.10 * H, 0, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // Draw dots
+    pts.forEach(d => {
+      ctx.beginPath();
+      ctx.arc(d.px, d.py, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = d.color;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // Labels (show only at t < 0.5 for ELBO, otherwise too crowded)
+    if (t_anim < 0.6) {
+      ctx.font = '8.5px monospace';
+      pts.forEach((d, i) => {
+        if (i % 3 === 0) { // show ~1/3 of tokens to avoid clutter
+          ctx.fillStyle = d.color;
+          ctx.globalAlpha = (0.6 - t_anim) / 0.6;
+          ctx.fillText(d.token, d.px + 6, d.py + 3);
+          ctx.globalAlpha = 1;
+        }
+      });
+    }
+
+    // PCA label
+    const pcLabel = t_anim < 0.5
+      ? `90% variance: PC 6   (structured, low-rank)`
+      : `90% variance: PC 13  (dispersed)`;
+    const pcColor = t_anim < 0.5 ? 'rgba(16,185,129,.85)' : 'rgba(245,158,11,.85)';
+    ctx.font = '9px monospace';
+    ctx.fillStyle = pcColor;
+    ctx.globalAlpha = 1;
+    ctx.fillText(pcLabel, 10, H - 10);
+  }
+
+  function animateTo(target, duration) {
+    if (embedAnimFrame) cancelAnimationFrame(embedAnimFrame);
+    const start = embedAnim;
+    const t0 = performance.now();
+    function step(now) {
+      const prog = Math.min((now - t0) / duration, 1);
+      const ease = prog < 0.5 ? 2*prog*prog : -1+(4-2*prog)*prog;
+      embedAnim = start + (target - start) * ease;
+      drawEmbed(embedAnim);
+      if (prog < 1) embedAnimFrame = requestAnimationFrame(step);
+      else { embedAnim = target; drawEmbed(embedAnim); }
+    }
+    embedAnimFrame = requestAnimationFrame(step);
+  }
+
+  // Initial draw
+  sizeEmbed();
+  embedDots = buildDots(embedCanvas.clientWidth, 280);
+  drawEmbed(0);
+
+  document.getElementById('embed-elbo')?.addEventListener('click', () => {
+    document.getElementById('embed-elbo').classList.add('active');
+    document.getElementById('embed-ce').classList.remove('active');
+    animateTo(0, 600);
+  });
+  document.getElementById('embed-ce')?.addEventListener('click', () => {
+    document.getElementById('embed-ce').classList.add('active');
+    document.getElementById('embed-elbo').classList.remove('active');
+    animateTo(1, 600);
+  });
+}
+
+// ======= Noise schedule canvas =======
+const schedCanvas = document.getElementById('schedule-canvas');
+if (schedCanvas) {
+  const ctx2 = schedCanvas.getContext('2d');
+  const DPR2 = window.devicePixelRatio || 1;
+  const W2 = schedCanvas.clientWidth;
+  const H2 = 220;
+  schedCanvas.width = W2 * DPR2; schedCanvas.height = H2 * DPR2;
+  ctx2.scale(DPR2, DPR2);
+
+  const padL = 52, padR = 20, padT = 18, padB = 36;
+  const cW = W2 - padL - padR, cH = H2 - padT - padB;
+
+  // per-timestep CE loss data (normalized to [0,1])
+  // t = [0, 0.1, 0.2, ..., 1.0]
+  const T_VALS = Array.from({length: 11}, (_, i) => i / 10);
+
+  // Learned schedule: nearly linear CE
+  const LEARNED = [0.04, 0.14, 0.22, 0.31, 0.39, 0.49, 0.59, 0.68, 0.78, 0.89, 1.0];
+  // Fixed cosine schedule: S-shaped, more work in middle
+  const FIXED   = [0.01, 0.06, 0.14, 0.27, 0.44, 0.60, 0.74, 0.85, 0.93, 0.97, 1.0];
+
+  function toX(t) { return padL + t * cW; }
+  function toY(v) { return padT + (1 - v) * cH; }
+
+  ctx2.fillStyle = '#1a1b26';
+  ctx2.fillRect(0, 0, W2, H2);
+
+  // Grid lines
+  ctx2.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx2.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + i * cH / 4;
+    ctx2.beginPath(); ctx2.moveTo(padL, y); ctx2.lineTo(padL + cW, y); ctx2.stroke();
+  }
+  for (let i = 0; i <= 5; i++) {
+    const x = padL + i * cW / 5;
+    ctx2.beginPath(); ctx2.moveTo(x, padT); ctx2.lineTo(x, padT + cH); ctx2.stroke();
+  }
+
+  // Axes
+  ctx2.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx2.lineWidth = 1;
+  ctx2.beginPath(); ctx2.moveTo(padL, padT); ctx2.lineTo(padL, padT + cH); ctx2.stroke();
+  ctx2.beginPath(); ctx2.moveTo(padL, padT + cH); ctx2.lineTo(padL + cW, padT + cH); ctx2.stroke();
+
+  // Axis labels
+  ctx2.fillStyle = '#6b7280';
+  ctx2.font = '9px monospace';
+  ctx2.textAlign = 'center';
+  ['0', '0.2', '0.4', '0.6', '0.8', '1.0'].forEach((lab, i) => {
+    ctx2.fillText(lab, padL + i * cW / 5, padT + cH + 14);
+  });
+  ctx2.textAlign = 'right';
+  ['0', '0.25', '0.5', '0.75', '1.0'].forEach((lab, i) => {
+    ctx2.fillText(lab, padL - 5, padT + cH - i * cH / 4 + 3);
+  });
+  ctx2.textAlign = 'center';
+  ctx2.fillText('t (noise level: 0=clean, 1=pure noise)', padL + cW / 2, H2 - 4);
+  ctx2.save(); ctx2.translate(12, padT + cH / 2); ctx2.rotate(-Math.PI / 2);
+  ctx2.fillText('CE loss (normalized)', 0, 0); ctx2.restore();
+
+  function drawLine(vals, color, dashed) {
+    ctx2.beginPath();
+    ctx2.strokeStyle = color;
+    ctx2.lineWidth = 2;
+    if (dashed) ctx2.setLineDash([5, 3]);
+    else ctx2.setLineDash([]);
+    vals.forEach((v, i) => {
+      const x = toX(T_VALS[i]), y = toY(v);
+      i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
+    });
+    ctx2.stroke();
+    ctx2.setLineDash([]);
+  }
+
+  // Draw the "ideal" linear reference (faint)
+  ctx2.save();
+  ctx2.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx2.lineWidth = 1;
+  ctx2.setLineDash([2, 3]);
+  ctx2.beginPath(); ctx2.moveTo(toX(0), toY(0)); ctx2.lineTo(toX(1), toY(1));
+  ctx2.stroke(); ctx2.setLineDash([]); ctx2.restore();
+
+  drawLine(FIXED,   'rgba(245,158,11,0.75)', true);
+  drawLine(LEARNED, 'rgba(139,92,246,0.9)',  false);
+
+  // Labels
+  ctx2.font = '8.5px monospace';
+  ctx2.fillStyle = '#8b5cf6';
+  ctx2.textAlign = 'left';
+  ctx2.fillText('Learned schedule (RePlaid)', toX(0.38), toY(LEARNED[4]) - 9);
+  ctx2.fillStyle = '#f59e0b';
+  ctx2.fillText('Fixed cosine (not learned)', toX(0.22), toY(FIXED[3]) + 14);
+  ctx2.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx2.fillText('ideal linear', toX(0.5), toY(0.5) - 8);
+}
+
+// ======= Scaling laws canvas =======
+const scalingCanvas = document.getElementById('scaling-canvas');
+if (scalingCanvas) {
+  const ctx3 = scalingCanvas.getContext('2d');
+  const DPR3 = window.devicePixelRatio || 1;
+  const W3 = scalingCanvas.clientWidth, H3 = 260;
+  scalingCanvas.width = W3 * DPR3; scalingCanvas.height = H3 * DPR3;
+  ctx3.scale(DPR3, DPR3);
+
+  const padL3 = 56, padR3 = 24, padT3 = 20, padB3 = 42;
+  const cW3 = W3 - padL3 - padR3, cH3 = H3 - padT3 - padB3;
+
+  // FLOPs (log10): 6e18=18.78, 1e19=19.0, 3e19=19.48, 6e19=19.78, 1e20=20.0
+  const X_DATA = [18.78, 19.0, 19.48, 19.78, 20.0];
+  const X_MIN = 18.7, X_MAX = 20.1;
+  const Y_MIN = 2.56, Y_MAX = 3.28;
+
+  // Approximate compute-optimal validation loss from paper Fig 2a
+  const LINES = [
+    { name: 'AR',              color: '#f59e0b', dash: false, y: [3.05, 2.96, 2.81, 2.71, 2.64] },
+    { name: 'MDLM',            color: '#06b6d4', dash: false, y: [3.13, 3.04, 2.89, 2.79, 2.72] },
+    { name: 'RePlaid (s.c.)',  color: '#8b5cf6', dash: false, y: [3.17, 3.08, 2.93, 2.82, 2.75] },
+    { name: 'Duo',             color: 'rgba(120,120,150,0.8)', dash: false, y: [3.18, 3.09, 2.94, 2.83, 2.76] },
+    { name: 'RePlaid (no sc)', color: 'rgba(139,92,246,0.45)', dash: true,  y: [3.21, 3.12, 2.97, 2.86, 2.79] },
+  ];
+
+  function toXs(logf) { return padL3 + (logf - X_MIN) / (X_MAX - X_MIN) * cW3; }
+  function toYs(v)    { return padT3 + (Y_MAX - v) / (Y_MAX - Y_MIN) * cH3; }
+
+  ctx3.fillStyle = '#1a1b26';
+  ctx3.fillRect(0, 0, W3, H3);
+
+  // Grid
+  ctx3.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx3.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT3 + i * cH3 / 4;
+    ctx3.beginPath(); ctx3.moveTo(padL3, y); ctx3.lineTo(padL3+cW3, y); ctx3.stroke();
+  }
+
+  // Axes
+  ctx3.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx3.lineWidth = 1;
+  ctx3.beginPath(); ctx3.moveTo(padL3, padT3); ctx3.lineTo(padL3, padT3+cH3); ctx3.stroke();
+  ctx3.beginPath(); ctx3.moveTo(padL3, padT3+cH3); ctx3.lineTo(padL3+cW3, padT3+cH3); ctx3.stroke();
+
+  // X-axis labels (FLOPs)
+  const xTicks = [[18.78,'6×10¹⁸'], [19.0,'10¹⁹'], [19.48,'3×10¹⁹'], [19.78,'6×10¹⁹'], [20.0,'10²⁰']];
+  ctx3.fillStyle = '#6b7280'; ctx3.font = '8px monospace'; ctx3.textAlign = 'center';
+  xTicks.forEach(([logf, lab]) => {
+    ctx3.fillText(lab, toXs(logf), padT3 + cH3 + 14);
+    ctx3.beginPath(); ctx3.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx3.moveTo(toXs(logf), padT3); ctx3.lineTo(toXs(logf), padT3+cH3); ctx3.stroke();
+  });
+
+  // Y-axis labels
+  ctx3.textAlign = 'right';
+  [2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2].forEach(v => {
+    ctx3.fillText(v.toFixed(1), padL3 - 5, toYs(v) + 3);
+  });
+  ctx3.textAlign = 'center';
+  ctx3.fillText('non-embedding FLOPs (log scale)', padL3 + cW3/2, H3 - 5);
+  ctx3.save(); ctx3.translate(13, padT3 + cH3/2); ctx3.rotate(-Math.PI/2);
+  ctx3.fillText('compute-optimal val. loss', 0, 0); ctx3.restore();
+
+  // Draw lines
+  LINES.forEach(({color, dash, y}) => {
+    ctx3.beginPath();
+    ctx3.strokeStyle = color;
+    ctx3.lineWidth = 2;
+    ctx3.setLineDash(dash ? [5,3] : []);
+    X_DATA.forEach((xv, i) => {
+      i === 0 ? ctx3.moveTo(toXs(xv), toYs(y[i])) : ctx3.lineTo(toXs(xv), toYs(y[i]));
+    });
+    ctx3.stroke();
+    ctx3.setLineDash([]);
+  });
+
+  // Inline labels at right end
+  ctx3.font = '8.5px monospace';
+  const lastX = toXs(20.0) + 4;
+  LINES.forEach(({name, color, y}) => {
+    ctx3.fillStyle = color;
+    ctx3.textAlign = 'left';
+    ctx3.fillText(name, lastX, toYs(y[4]) + 3);
+  });
+}
+
+// ======= GenPPL vs T canvas =======
+const genpplCanvas = document.getElementById('genppl-canvas');
+if (genpplCanvas) {
+  const ctx4 = genpplCanvas.getContext('2d');
+  const DPR4 = window.devicePixelRatio || 1;
+  const W4 = genpplCanvas.clientWidth, H4 = 240;
+  genpplCanvas.width = W4 * DPR4; genpplCanvas.height = H4 * DPR4;
+  ctx4.scale(DPR4, DPR4);
+
+  const padL4 = 46, padR4 = 26, padT4 = 18, padB4 = 38;
+  const cW4 = W4 - padL4 - padR4, cH4 = H4 - padT4 - padB4;
+
+  // T values (log scale) and GenPPL values
+  const T_STEPS = [8, 16, 32, 64, 128, 256, 512, 1024];
+  const T_LOG   = T_STEPS.map(t => Math.log2(t)); // log2 scale
+  const T_MIN = Math.log2(8), T_MAX = Math.log2(1024);
+  const Y4_MIN = 18, Y4_MAX = 80;
+
+  const LINES4 = [
+    { name: 'RePlaid s.c.', color: '#8b5cf6', dash: false,
+      y: [62, 48, 36, 26, 23, 22, 21.5, 21] },
+    { name: 'RePlaid no s.c.', color: 'rgba(139,92,246,0.55)', dash: true,
+      y: [42, 36, 31, 27, 25, 24, 23.5, 23] },
+    { name: 'Duo', color: '#06b6d4', dash: false,
+      y: [43, 39, 37, 34, 31, 29, 27.5, 26] },
+    { name: 'MDLM', color: '#f59e0b', dash: false,
+      y: [52, 47, 44, 41, 38, 35, 31, 28] },
+    { name: 'LangFlow', color: 'rgba(130,130,130,0.65)', dash: false,
+      y: [125, 110, 95, 80, 70, 62, 57, 54] },
+  ];
+
+  function toX4(tlog) { return padL4 + (tlog - T_MIN) / (T_MAX - T_MIN) * cW4; }
+  function toY4(v)    {
+    const clv = Math.min(Math.max(v, Y4_MIN), Y4_MAX);
+    return padT4 + (Y4_MAX - clv) / (Y4_MAX - Y4_MIN) * cH4;
+  }
+
+  ctx4.fillStyle = '#1a1b26';
+  ctx4.fillRect(0, 0, W4, H4);
+
+  // Grid
+  ctx4.strokeStyle = 'rgba(255,255,255,0.04)'; ctx4.lineWidth = 1;
+  [20, 30, 40, 50, 60, 70, 80].forEach(v => {
+    ctx4.beginPath(); ctx4.moveTo(padL4, toY4(v)); ctx4.lineTo(padL4+cW4, toY4(v)); ctx4.stroke();
+  });
+
+  // Axes
+  ctx4.strokeStyle = 'rgba(255,255,255,0.15)'; ctx4.lineWidth = 1;
+  ctx4.beginPath(); ctx4.moveTo(padL4, padT4); ctx4.lineTo(padL4, padT4+cH4); ctx4.stroke();
+  ctx4.beginPath(); ctx4.moveTo(padL4, padT4+cH4); ctx4.lineTo(padL4+cW4, padT4+cH4); ctx4.stroke();
+
+  // X-axis
+  ctx4.fillStyle = '#6b7280'; ctx4.font = '8px monospace'; ctx4.textAlign = 'center';
+  T_STEPS.forEach((t, i) => {
+    ctx4.fillText(String(t), toX4(T_LOG[i]), padT4 + cH4 + 13);
+    if (i > 0) {
+      ctx4.strokeStyle = 'rgba(255,255,255,0.06)'; ctx4.lineWidth = 1;
+      ctx4.beginPath(); ctx4.moveTo(toX4(T_LOG[i]), padT4); ctx4.lineTo(toX4(T_LOG[i]), padT4+cH4); ctx4.stroke();
+    }
+  });
+  ctx4.fillStyle = '#6b7280';
+  ctx4.fillText('sampling steps T (log scale)', padL4 + cW4/2, H4 - 5);
+
+  // Y-axis
+  ctx4.textAlign = 'right';
+  [20,30,40,50,60,70,80].forEach(v => ctx4.fillText(String(v), padL4-5, toY4(v)+3));
+  ctx4.textAlign = 'center';
+  ctx4.save(); ctx4.translate(12, padT4+cH4/2); ctx4.rotate(-Math.PI/2);
+  ctx4.fillText('GenPPL (↓ better)', 0, 0); ctx4.restore();
+
+  // Lines
+  LINES4.forEach(({color, dash, y}) => {
+    ctx4.beginPath(); ctx4.strokeStyle = color; ctx4.lineWidth = 2;
+    ctx4.setLineDash(dash ? [5,3] : []);
+    T_LOG.forEach((tlog, i) => {
+      i === 0 ? ctx4.moveTo(toX4(tlog), toY4(y[i])) : ctx4.lineTo(toX4(tlog), toY4(y[i]));
+    });
+    ctx4.stroke(); ctx4.setLineDash([]);
+  });
+
+  // Inline labels near right end (T=1024)
+  ctx4.font = '8px monospace'; ctx4.textAlign = 'left';
+  LINES4.forEach(({name, color, y}) => {
+    if (y[7] <= Y4_MAX) {
+      ctx4.fillStyle = color;
+      ctx4.fillText(name, toX4(T_LOG[7]) + 3, toY4(y[7]) + 3);
+    }
+  });
+}
+</script>
+</BaseLayout>

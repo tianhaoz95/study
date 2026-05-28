@@ -1,0 +1,1158 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Orthrus: Parallel Tokens, Zero Extra Memory | AI/ML Deep Dives"
+  description="Orthrus freezes a pre-trained LLM and injects a lightweight diffusion head that shares the exact same KV cache — enabling speculative-decoding-style parallel generation with zero memory overhead and provably lossless output."
+  crumb="Orthrus"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* generation race canvas */
+#gen-canvas{width:100%;height:280px;display:block;border-radius:8px}
+.gen-controls{display:flex;align-items:center;gap:.6rem;margin-top:.75rem}
+.gen-controls button{padding:.3rem .85rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.gen-controls button:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.gen-controls .pass-tag{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+.gen-controls #pass-display{font-size:.75rem;font-family:var(--ff-mono);color:var(--purple-l);font-weight:600}
+
+/* architecture svg */
+.arch-svg-wrap{width:100%;overflow-x:auto}
+.arch-svg{min-width:560px;width:100%;height:320px}
+
+/* step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+#step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* token consensus viz inside step 3 */
+.consensus-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+.tok-chip{padding:.15rem .5rem;border-radius:4px;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border);background:var(--card);color:var(--muted2);transition:all .3s}
+.tok-chip.accepted{border-color:var(--green);background:rgba(16,185,129,.12);color:var(--green)}
+.tok-chip.rejected{border-color:#ef4444;background:rgba(239,68,68,.12);color:#f87171;text-decoration:line-through}
+.tok-chip.resampled{border-color:var(--amber);background:rgba(245,158,11,.1);color:var(--amber)}
+
+/* K chart canvas */
+#k-canvas{width:100%;height:220px;display:block;border-radius:8px}
+.k-btns{display:flex;gap:.4rem;margin-top:.625rem}
+.k-btn{padding:.25rem .7rem;border-radius:4px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.k-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l);font-weight:600}
+.k-btn:hover:not(.active){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+
+/* results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:.75rem 0 .35rem;font-family:var(--ff-mono)}
+
+/* acceptance bars */
+.acc-bar-row{display:flex;align-items:center;gap:.75rem;margin:.4rem 0}
+.acc-bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:160px;flex-shrink:0;text-align:right}
+.acc-bar-track{flex:1;background:var(--card2);border-radius:4px;height:20px;overflow:hidden}
+.acc-bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.4rem;width:0%}
+.acc-bar-fill span{font-size:.63rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);padding:.75rem 1rem;border-radius:0 6px 6px 0;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Inference</span>
+    <span class="tag tag-cyan">Diffusion LM</span>
+    <span class="tag tag-amber">Speculative Decoding</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Orthrus: Parallel Tokens, Zero Extra Memory</h1>
+  <p class="lead">AR models are exact but sequential. Diffusion LMs are parallel but drift. Speculative decoding gets both — but needs a second model with its own KV cache. Orthrus injects a diffusion head <em>inside</em> the frozen AR model, sharing a single KV cache, and uses intra-model consensus to guarantee strictly lossless generation at up to 7.8× the speed.</p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.12825</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.12825" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/chiennv2000/orthrus" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-drift"><a href="#s-drift"><span class="toc-num">02</span> Why Diffusion Drifts</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Architecture</a></li>
+    <li class="toc-item" id="toc-s-inference"><a href="#s-inference"><span class="toc-num">04</span> Inference Loop</a></li>
+    <li class="toc-item" id="toc-s-blocksize"><a href="#s-blocksize"><span class="toc-num">05</span> Block Size K</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Sequential Bottleneck</div>
+<h2>Generating tokens one at a time is fundamentally slow</h2>
+<p>Autoregressive LLMs have dominated NLP because they model sequences exactly: every token is conditioned on every token before it. The price is architectural: generating token <em>t</em> requires a full forward pass that reads the entire KV cache, then token <em>t+1</em> requires another pass, and so on. With a KV cache that can be hundreds of gigabytes, each step is a round-trip across memory bandwidth — not compute. The GPU sits idle waiting for data, not because the model is too big, but because sequential access patterns fundamentally waste the hardware.</p>
+
+<p>Three solutions exist. First, diffusion language models (DLMs) generate all tokens in a block simultaneously — but they break the causal chain, producing drift. Second, speculative decoding (EAGLE, DFlash) trains a small draft model to generate a block of candidates which the full model then verifies in one pass — but this requires a separate KV cache, doubling memory. Third, Orthrus: inject a diffusion head <em>inside</em> the frozen AR model, reusing its KV cache exactly.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">generation_race.canvas</span>
+    <span class="vp-hint">click Play to animate</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="gen-canvas"></canvas>
+    <div class="gen-controls">
+      <button id="gen-play">▶ Play</button>
+      <button id="gen-reset">↺ Reset</button>
+      <span class="pass-tag">forward passes: <span id="pass-display">—</span></span>
+    </div>
+  </div>
+</div>
+
+<p>The canvas above shows generating 8 tokens from the prompt "3 + 5 =". Autoregressive decoding (top) fires one pass per token — 8 passes total. Orthrus (bottom) fires two passes: one parallel projection from the diffusion head, one validation from the AR head. Both produce identical outputs; Orthrus is just 4× faster for this block.</p>
+
+<p>The key constraint Orthrus must satisfy: the final output must be drawn from the <em>exact same distribution</em> as the frozen AR baseline. Not approximately. Exactly. This is not a quality claim — it is a mathematical guarantee enforced by the consensus mechanism.</p>
+</section>
+
+<!-- §02 -->
+<section id="s-drift" data-code="drift">
+<div class="section-no">02 — Why Diffusion Language Models Drift</div>
+<h2>Parallel generation requires a conditional independence assumption that breaks reasoning</h2>
+
+<p>To generate tokens in parallel, a diffusion language model must assume the tokens within a block are conditionally independent given the context. Formally, whereas AR decomposes the joint as a strict product of causal conditionals:</p>
+
+<div class="math-block">
+  <div class="math-label">Autoregressive — exact chain rule</div>
+  <span class="math-var">p</span><sub>AR</sub>(x) = ∏<sub>i=1..N</sub> <span class="math-var">p</span><sub>θ</sub>(<span class="math-var">x<sub>i</sub></span> | <span class="math-var">x</span><sub>&lt;i</sub>)
+  <div class="math-comment" style="margin-top:.4rem">— token i strictly conditioned on all prior tokens</div>
+</div>
+
+<div class="math-block">
+  <div class="math-label">Diffusion LM — conditional independence approximation</div>
+  <span class="math-var">p</span><sub>DLM</sub>(y | c) ≈ ∏<sub>k∈M</sub> <span class="math-var">p</span><sub>φ</sub>(<span class="math-var">y<sub>k</sub></span> | c, <span class="math-var">ỹ</span>)
+  <div class="math-comment" style="margin-top:.4rem">— each masked token predicted independently given corrupted block ỹ</div>
+</div>
+
+<p>This approximation is catastrophic for long-horizon reasoning. Consider generating the chain "since x²=4, x=2, so x+1=3". Every token is logically conditioned on its predecessors. A DLM predicting "x+1=___" in parallel with "x²=4" has no access to the intermediate steps it hasn't "officially" decided yet — it must treat them as uncertain. Errors compound across positions.</p>
+
+<div class="callout">
+  <strong>The 11-point drop.</strong> Fast-dLLM-v2, a state-of-the-art AR→DLM adaptation using 500B tokens of continual training, drops 11.1 points on MATH-500 relative to its AR baseline. Orthrus drops zero — because it never modifies the AR head.
+</div>
+
+<p>The fundamental problem with existing adaptations is that they fine-tune the AR weights to optimize a diffusion objective. Once the weights change, you can never recover the original AR distribution. Orthrus avoids this entirely by keeping the AR backbone frozen and training only the new diffusion head.</p>
+</section>
+
+<!-- §03 -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — The Orthrus Architecture</div>
+<h2>A frozen AR head builds the context; a trainable diffusion head generates in parallel</h2>
+
+<p>Every transformer layer in Orthrus has two parallel attention paths sharing a single KV cache. The frozen AR path (blue) uses standard causal self-attention — unchanged from the original pre-trained model. The trainable diffusion path (red) adds new projection matrices initialized from the AR weights, but updated during fine-tuning to perform bidirectional block attention over masked positions.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">architecture.svg</span>
+    <span class="vp-hint">dual-path transformer block</span>
+  </div>
+  <div class="vp-body arch-svg-wrap">
+    <svg class="arch-svg" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background -->
+      <rect width="640" height="300" fill="none"/>
+
+      <!-- Shared KV Cache box -->
+      <rect x="210" y="220" width="220" height="44" rx="7" fill="rgba(139,92,246,0.1)" stroke="rgba(139,92,246,0.45)" stroke-width="1.5"/>
+      <text x="320" y="237" text-anchor="middle" font-family="monospace" font-size="10" fill="#a78bfa">Shared KV Cache</text>
+      <text x="320" y="252" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">(K_AR, V_AR) — zero duplication</text>
+
+      <!-- AR Attention block -->
+      <rect x="60" y="116" width="180" height="64" rx="7" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.45)" stroke-width="1.5"/>
+      <text x="150" y="138" text-anchor="middle" font-family="monospace" font-size="10" fill="#67e8f9" font-weight="700">AR Attention Head</text>
+      <text x="150" y="153" text-anchor="middle" font-family="monospace" font-size="9" fill="#4b5563">frozen — causal masking</text>
+      <text x="150" y="167" text-anchor="middle" font-family="monospace" font-size="9" fill="#4b5563">builds K, V representations</text>
+
+      <!-- Diffusion Attention block -->
+      <rect x="400" y="116" width="180" height="64" rx="7" fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.4)" stroke-width="1.5"/>
+      <text x="490" y="138" text-anchor="middle" font-family="monospace" font-size="10" fill="#fca5a5" font-weight="700">Diffusion Attention Head</text>
+      <text x="490" y="153" text-anchor="middle" font-family="monospace" font-size="9" fill="#4b5563">trainable (~16% params)</text>
+      <text x="490" y="167" text-anchor="middle" font-family="monospace" font-size="9" fill="#4b5563">bidirectional over mask block</text>
+
+      <!-- Arrows from both to shared KV cache -->
+      <line x1="150" y1="180" x2="258" y2="220" stroke="rgba(6,182,212,0.5)" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="490" y1="180" x2="382" y2="220" stroke="rgba(239,68,68,0.5)" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+      <!-- Arrow from KV to diffusion (queried by diff head) -->
+      <path d="M430 220 Q490 200 490 180" fill="none" stroke="rgba(139,92,246,0.6)" stroke-width="1.5" marker-end="url(#arrow-p)"/>
+      <text x="498" y="204" font-family="monospace" font-size="8" fill="#a78bfa">attends</text>
+
+      <!-- Input at bottom -->
+      <rect x="258" y="258" width="124" height="28" rx="5" fill="var(--surface,#1a1a2e)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <text x="320" y="276" text-anchor="middle" font-family="monospace" font-size="10" fill="#6b7280">prompt tokens x₁…xₜ</text>
+
+      <!-- Arrow from input to KV -->
+      <line x1="320" y1="258" x2="320" y2="264" stroke="rgba(255,255,255,0.15)" stroke-width="1.2"/>
+
+      <!-- AR Output arrow -->
+      <rect x="60" y="40" width="180" height="34" rx="6" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.3)" stroke-width="1"/>
+      <text x="150" y="57" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#67e8f9">AR output: next token xₜ₊₁</text>
+      <text x="150" y="70" text-anchor="middle" font-family="monospace" font-size="8.5" fill="#4b5563">exact causal distribution</text>
+      <line x1="150" y1="116" x2="150" y2="74" stroke="rgba(6,182,212,0.45)" stroke-width="1.5" marker-end="url(#arrow-c)"/>
+
+      <!-- Diffusion Output arrow -->
+      <rect x="400" y="40" width="180" height="34" rx="6" fill="rgba(239,68,68,0.06)" stroke="rgba(239,68,68,0.3)" stroke-width="1"/>
+      <text x="490" y="57" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#fca5a5">Diffusion output: K tokens</text>
+      <text x="490" y="70" text-anchor="middle" font-family="monospace" font-size="8.5" fill="#4b5563">parallel projection (1 pass)</text>
+      <line x1="490" y1="116" x2="490" y2="74" stroke="rgba(239,68,68,0.45)" stroke-width="1.5" marker-end="url(#arrow-r)"/>
+
+      <!-- "Orthrus Block" label -->
+      <text x="320" y="14" text-anchor="middle" font-family="monospace" font-size="10" fill="#6b7280" letter-spacing="0.08em">ORTHRUS TRANSFORMER BLOCK</text>
+      <line x1="30" y1="18" x2="280" y2="18" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+      <line x1="360" y1="18" x2="610" y2="18" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+      <!-- Consensus arrow between outputs -->
+      <path d="M 240 57 Q 320 30 400 57" fill="none" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-p)"/>
+      <text x="320" y="28" text-anchor="middle" font-family="monospace" font-size="8.5" fill="#a78bfa">intra-model consensus</text>
+
+      <defs>
+        <marker id="arrow-c" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(6,182,212,0.6)"/>
+        </marker>
+        <marker id="arrow-r" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(239,68,68,0.5)"/>
+        </marker>
+        <marker id="arrow-p" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(139,92,246,0.6)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>The key structural insight is the <strong>shared KV cache</strong>. In standard speculative decoding, the draft model and the verifier are separate networks, each needing its own KV cache. Storing two caches for a 32K-context 8B model requires roughly 2× the memory. Orthrus eliminates this because the diffusion head lives inside the AR transformer — it naturally reuses the same K and V tensors.</p>
+
+<h3>Training the diffusion head</h3>
+<p>Since the AR backbone is frozen, training is pure distillation: align the diffusion head's parallel predictions with the AR model's exact output distribution. The loss is forward KL over masked block positions:</p>
+
+<div class="math-block">
+  <div class="math-label">Orthrus training objective</div>
+  ℒ = 𝔼 [ Σ<sub>b,k</sub> D<sub>KL</sub>( <span class="math-var">p</span><sub>AR</sub>(· | x<sub>≤aₙ+k-1</sub>) ‖ <span class="math-var">p</span><sub>diff</sub>(· | x<sub>&lt;aₙ</sub>, ỹ<sub>b</sub>) ) ]
+  <div class="math-comment" style="margin-top:.4rem">— distill the full AR predictive distribution into the parallel diffusion head</div>
+</div>
+
+<p>Only the diffusion head's three projection matrices (Q, K, V) are updated. Total trainable parameters: ~16% of the model. Training: 600K examples, &lt;24 hours on a single 8×H200 node — orders of magnitude cheaper than pre-training a DLM from scratch.</p>
+</section>
+
+<!-- §04 -->
+<section id="s-inference" data-code="inference">
+<div class="section-no">04 — Inference: Project, Validate, Advance</div>
+<h2>Two passes, K tokens: one parallel projection, one exact validation</h2>
+
+<p>The Orthrus inference loop is a continuous cycle. At each iteration, the diffusion head projects K candidate tokens in a single forward pass, then the frozen AR head validates them. Accepted tokens are committed to the sequence and KV cache; the first rejection triggers a resampled correction from AR. The loop repeats from the new anchor.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">inference_loop.steps</span>
+    <span class="vp-hint">click Next to walk through</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="step-list">
+      <div class="step-box" id="step-0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Prefill — AR head builds KV cache</div>
+          <div class="step-desc">The frozen AR backbone processes the full prompt "2 × 6 = 12, so 2 × 7 =" in one parallel forward pass, producing causal KV representations for every prompt token. This is identical to standard AR prefilling — no change from baseline.</div>
+          <div class="step-code">cache ← AR_backbone.prefill(prompt)<br>anchor ← AR_head.greedy(cache)  # first output token</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Project — diffusion head generates K candidates in one pass</div>
+          <div class="step-desc">The diffusion head takes the anchor token ("14") concatenated with K-1 mask tokens [M, M, M, …] and processes them jointly against the frozen KV cache. Bidirectional attention across the mask block lets every position attend to every other, yielding K simultaneous predictions.</div>
+          <div class="step-code">block = [anchor] + [MASK] * (K-1)   # K=32<br>candidates = diff_head(block, cache)  # one pass → 32 tokens</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Consensus — AR validates left-to-right, commits accepted tokens</div>
+          <div class="step-desc">The AR head re-scores all K candidates in one pass. For greedy decoding, a token is accepted iff it matches the AR greedy choice. For sampling, exact rejection sampling aligns probabilities. Validation halts at the first rejection; the correction is drawn from AR, then the loop continues.</div>
+          <div class="consensus-row" id="consensus-row">
+            <span class="tok-chip" data-idx="0">14</span>
+            <span class="tok-chip" data-idx="1">,</span>
+            <span class="tok-chip" data-idx="2">and</span>
+            <span class="tok-chip" data-idx="3">2</span>
+            <span class="tok-chip" data-idx="4">×</span>
+            <span class="tok-chip" data-idx="5">8</span>
+            <span class="tok-chip" data-idx="6">is</span>
+            <span class="tok-chip" data-idx="7">wrong</span>
+          </div>
+          <div class="step-code">for k in range(K):<br>  if candidates[k] == AR_greedy(cache, accepted_so_far):<br>    accept(candidates[k])  # append to output + cache<br>  else:<br>    resample_from_AR(); break  # lossless correction</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <button id="step-next">Next →</button>
+      <span id="step-prog">Step 1 of 3</span>
+    </div>
+  </div>
+</div>
+
+<p>The consensus step is structurally identical to speculative decoding's accept/reject — except the "drafter" is the internal diffusion head and the "verifier" is the frozen AR head within the same model. Because both reside in the same transformer and share the same KV cache, there is no communication overhead between them and no memory duplication.</p>
+
+<p>The critical theorem: because the acceptance criterion uses exact rejection sampling (Leviathan et al., 2022), the distribution of accepted tokens is provably equal to the AR distribution, regardless of how good or bad the diffusion head's proposals are. The diffusion head improves throughput; the consensus mechanism guarantees correctness.</p>
+</section>
+
+<!-- §05 -->
+<section id="s-blocksize" data-code="blocksize">
+<div class="section-no">05 — Block Size K: The Free Throughput Knob</div>
+<h2>Larger K = more tokens per pass, with constant forward-pass latency</h2>
+
+<p>K is the number of positions in the parallel block — including the anchor token and K-1 mask tokens. Because the diffusion head processes all K positions simultaneously against a pre-computed KV cache, the forward-pass latency is essentially independent of K. Doubling K costs nothing in latency but can double the tokens committed per cycle.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">block_size_ablation.canvas — MATH-500 on Qwen3-8B</span>
+    <span class="vp-hint">click a K value</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="k-canvas"></canvas>
+    <div class="k-btns">
+      <button class="k-btn" data-k="0">K = 4</button>
+      <button class="k-btn" data-k="1">K = 8</button>
+      <button class="k-btn" data-k="2">K = 16</button>
+      <button class="k-btn active" data-k="3">K = 32</button>
+    </div>
+  </div>
+</div>
+
+<p>The chart shows Tokens Per Forward Pass (TPF, purple) and forward-pass latency in milliseconds (amber) across K values on MATH-500. TPF scales from 1.85 at K=4 to 6.35 at K=32 — a 3.4× improvement — while latency stays essentially flat (~40ms). This is the key insight: the diffusion head is compute-bound on the attention to the KV cache, not on the number of mask tokens it outputs.</p>
+
+<p>Orthrus sets K=32 for all reported results. Larger K is possible in principle but the acceptance rate curves off — once the diffusion head's projection quality saturates, additional mask positions contribute diminishing tokens per cycle.</p>
+</section>
+
+<!-- §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Exact AR accuracy at 6× the speed — no other method achieves both</h2>
+
+<p>Orthrus is evaluated on Qwen3-8B across eight benchmarks spanning math, code, and logic. The key headline: on every single benchmark, Orthrus matches the frozen AR baseline exactly (MATH-500: 86.2%, GSM8K: 96.0%, AIME24: 28.3%, HumanEval: 95.1%) while running at 5×–7.8× the speed. No other parallel decoding approach comes close on both axes simultaneously.</p>
+
+<h3>MATH-500 accuracy vs competing diffusion approaches</h3>
+<div class="results-bars" id="results-bars">
+  <div class="bar-group-label">diffusion language models</div>
+  <div class="bar-row">
+    <div class="bar-label">Dream-7B</div>
+    <div class="bar-track"><div class="bar-fill" data-w="39.6" style="background:rgba(107,114,128,0.7)"><span>39.6%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LLaDA-1.5</div>
+    <div class="bar-track"><div class="bar-fill" data-w="57.4" style="background:rgba(107,114,128,0.7)"><span>57.4%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Fast-dLLM-v2 (7B)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="61.5" style="background:rgba(107,114,128,0.7)"><span>61.5%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SDAR-Qwen3-8B</div>
+    <div class="bar-track"><div class="bar-fill" data-w="78.6" style="background:rgba(6,182,212,0.55)"><span>78.6%</span></div></div>
+  </div>
+  <div class="bar-group-label">ar baseline &amp; orthrus</div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-8B (AR baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="86.2" style="background:rgba(6,182,212,0.7)"><span>86.2%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Orthrus-Qwen3-8B  ★ 5.95× faster</div>
+    <div class="bar-track"><div class="bar-fill" data-w="86.2" style="background:rgba(139,92,246,0.85)"><span>86.2%</span></div></div>
+  </div>
+</div>
+
+<p>SDAR, the strongest diffusion competitor, is also initialized from Qwen3 — but requires 50B tokens of continual pre-training and still loses 7.6 points. Orthrus uses less than 1B tokens and loses zero. The gap is not training scale; it is architecture: Orthrus never modifies the AR weights, so the quality ceiling is the frozen baseline itself.</p>
+
+<h3>Acceptance length vs speculative decoding (MATH-500, Qwen3-8B)</h3>
+<div id="acc-bars">
+  <div class="acc-bar-row">
+    <div class="acc-bar-label">EAGLE-3</div>
+    <div class="acc-bar-track"><div class="acc-bar-fill" data-w="3.5" style="background:rgba(107,114,128,0.65)"><span>3.5</span></div></div>
+  </div>
+  <div class="acc-bar-row">
+    <div class="acc-bar-label">DFlash</div>
+    <div class="acc-bar-track"><div class="acc-bar-fill" data-w="7.9" style="background:rgba(6,182,212,0.55)"><span>7.9</span></div></div>
+  </div>
+  <div class="acc-bar-row">
+    <div class="acc-bar-label">Orthrus (ours)</div>
+    <div class="acc-bar-track"><div class="acc-bar-fill" data-w="11.7" style="background:rgba(139,92,246,0.85)"><span>11.7</span></div></div>
+  </div>
+</div>
+<p style="margin-top:.6rem;font-size:.8rem;color:var(--muted)">Acceptance length = verified tokens per forward pass. Max possible for K=32 is ~16 (two passes per cycle).</p>
+
+<p>The acceptance length comparison is striking: EAGLE-3, a purpose-built speculative drafter, achieves 3.5 on MATH-500. DFlash gets 7.9. Orthrus reaches 11.7 — nearly 3× EAGLE-3 — despite requiring no external draft model and consuming zero additional KV cache memory. The shared-context advantage is real: the diffusion head attends directly to the same high-fidelity representations the AR head uses, rather than relying on a compressed approximation in a smaller drafter.</p>
+
+<h3>Long-context stability</h3>
+<p>At 40K context length, DFlash throughput drops to ~43 tokens/sec as dual KV caches dominate memory bandwidth. Orthrus sustains ~96 tokens/sec across all context lengths from 16K to 40K. The zero-overhead shared cache is not just a memory budget advantage — it eliminates the bandwidth scaling problem entirely.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">orthrus/bottleneck.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Sequential Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="drift">drift</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="inference">inference</button>
+    <button class="cs-tab" data-panel="blocksize">block-K</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard AR decode — N tokens, N passes</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">ar_generate</span>(model, prompt, N):
+<span class="cs-line">    cache = model.prefill(prompt)</span>
+<span class="cs-line">    tokens = []</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(N):                 <span class="cmt"># N sequential passes</span></span>
+<span class="cs-line hl-p">        tok = model.decode_one(cache)  <span class="cmt"># load entire cache each time</span></span>
+<span class="cs-line">        tokens.append(tok)</span>
+<span class="cs-line">        cache.append(tok)</span>
+<span class="cs-line">    <span class="kw">return</span> tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Memory-bandwidth bottleneck:</span>
+<span class="cs-line cmt">#   KV cache for 32K ctx, 8B model ≈ 16 GB</span>
+<span class="cs-line cmt">#   N=512 tokens → 512 × 16 GB = 8 TB loaded</span>
+<span class="cs-line cmt">#   GPU compute sits idle ~70% of time</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Orthrus: 2 passes per K tokens</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">orthrus_generate</span>(model, prompt, N):
+<span class="cs-line">    cache = model.prefill(prompt)      <span class="cmt"># same prefill</span></span>
+<span class="cs-line">    tokens = []</span>
+<span class="cs-line hl-g">    <span class="kw">while</span> <span class="fn">len</span>(tokens) &lt; N:</span>
+<span class="cs-line hl-g">        accepted = model.parallel_step(cache)</span>
+<span class="cs-line hl-g">        tokens.extend(accepted)         <span class="cmt"># avg 6-11 tokens / 2 passes</span></span>
+<span class="cs-line">    <span class="kw">return</span> tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Speedup on MATH-500 (Qwen3-8B):</span>
+<span class="cs-line cmt">#   AR:     1.0× (baseline)</span>
+<span class="cs-line cmt">#   Orthrus: 5.95× (T=0), 5.43× (T=1)</span>
+<span class="cs-line cmt">#   Memory overhead: 0 bytes (shared cache)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-drift">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># AR: exact causal chain</span>
+<span class="cs-line cmt">#   p(x₁,…,xN) = ∏ p(xᵢ | x&lt;ᵢ)</span>
+<span class="cs-line cmt">#   no independence assumption</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DLM: conditional independence within block</span>
+<span class="cs-line cmt">#   p(y | c) ≈ ∏ p(yₖ | c, ỹ)</span>
+<span class="cs-line cmt">#   yₖ does NOT condition on yₖ₋₁ realized value</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Consequence on reasoning chains:</span>
+<span class="cs-line cmt">#   "x² = 4, so x = 2, so x+1 = ___"</span>
+<span class="cs-line cmt">#   DLM predicts x+1 while uncertain about x</span>
+<span class="cs-line cmt">#   → compounding errors on long trajectories</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Empirical drift (MATH-500):</span>
+<span class="cs-line cmt">#   Qwen3-8B AR baseline:      86.2%</span>
+<span class="cs-line cmt">#   Fast-dLLM-v2 (500B train): 61.5%  (-11.1pp)</span>
+<span class="cs-line cmt">#   SDAR-Qwen3-8B (50B train): 78.6%  (-7.6pp)</span>
+<span class="cs-line cmt">#   Orthrus (0.6B train):      86.2%  (-0.0pp)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why Orthrus avoids drift:</span>
+<span class="cs-line cmt">#   AR backbone is FROZEN — weights never change</span>
+<span class="cs-line cmt">#   Consensus mechanism guarantees exact dist.</span>
+<span class="cs-line cmt">#   Quality ceiling = frozen AR model itself</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Dual-view attention in each transformer layer</span>
+<span class="cs-line cmt"># AR path: frozen (W_Q, W_K, W_V unchanged)</span>
+<span class="cs-line cmt"># Diff path: trainable (W_Q^d, W_K^d, W_V^d)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># AR attention (standard causal)</span>
+<span class="cs-line hl-c">O_AR = softmax(Q_AR @ K_AR.T / sqrt(d)) @ V_AR</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Diffusion attention (Eq. 4 from paper)</span>
+<span class="cs-line cmt"># attends to BOTH AR cache AND diff block</span>
+<span class="cs-line hl-p">K_full = concat(K_AR, K_diff, dim=seq)</span>
+<span class="cs-line hl-p">V_full = concat(V_AR, V_diff, dim=seq)</span>
+<span class="cs-line hl-p">O_diff = softmax(Q_diff @ K_full.T / sqrt(d)) @ V_full</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Block mask for diffusion view (Eq. 6):</span>
+<span class="cs-line cmt">#   (i) causal attention to AR context (k &lt; L)</span>
+<span class="cs-line cmt">#   (ii) bidirectional within same block</span>
+<span class="cs-line cmt">#   (iii) no cross-block attention (prevents leak)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Parameter budget (8B model):</span>
+<span class="cs-line cmt">#   Frozen AR: 84% of params (untouched)</span>
+<span class="cs-line cmt">#   Trainable diff heads: 16% of params</span>
+<span class="cs-line cmt">#   Extra KV cache memory: 0 bytes</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training objective (Eq. 7):</span>
+<span class="cs-line cmt">#   L = E[ Σ D_KL(p_AR || p_diff) ]</span>
+<span class="cs-line cmt">#   distills full AR distribution into diff head</span>
+<span class="cs-line cmt">#   600K examples, &lt;24h on 8×H200</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-inference">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Orthrus inference loop (Algorithm 1)</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">def</span> <span class="fn">orthrus_loop</span>(model, prompt, K=32):</span>
+<span class="cs-line hl-c">    cache = model.ar.prefill(prompt)    <span class="cmt"># pass 1/2</span></span>
+<span class="cs-line hl-c">    anchor = model.ar.greedy(cache)</span>
+<span class="cs-line">    output = [anchor]</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">while</span> <span class="kw">not</span> eos_generated:</span>
+<span class="cs-line cmt">      # Pass 1: diffusion projects K candidates</span>
+<span class="cs-line hl-p">        block = [anchor] + [MASK] * (K-1)</span>
+<span class="cs-line hl-p">        cands = model.diff.forward(block, cache)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">      # Pass 2: AR validates via rejection sampling</span>
+<span class="cs-line hl-g">        accepted, correction = consensus(</span>
+<span class="cs-line hl-g">            cands, model.ar, cache, output</span>
+<span class="cs-line hl-g">        )</span>
+<span class="cs-line">        output.extend(accepted + [correction])</span>
+<span class="cs-line">        cache.extend(accepted + [correction])</span>
+<span class="cs-line">        anchor = correction</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Consensus (greedy T=0):</span>
+<span class="cs-line kw">def</span> <span class="fn">consensus</span>(cands, ar, cache, output):</span>
+<span class="cs-line">    accepted = []</span>
+<span class="cs-line">    <span class="kw">for</span> k, tok <span class="kw">in</span> <span class="fn">enumerate</span>(cands):</span>
+<span class="cs-line">        ar_pred = ar.greedy(cache + accepted)</span>
+<span class="cs-line hl-g">        <span class="kw">if</span> tok == ar_pred:</span>
+<span class="cs-line hl-g">            accepted.append(tok)  <span class="cmt"># keep</span></span>
+<span class="cs-line hl-p">        <span class="kw">else</span>:</span>
+<span class="cs-line hl-p">            <span class="kw">return</span> accepted, ar_pred  <span class="cmt"># lossless correction</span></span>
+<span class="cs-line">    <span class="kw">return</span> accepted, ar.greedy(cache + accepted)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Guarantee: output ≡ greedy AR (exact distribution)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-blocksize">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Block size K ablation — MATH-500, Qwen3-8B</span>
+<span class="cs-line cmt"># TPF = Total Tokens Generated / Total Passes</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># K=4:  TPF 1.85,  latency ~40ms/pass</span>
+<span class="cs-line cmt"># K=8:  TPF 3.30,  latency ~40ms/pass</span>
+<span class="cs-line cmt"># K=16: TPF 5.01,  latency ~40ms/pass</span>
+<span class="cs-line cmt"># K=32: TPF 6.35,  latency ~40ms/pass  ← selected</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why latency stays flat:</span>
+<span class="cs-line cmt">#   diff head processes block against frozen cache</span>
+<span class="cs-line cmt">#   bottleneck is attention over KV cache (O(L))</span>
+<span class="cs-line cmt">#   not masked positions (O(K) — negligible at K≤32)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Multi-step denoising comparison:</span>
+<span class="cs-line cmt">#   Strategy    Passes  TPF</span>
+<span class="cs-line cmt">#   Multi-step   2      3.53</span>
+<span class="cs-line cmt">#   Single-step  1      6.35  ← 1.8× better</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Insight: single-step projection is optimal.</span>
+<span class="cs-line cmt"># Multi-step adds a pass without enough quality</span>
+<span class="cs-line cmt"># gain to compensate — acceptance rate is already</span>
+<span class="cs-line cmt"># high from direct distillation.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training config (K=32):</span>
+<span class="cs-line cmt">#   256 masked blocks per example</span>
+<span class="cs-line cmt">#   max context length 2048 tokens</span>
+<span class="cs-line cmt">#   FlexAttention + FlashAttention-4 backend</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full benchmark results — Orthrus-Qwen3-8B</span>
+<span class="cs-line cmt"># TPF and speedup vs AR baseline (T=0)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Task          TPF   Speedup  Accuracy (same as AR)</span>
+<span class="cs-line cmt"># GSM8K         5.30  5.22×    96.0%</span>
+<span class="cs-line cmt"># MATH-500      6.35  5.95×    86.2%</span>
+<span class="cs-line cmt"># AIME24        5.63  6.81×    28.3%</span>
+<span class="cs-line cmt"># AIME25        5.25  6.03×    23.3%</span>
+<span class="cs-line cmt"># HumanEval     3.94  3.68×    95.1%</span>
+<span class="cs-line cmt"># MBPP          3.95  3.90×    93.4%</span>
+<span class="cs-line cmt"># Pseudo2code   7.51  7.83×    exact</span>
+<span class="cs-line cmt"># LiveCodeBench 5.17  6.68×    exact</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Acceptance length on MATH-500:</span>
+<span class="cs-line cmt">#   EAGLE-3:  3.5  (external drafter, extra KV cache)</span>
+<span class="cs-line cmt">#   DFlash:   7.9  (external drafter, extra KV cache)</span>
+<span class="cs-line cmt">#   Orthrus:  11.7 (internal diffusion head, 0 extra memory)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Long-context throughput (tokens/sec):</span>
+<span class="cs-line cmt">#   Context   DFlash   Orthrus</span>
+<span class="cs-line cmt">#   16K       96.9     104.1</span>
+<span class="cs-line cmt">#   24K       78.9      98.8</span>
+<span class="cs-line cmt">#   32K       64.2      96.8</span>
+<span class="cs-line cmt">#   40K       43.5      95.3</span>
+<span class="cs-line cmt"># Orthrus sustains ~96 tps; DFlash degrades 2.2×</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'orthrus/bottleneck.py',  title: 'The Sequential Bottleneck' },
+  drift:      { file: 'orthrus/drift.py',       title: 'Why Diffusion Drifts' },
+  arch:       { file: 'orthrus/architecture.py',title: 'Architecture' },
+  inference:  { file: 'orthrus/inference.py',   title: 'Inference Loop' },
+  blocksize:  { file: 'orthrus/block_size.py',  title: 'Block Size K' },
+  results:    { file: 'orthrus/results.py',     title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver: TOC + tab sync on scroll ──────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-drift':      'drift',
+  's-arch':       'arch',
+  's-inference':  'inference',
+  's-blocksize':  'blocksize',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Generation race canvas (§01) ────────────────────────────────
+(function() {
+  const canvas = document.getElementById('gen-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = 280;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return { W, H };
+  }
+  let { W, H } = resize();
+
+  const TOKENS = ['14', ',', 'and', '2', '×', '8', '=', '16'];
+  const COLORS_AR   = 'rgba(6,182,212,0.85)';
+  const COLORS_DIFF = 'rgba(139,92,246,0.85)';
+  const BOX_W = 46, BOX_H = 32, GAP = 6;
+  const ROW_Y_AR   = H * 0.28;
+  const ROW_Y_DIFF = H * 0.72;
+
+  let arVisible   = 0;   // how many AR tokens revealed
+  let diffVisible = 0;   // how many diff tokens revealed
+  let phase = 0;         // 0=idle,1=ar-running,2=diff-pass1,3=diff-pass2,4=done
+  let frame = 0;
+  let raf = null;
+
+  function totalWidth() { return TOKENS.length * (BOX_W + GAP) - GAP; }
+
+  function drawRow(yCenter, tokens, nVisible, label, color, passLabel) {
+    ctx.save();
+    const startX = (W - totalWidth()) / 2;
+
+    // label
+    ctx.font = `600 11px var(--ff-mono, monospace)`;
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, startX, yCenter - 24);
+
+    // pass label
+    ctx.font = `10px var(--ff-mono, monospace)`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'right';
+    ctx.fillText(passLabel, startX + totalWidth(), yCenter - 24);
+
+    tokens.forEach((tok, i) => {
+      const x = startX + i * (BOX_W + GAP);
+      const y = yCenter - BOX_H / 2;
+      const visible = i < nVisible;
+
+      // box background
+      ctx.fillStyle = visible ? color.replace('0.85', '0.18') : 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = visible ? color : 'rgba(255,255,255,0.09)';
+      ctx.lineWidth = visible ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.roundRect(x, y, BOX_W, BOX_H, 5);
+      ctx.fill(); ctx.stroke();
+
+      if (visible) {
+        ctx.font = `700 11px var(--ff-mono, monospace)`;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.textAlign = 'center';
+        ctx.fillText(tok, x + BOX_W / 2, y + BOX_H / 2 + 4);
+      }
+    });
+    ctx.restore();
+  }
+
+  function drawPassCounter() {
+    ctx.save();
+    const arPasses = arVisible;           // one pass per token
+    const diffPasses = phase >= 2 ? (phase >= 3 ? 2 : 1) : 0;
+    const arColor  = 'rgba(6,182,212,0.85)';
+    const diffColor = 'rgba(139,92,246,0.85)';
+
+    // prompt label
+    ctx.font = `11px var(--ff-mono, monospace)`;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'center';
+    ctx.fillText('prompt: "2 × 6 = 12, so 2 × 7 ="', W / 2, H * 0.1);
+    ctx.restore();
+
+    // update pass counter element
+    if (phase === 4) {
+      document.getElementById('pass-display').textContent =
+        `AR: ${arPasses} passes  |  Orthrus: 2 passes`;
+    } else if (phase > 0) {
+      document.getElementById('pass-display').textContent =
+        `AR: ${arVisible} of 8 passes…`;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // divider line
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(20, H / 2); ctx.lineTo(W - 20, H / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    const arPassLabel   = phase === 0 ? '' : `${arVisible} pass${arVisible !== 1 ? 'es' : ''}`;
+    const diffPassLabel = phase === 0 ? '' : phase < 2 ? '' : phase === 2 ? '1 pass (project)' : '2 passes total';
+
+    drawRow(ROW_Y_AR,   TOKENS, arVisible,   'Autoregressive', COLORS_AR,   arPassLabel);
+    drawRow(ROW_Y_DIFF, TOKENS, diffVisible, 'Orthrus',        COLORS_DIFF, diffPassLabel);
+    drawPassCounter();
+
+    // acceptance checkmarks for Orthrus in phase 3
+    if (phase >= 3 && diffVisible === TOKENS.length) {
+      const startX = (W - totalWidth()) / 2;
+      ctx.save();
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = 'rgba(16,185,129,0.9)';
+      ctx.textAlign = 'center';
+      TOKENS.forEach((_, i) => {
+        const x = startX + i * (BOX_W + GAP) + BOX_W / 2;
+        ctx.fillText('✓', x, ROW_Y_DIFF + BOX_H / 2 + 18);
+      });
+      ctx.restore();
+    }
+  }
+
+  function tick() {
+    frame++;
+    if (phase === 1) {
+      // AR: reveal one token every 18 frames
+      if (frame % 18 === 0 && arVisible < TOKENS.length) {
+        arVisible++;
+      }
+      if (arVisible >= TOKENS.length) { phase = 2; frame = 0; }
+    } else if (phase === 2) {
+      // Diff pass 1: all tokens reveal together after 20 frames
+      if (frame >= 20) { diffVisible = TOKENS.length; phase = 3; frame = 0; }
+    } else if (phase === 3) {
+      // short pause then done
+      if (frame >= 30) { phase = 4; cancelAnimationFrame(raf); raf = null; }
+    }
+    draw();
+    if (phase !== 0 && phase !== 4) raf = requestAnimationFrame(tick);
+  }
+
+  draw();
+
+  document.getElementById('gen-play').addEventListener('click', () => {
+    if (raf || phase === 4) return;
+    if (phase === 0) { phase = 1; frame = 0; }
+    raf = requestAnimationFrame(tick);
+  });
+  document.getElementById('gen-reset').addEventListener('click', () => {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    arVisible = 0; diffVisible = 0; phase = 0; frame = 0;
+    document.getElementById('pass-display').textContent = '—';
+    draw();
+  });
+})();
+
+// ─── Step navigator (§04) ────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('.step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+
+  // consensus token animation state
+  const ACCEPT = [0, 1, 2, 3, 4, 5];  // first 6 accepted
+  const REJECT = 6;                    // "is" rejected
+  const RESAMP = 7;                    // "=" resampled
+
+  function renderConsensus(active) {
+    const row = document.getElementById('consensus-row');
+    if (!row) return;
+    const chips = row.querySelectorAll('.tok-chip');
+    chips.forEach((c, i) => {
+      c.classList.remove('accepted', 'rejected', 'resampled');
+      if (!active) return;
+      if (ACCEPT.includes(i)) c.classList.add('accepted');
+      else if (i === REJECT) c.classList.add('rejected');
+      else if (i === RESAMP) c.classList.add('resampled');
+    });
+  }
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+    renderConsensus(step === 2);
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─── Block size K chart canvas (§05) ─────────────────────────────
+(function() {
+  const canvas = document.getElementById('k-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const KS      = [4, 8, 16, 32];
+  const TPF_VAL = [1.85, 3.30, 5.01, 6.35];
+  const LAT_VAL = [39.2, 39.8, 40.1, 40.6]; // roughly flat ~40ms
+
+  const PAD = { top: 28, right: 60, bottom: 40, left: 56 };
+  const CW = W - PAD.left - PAD.right;
+  const CH = H - PAD.top - PAD.bottom;
+
+  let activeK = 3; // index 3 = K=32
+
+  function xPos(i) { return PAD.left + (i / (KS.length - 1)) * CW; }
+  function yTPF(v)  { return PAD.top + CH - (v / 7) * CH; }
+  function yLat(v)  { return PAD.top + CH - ((v - 35) / 10) * CH; }
+
+  function draw(selIdx) {
+    ctx.clearRect(0, 0, W, H);
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 7; i++) {
+      const y = PAD.top + CH - (i / 7) * CH;
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + CW, y); ctx.stroke();
+    }
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + CH);
+    ctx.lineTo(PAD.left + CW, PAD.top + CH); ctx.stroke();
+
+    // axis labels
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'right';
+    [0, 1, 2, 3, 4, 5, 6, 7].forEach(v => {
+      const y = yTPF(v);
+      ctx.fillText(v, PAD.left - 6, y + 3);
+    });
+    ctx.textAlign = 'center';
+    KS.forEach((k, i) => {
+      ctx.fillText(`K=${k}`, xPos(i), PAD.top + CH + 15);
+    });
+
+    // Latency line (amber, right axis)
+    ctx.strokeStyle = 'rgba(245,158,11,0.7)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    LAT_VAL.forEach((v, i) => {
+      const x = xPos(i), y = yLat(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // latency label
+    ctx.fillStyle = 'rgba(245,158,11,0.75)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    ctx.fillText('latency ~40ms (flat)', PAD.left + CW - 2, yLat(LAT_VAL[LAT_VAL.length - 1]) - 5);
+
+    // TPF line (purple)
+    ctx.strokeStyle = 'rgba(139,92,246,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    TPF_VAL.forEach((v, i) => {
+      const x = xPos(i), y = yTPF(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // TPF dots
+    TPF_VAL.forEach((v, i) => {
+      const x = xPos(i), y = yTPF(v);
+      const sel = i === selIdx;
+      ctx.beginPath();
+      ctx.arc(x, y, sel ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = sel ? 'rgba(139,92,246,1)' : 'rgba(139,92,246,0.5)';
+      ctx.fill();
+      if (sel) {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      // value label above dot
+      ctx.font = sel ? 'bold 10px var(--ff-mono, monospace)' : '9px var(--ff-mono, monospace)';
+      ctx.fillStyle = sel ? '#c4b5fd' : 'rgba(167,139,250,0.6)';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${v}`, x, y - 10);
+    });
+
+    // TPF axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + CH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(139,92,246,0.7)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Tokens Per Forward Pass', 0, 0);
+    ctx.restore();
+
+    // title
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.textAlign = 'center';
+    ctx.fillText(`TPF vs Block Size K  (K=${KS[selIdx]} selected → ${TPF_VAL[selIdx]} TPF, ${(TPF_VAL[selIdx] / TPF_VAL[0]).toFixed(1)}× over K=4)`, W / 2, 14);
+  }
+
+  draw(activeK);
+
+  document.querySelectorAll('.k-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeK = parseInt(btn.dataset.k);
+      document.querySelectorAll('.k-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      draw(activeK);
+    });
+  });
+})();
+
+// ─── Animated bar charts (§06) ───────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          const maxPct = 86.2; // MATH-500 top score
+          b.style.width = (parseFloat(b.dataset.w) / maxPct * 97) + '%';
+        });
+        document.querySelectorAll('.acc-bar-fill[data-w]').forEach(b => {
+          const maxAcc = 11.7;
+          b.style.width = (parseFloat(b.dataset.w) / maxAcc * 95) + '%';
+        });
+        io.disconnect();
+      }
+    });
+  }, { threshold: 0.2 });
+  io.observe(resultsSection);
+}
+</script>
+</BaseLayout>
