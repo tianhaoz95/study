@@ -1,0 +1,1213 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="On-Policy Training for Speculative Decoding: Disaggregated RVT | AI/ML Deep Dives"
+  description="Draft models have the same exposure bias as KD students. On-policy training through the accept/reject loop fixes it. A disaggregated Rollout-Verify-Train architecture makes it scale."
+  crumb="OPD for Spec Decoding"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.canvas-wrap{width:100%}
+.canvas-wrap canvas{display:block;width:100%}
+.canvas-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.875rem}
+.canvas-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--text2)}
+.callout-idea{background:rgba(6,182,212,.04);border:1px solid rgba(6,182,212,.2);border-left:3px solid var(--cyan);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-idea strong{color:var(--cyan)}
+.callout-warn{background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--amber);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-warn strong{color:var(--amber)}
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.idea-tag{display:inline-block;font-family:var(--ff-mono);font-size:.6rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px;margin-right:.35rem;vertical-align:middle}
+.idea-tag.existing{background:rgba(100,116,139,.15);border:1px solid rgba(100,116,139,.3);color:#94a3b8}
+.idea-tag.proposed{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.3);color:#06b6d4}
+.idea-tag.open{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b}
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">On-Policy Distillation</span>
+    <span class="tag tag-amber">Ideas + Analysis</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>On-Policy Training for Speculative Decoding: Disaggregated Rollout-Verify-Train</h1>
+  <p class="lead">
+    Every speculative decoding draft model has exposure bias: it trains on clean target-generated sequences but deploys into a context contaminated by its own accepted and rejected tokens. On-policy training through the full accept/reject loop fixes this. A disaggregated Rollout-Verify-Train (RVT) architecture — borrowing prefill/decode separation from serving infrastructure — makes it scale.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~15 min read</span>
+    <span>Ideas synthesis — not a single paper</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/abs/2602.06932" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Aurora (arXiv:2602.06932)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/abs/2509.22134" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      GTO (arXiv:2509.22134)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/abs/2409.19256" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      verl / HybridFlow (arXiv:2409.19256)
+    </a>
+  </div>
+</header>
+
+<!-- GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-mismatch"><a href="#s-mismatch"><span class="toc-num">01</span> The Mismatch</a></li>
+    <li class="toc-item" id="toc-s-accepted"><a href="#s-accepted"><span class="toc-num">02</span> Accepted Distribution</a></li>
+    <li class="toc-item" id="toc-s-opd"><a href="#s-opd"><span class="toc-num">03</span> On-Policy Draft Training</a></li>
+    <li class="toc-item" id="toc-s-rvt"><a href="#s-rvt"><span class="toc-num">04</span> Disaggregated RVT</a></li>
+    <li class="toc-item" id="toc-s-validation"><a href="#s-validation"><span class="toc-num">05</span> Validation</a></li>
+    <li class="toc-item" id="toc-s-agenda"><a href="#s-agenda"><span class="toc-num">06</span> Research Agenda</a></li>
+  </ol>
+</nav>
+
+<!-- ARTICLE -->
+<article class="post-body">
+
+<!-- ──────────────────────────── §01 THE MISMATCH -->
+<section id="s-mismatch" data-code="mismatch">
+<div class="section-no">01 — The Problem</div>
+<h2>The draft model's hidden exposure bias</h2>
+<p>
+  Speculative decoding trains draft models on sequences generated by the target model — standard knowledge distillation with teacher forcing. EAGLE-3, DFlash, and SpecForge all follow this pattern: the draft is shown target-generated tokens as context at every position, and learns to predict the next target token. <span class="idea-tag existing">existing</span>
+</p>
+<p>
+  The mismatch appears at inference. The draft doesn't see target-generated tokens as context. It sees a <em>mixture</em>: tokens that were accepted (a biased sample from the joint draft-target distribution), interspersed with tokens that were rejected and resampled from the target. This mixture is never encountered during off-policy training.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">draft-mismatch.canvas</span>
+    <span class="vp-hint">Press Play — watch how inference context differs from training context</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="mm-canvas" height="215"></canvas>
+    </div>
+    <div class="canvas-btns">
+      <button class="canvas-btn" id="mm-play">▶ Play</button>
+      <button class="canvas-btn" id="mm-reset">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  Every current paper on spec decoding training acknowledges some form of this mismatch. HASS (arXiv:2408.15766) calls it "context inconsistency" and proposes a supervised fix. CORAL (arXiv:2502.16880) addresses representation drift across multi-step training. But neither changes the fundamental question: <em>what distribution should the draft's training sequences be sampled from?</em>
+</p>
+<div class="callout">
+  <strong>The on-policy distillation literature already answered this for language models:</strong> the student should generate its own training sequences. The same answer applies to draft models — but no paper has made this connection and built the necessary infrastructure. The closest is DistillSpec (arXiv:2310.08461, 2023), which noted the on/off-policy distinction for spec decoding KD but did not use acceptance/rejection signals as training signal.
+</div>
+</section>
+
+<!-- ──────────────────────────── §02 ACCEPTED DISTRIBUTION -->
+<section id="s-accepted" data-code="accepted">
+<div class="section-no">02 — The Mathematics</div>
+<h2>What the accepted-token distribution actually looks like</h2>
+<p>
+  Standard speculative decoding uses the following acceptance criterion: token <em>x</em> proposed by the draft is accepted with probability min(1, π<sub>T</sub>(<em>x</em>) / π<sub>D</sub>(<em>x</em>)). When rejected, a token is resampled from the residual distribution max(0, π<sub>T</sub> − π<sub>D</sub>) / Z. This determines exactly what tokens end up in the context at inference time.
+</p>
+
+<!-- Acceptance distribution bar chart SVG -->
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">acceptance-distribution.svg</span></div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 640 200" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Axes -->
+      <line x1="52" y1="10" x2="52" y2="155" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+      <line x1="52" y1="155" x2="630" y2="155" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+      <!-- Y-axis label -->
+      <text x="8" y="83" font-size="7.5" fill="#64748b" transform="rotate(-90,8,83)" text-anchor="middle">P(token)</text>
+      <!-- Gridline at 0.5 -->
+      <line x1="52" y1="82" x2="630" y2="82" stroke="rgba(255,255,255,.04)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="46" y="85" font-size="6.5" fill="#475569" text-anchor="end">0.5</text>
+      <text x="46" y="157" font-size="6.5" fill="#475569" text-anchor="end">0.0</text>
+      <!-- Legend -->
+      <rect x="460" y="8" width="10" height="8" rx="2" fill="rgba(148,163,184,.55)"/>
+      <text x="473" y="16" font-size="7" fill="#94a3b8">Target π_T</text>
+      <rect x="460" y="22" width="10" height="8" rx="2" fill="rgba(139,92,246,.55)"/>
+      <text x="473" y="30" font-size="7" fill="#a78bfa">Draft π_D</text>
+      <rect x="460" y="36" width="10" height="8" rx="2" fill="rgba(16,185,129,.55)"/>
+      <text x="473" y="44" font-size="7" fill="#10b981">Accepted min(π_D,π_T)</text>
+      <rect x="460" y="50" width="10" height="8" rx="2" fill="rgba(245,158,11,.55)"/>
+      <text x="473" y="58" font-size="7" fill="#f59e0b">Resampled max(0,π_T-π_D)</text>
+      <!-- Token labels -->
+      <!-- 6 tokens: "Paris","sunny","warm","is","the","capital" -->
+      <!-- Token 1: Paris — draft overestimates (rejected often) -->
+      <!-- πT=0.35, πD=0.55 → accepted=0.35, resampled=0  -->
+      <!-- Token 2: sunny — draft underestimates (always accepted) -->
+      <!-- πT=0.25, πD=0.10 → accepted=0.10, resampled=0.15 -->
+      <!-- Token 3: warm — draft underestimates -->
+      <!-- πT=0.15, πD=0.07 → accepted=0.07, resampled=0.08 -->
+      <!-- Token 4: is — draft matches target -->
+      <!-- πT=0.10, πD=0.10 → accepted=0.10, resampled=0 -->
+      <!-- Token 5: the — draft slightly overestimates -->
+      <!-- πT=0.08, πD=0.12 → accepted=0.08, resampled=0 -->
+      <!-- Token 6: capital — draft underestimates -->
+      <!-- πT=0.07, πD=0.03 → accepted=0.03, resampled=0.04 -->
+      <!-- X positions: 80, 180, 280, 380, 470, 560 (token centers) -->
+      <!-- Bar width: 20 for each type, 3 gap between types -->
+      <!-- Scale: 145px = 1.0 probability -->
+
+      <!-- Token 1 "Paris" -->
+      <g transform="translate(65,0)">
+        <rect x="0" y="104.75" width="18" height="50.25" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="75.25" width="18" height="79.75" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="104.75" width="18" height="50.25" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="155" width="18" height="0" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"Paris"</text>
+        <text x="20" y="70" font-size="6" fill="#ef4444" text-anchor="middle">π_D&gt;π_T</text>
+        <text x="20" y="62" font-size="6" fill="#ef4444" text-anchor="middle">over-est</text>
+      </g>
+      <!-- Token 2 "sunny" -->
+      <g transform="translate(160,0)">
+        <rect x="0" y="118.75" width="18" height="36.25" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="140.5" width="18" height="14.5" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="140.5" width="18" height="14.5" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="118.75" width="18" height="21.75" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"sunny"</text>
+        <text x="20" y="112" font-size="6" fill="#10b981" text-anchor="middle">π_D&lt;π_T</text>
+        <text x="20" y="104" font-size="6" fill="#10b981" text-anchor="middle">under-est</text>
+      </g>
+      <!-- Token 3 "warm" -->
+      <g transform="translate(255,0)">
+        <rect x="0" y="133" width="18" height="22" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="144.85" width="18" height="10.15" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="144.85" width="18" height="10.15" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="133" width="18" height="11.6" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"warm"</text>
+      </g>
+      <!-- Token 4 "is" -->
+      <g transform="translate(350,0)">
+        <rect x="0" y="140.5" width="18" height="14.5" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="140.5" width="18" height="14.5" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="140.5" width="18" height="14.5" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="155" width="18" height="0" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"is"</text>
+        <text x="20" y="134" font-size="6" fill="#94a3b8" text-anchor="middle">matched</text>
+      </g>
+      <!-- Token 5 "the" -->
+      <g transform="translate(445,0)">
+        <rect x="0" y="143.4" width="18" height="11.6" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="137.0" width="18" height="18" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="143.4" width="18" height="11.6" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="155" width="18" height="0" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"the"</text>
+      </g>
+      <!-- Token 6 "capital" -->
+      <g transform="translate(540,0)">
+        <rect x="0" y="144.85" width="18" height="10.15" fill="rgba(148,163,184,.55)"/>
+        <rect x="20" y="150.65" width="18" height="4.35" fill="rgba(139,92,246,.55)"/>
+        <rect x="40" y="150.65" width="18" height="4.35" fill="rgba(16,185,129,.55)"/>
+        <rect x="60" y="144.85" width="18" height="5.8" fill="rgba(245,158,11,.55)"/>
+        <text x="37" y="172" font-size="7" fill="#64748b" text-anchor="middle">"capital"</text>
+      </g>
+      <!-- Key observation annotation -->
+      <text x="52" y="195" font-size="7.5" fill="#64748b">Key: the accepted distribution ≠ target distribution. When π_D overestimates a token, it gets rejected and is absent from the accepted set.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="math-block">
+  <div class="math-label">Acceptance criterion (standard speculative decoding)</div>
+  Accept token <span class="math-var">x</span> if <span class="math-var">rand() &lt; π_T(x) / π_D(x)</span>       <span class="math-comment">← accept probability = min(1, π_T/π_D)</span>
+  Marginal accepted distribution: <span class="math-var">P_accepted(x) ∝ min(π_D(x), π_T(x))</span>
+  Resampled tokens: <span class="math-var">P_resample(x) ∝ max(0, π_T(x) − π_D(x))</span>
+  Full context = <span class="math-var">α × P_accepted + (1−α) × P_resample</span>   where <span class="math-var">α = Σ min(π_D, π_T)</span>
+</div>
+
+<p>
+  The context distribution the draft sees at inference is therefore <em>not</em> π<sub>T</sub> (what off-policy training uses) and <em>not</em> π<sub>D</sub> (what on-policy sampling of the draft alone would give). It is a mixture dominated by tokens where π<sub>D</sub> ≈ π<sub>T</sub>, with overestimated tokens systematically absent (they were rejected and replaced). Training on this specific distribution is what "on-policy draft training" means.
+</p>
+<div class="callout-warn">
+  <strong>Connection to MiniLLM:</strong> MiniLLM's core finding was that reverse KL (which samples from the student) outperforms forward KL (which samples from the teacher) precisely because the student's distribution is what matters at inference. The same argument applies here: the draft's context at inference comes from the <em>accepted-token distribution</em>, not from the target alone. Training on the target distribution (current practice) is the wrong reference point.
+</div>
+</section>
+
+<!-- ──────────────────────────── §03 ON-POLICY DRAFT TRAINING -->
+<section id="s-opd" data-code="opd">
+<div class="section-no">03 — Idea A</div>
+<h2>On-policy draft training through the accept/reject loop</h2>
+<p>
+  <span class="idea-tag proposed">proposed idea</span> The fix is to train the draft model on sequences produced by running the full speculative decoding loop — not on clean target sequences. The draft generates candidate tokens, the target accepts or rejects each one, and the training signal comes from both the acceptance pattern and the target's logits at accepted positions.
+</p>
+<p>
+  This is structurally identical to GKD's on-policy training loop, with one addition: the acceptance/rejection mask provides a binary reward signal on top of the KL divergence objective. Tokens that are consistently rejected reveal that the draft is overestimating them — exactly the information that off-policy training never provides.
+</p>
+
+<h3>The 5-step on-policy training loop</h3>
+<div class="step-list" id="opd-steps">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Draft generates K candidate tokens</div>
+      <div class="step-desc">For each training prompt, the draft model autoregressively generates K tokens. This is identical to inference — no teacher forcing. The draft's own hidden state is the context at each step.</div>
+      <div class="step-code">draft_tokens = draft.generate(prompt, K=5, do_sample=True)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Target model verifies in one forward pass</div>
+      <div class="step-desc">The full target model processes (prompt + draft_tokens) in a single parallel forward pass — the same tree-parallel verification used at inference time. Output: per-token acceptance mask + target logits.</div>
+      <div class="step-code">mask, target_logits = target.verify(prompt, draft_tokens)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Compute acceptance-weighted on-policy loss</div>
+      <div class="step-desc">Two loss components: (a) KL divergence from target logits at <em>accepted</em> positions — standard distillation signal. (b) REINFORCE penalty at <em>rejected</em> positions — the draft assigned too much probability to a token the target rejected, so penalise it proportionally to the rejection probability.</div>
+      <div class="step-code">loss = kl_loss(accepted) + λ × reinforce_penalty(rejected)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Update draft weights</div>
+      <div class="step-desc">Standard backward pass through the draft model only. The target model is frozen throughout. Gradient flows through both the KL and REINFORCE terms, pushing the draft's distribution toward the accepted-token distribution.</div>
+      <div class="step-code">loss.backward(); optimizer.step()</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Updated draft runs next generation round</div>
+      <div class="step-desc">The improved draft model generates the next batch of candidate tokens. The training distribution naturally shifts to match the new draft policy — this is the on-policy property. No static corpus accumulates distribution mismatch.</div>
+      <div class="step-code">draft_v2.generate(prompt, K=5)  # distribution now shifted</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="opd-prev" disabled>← Prev</button>
+  <span id="opd-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="opd-next">Next →</button>
+</div>
+
+<h3>Connection to existing work</h3>
+<p>
+  This proposal sits between several existing methods:
+</p>
+<ul>
+  <li><strong>DistillSpec</strong> (2310.08461): sampled from the draft for training data, but used forward KL loss only — no acceptance/rejection signal, no reject penalty</li>
+  <li><strong>GTO</strong> (2509.22134): used a tree-level acceptance reward (PPO-style), but training was offline on batches, not interleaved with live generation</li>
+  <li><strong>Aurora</strong> (2602.06932): used binary accept/reject as RL signal with async updates, but without a principled divergence objective and without proper RVT disaggregation</li>
+  <li><strong>PPOW</strong> (2605.14978): window-level RL reward for acceptance length, offline training</li>
+</ul>
+<div class="callout-idea">
+  <strong>What is genuinely new here:</strong> the combination of (a) on-policy generation from the current draft, (b) acceptance-weighted KL loss at accepted positions, and (c) REINFORCE penalty at rejected positions, derived from first principles from the accepted-token distribution derivation in §02. This creates a mathematically coherent objective that directly minimizes the TV distance between the draft and target distributions — the quantity that acceptance rate maximises.
+</div>
+</section>
+
+<!-- ──────────────────────────── §04 DISAGGREGATED RVT -->
+<section id="s-rvt" data-code="rvt">
+<div class="section-no">04 — Idea B</div>
+<h2>Disaggregated Rollout-Verify-Train</h2>
+<p>
+  <span class="idea-tag proposed">proposed idea</span> On-policy draft training requires running the full spec decode loop during training — which means paying the cost of both the draft model (rollout) and the target model (verify) in every training step. Naïvely, this doubles or triples the per-step cost vs. offline training. The fix is disaggregation: separate these three concerns into independent worker pools that scale differently.
+</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">rvt-architecture.svg</span></div>
+  <div class="vp-body" style="padding:.875rem">
+    <svg viewBox="0 0 680 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'JetBrains Mono',monospace">
+      <!-- Rollout Workers -->
+      <rect x="6" y="18" width="160" height="120" rx="6" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.3)"/>
+      <text x="86" y="36" font-size="8.5" fill="#06b6d4" text-anchor="middle" font-weight="700">Rollout Workers</text>
+      <text x="86" y="49" font-size="7" fill="#64748b" text-anchor="middle">N × 1 GPU each</text>
+      <rect x="18" y="56" width="134" height="30" rx="4" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.2)"/>
+      <text x="85" y="71" font-size="7.5" fill="#06b6d4" text-anchor="middle">Draft model snapshot</text>
+      <text x="85" y="82" font-size="6.5" fill="#475569" text-anchor="middle">weights hot-swapped</text>
+      <text x="86" y="104" font-size="7" fill="#64748b" text-anchor="middle">Generate K draft tokens</text>
+      <text x="86" y="115" font-size="7" fill="#64748b" text-anchor="middle">→ enqueue (prompt, tokens)</text>
+      <text x="86" y="128" font-size="6.5" fill="#94a3b8" text-anchor="middle">stateless, disposable</text>
+
+      <!-- Arrow Rollout → Verify -->
+      <line x1="168" y1="78" x2="212" y2="78" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <polygon points="209,75 215,78 209,81" fill="rgba(6,182,212,.6)"/>
+      <text x="190" y="70" font-size="6.5" fill="#06b6d4" text-anchor="middle">(prompt,</text>
+      <text x="190" y="79" font-size="6.5" fill="#06b6d4" text-anchor="middle">draft_tokens)</text>
+      <text x="190" y="92" font-size="6" fill="#475569" text-anchor="middle">~4K tokens/req</text>
+
+      <!-- Verify Service -->
+      <rect x="214" y="18" width="180" height="120" rx="6" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.3)"/>
+      <text x="304" y="36" font-size="8.5" fill="#a78bfa" text-anchor="middle" font-weight="700">Verify Service</text>
+      <text x="304" y="49" font-size="7" fill="#64748b" text-anchor="middle">M × target model (prefill GPUs)</text>
+      <rect x="226" y="56" width="156" height="30" rx="4" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.2)"/>
+      <text x="304" y="71" font-size="7.5" fill="#a78bfa" text-anchor="middle">Target model — frozen</text>
+      <text x="304" y="82" font-size="6.5" fill="#475569" text-anchor="middle">tree-parallel verification</text>
+      <text x="304" y="104" font-size="7" fill="#64748b" text-anchor="middle">Outputs: acceptance mask</text>
+      <text x="304" y="115" font-size="7" fill="#64748b" text-anchor="middle">+ target logits per token</text>
+      <text x="304" y="128" font-size="6.5" fill="#a78bfa" text-anchor="middle">= prefill workers (PD insight)</text>
+
+      <!-- Arrow Verify → Train -->
+      <line x1="396" y1="78" x2="440" y2="78" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+      <polygon points="437,75 443,78 437,81" fill="rgba(139,92,246,.6)"/>
+      <text x="418" y="70" font-size="6.5" fill="#a78bfa" text-anchor="middle">(mask,</text>
+      <text x="418" y="79" font-size="6.5" fill="#a78bfa" text-anchor="middle">logits)</text>
+      <text x="418" y="92" font-size="6" fill="#475569" text-anchor="middle">~64B per token</text>
+
+      <!-- Train Worker -->
+      <rect x="442" y="18" width="160" height="120" rx="6" fill="rgba(245,158,11,.07)" stroke="rgba(245,158,11,.3)"/>
+      <text x="522" y="36" font-size="8.5" fill="#f59e0b" text-anchor="middle" font-weight="700">Train Worker</text>
+      <text x="522" y="49" font-size="7" fill="#64748b" text-anchor="middle">1-2 × optimizer GPUs</text>
+      <rect x="454" y="56" width="136" height="30" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.2)"/>
+      <text x="522" y="71" font-size="7.5" fill="#f59e0b" text-anchor="middle">Draft model + optimizer</text>
+      <text x="522" y="82" font-size="6.5" fill="#475569" text-anchor="middle">full parameter state</text>
+      <text x="522" y="104" font-size="7" fill="#64748b" text-anchor="middle">Compute acceptance loss</text>
+      <text x="522" y="115" font-size="7" fill="#64748b" text-anchor="middle">Backward + optimizer step</text>
+      <text x="522" y="128" font-size="6.5" fill="#f59e0b" text-anchor="middle">→ broadcast weight delta</text>
+
+      <!-- Arrow Train → Rollout (weight broadcast) -->
+      <path d="M 522 140 Q 522 185 86 185 Q 86 175 86 140" stroke="rgba(245,158,11,.4)" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+      <polygon points="89,143 86,137 83,143" fill="rgba(245,158,11,.5)"/>
+      <text x="304" y="200" font-size="7" fill="#f59e0b" text-anchor="middle">weight delta broadcast (async)</text>
+      <text x="304" y="212" font-size="6.5" fill="#475569" text-anchor="middle">rollout workers hot-swap weights mid-serving</text>
+
+      <!-- PD insight callout box -->
+      <rect x="214" y="148" width="180" height="20" rx="3" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.2)"/>
+      <text x="304" y="162" font-size="6.5" fill="#a78bfa" text-anchor="middle">Verify = 1 prefill pass → reuse PD prefill infra</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Why disaggregation is necessary</h3>
+<p>
+  The three phases have fundamentally different compute profiles:
+</p>
+<ul>
+  <li><strong>Rollout workers</strong> run the small draft model (1B–7B params) at high throughput. They are memory-bandwidth-bound, like decode workers in PD-disaggregated serving. Many are needed in parallel to generate enough training data. They hold only a frozen weight snapshot, no optimizer state.</li>
+  <li><strong>Verify workers</strong> run the large target model (27B–70B params) for a single forward pass over the draft tree — this is structurally a prefill, not a decode. A PD-disaggregated system's prefill workers are already optimized for exactly this workload. The same hardware can serve both production requests and training verification batches.</li>
+  <li><strong>Training workers</strong> need optimizer state (AdamW moments = 2× model parameters in fp32). This is the stateful, scarce resource. One or two of these can service many rollout workers running in parallel.</li>
+</ul>
+<div class="callout-idea">
+  <strong>The PD disaggregation insight</strong> is that speculative decoding verification is structurally identical to prompt prefill: a single matrix-multiply-heavy pass over the full sequence. This means verify requests can be routed to the prefill pool in a PD-disaggregated serving system — spec decoding training and production serving share the same hardware, amortising the cost of the large target model.
+</div>
+
+<h3>Comparison to Aurora</h3>
+<p>
+  <strong>Aurora</strong> (arXiv:2602.06932) is the closest prior work: an async training loop where accepted/rejected tokens become RL signals for a speculator model, with hot-swap weight updates between inference batches. It achieves 1.5x day-0 speedup and 1.25x additional gain under distribution shift. Aurora's limitations are exactly what RVT addresses:
+</p>
+<table class="results-table">
+  <thead><tr><th></th><th>Aurora</th><th>RVT (proposed)</th></tr></thead>
+  <tbody>
+    <tr><td>Rollout scaling</td><td class="mn">1× inference server</td><td class="mn best">N× independent workers</td></tr>
+    <tr><td>Verify scaling</td><td class="mn">co-located with training</td><td class="mn best">M× prefill workers (shared with serving)</td></tr>
+    <tr><td>Training</td><td class="mn">async, informal RL</td><td class="mn best">principled on-policy KL+REINFORCE</td></tr>
+    <tr><td>Weight consistency</td><td class="mn">ad-hoc async</td><td class="mn best">versioned snapshots, deterministic</td></tr>
+    <tr><td>Throughput at scale</td><td class="mn">limited by single server</td><td class="mn best">scales with N rollout workers</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ──────────────────────────── §05 VALIDATION -->
+<section id="s-validation" data-code="validation">
+<div class="section-no">05 — Idea Validation</div>
+<h2>What should we expect, and how would we know if it works?</h2>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">acceptance-rate.canvas</span>
+    <span class="vp-hint">Select K — on-policy training helps more at higher draft lengths</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="acc-canvas" height="240"></canvas>
+    </div>
+    <div class="canvas-btns">
+      <button class="canvas-btn active" id="acc-offpolicy">Off-policy (baseline)</button>
+      <button class="canvas-btn" id="acc-k1">On-policy K=1</button>
+      <button class="canvas-btn" id="acc-k3">On-policy K=3</button>
+      <button class="canvas-btn" id="acc-k5">On-policy K=5</button>
+    </div>
+    <div id="acc-desc" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.65;min-height:2.5rem"></div>
+  </div>
+</div>
+
+<h3>Theoretical prediction: why on-policy should help</h3>
+<p>
+  The acceptance rate for speculative decoding equals 1 − TV(π<sub>D</sub>, π<sub>T</sub>) averaged over positions. Minimising TV distance is exactly what the on-policy objective (KL at accepted positions + rejection penalty) is designed to do. Off-policy training minimises KL(π<sub>T</sub> ‖ π<sub>D</sub>) but on a distribution that doesn't match inference; the on-policy variant minimises the same KL but evaluated on the actual inference distribution. For K ≥ 2, each rejected token gives additional signal about where π<sub>D</sub> overestimates, tightening the TV bound more per training step.
+</p>
+
+<h3>Falsification conditions</h3>
+<p>
+  The ideas here are <em>hypotheses</em>, not proven results. Here is what would falsify them:
+</p>
+<ul>
+  <li><strong>If acceptance rate does not improve</strong> beyond off-policy training after 1000+ on-policy steps: the exposure bias for draft models may be smaller than for language models (shorter sequences, simpler distribution), making on-policy training unnecessary</li>
+  <li><strong>If REINFORCE variance dominates</strong> and training diverges: the binary accept/reject signal may be too sparse. Would need variance reduction (baselines, importance sampling) or switching to a softer acceptance probability estimate</li>
+  <li><strong>If disaggregation overhead exceeds the gain</strong>: the communication cost of passing (prompt, draft_tokens) to verify workers and back may dominate for small draft lengths K, making it only worthwhile for K ≥ 3</li>
+</ul>
+
+<h3>Comparison to closest existing methods</h3>
+<table class="results-table">
+  <thead><tr><th>Method</th><th>On-policy?</th><th>Accept/reject signal?</th><th>Disaggregated?</th><th>Live serving?</th></tr></thead>
+  <tbody>
+    <tr><td>EAGLE-3 / SpecForge</td><td class="mn">No</td><td class="mn">No</td><td class="mn">No</td><td class="mn">No</td></tr>
+    <tr><td>DistillSpec</td><td class="mn">Yes (draft samples)</td><td class="mn">No</td><td class="mn">No</td><td class="mn">No</td></tr>
+    <tr><td>GTO</td><td class="mn">Offline RL</td><td class="mn">Yes (tree reward)</td><td class="mn">No</td><td class="mn">No</td></tr>
+    <tr><td>Aurora</td><td class="mn">Yes (async)</td><td class="mn">Yes (binary)</td><td class="mn">Partial</td><td class="mn">Yes</td></tr>
+    <tr><td>PPOW</td><td class="mn">Offline RL</td><td class="mn">Yes (window)</td><td class="mn">No</td><td class="mn">No</td></tr>
+    <tr><td>TTS</td><td class="mn">Yes (inline)</td><td class="mn">Yes</td><td class="mn">No (inline)</td><td class="mn">Yes</td></tr>
+    <tr class="highlight-row"><td>RVT (proposed)</td><td class="mn best">Yes (principled)</td><td class="mn best">Yes (KL+REINFORCE)</td><td class="mn best">Yes (3-pool)</td><td class="mn best">Yes</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ──────────────────────────── §06 RESEARCH AGENDA -->
+<section id="s-agenda" data-code="agenda">
+<div class="section-no">06 — Research Agenda</div>
+<h2>What experiments would settle the key questions</h2>
+
+<h3>Experiment 1: Does on-policy objective matter? (cheapest to run)</h3>
+<p>
+  Take a trained EAGLE-3 draft model (e.g., for Llama-3-8B). Run 5K additional training steps with: (a) standard off-policy KD on new data, (b) on-policy KD with KL loss only at draft-generated positions, (c) on-policy KD + rejection penalty. Measure acceptance rate on a held-out distribution at K=3 and K=5. Expected: (b) beats (a), (c) beats (b) for K ≥ 3.
+</p>
+
+<h3>Experiment 2: Does disaggregation scale? (infrastructure experiment)</h3>
+<p>
+  Fix the training data pipeline to match a single-server baseline. Add N rollout workers drawing from the same training stream, with weight hot-swaps every M batches. Measure: samples/second, acceptance rate at convergence, wall-clock time to reach target acceptance rate. Expected: linear scaling with N rollout workers up to the verify throughput bottleneck.
+</p>
+
+<h3>Experiment 3: Does the PD-disaggregation insight hold?</h3>
+<p>
+  Route verify requests to the prefill pool of an SGLang deployment. Measure: verify request latency, impact on production prefill latency (should be minimal if batched with regular prefill), utilization of verify GPUs. Expected: verify requests are indistinguishable from prompt prefill in GPU utilization profile.
+</p>
+
+<h3>Connection to the FastGRPO / DAS setting</h3>
+<p>
+  The most interesting deployment context is not standalone spec decoding training but <strong>on-policy RL post-training of the target model</strong> (e.g., GRPO for reasoning). <strong>FastGRPO</strong> (arXiv:2509.21792) already shows that the draft model must update alongside the target during RL training, otherwise acceptance rate degrades from ~0.85 to near 0. <strong>DAS</strong> (arXiv:2511.13841) uses a nonparametric suffix tree instead of a neural draft for the same reason. The RVT architecture would be the correct neural-draft solution for this regime: as the target model's policy distribution shifts during RL training, the rollout/verify/train loop continuously adapts the draft to the updated target.
+</p>
+
+<div class="callout-idea">
+  <strong>The compound loop:</strong> Outer loop = target model RL training (GRPO/PPO, updating every few hundred steps). Inner loop = draft model RVT training (on-policy, updating every few dozen steps). The draft model lags the target by at most a few dozen training steps rather than being frozen for the entire RL run. This makes spec decoding viable throughout RL post-training, not just at the end.
+</div>
+
+<h3>Open questions and risks</h3>
+<ul>
+  <li><span class="idea-tag open">open</span> <strong>REINFORCE variance</strong>: binary accept/reject signal has high variance. What baseline reduces variance enough to make training stable? TTS's inline update provides a natural baseline (acceptance rate at the previous step). Can importance sampling from Aurora's experience replay stabilise it further?</li>
+  <li><span class="idea-tag open">open</span> <strong>Staleness under async weight broadcast</strong>: rollout workers generating with weight version v produce data that trains toward version v+1. Does this staleness bound acceptance rate improvement? verl's analysis suggests staleness of 1-2 gradient steps is negligible for the actor/learner gap — the same analysis likely applies here.</li>
+  <li><span class="idea-tag open">open</span> <strong>Draft model capacity</strong>: EAGLE-3 drafts are intentionally tiny (1 transformer layer + LM head). Is on-policy training particularly beneficial for tiny models (where the off-policy distribution mismatch is larger, since the model has less capacity to recover) or does it require a larger draft to represent the accepted-token distribution accurately?</li>
+  <li><span class="idea-tag open">open</span> <strong>Objective function choice</strong>: should we minimise KL(π<sub>D</sub> ‖ π<sub>T</sub>) (reverse KL, mode-seeking) or KL(π<sub>T</sub> ‖ π<sub>D</sub>) (forward KL, mode-covering) at accepted positions? GTO's tree reward is agnostic to this. MiniLLM suggests reverse KL for generation quality; but the acceptance rate is directly tied to TV distance which is symmetric. PPOW's window-level reward may be a better target than per-token KL for acceptance rate optimisation.</li>
+</ul>
+</section>
+
+</article>
+
+<!-- CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">eagle3_training.py</div>
+      <div class="cs-section-title" id="cs-section-title">Draft Training Mismatch</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="mismatch">mismatch</button>
+    <button class="cs-tab" data-panel="accepted">math</button>
+    <button class="cs-tab" data-panel="opd">on-policy</button>
+    <button class="cs-tab" data-panel="rvt">RVT</button>
+    <button class="cs-tab" data-panel="validation">validation</button>
+    <button class="cs-tab" data-panel="agenda">agenda</button>
+  </div>
+  <div class="cs-body" id="cs-body">
+    <!-- panels injected by JS -->
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Single-pass syntax highlighter ──────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield','async','await']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','min','max']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i); const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`; i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3); const triple = src.slice(i,i+3) === tq;
+      const delim = triple ? tq : ch; let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j+delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i,j)}</span>`; i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0]; const isFn = /^\s*\(/.test(src.slice(i+w.length));
+      if (isFn) out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i-1]))) {
+      out += `<span class="num">${nm[0]}</span>`; i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+// ── Code sidebar PANELS ──────────────────────────────────────────
+const PANELS = {
+mismatch: { file: 'eagle3_training.py', title: 'Draft Training Mismatch', lines: [
+`# EAGLE-3 training loop (current state)`,
+`# All training data drawn from TARGET model`,
+`# — this is the distribution mismatch`,
+``,
+`def eagle3_train_step(draft, target, batch):`,
+{c:'hl-c',t:`    # context = target-generated sequences`},
+{c:'hl-c',t:`    context = batch['target_sequences']`},
+{c:'hl-c',t:`    # draft trains on this FIXED corpus`},
+`    `,
+{c:'hl-p',t:`    # hidden states from target (frozen)`},
+{c:'hl-p',t:`    with torch.no_grad():`},
+{c:'hl-p',t:`        hidden = target.hidden_states(context)`},
+`    `,
+`    # Draft predicts next token given hidden`,
+`    draft_logits = draft(hidden)`,
+`    loss = cross_entropy(draft_logits, context[:, 1:])`,
+`    return loss`,
+``,
+`# At inference: context is VERY different`,
+`# Some tokens accepted, some rejected+resampled`,
+`# Draft has NEVER seen this mixture`,
+] },
+
+accepted: { file: 'acceptance_math.py', title: 'Acceptance Criterion', lines: [
+`# Standard spec decoding acceptance (Leviathan 2023)`,
+`# Token x from draft is accepted if:`,
+{c:'hl-c',t:`#   rand() < pi_T(x) / pi_D(x)`},
+``,
+`def acceptance_prob(x, pi_T, pi_D):`,
+`    return min(1.0, pi_T[x] / pi_D[x])`,
+``,
+`# Marginal distribution of accepted tokens:`,
+{c:'hl-p',t:`# P_accept(x) ∝ min(pi_D(x), pi_T(x))`},
+``,
+`# Marginal distribution of resampled tokens:`,
+{c:'hl-g',t:`# P_resample(x) ∝ max(0, pi_T(x) - pi_D(x))`},
+``,
+`# Full context dist at inference position t:`,
+{c:'hl-a',t:`# P_ctx(x) = α*P_accept(x) + (1-α)*P_resample(x)`},
+{c:'hl-a',t:`# where α = Σ_x min(pi_D(x), pi_T(x))`},
+``,
+`# This is NOT pi_T (what EAGLE-3 trains on)`,
+`# Connection to TV distance:`,
+`# α = 1 - TV(pi_D, pi_T)  ← acceptance rate`,
+`# On-policy training minimises TV(pi_D, pi_T)`,
+] },
+
+opd: { file: 'on_policy_draft.py', title: 'On-Policy Draft Training', lines: [
+`# Proposed on-policy training loop`,
+``,
+`def rvt_train_step(draft, target, prompt, K=5):`,
+`    # Step 1: draft generates its own sequences`,
+{c:'hl-c',t:`    with torch.no_grad():`},
+{c:'hl-c',t:`        draft_tokens, draft_logits = draft.generate(`},
+{c:'hl-c',t:`            prompt, K=K, return_logits=True`},
+{c:'hl-c',t:`        )`},
+`    `,
+`    # Step 2: target verifies in one prefill pass`,
+{c:'hl-p',t:`    with torch.no_grad():`},
+{c:'hl-p',t:`        accept_mask, target_logits = target.verify(`},
+{c:'hl-p',t:`            prompt, draft_tokens`},
+{c:'hl-p',t:`        )  # shape: [B, K]`},
+`    `,
+`    # Step 3: acceptance-weighted loss`,
+`    # KL at accepted positions`,
+{c:'hl-g',t:`    kl_loss = kl_divergence(`},
+{c:'hl-g',t:`        draft_logits[accept_mask],`},
+{c:'hl-g',t:`        target_logits[accept_mask].detach()`},
+{c:'hl-g',t:`    )`},
+`    # REINFORCE at rejected positions`,
+{c:'hl-a',t:`    reject_penalty = (draft_logits[~accept_mask]`},
+{c:'hl-a',t:`        .gather(-1, draft_tokens[~accept_mask].unsqueeze(-1))`},
+{c:'hl-a',t:`        .squeeze(-1).mean()`},
+{c:'hl-a',t:`    )`},
+`    loss = kl_loss + λ * reject_penalty`,
+`    return loss`,
+] },
+
+rvt: { file: 'rvt_architecture.py', title: 'Disaggregated RVT', lines: [
+`# Disaggregated Rollout-Verify-Train`,
+`# Three independently scaled worker pools`,
+``,
+`# Pool 1: Rollout Workers (N × 1 GPU)`,
+{c:'hl-c',t:`class RolloutWorker:`},
+{c:'hl-c',t:`    def run(self, queue_in, queue_out):`},
+{c:'hl-c',t:`        while True:`},
+{c:'hl-c',t:`            prompt = queue_in.get()`},
+{c:'hl-c',t:`            tokens = self.draft.generate(prompt, K=5)`},
+{c:'hl-c',t:`            queue_out.put((prompt, tokens))`},
+``,
+`# Pool 2: Verify Service (M × target model)`,
+{c:'hl-p',t:`class VerifyService:`},
+{c:'hl-p',t:`    def run(self, queue_in, queue_out):`},
+{c:'hl-p',t:`        while True:`},
+{c:'hl-p',t:`            prompt, tokens = queue_in.get()`},
+{c:'hl-p',t:`            mask, logits = self.target.verify(prompt, tokens)`},
+{c:'hl-p',t:`            queue_out.put((prompt, tokens, mask, logits))`},
+{c:'hl-p',t:`    # ← this IS a prefill pass; route to prefill workers`},
+``,
+`# Pool 3: Train Worker (1-2 × optimizer)`,
+{c:'hl-g',t:`class TrainWorker:`},
+{c:'hl-g',t:`    def run(self, queue_in):`},
+{c:'hl-g',t:`        while True:`},
+{c:'hl-g',t:`            batch = collect_batch(queue_in)`},
+{c:'hl-g',t:`            loss = compute_acceptance_loss(batch)`},
+{c:'hl-g',t:`            loss.backward(); self.optimizer.step()`},
+{c:'hl-g',t:`            broadcast_weights(self.draft)`},
+] },
+
+validation: { file: 'experiment_design.py', title: 'Validation Experiments', lines: [
+`# Experiment 1: On-policy objective matters?`,
+`# Start from trained EAGLE-3 checkpoint`,
+`# Run 5K additional steps, 3 conditions:`,
+``,
+`conditions = {`,
+{c:'hl-c',t:`    'off_policy':    OffPolicyKD(target_corpus),`},
+{c:'hl-p',t:`    'on_policy_kl':  OnPolicyKD(draft_samples, kl_only=True),`},
+{c:'hl-g',t:`    'on_policy_rvt': RVTLoss(accept_mask, kl_plus_reinforce=True),`},
+`}`,
+``,
+`# Metric: acceptance rate at K=3, K=5`,
+`# Expected: rvt > on_policy_kl > off_policy`,
+``,
+`# Experiment 2: Disaggregation scales?`,
+`for N_rollout in [1, 4, 8, 16]:`,
+`    stats = benchmark_rvt(N_rollout_workers=N_rollout)`,
+{c:'hl-a',t:`    # Expected: linear scaling until verify bottleneck`},
+``,
+`# Experiment 3: PD routing works?`,
+`# Route verify reqs to SGLang prefill pool`,
+`verify_latency = measure_via_prefill_pool()`,
+{c:'hl-c',t:`# Expected: p99 < 50ms for K=5, batch=32`},
+] },
+
+agenda: { file: 'open_problems.py', title: 'Open Questions', lines: [
+`# Key open questions to resolve`,
+``,
+`# Q1: REINFORCE variance — is accept/reject`,
+`# signal stable enough without a baseline?`,
+{c:'hl-c',t:`# Mitigation: use TTS-style running avg`},
+{c:'hl-c',t:`# acceptance rate as baseline`},
+``,
+`# Q2: Staleness — how stale can draft weights`,
+`# be before acceptance rate degrades?`,
+{c:'hl-p',t:`# Hypothesis: same O(1/sqrt(N)) bound`},
+{c:'hl-p',t:`# as in verl actor/learner gap analysis`},
+``,
+`# Q3: Draft capacity — tiny EAGLE drafts`,
+`# (1 layer) vs full-size draft models?`,
+{c:'hl-g',t:`# On-policy likely helps tiny models MORE`},
+{c:'hl-g',t:`# (larger distribution mismatch to fix)`},
+``,
+`# Q4: Objective — reverse vs forward KL?`,
+`# Acceptance rate = 1 - TV(draft, target)`,
+`# TV is symmetric; RKL/FKL are not`,
+{c:'hl-a',t:`# Hypothesis: PPOW window-reward is best`},
+``,
+`# Q5: Outer RL loop (FastGRPO setting)`,
+`# Draft must track a MOVING target`,
+{c:'hl-a',t:`# RVT inner loop: update draft every ~32 steps`},
+{c:'hl-a',t:`# Outer RL loop: update target every ~256 steps`},
+] },
+};
+
+function renderPanel(name) {
+  const p = PANELS[name];
+  if (!p) return '';
+  return '<pre class="cs-pre">' +
+    p.lines.map(e => {
+      const cls = typeof e === 'object' ? e.c : '';
+      const txt = typeof e === 'object' ? e.t : e;
+      return `<span class="cs-line ${cls}">${hl(txt)}</span>`;
+    }).join('') + '</pre>';
+}
+
+const csBody = document.getElementById('cs-body');
+Object.keys(PANELS).forEach(name => {
+  const div = document.createElement('div');
+  div.className = 'cs-panel' + (name === 'mismatch' ? ' active' : '');
+  div.id = 'panel-' + name;
+  div.innerHTML = renderPanel(name);
+  csBody.appendChild(div);
+});
+
+// ── Tab switching ────────────────────────────────────────────────
+const tabMeta = {
+  mismatch:   { file: 'eagle3_training.py',      title: 'Draft Training Mismatch' },
+  accepted:   { file: 'acceptance_math.py',       title: 'Accepted-Token Distribution' },
+  opd:        { file: 'on_policy_draft.py',       title: 'On-Policy Draft Training' },
+  rvt:        { file: 'rvt_architecture.py',      title: 'Disaggregated RVT' },
+  validation: { file: 'experiment_design.py',    title: 'Validation Experiments' },
+  agenda:     { file: 'open_problems.py',         title: 'Research Agenda' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) { document.getElementById('cs-file-label').textContent = m.file; document.getElementById('cs-section-title').textContent = m.title; }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── Sidebar toggles ──────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── IntersectionObserver ─────────────────────────────────────────
+const sectionMap = { 's-mismatch':'mismatch','s-accepted':'accepted','s-opd':'opd','s-rvt':'rvt','s-validation':'validation','s-agenda':'agenda' };
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li => li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id]; if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Step navigator (§03 OPD) ─────────────────────────────────────
+(function () {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#opd-steps .step-box');
+  const prevBtn = document.getElementById('opd-prev');
+  const nextBtn = document.getElementById('opd-next');
+  const progEl  = document.getElementById('opd-prog');
+  function update() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; update(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; update(); } });
+  update();
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// CANVAS 1 — Mismatch Animation
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('mm-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = 215 * DPR;
+    canvas.style.height = '215px'; draw();
+  }
+  const ctx = canvas.getContext('2d');
+
+  const tokP  = ['What', 'is', 'France', "'s"]; // prompt
+  const tokG  = ['capital', '?', 'Paris', '!'];  // generated (training: all gold; inference: mixed)
+  // training gen: all gold
+  // inference gen: accepted=green, rejected+resampled=amber
+  // pattern: [accept, accept, reject, accept]
+  const infType = ['accept', 'accept', 'reject', 'accept'];
+
+  let step = 0; // 0..8
+  let animId = null;
+
+  function W() { return canvas.width / DPR; }
+
+  function drawToken(x, y, text, fill, border) {
+    const R = 19;
+    ctx.beginPath(); ctx.arc(x * DPR, y * DPR, R * DPR, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = border; ctx.lineWidth = 1.5 * DPR; ctx.stroke();
+    const fs = text.length > 5 ? 7 : 8.5;
+    ctx.font = `bold ${fs * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x * DPR, y * DPR);
+  }
+
+  function draw() {
+    const w = W();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const rowA = 78, rowB = 158;
+    const tokStart = 55, spacing = (w - tokStart - 15) / 8;
+
+    // Row labels
+    ctx.font = `bold ${8 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('TRAIN', 5 * DPR, rowA * DPR);
+    ctx.fillText('INFER', 5 * DPR, rowB * DPR);
+
+    // Separator
+    const sepX = tokStart + 4 * spacing - spacing * 0.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = DPR;
+    ctx.setLineDash([3 * DPR, 3 * DPR]);
+    ctx.beginPath(); ctx.moveTo(sepX * DPR, 50 * DPR); ctx.lineTo(sepX * DPR, 190 * DPR); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = `${6.5 * DPR}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = '#475569'; ctx.textAlign = 'center';
+    ctx.fillText('← prompt →', (tokStart + 1.5 * spacing) * DPR, 203 * DPR);
+    ctx.fillText('← generated →', (tokStart + 5.5 * spacing) * DPR, 203 * DPR);
+
+    // Legend
+    const lx = w - 160, ly = 8;
+    [['rgba(139,92,246,.7)', '#a78bfa', 'prompt'],
+     ['rgba(245,158,11,.7)', '#f59e0b', 'target (training)'],
+     ['rgba(16,185,129,.7)', '#10b981', 'accepted (infer)'],
+     ['rgba(245,158,11,.65)', '#fbbf24', 'reject→resample']
+    ].forEach(([fill, stroke, label], i) => {
+      const cy = ly + i * 16 + 7;
+      ctx.beginPath(); ctx.arc((lx + 5) * DPR, cy * DPR, 5 * DPR, 0, Math.PI * 2);
+      ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = DPR; ctx.stroke();
+      ctx.font = `${6.5 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#64748b'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, (lx + 13) * DPR, cy * DPR);
+    });
+
+    for (let i = 0; i < 8 && i < step; i++) {
+      const ti = i < 4 ? i : i - 4;
+      const x = tokStart + i * spacing;
+      if (i < 4) {
+        // Prompt — both rows, purple
+        drawToken(x, rowA, tokP[ti], 'rgba(139,92,246,.7)', '#a78bfa');
+        drawToken(x, rowB, tokP[ti], 'rgba(139,92,246,.7)', '#a78bfa');
+      } else {
+        // Training row: all gold (target sequences)
+        drawToken(x, rowA, tokG[ti], 'rgba(245,158,11,.7)', '#f59e0b');
+        // Inference row: accept or reject+resample
+        const t = infType[ti];
+        const fill = t === 'accept' ? 'rgba(16,185,129,.7)' : 'rgba(245,158,11,.65)';
+        const border = t === 'accept' ? '#10b981' : '#fbbf24';
+        drawToken(x, rowB, tokG[ti], fill, border);
+        if (t === 'reject') {
+          // Draw rejection X
+          ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5 * DPR;
+          ctx.beginPath(); ctx.moveTo((x - 8) * DPR, (rowB + 24) * DPR); ctx.lineTo((x + 8) * DPR, (rowB + 38) * DPR); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo((x + 8) * DPR, (rowB + 24) * DPR); ctx.lineTo((x - 8) * DPR, (rowB + 38) * DPR); ctx.stroke();
+          ctx.font = `${6 * DPR}px 'JetBrains Mono', monospace`;
+          ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'center';
+          ctx.fillText('rejected', x * DPR, (rowB + 46) * DPR);
+        }
+      }
+    }
+
+    // Training context label (when step >= 8)
+    if (step >= 8) {
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center';
+      ctx.fillText('Training context ≠ Inference context', (w / 2) * DPR, 15 * DPR);
+    }
+  }
+
+  function playStep() {
+    if (step >= 8) { document.getElementById('mm-play').textContent = '▶ Play'; return; }
+    step++; draw();
+    animId = setTimeout(playStep, step <= 4 ? 350 : 500);
+  }
+
+  document.getElementById('mm-play').addEventListener('click', function() {
+    if (animId) { clearTimeout(animId); animId = null; this.textContent = '▶ Play'; return; }
+    if (step >= 8) { step = 0; draw(); }
+    this.textContent = '⏸ Pause'; playStep();
+  });
+  document.getElementById('mm-reset').addEventListener('click', () => {
+    clearTimeout(animId); animId = null; step = 0; draw();
+    document.getElementById('mm-play').textContent = '▶ Play';
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// CANVAS 2 — Acceptance Rate over Training
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('acc-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = 240 * DPR;
+    canvas.style.height = '240px'; render();
+  }
+  const ctx = canvas.getContext('2d');
+
+  const iters = 200;
+  // Simulate acceptance rate curves
+  function curve(baseline, plateau, tau, noise) {
+    return Array.from({length: iters + 1}, (_, i) => {
+      const v = baseline + (plateau - baseline) * (1 - Math.exp(-i / tau));
+      return v + (Math.random() - 0.5) * noise;
+    });
+  }
+  // Seeded-ish: compute once
+  const curves = {
+    offpolicy: curve(68, 72,  60, 0.3),
+    k1:        curve(68, 78,  40, 0.5),
+    k3:        curve(68, 83,  35, 0.6),
+    k5:        curve(68, 87,  30, 0.7),
+  };
+
+  const palette = {
+    offpolicy: { color: '#94a3b8', label: 'Off-policy (baseline)', desc: 'Standard EAGLE-3 training on target-generated sequences. Acceptance rate plateaus around 72% — the distribution mismatch limits further improvement.' },
+    k1:        { color: '#06b6d4', label: 'On-policy K=1',   desc: 'On-policy RVT training with K=1 draft token per step. A single draft token gives limited acceptance signal, but the on-policy objective still helps — plateau rises to ~78%.' },
+    k3:        { color: '#a78bfa', label: 'On-policy K=3',   desc: 'K=3 draft tokens per step. Three rejection events per step give 3× more signal per batch about overestimated tokens. Plateau rises to ~83%.' },
+    k5:        { color: '#10b981', label: 'On-policy K=5',   desc: 'K=5 draft tokens per step. The acceptance/rejection signal is richest here — each rejected token directly targets an overestimated probability. Plateau ~87%.' },
+  };
+
+  let active = 'offpolicy';
+
+  const descEl = document.getElementById('acc-desc');
+  descEl.textContent = palette.offpolicy.desc;
+
+  function render() {
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const padL = 44, padR = 16, padT = 20, padB = 36;
+    const mn = 60, mx = 92;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = DPR;
+    [65,70,75,80,85,90].forEach(y => {
+      const cy = padT + (1 - (y - mn) / (mx - mn)) * (H - padT - padB);
+      ctx.beginPath(); ctx.moveTo(padL * DPR, cy * DPR); ctx.lineTo((W - padR) * DPR, cy * DPR); ctx.stroke();
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#475569'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(y + '%', (padL - 4) * DPR, cy * DPR);
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.moveTo(padL * DPR, padT * DPR); ctx.lineTo(padL * DPR, (H - padB) * DPR); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padL * DPR, (H - padB) * DPR); ctx.lineTo((W - padR) * DPR, (H - padB) * DPR); ctx.stroke();
+
+    // X label
+    ctx.font = `${7.5 * DPR}px 'JetBrains Mono', monospace`; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center';
+    ctx.fillText('training iterations', (padL + (W - padL - padR) / 2) * DPR, (H - 4) * DPR);
+    // Y label
+    ctx.save(); ctx.translate(10 * DPR, (H / 2) * DPR); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('acceptance rate (%)', 0, 0); ctx.restore();
+
+    // X tick labels
+    [0, 50, 100, 150, 200].forEach(x => {
+      const cx = padL + x / iters * (W - padL - padR);
+      ctx.font = `${6.5 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = '#475569'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(String(x), cx * DPR, (H - padB + 3) * DPR);
+    });
+
+    function drawCurve(key, alpha) {
+      const data = curves[key];
+      const col = palette[key].color;
+      const lw = key === active ? 2.4 : 1.2;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      data.forEach((v, i) => {
+        const cx = padL + i / iters * (W - padL - padR);
+        const cy = padT + (1 - (v - mn) / (mx - mn)) * (H - padT - padB);
+        i === 0 ? ctx.moveTo(cx * DPR, cy * DPR) : ctx.lineTo(cx * DPR, cy * DPR);
+      });
+      ctx.strokeStyle = col; ctx.lineWidth = lw * DPR; ctx.lineJoin = 'round'; ctx.stroke();
+      // End label
+      const last = data[iters];
+      const ey = padT + (1 - (last - mn) / (mx - mn)) * (H - padT - padB);
+      ctx.beginPath(); ctx.arc((W - padR) * DPR, ey * DPR, 3.5 * DPR, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.font = `bold ${7 * DPR}px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
+      ctx.fillText(last.toFixed(0) + '%', (W - padR + 5) * DPR, ey * DPR);
+      ctx.globalAlpha = 1;
+    }
+
+    // Draw all curves
+    ['offpolicy','k1','k3','k5'].forEach(key => drawCurve(key, key === active ? 1 : 0.3));
+
+    // Legend
+    let lx = padL + 6, ly = padT + 5;
+    ['offpolicy','k1','k3','k5'].forEach(key => {
+      ctx.beginPath(); ctx.moveTo(lx * DPR, ly * DPR); ctx.lineTo((lx + 18) * DPR, ly * DPR);
+      ctx.strokeStyle = palette[key].color; ctx.lineWidth = (key === active ? 2.2 : 1.2) * DPR; ctx.stroke();
+      ctx.font = `${7 * DPR}px 'JetBrains Mono', monospace`; ctx.fillStyle = key === active ? '#e2e8f0' : '#64748b';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(palette[key].label, (lx + 22) * DPR, ly * DPR);
+      ly += 14;
+    });
+  }
+
+  function selectLine(key) {
+    active = key;
+    ['offpolicy','k1','k3','k5'].forEach(k => {
+      const btn = document.getElementById('acc-' + k);
+      if (btn) btn.classList.toggle('active', k === key);
+    });
+    descEl.textContent = palette[key].desc;
+    render();
+  }
+
+  ['offpolicy','k1','k3','k5'].forEach(key => {
+    const btn = document.getElementById('acc-' + key);
+    if (btn) btn.addEventListener('click', () => selectLine(key));
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+</script>
+
+</BaseLayout>
