@@ -19,6 +19,7 @@ function recentTopics(max = 6): string[] {
 }
 
 export default defineConfig({
+  server: { port: 4323 },
   define: {
     __RECENT_TOPICS__: JSON.stringify(recentTopics()),
   },

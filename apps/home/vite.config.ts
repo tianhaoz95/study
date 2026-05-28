@@ -13,6 +13,7 @@ function countPosts(): number {
 }
 
 export default defineConfig({
+  server: { port: 4322 },
   define: {
     __POST_COUNT__: countPosts(),
   },
