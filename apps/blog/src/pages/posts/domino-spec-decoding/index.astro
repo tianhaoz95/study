@@ -1,0 +1,1153 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Domino: Causal Quality at Parallel Speed | AI/ML Deep Dives"
+  description="Domino decouples causal dependency modeling from autoregressive execution in speculative decoding — a lightweight GRU head adds causal correction on top of a block-parallel drafter, boosting acceptance length 16.6% and end-to-end speedup 12.3% with only 2.8% more latency."
+  crumb="Domino"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.canvas-wrap{width:100%}
+.canvas-wrap canvas{display:block;width:100%}
+.canvas-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.875rem}
+.canvas-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Callouts */
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--text2)}
+.callout-idea{background:rgba(6,182,212,.04);border:1px solid rgba(6,182,212,.2);border-left:3px solid var(--cyan);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-idea strong{color:var(--cyan)}
+.callout-green{background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.2);border-left:3px solid var(--green);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-green strong{color:var(--green)}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-header{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:1rem;margin-bottom:.375rem;padding-left:0;text-align:right;width:200px}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">LLM Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Domino: Causal Quality at Parallel Speed</h1>
+  <p class="lead">Autoregressive drafters have quality but pay a sequential tax; parallel drafters are fast but miss intra-block causal dependencies. Domino decouples these concerns — a block-parallel backbone drafts the whole block at once, then a lightweight GRU head injects causal information through residual logit correction, gaining 16.6% acceptance length with only 2.8% extra latency.</p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.29707</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.29707v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-tradeoff"><a href="#s-tradeoff"><span class="toc-num">01</span> The Trade-off</a></li>
+    <li class="toc-item" id="toc-s-speedup"><a href="#s-speedup"><span class="toc-num">02</span> Speedup Formula</a></li>
+    <li class="toc-item" id="toc-s-architecture"><a href="#s-architecture"><span class="toc-num">03</span> Domino Architecture</a></li>
+    <li class="toc-item" id="toc-s-causal"><a href="#s-causal"><span class="toc-num">04</span> Causal Correction</a></li>
+    <li class="toc-item" id="toc-s-training"><a href="#s-training"><span class="toc-num">05</span> Training Strategy</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 — THE TRADE-OFF -->
+<section id="s-tradeoff" data-code="tradeoff">
+  <div class="section-no">01 — The Trade-off</div>
+  <h2>Two Methods, One Impossible Choice</h2>
+  <p>Speculative decoding works by having a cheap <strong>draft model</strong> propose multiple tokens, then letting the expensive <strong>target model</strong> verify them all in one parallel pass. The key insight: if the draft model proposes a run of tokens that the target would have chosen anyway, the target gets to advance by multiple positions per verification call — effectively multiplying its throughput.</p>
+  <p>But there's a fundamental tension in how you build the draft model. The two main camps are:</p>
+  <ul>
+    <li><strong>Autoregressive drafters</strong> (e.g. EAGLE-3): Generate tokens one at a time, each conditioned on all previous draft tokens. High quality — the draft mirrors the target's causal factorization — but sequential: drafting γ tokens costs γ forward passes.</li>
+    <li><strong>Parallel drafters</strong> (e.g. DFlash, DART): Generate the entire draft block in one non-autoregressive forward pass. Fast, but blind to intra-block causal dependencies — each position is conditioned only on the prefix, not on earlier draft tokens.</li>
+  </ul>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">quality–cost trade-off · click a method to compare</span>
+      <span class="vp-hint">interactive</span>
+    </div>
+    <div class="vp-body">
+      <div class="canvas-wrap"><canvas id="tradeoff-canvas" height="220"></canvas></div>
+      <div class="canvas-btns">
+        <button class="canvas-btn active" data-method="eagle3">EAGLE-3 (autoregressive)</button>
+        <button class="canvas-btn" data-method="dflash">DFlash (parallel)</button>
+        <button class="canvas-btn" data-method="domino">Domino (ours)</button>
+      </div>
+    </div>
+  </div>
+
+  <p>The numbers from Figure 1 of the paper tell the story clearly: on Qwen3-8B with a 16-token budget, EAGLE-3 achieves an acceptance length τ = 4.86 but only 3.28× speedup — its sequential draft execution eats into the gains. DFlash reaches 3.42× speedup because drafting is cheap, but τ drops to 4.03. Domino hits τ = 4.70 and 3.84× speedup in that micro-comparison, with the key difference being it uses far less per-draft latency than EAGLE-3 while recovering most of EAGLE-3's causal quality advantage.</p>
+  <div class="callout">
+    <strong>Core question:</strong> Can we get causal dependency modeling <em>without</em> paying for sequential autoregressive execution? Domino's answer is yes — by separating where causal modeling happens from how draft tokens are generated.
+  </div>
+</section>
+
+<!-- §02 — SPEEDUP FORMULA -->
+<section id="s-speedup" data-code="speedup">
+  <div class="section-no">02 — Speedup Formula</div>
+  <h2>What Actually Determines Speedup</h2>
+  <p>The speedup of speculative decoding over standard autoregressive decoding has a clean formula. Let τ be the expected number of tokens accepted per cycle (including the target model's bonus token), T<sub>draft</sub> be drafting time, T<sub>verify</sub> be verification time, and L<sub>target</sub> be per-token latency without speculative decoding:</p>
+
+  <div class="math-block">
+    <div class="math-label">speedup formula</div>
+    η = L<sub>target</sub> / L<sub>spec</sub> = τ · L<sub>target</sub> / (T<sub>draft</sub> + T<sub>verify</sub>)
+    <br><span class="math-comment">// two independent levers: increase τ (draft quality) OR decrease T_draft (draft efficiency)</span>
+  </div>
+
+  <p>This formula clarifies the trade-off precisely. T<sub>verify</sub> is roughly fixed — it's one full target-model forward pass. So speedup is determined by two factors:</p>
+  <ul>
+    <li><strong>Higher τ (acceptance length)</strong> means each expensive target call advances more tokens. EAGLE-3 excels here: τ ≈ 4.86 on GSM8K (16-token budget, Qwen3-8B).</li>
+    <li><strong>Lower T<sub>draft</sub></strong> means draft generation wastes less time. DFlash excels here: it costs roughly one draft-model forward + one LM-head call, regardless of block size γ.</li>
+  </ul>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">latency breakdown · Qwen3-8B, 16-token budget, A100</span>
+      <span class="vp-hint">from paper Figure 1</span>
+    </div>
+    <div class="vp-body">
+      <canvas id="latency-canvas" height="160"></canvas>
+    </div>
+  </div>
+
+  <p>For autoregressive drafters, T<sub>draft</sub> ≈ γ · (t<sub>net</sub> + t<sub>head</sub>) — it scales linearly with draft length. For parallel drafters, T<sub>draft</sub> ≈ t<sub>net</sub><sup>block</sup> + t<sub>head</sub><sup>block</sup> — paid once for the whole block. Domino adds a tiny overhead: the Domino head costs 1.2ms on top of DFlash's 5.9ms draft time, a 2.8% increase in total draft-then-verify latency.</p>
+</section>
+
+<!-- §03 — ARCHITECTURE -->
+<section id="s-architecture" data-code="architecture">
+  <div class="section-no">03 — Domino Architecture</div>
+  <h2>Parallel Backbone + Lightweight Causal Head</h2>
+  <p>Domino has two components that compose cleanly:</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">domino architecture · data flow diagram</span>
+      <span class="vp-hint">click components to explore</span>
+    </div>
+    <div class="vp-body">
+      <svg id="arch-svg" viewBox="0 0 660 260" style="width:100%;font-family:var(--ff-mono)">
+        <!-- Background -->
+        <rect width="660" height="260" fill="transparent"/>
+
+        <!-- TARGET CONTEXT -->
+        <rect x="10" y="100" width="100" height="44" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+        <text x="60" y="118" text-anchor="middle" font-size="9" fill="#06b6d4">Target</text>
+        <text x="60" y="132" text-anchor="middle" font-size="9" fill="#06b6d4">Context C_t</text>
+
+        <!-- MASKED BLOCK -->
+        <rect x="10" y="160" width="100" height="44" rx="6" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+        <text x="60" y="178" text-anchor="middle" font-size="9" fill="#06b6d4">Masked Block</text>
+        <text x="60" y="192" text-anchor="middle" font-size="8" fill="#5c6370">[x_t, M, M, M…]</text>
+
+        <!-- PARALLEL BACKBONE -->
+        <rect x="145" y="90" width="130" height="124" rx="8" fill="rgba(139,92,246,.10)" stroke="rgba(139,92,246,.45)" stroke-width="1.5"/>
+        <text x="210" y="112" text-anchor="middle" font-size="10" font-weight="bold" fill="#a78bfa">Parallel</text>
+        <text x="210" y="126" text-anchor="middle" font-size="10" font-weight="bold" fill="#a78bfa">Backbone</text>
+        <text x="210" y="143" text-anchor="middle" font-size="8" fill="#5c6370">(DFlash)</text>
+        <text x="210" y="162" text-anchor="middle" font-size="8" fill="#7c7c8a">5 layers</text>
+        <text x="210" y="176" text-anchor="middle" font-size="8" fill="#7c7c8a">block-parallel</text>
+        <text x="210" y="190" text-anchor="middle" font-size="8" fill="#7c7c8a">forward pass</text>
+
+        <!-- ARROWS context → backbone -->
+        <line x1="110" y1="122" x2="145" y2="145" stroke="rgba(6,182,212,.5)" stroke-width="1.5" marker-end="url(#arrowC)"/>
+        <line x1="110" y1="182" x2="145" y2="175" stroke="rgba(6,182,212,.5)" stroke-width="1.5" marker-end="url(#arrowC)"/>
+
+        <!-- HIDDEN STATES H -->
+        <rect x="305" y="110" width="80" height="40" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+        <text x="345" y="127" text-anchor="middle" font-size="9" fill="#a78bfa">Hidden H_i</text>
+        <text x="345" y="141" text-anchor="middle" font-size="8" fill="#5c6370">for all i</text>
+        <!-- backbone → hidden -->
+        <line x1="275" y1="152" x2="305" y2="135" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arrowP)"/>
+
+        <!-- LM HEAD -->
+        <rect x="305" y="170" width="80" height="40" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+        <text x="345" y="187" text-anchor="middle" font-size="9" fill="#a78bfa">LM Head</text>
+        <text x="345" y="201" text-anchor="middle" font-size="8" fill="#5c6370">(frozen)</text>
+        <!-- backbone → lm head -->
+        <line x1="275" y1="165" x2="305" y2="185" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arrowP)"/>
+
+        <!-- BASE LOGITS L_base -->
+        <rect x="415" y="170" width="80" height="40" rx="5" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+        <text x="455" y="187" text-anchor="middle" font-size="9" fill="#f59e0b">Base Logits</text>
+        <text x="455" y="201" text-anchor="middle" font-size="8" fill="#5c6370">L_base_i</text>
+        <!-- lm head → base logits -->
+        <line x1="385" y1="190" x2="415" y2="190" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arrowA)"/>
+
+        <!-- DOMINO HEAD box -->
+        <rect x="305" y="30" width="190" height="60" rx="8" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.45)" stroke-width="1.5"/>
+        <text x="400" y="52" text-anchor="middle" font-size="10" font-weight="bold" fill="#10b981">Domino Head</text>
+        <text x="400" y="68" text-anchor="middle" font-size="8" fill="#5c6370">GRU causal encoder + low-rank correction</text>
+        <text x="400" y="80" text-anchor="middle" font-size="8" fill="#5c6370">56M params (+5.3%), 1.2ms overhead</text>
+
+        <!-- H_i → Domino head -->
+        <line x1="345" y1="110" x2="360" y2="90" stroke="rgba(16,185,129,.5)" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- CORRECTION LOGITS ΔL -->
+        <rect x="415" y="110" width="80" height="40" rx="5" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+        <text x="455" y="127" text-anchor="middle" font-size="9" fill="#10b981">Correction ΔL_i</text>
+        <text x="455" y="141" text-anchor="middle" font-size="8" fill="#5c6370">low-rank r=256</text>
+        <!-- Domino head → ΔL -->
+        <line x1="495" y1="90" x2="465" y2="110" stroke="rgba(16,185,129,.5)" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- FINAL LOGITS L = L_base + ΔL -->
+        <rect x="540" y="140" width="110" height="44" rx="7" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.6)" stroke-width="2"/>
+        <text x="595" y="158" text-anchor="middle" font-size="10" font-weight="bold" fill="#c4b5fd">Final Logits</text>
+        <text x="595" y="174" text-anchor="middle" font-size="9" fill="#a78bfa">L_i = L_base + ΔL</text>
+        <!-- ΔL + L_base → final -->
+        <line x1="495" y1="130" x2="540" y2="155" stroke="rgba(139,92,246,.6)" stroke-width="1.5" marker-end="url(#arrowP)"/>
+        <line x1="495" y1="190" x2="540" y2="168" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arrowP)"/>
+
+        <!-- SAMPLE label -->
+        <text x="595" y="205" text-anchor="middle" font-size="8" fill="#5c6370">sample → draft token d_i</text>
+
+        <!-- CAUSAL FEEDBACK: d_i → GRU -->
+        <path d="M595 184 L595 230 L290 230 L290 60 L305 60" stroke="rgba(16,185,129,.35)" stroke-width="1" stroke-dasharray="4,3" fill="none" marker-end="url(#arrowGd)"/>
+        <text x="440" y="244" text-anchor="middle" font-size="8" fill="#10b981" fill-opacity=".7">sampled token feeds back into GRU for next position</text>
+
+        <!-- Arrow markers -->
+        <defs>
+          <marker id="arrowC" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(6,182,212,.6)"/>
+          </marker>
+          <marker id="arrowP" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(139,92,246,.6)"/>
+          </marker>
+          <marker id="arrowA" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(245,158,11,.6)"/>
+          </marker>
+          <marker id="arrowG" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(16,185,129,.6)"/>
+          </marker>
+          <marker id="arrowGd" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(16,185,129,.45)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+
+  <h3>Parallel Draft Backbone</h3>
+  <p>Domino instantiates the backbone as DFlash — a block-diffusion style drafter that generates representations for all γ positions in one non-autoregressive forward pass. Given the last verified token x<sub>t</sub> as an anchor, it constructs a masked input block [x<sub>t</sub>, MASK, MASK, …] and runs it through a 5-layer transformer alongside target-model context features C<sub>t</sub>. This produces hidden states H<sub>t</sub>…H<sub>t+B-1</sub> for the whole block at once. The frozen target LM head then converts each to base logits L<sub>base</sub><sub>i</sub>.</p>
+
+  <h3>Domino Head</h3>
+  <p>The Domino head sits on top of the backbone and has two parts: a <strong>causal encoder</strong> (a GRU with hidden dimension 1024) that summarizes all previously sampled draft token embeddings, and a <strong>low-rank correction head</strong> (bottleneck dimension r=256) that maps [H<sub>i</sub>; S<sub>i-1</sub>] to a logit-space residual ΔL<sub>i</sub>. The final distribution is simply L<sub>base</sub><sub>i</sub> + ΔL<sub>i</sub>. Only 56M extra parameters, added once — no repeated full LM-head calls.</p>
+
+  <div class="callout-idea">
+    <strong>Why logit space, not hidden space?</strong> If Domino corrected in hidden space, it would need to run the LM head again after each causal update — reintroducing the expensive sequential bottleneck. Correcting logits directly keeps the expensive LM-head computation parallel while the causal branch is cheap and sequential.
+  </div>
+</section>
+
+<!-- §04 — CAUSAL CORRECTION -->
+<section id="s-causal" data-code="causal">
+  <div class="section-no">04 — Causal Correction</div>
+  <h2>How the GRU Injects Causal Information</h2>
+  <p>The central mechanism is surprisingly simple: a GRU reads the embeddings of sampled draft tokens one by one, maintaining a rolling causal state S<sub>i</sub>. When predicting draft token at position i, the causal state S<sub>i-1</sub> captures everything about the preceding draft tokens — without any additional draft-model forward passes.</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">causal correction walkthrough · step through positions 1–4</span>
+      <span class="vp-hint">use prev / next</span>
+    </div>
+    <div class="vp-body">
+      <div class="step-list" id="causal-steps">
+        <div class="step-box active">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Position 1 — no causal history yet</div>
+            <div class="step-desc">The GRU state S<sub>0</sub> is zero (no prior draft tokens). Correction ΔL<sub>1</sub> = 0. Final logit = base logit from backbone.</div>
+            <div class="step-code">S_0 = zeros(1024)
+ΔL_1 = W2(σ(W1([H_1; S_0])))  # ≈ 0
+L_1 = L_base_1 + ΔL_1         # = L_base_1
+d_1 = sample(L_1)</div>
+          </div>
+        </div>
+        <div class="step-box">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Position 2 — first causal update</div>
+            <div class="step-desc">Sampled token d<sub>1</sub> is embedded and fed into the GRU, producing state S<sub>1</sub>. Now ΔL<sub>2</sub> depends on what token was just drafted — if d<sub>1</sub> = "Paris", that shifts predictions for position 2.</div>
+            <div class="step-code">E_1 = embed(d_1)               # e.g. embed("Paris")
+S_1 = GRU(E_1, S_0)
+ΔL_2 = W2(σ(W1([H_2; S_1])))  # informed by "Paris"
+d_2 = sample(L_base_2 + ΔL_2)</div>
+          </div>
+        </div>
+        <div class="step-box">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Position 3 — accumulating context</div>
+            <div class="step-desc">The GRU now holds a summary of both d<sub>1</sub> and d<sub>2</sub>. If d<sub>2</sub> = "is", the state S<sub>2</sub> encodes the partial draft "Paris is", steering position 3 toward likely continuations like "the" or "France's".</div>
+            <div class="step-code">E_2 = embed(d_2)               # e.g. embed("is")
+S_2 = GRU(E_2, S_1)           # summarizes "Paris is"
+ΔL_3 = W2(σ(W1([H_3; S_2])))  # conditioned on "Paris is"
+d_3 = sample(L_base_3 + ΔL_3)</div>
+          </div>
+        </div>
+        <div class="step-box">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Position 4 — full causal chain</div>
+            <div class="step-desc">Each new position benefits from the full draft prefix so far. This replicates the quality benefit of autoregressive drafting without re-running the large draft network — just one lightweight GRU step per position.</div>
+            <div class="step-code">E_3 = embed(d_3)
+S_3 = GRU(E_3, S_2)
+ΔL_4 = W2(σ(W1([H_4; S_3])))
+d_4 = sample(L_base_4 + ΔL_4)
+# Total GRU cost: 4 × GRU(1024) steps — tiny</div>
+          </div>
+        </div>
+      </div>
+      <div class="step-nav">
+        <button id="causal-prev" disabled>← Prev</button>
+        <button id="causal-next">Next →</button>
+        <span class="step-prog" id="causal-prog">Step 1 of 4</span>
+      </div>
+    </div>
+  </div>
+
+  <p>The key insight is that the GRU state S<sub>i</sub> is dirt cheap to compute — just an RNN step — while the backbone's hidden state H<sub>i</sub> and base logits are already available from the parallel forward pass. The entire correction loop runs in 1.2ms on an A100, compared to 35.5ms for a full target-model verification pass.</p>
+
+  <div class="callout-green">
+    <strong>Ablation result:</strong> Enabling the Domino head on the same backbone improves average acceptance length from τ = 3.49 to τ = 4.19 and average speedup from 2.84× to 3.31×. The correction itself — not training tricks — is the primary source of improvement.
+  </div>
+</section>
+
+<!-- §05 — TRAINING STRATEGY -->
+<section id="s-training" data-code="training">
+  <div class="section-no">05 — Training Strategy</div>
+  <h2>Why Training Is Tricky (And How Domino Fixes It)</h2>
+  <p>Training the causal correction branch introduces two failure modes that don't exist in standard parallel drafting. Domino addresses both with a two-part training strategy.</p>
+
+  <h3>Problem 1: What prefix should the GRU see?</h3>
+  <p>The GRU needs to read prefix draft tokens during training. The natural choice is <strong>self-generated prefixes</strong> (training-time testing, TTT) — sample from the model itself and train on those. EAGLE-3 uses this approach. But Domino instead uses <strong>teacher forcing</strong>: feed the GRU ground-truth token embeddings during training.</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">training strategy comparison · τ by method (Qwen3-8B, ShareGPT)</span>
+      <span class="vp-hint">data from paper Figure 4 right</span>
+    </div>
+    <div class="vp-body">
+      <div class="results-bars" id="training-bars">
+        <div class="bar-row">
+          <div class="bar-label">TTT (self-generated)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="75.2" style="background:rgba(92,99,112,.6)"><span>τ = 3.80</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Teacher Forcing</div>
+          <div class="bar-track"><div class="bar-fill" data-w="79.3" style="background:rgba(6,182,212,.65)"><span>τ = 3.96</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label" style="color:var(--purple-l);font-weight:600">TF + Curriculum</div>
+          <div class="bar-track"><div class="bar-fill" data-w="84.0" style="background:rgba(139,92,246,.8)"><span>τ = 4.19</span></div></div>
+        </div>
+        <div class="bar-row" style="margin-top:.5rem;opacity:.6">
+          <div class="bar-label">DFlash reference</div>
+          <div class="bar-track"><div class="bar-fill" data-w="72.4" style="background:rgba(16,185,129,.4)"><span>τ = 3.62</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>Teacher forcing works better for a subtle reason: the causal encoder's correction at position i <em>only matters</em> when all preceding draft tokens have been accepted by the target model. If position 1 is rejected, positions 2–4 are never reached. So training the GRU on clean ground-truth prefixes focuses learning exactly on the regime that matters — the accepted-prefix regime. Noisy self-generated prefixes create an input–output mapping that doesn't exist in the data distribution.</p>
+
+  <h3>Problem 2: Backbone collapse</h3>
+  <p>Teacher forcing introduces a new failure mode: since the correction branch receives clean, informative prefixes during training, it can <em>shortcut</em> the parallel backbone. The backbone's base logits become weak — all the predictive signal flows through the correction branch, which has no fallback if backbone representations degrade.</p>
+  <p>The fix is a <strong>base-anchored curriculum</strong>: jointly train on both base logits and final logits, with a loss weight λ<sub>t</sub> that starts at 1.0 (pure backbone loss) and linearly anneals to 0.0 (pure final-logit loss):</p>
+
+  <div class="math-block">
+    <div class="math-label">base-anchored curriculum loss</div>
+    L = (1 − λ<sub>t</sub>) · L<sub>final</sub> + λ<sub>t</sub> · L<sub>base</sub>
+    <br><span class="math-comment">// λ_t: 1.0 → 0.0 linearly over training; both terms are cross-entropy with exponential position decay</span>
+  </div>
+
+  <p>This forces the backbone to develop a strong base distribution early in training, before the Domino head takes over residual correction. Without it, backbone loss plateaus high; with it, both components learn complementary representations and backbone loss decreases steadily.</p>
+
+  <div class="callout">
+    <strong>Three-way ablation summary:</strong> TTT → τ = 3.80. Teacher forcing alone → τ = 3.96 (+4.2%). Teacher forcing + curriculum → τ = 4.19 (+10.3% over TTT). Each component contributes independently.
+  </div>
+</section>
+
+<!-- §06 — RESULTS -->
+<section id="s-results" data-code="results">
+  <div class="section-no">06 — Results</div>
+  <h2>Up to 7.92× Speedup on Qwen3</h2>
+  <p>Domino is evaluated on Qwen3-4B and Qwen3-8B across 8 benchmarks spanning math, code, and dialogue. All models use a 16-token draft block. The comparison includes EAGLE-3 (autoregressive), DART and DFlash (parallel), and FR-Spec (vocabulary-efficient).</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">end-to-end speedup · Qwen3-8B, greedy (T=0), Transformers backend</span>
+      <span class="vp-hint">scroll into view to animate</span>
+    </div>
+    <div class="vp-body">
+      <div class="results-bars" id="results-bars">
+        <div class="bar-row"><div class="bar-label" style="font-size:.65rem;color:var(--muted)">— autoregressive baselines —</div></div>
+        <div class="bar-row">
+          <div class="bar-label">EAGLE-3 (budget=16)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="27.8" style="background:rgba(92,99,112,.55)"><span>2.21×</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">EAGLE-3 (budget=60)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="32.1" style="background:rgba(92,99,112,.55)"><span>2.56×</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">DART (budget=60)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="28.7" style="background:rgba(92,99,112,.55)"><span>2.29×</span></div></div>
+        </div>
+        <div class="bar-row"><div class="bar-label" style="font-size:.65rem;color:var(--muted);margin-top:.25rem">— parallel drafters —</div></div>
+        <div class="bar-row">
+          <div class="bar-label">DFlash (budget=16)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="58.6" style="background:rgba(6,182,212,.55)"><span>4.66×</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label" style="color:var(--purple-l);font-weight:600">Domino (budget=16)</div>
+          <div class="bar-track"><div class="bar-fill" data-w="69.0" style="background:rgba(139,92,246,.85)"><span>5.49×</span></div></div>
+        </div>
+      </div>
+      <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem">Average over GSM8K, MATH-500, AIME25, HumanEval, MBPP, LiveCodeBench, MT-Bench, Alpaca. Bar width scaled to 7.92× max (GSM8K peak).</p>
+    </div>
+  </div>
+
+  <p>The headline numbers: on Qwen3-8B with greedy decoding, Domino improves over DFlash from 4.66× to <strong>5.49× average speedup</strong> (17.8% relative gain). The peak is <strong>7.92× on GSM8K</strong>, where acceptance length reaches τ = 10.03. On sampling (T=1), average speedup goes from 3.96× (DFlash) to 4.46× (Domino).</p>
+
+  <h3>Per-benchmark breakdown (Qwen3-8B, T=0)</h3>
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>GSM8K</th>
+        <th>MATH-500</th>
+        <th>HumanEval</th>
+        <th>MBPP</th>
+        <th>MT-Bench</th>
+        <th>Avg</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>EAGLE-3 (16)</td>
+        <td class="mn">2.21×</td>
+        <td class="mn">2.09×</td>
+        <td class="mn">2.17×</td>
+        <td class="mn">1.93×</td>
+        <td class="mn">1.82×</td>
+        <td class="mn">1.97×</td>
+      </tr>
+      <tr>
+        <td>DART (60)</td>
+        <td class="mn">2.28×</td>
+        <td class="mn">2.29×</td>
+        <td class="mn">2.52×</td>
+        <td class="mn">2.39×</td>
+        <td class="mn">2.27×</td>
+        <td class="mn">2.29×</td>
+      </tr>
+      <tr>
+        <td>DFlash (16)</td>
+        <td class="mn">5.21×</td>
+        <td class="mn">6.18×</td>
+        <td class="mn">5.21×</td>
+        <td class="mn">4.71×</td>
+        <td class="mn">2.73×</td>
+        <td class="mn">4.66×</td>
+      </tr>
+      <tr class="highlight-row">
+        <td><strong>Domino (16)</strong></td>
+        <td class="mn best">7.92×</td>
+        <td class="mn best">7.38×</td>
+        <td class="mn best">5.89×</td>
+        <td class="mn best">5.53×</td>
+        <td class="mn best">3.29×</td>
+        <td class="mn best">5.49×</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The gains are largest on structured reasoning tasks (math +52%, code +13%) and smaller on open-ended dialogue (MT-Bench +20%). This pattern matches the hypothesis: reasoning tasks have more predictable token sequences, so causal correction — which learns to exploit those patterns — has more room to improve acceptance length.</p>
+
+  <h3>High-concurrency serving (SGLang)</h3>
+  <p>At serving scale (Table 2), Domino achieves up to 5.8× throughput on Qwen3-8B at concurrency=2 on GSM8K. The gains persist across all concurrency levels tested (2–32), confirming that Domino's improved draft quality translates to higher tokens-per-second in production serving environments, not just low-concurrency benchmarks.</p>
+
+  <div class="callout-green">
+    <strong>Bottom line:</strong> By spending 56M parameters and 1.2ms to inject causal information into a block-parallel drafter, Domino consistently outperforms all autoregressive and parallel baselines on the same 16-token budget — achieving EAGLE-3-quality acceptance lengths with DFlash-quality drafting overhead.
+  </div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">domino/intro.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Trade-off</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="tradeoff">tradeoff</button>
+    <button class="cs-tab" data-panel="speedup">speedup</button>
+    <button class="cs-tab" data-panel="architecture">arch</button>
+    <button class="cs-tab" data-panel="causal">causal</button>
+    <button class="cs-tab" data-panel="training">training</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-tradeoff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The quality–cost trade-off in speculative decoding</span>
+<span class="cs-line cmt"># Three representative methods on Qwen3-8B (16-token budget)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Method      | Accept len (τ) | Draft cost   | Speedup</span>
+<span class="cs-line cmt"># EAGLE-3     | 4.86           | γ × (Δt)     | 3.28×</span>
+<span class="cs-line cmt"># DFlash      | 4.03           | 1 × (Δt)     | 3.42×</span>
+<span class="cs-line cmt"># Domino      | 4.70           | 1×(Δt)+GRU   | 3.84×</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Autoregressive drafter</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">ar_draft</span><span class="cs-line">(prefix, gamma):</span>
+<span class="cs-line hl-a">    tokens = []</span>
+<span class="cs-line hl-a">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(gamma):          <span class="cmt"># γ sequential steps</span></span>
+<span class="cs-line hl-a">        h = draft_model(prefix + tokens)</span>
+<span class="cs-line hl-a">        t = lm_head(h)[-<span class="num">1</span>]           <span class="cmt"># full vocab LM head</span></span>
+<span class="cs-line hl-a">        tokens.append(<span class="fn">sample</span>(t))</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> tokens</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Parallel drafter (DFlash)</span>
+<span class="cs-line kw">def</span> <span class="fn">par_draft</span>(prefix, gamma):</span>
+<span class="cs-line hl-c">    masked = [prefix[-<span class="num">1</span>]] + [MASK] * gamma</span>
+<span class="cs-line hl-c">    H = backbone(context(prefix), masked) <span class="cmt"># 1 pass</span></span>
+<span class="cs-line hl-c">    logits = lm_head(H)                  <span class="cmt"># 1 LM-head</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> [<span class="fn">sample</span>(logits[i]) <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(gamma)]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Cost comparison (tnet per forward, thead per LM-head call)</span>
+<span class="cs-line cmt"># AR:  γ·tnet + γ·thead  (e.g. 16 × 5.9ms + 16 × 35.5ms)</span>
+<span class="cs-line cmt"># PAR: tnet_block + thead  (e.g. 1 × 5.9ms + 1 × 35.5ms)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-speedup">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Speculative decoding speedup formula</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># τ  = expected tokens accepted per cycle (incl. bonus)</span>
+<span class="cs-line cmt"># T_d = draft cost,  T_v = verification cost</span>
+<span class="cs-line cmt"># L_t = target model per-token latency (autoregressive)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">L_spec = (T_draft + T_verify) / tau</span>
+<span class="cs-line hl-p">speedup = L_target / L_spec</span>
+<span class="cs-line hl-p">       = tau * L_target / (T_draft + T_verify)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># On A100, Qwen3-8B, context=1024 (from Figure 1)</span>
+<span class="cs-line cmt"># T_verify = 35.5ms (always the same)</span>
+<span class="cs-line cmt"># EAGLE-3 draft: 6.0ms  → speedup = 3.28×  (τ=4.86)</span>
+<span class="cs-line cmt"># DFlash draft:  5.9ms  → speedup = 3.42×  (τ=4.03)</span>
+<span class="cs-line cmt"># Domino draft:  7.1ms  → speedup = 3.84×  (τ=4.70)</span>
+<span class="cs-line cmt"># (Domino = 5.9ms backbone + 1.2ms DHead)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Two orthogonal levers for better speedup:</span>
+<span class="cs-line kw">def</span> <span class="fn">lever_1</span>(tau):
+<span class="cs-line hl-g">    <span class="cmt"># Higher τ: each target call advances more tokens</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># Autoregressive drafting achieves τ=4.86</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># Domino achieves τ=4.70 with parallel cost</span></span>
+<span class="cs-line"></span>
+<span class="cs-line kw">def</span> <span class="fn">lever_2</span>(T_draft):
+<span class="cs-line hl-c">    <span class="cmt"># Lower T_draft: less overhead per cycle</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Parallel drafting: T_draft is O(1) not O(γ)</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Domino adds only 2.8% to DFlash draft cost</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-architecture">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Domino forward pass (inference)</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">def</span> <span class="fn">domino_draft</span>(prefix, gamma=<span class="num">16</span>):</span>
+<span class="cs-line cmt">    # ── Step 1: Parallel backbone ──────────────────</span>
+<span class="cs-line hl-c">    C = target_model.get_context(prefix)</span>
+<span class="cs-line hl-c">    masked = [prefix[-<span class="num">1</span>]] + [MASK] * gamma</span>
+<span class="cs-line hl-c">    H = backbone(C, embed(masked))  <span class="cmt"># 1 pass, all pos</span></span>
+<span class="cs-line hl-c">    L_base = lm_head_frozen(H)      <span class="cmt"># base logits</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ── Step 2: Domino head (sequential, cheap) ───</span>
+<span class="cs-line">    S = zeros(<span class="num">1024</span>)  <span class="cmt"># GRU hidden state</span></span>
+<span class="cs-line">    draft_tokens = []</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(gamma):</span>
+<span class="cs-line hl-p">        dL = W2(<span class="fn">silu</span>(W1(<span class="fn">concat</span>(H[i], S))))</span>
+<span class="cs-line hl-p">        d  = <span class="fn">sample</span>(L_base[i] + dL)    <span class="cmt"># final logit</span></span>
+<span class="cs-line hl-p">        S  = <span class="fn">GRU</span>(<span class="fn">embed</span>(d), S)           <span class="cmt"># update state</span></span>
+<span class="cs-line hl-p">        draft_tokens.<span class="fn">append</span>(d)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ── Step 3: Target model verification ─────────</span>
+<span class="cs-line hl-g">    accepted = target_model.<span class="fn">verify</span>(prefix, draft_tokens)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> accepted  <span class="cmt"># τ tokens advanced</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Domino head dimensions</span>
+<span class="cs-line cmt"># GRU hidden dim: 1024</span>
+<span class="cs-line cmt"># W1: (d_model + 1024) → 256   (low-rank bottleneck r=256)</span>
+<span class="cs-line cmt"># W2: 256 → vocab_size          (correction logits)</span>
+<span class="cs-line cmt"># Total: 56M params, +5.3% over backbone</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-causal">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># GRU causal encoder detail</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># At inference: autoregressively sample draft tokens,</span>
+<span class="cs-line cmt"># each time updating the GRU with the chosen token</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">class</span> <span class="cls">DominoHead</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>):</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.gru = <span class="cls">GRU</span>(input=<span class="num">4096</span>, hidden=<span class="num">1024</span>)</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W1  = <span class="fn">Linear</span>(<span class="num">4096</span>+<span class="num">1024</span>, <span class="num">256</span>)   <span class="cmt"># d_model+ds→r</span></span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W2  = <span class="fn">Linear</span>(<span class="num">256</span>, vocab_size)    <span class="cmt"># r → logits</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, H, S_prev, d_prev):</span>
+<span class="cs-line cmt">        # H: backbone hidden at this position</span>
+<span class="cs-line cmt">        # S_prev: GRU state from previous draft token</span>
+<span class="cs-line cmt">        # d_prev: previously sampled draft token</span>
+<span class="cs-line hl-p">        S = <span class="kw">self</span>.gru(<span class="fn">embed</span>(d_prev), S_prev)</span>
+<span class="cs-line hl-p">        delta_L = <span class="kw">self</span>.W2(<span class="fn">silu</span>(<span class="kw">self</span>.W1(<span class="fn">cat</span>(H, S))))</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> delta_L, S</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why logit-space correction matters:</span>
+<span class="cs-line cmt"># - Hidden-space correction → need to re-run LM head</span>
+<span class="cs-line cmt">  → re-introduces O(vocab) sequential computation</span>
+<span class="cs-line cmt"># - Logit-space correction → residual add only</span>
+<span class="cs-line cmt">  → full LM head stays parallel (from backbone pass)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation: DHead disabled vs enabled (same backbone)</span>
+<span class="cs-line cmt"># w/o DHead: τ=3.49, speedup=2.84×</span>
+<span class="cs-line cmt"># w/  DHead: τ=4.19, speedup=3.31×  (+20.1% τ)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-training">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Training the Domino head</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem 1: What prefix does GRU see during training?</span>
+<span class="cs-line cmt"># Options: TTT (self-generated) vs teacher-forcing</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Teacher forcing: GRU gets ground-truth embeddings</span>
+<span class="cs-line kw">def</span> <span class="fn">train_step_tf</span>(x_gt):
+<span class="cs-line hl-c">    <span class="cmt"># Feed ground-truth prefix tokens to GRU</span></span>
+<span class="cs-line hl-c">    S = zeros(<span class="num">1024</span>)</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(gamma):</span>
+<span class="cs-line hl-c">        S = <span class="fn">GRU</span>(<span class="fn">embed</span>(x_gt[i]), S)  <span class="cmt"># gt, not sample</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># correction is trained to be useful in</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># the accepted-prefix regime only</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem 2: Backbone collapse with teacher forcing</span>
+<span class="cs-line cmt"># Clean gt prefix → correction branch shortcuts backbone</span>
+<span class="cs-line cmt"># Fix: base-anchored curriculum</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">def</span> <span class="fn">curriculum_loss</span>(step, total_steps):</span>
+<span class="cs-line hl-p">    lam = <span class="num">1.0</span> - step / total_steps  <span class="cmt"># 1→0 linear</span></span>
+<span class="cs-line hl-p">    L = (<span class="num">1</span> - lam) * L_final + lam * L_base</span>
+<span class="cs-line hl-p">    <span class="cmt"># Early training: pure backbone loss (lam=1)</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Late training:  pure final-logit loss (lam=0)</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> L</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Position weights (exponential decay, per DFlash)</span>
+<span class="cs-line cmt"># w_k = exp(-k/γ)  — earlier positions weighted more</span>
+<span class="cs-line cmt"># Rationale: token at pos i is accepted only if</span>
+<span class="cs-line cmt"># all tokens at pos &lt;i were also accepted</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Acceptance length: TTT=3.80, TF=3.96, TF+Curr=4.19</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Main results: Qwen3-8B, greedy (T=0), budget=16</span>
+<span class="cs-line cmt"># Speedup over vanilla autoregressive decoding</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># GSM8K results (math reasoning)</span>
+<span class="cs-line cmt"># EAGLE-3 (16):  2.21×  τ=3.27</span>
+<span class="cs-line cmt"># EAGLE-3 (60):  2.56×  τ=3.80  (4× more compute)</span>
+<span class="cs-line cmt"># DFlash  (16):  5.21×  τ=6.59</span>
+<span class="cs-line hl-p"><span class="cmt"># Domino  (16):  7.92×  τ=10.03  ← best</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Average over 8 benchmarks</span>
+<span class="cs-line cmt"># DFlash → 4.66× (τ=6.06 avg)</span>
+<span class="cs-line hl-p"><span class="cmt"># Domino → 5.49× (τ=7.17 avg) +17.8% speedup</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Domino over DFlash (fine-grained)</span>
+<span class="cs-line cmt"># +56M params    (+5.3% model size)</span>
+<span class="cs-line cmt"># +1.2ms latency (+2.8% draft-then-verify time)</span>
+<span class="cs-line cmt"># +16.6% accept length (τ 6.06 → 7.17)</span>
+<span class="cs-line cmt"># +12.3% end-to-end speedup (4.66→ 5.21 on GSM8K)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># SGLang high-concurrency (Qwen3-8B, GSM8K)</span>
+<span class="cs-line cmt"># concurrency=2:  Domino 942 TPS vs DFlash 672 TPS</span>
+<span class="cs-line cmt"># concurrency=8:  Domino 2678 TPS vs DFlash 1915 TPS</span>
+<span class="cs-line cmt"># concurrency=32: Domino 3650 TPS vs DFlash 2801 TPS</span>
+<span class="cs-line hl-g"><span class="cmt"># Domino up to 5.1× throughput at concurrency=2</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─────────────────────────────────────────────────────────
+// TOC + sidebar toggles
+// ─────────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─────────────────────────────────────────────────────────
+// Code sidebar tab switching
+// ─────────────────────────────────────────────────────────
+const tabMeta = {
+  tradeoff:     { file: 'domino/tradeoff.py',    title: 'The Trade-off' },
+  speedup:      { file: 'domino/speedup.py',     title: 'Speedup Formula' },
+  architecture: { file: 'domino/architecture.py', title: 'Architecture' },
+  causal:       { file: 'domino/causal_head.py',  title: 'Causal Correction' },
+  training:     { file: 'domino/training.py',    title: 'Training Strategy' },
+  results:      { file: 'domino/results.py',     title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─────────────────────────────────────────────────────────
+// IntersectionObserver — sync TOC + sidebar on scroll
+// ─────────────────────────────────────────────────────────
+const sectionMap = {
+  's-tradeoff':    'tradeoff',
+  's-speedup':     'speedup',
+  's-architecture':'architecture',
+  's-causal':      'causal',
+  's-training':    'training',
+  's-results':     'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─────────────────────────────────────────────────────────
+// §01 — Trade-off canvas: quality vs cost bubble chart
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('tradeoff-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD = { l: 60, r: 30, t: 28, b: 46 };
+  const IW = W - PAD.l - PAD.r;
+  const IH = H - PAD.t - PAD.b;
+
+  // Data: [label, tau, speedup, color, isActive]
+  const methods = {
+    eagle3: { label: 'EAGLE-3', tau: 4.86, speedup: 3.28, col: '#5c6370' },
+    dflash: { label: 'DFlash',  tau: 4.03, speedup: 3.42, col: '#06b6d4' },
+    domino: { label: 'Domino',  tau: 4.70, speedup: 3.84, col: '#8b5cf6' },
+  };
+
+  let activeMethod = 'eagle3';
+
+  function px(tau) { return PAD.l + ((tau - 3.5) / (5.5 - 3.5)) * IW; }
+  function py(spd) { return PAD.t + (1 - (spd - 2.8) / (4.2 - 2.8)) * IH; }
+
+  function drawAll() {
+    ctx.clearRect(0, 0, W, H);
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let t = 3.5; t <= 5.5; t += 0.5) {
+      ctx.beginPath(); ctx.moveTo(px(t), PAD.t); ctx.lineTo(px(t), PAD.t + IH); ctx.stroke();
+    }
+    for (let s = 2.8; s <= 4.2; s += 0.35) {
+      ctx.beginPath(); ctx.moveTo(PAD.l, py(s)); ctx.lineTo(PAD.l + IW, py(s)); ctx.stroke();
+    }
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + IH); ctx.lineTo(PAD.l + IW, PAD.t + IH); ctx.stroke();
+    // Labels
+    ctx.fillStyle = 'rgba(92,99,112,.8)';
+    ctx.font = `${10 / DPR + 10}px var(--ff-mono, monospace)`; ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('acceptance length τ →', PAD.l + IW / 2, H - 8);
+    ctx.save(); ctx.translate(14, PAD.t + IH / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('speedup →', 0, 0);
+    ctx.restore();
+    // Tick labels
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(92,99,112,.8)'; ctx.font = '9px monospace';
+    [4.0, 4.5, 5.0].forEach(t => {
+      ctx.fillText(t.toFixed(1), px(t), PAD.t + IH + 14);
+    });
+    ctx.textAlign = 'right';
+    [3.0, 3.4, 3.8, 4.2].forEach(s => {
+      ctx.fillText(s.toFixed(1) + '×', PAD.l - 6, py(s) + 3);
+    });
+
+    // Draw each method
+    Object.entries(methods).forEach(([key, m]) => {
+      const x = px(m.tau), y = py(m.speedup);
+      const isActive = key === activeMethod;
+      const r = isActive ? 14 : 9;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = isActive ? m.col : m.col + '55';
+      ctx.fill();
+      if (isActive) {
+        ctx.strokeStyle = m.col; ctx.lineWidth = 2;
+        ctx.stroke();
+        // Annotation box
+        const bx = x + 18, by = y - 28;
+        ctx.fillStyle = 'rgba(20,20,30,.85)';
+        ctx.strokeStyle = m.col + 'aa';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(bx, by, 128, 46, 5); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = m.col;
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(m.label, bx + 8, by + 16);
+        ctx.fillStyle = '#abb2bf'; ctx.font = '9px monospace';
+        ctx.fillText('τ = ' + m.tau.toFixed(2) + '  speedup = ' + m.speedup.toFixed(2) + '×', bx + 8, by + 34);
+      } else {
+        ctx.fillStyle = '#7c7c8a'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(m.label, x + r + 4, y + 4);
+      }
+    });
+  }
+
+  drawAll();
+
+  document.querySelectorAll('.canvas-btn[data-method]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeMethod = btn.dataset.method;
+      document.querySelectorAll('.canvas-btn[data-method]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      drawAll();
+    });
+  });
+})();
+
+// ─────────────────────────────────────────────────────────
+// §02 — Latency breakdown stacked bar canvas
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('latency-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 160;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // Data from paper Figure 1 (Qwen3-8B, A100, context=1024, 16-token budget)
+  // [label, verify_ms, draft_ms, extra_ms, extra_label]
+  const rows = [
+    { label: 'DFlash',  verify: 35.5, draft: 5.9, extra: 0,    extraLabel: '' },
+    { label: 'Domino',  verify: 35.5, draft: 5.9, extra: 1.2,  extraLabel: '+1.2ms DHead' },
+    { label: 'EAGLE-3', verify: 35.5, draft: 6.0, extra: 0,    extraLabel: '' },
+  ];
+
+  const maxMs = 45;
+  const PAD = { l: 72, r: 140, t: 20, b: 24 };
+  const IW = W - PAD.l - PAD.r;
+  const rowH = 34;
+  const startY = (H - rows.length * rowH) / 2;
+
+  function msToX(ms) { return PAD.l + (ms / maxMs) * IW; }
+
+  ctx.clearRect(0, 0, W, H);
+
+  rows.forEach((row, i) => {
+    const y = startY + i * rowH + 4;
+
+    // label
+    ctx.fillStyle = '#7c7c8a'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(row.label, PAD.l - 6, y + 13);
+
+    // verify bar (teal)
+    const vw = (row.verify / maxMs) * IW;
+    ctx.fillStyle = 'rgba(6,182,212,.4)';
+    ctx.fillRect(PAD.l, y, vw, 22);
+
+    // draft bar (purple)
+    const dw = (row.draft / maxMs) * IW;
+    ctx.fillStyle = 'rgba(139,92,246,.6)';
+    ctx.fillRect(PAD.l + vw, y, dw, 22);
+
+    // extra bar (green)
+    if (row.extra > 0) {
+      const ew = (row.extra / maxMs) * IW;
+      ctx.fillStyle = 'rgba(16,185,129,.8)';
+      ctx.fillRect(PAD.l + vw + dw, y, ew, 22);
+    }
+
+    // total label
+    const total = row.verify + row.draft + row.extra;
+    ctx.fillStyle = '#abb2bf'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(total.toFixed(1) + 'ms total', PAD.l + (total / maxMs) * IW + 6, y + 14);
+    if (row.extraLabel) {
+      ctx.fillStyle = 'rgba(16,185,129,.8)'; ctx.font = '8px monospace';
+      ctx.fillText(row.extraLabel, PAD.l + (total / maxMs) * IW + 6, y + 24);
+    }
+  });
+
+  // Legend
+  const legY = H - 14;
+  [['rgba(6,182,212,.4)', 'Verify (35.5ms)'], ['rgba(139,92,246,.6)', 'Draft net'], ['rgba(16,185,129,.8)', 'DHead']].forEach(([col, lbl], i) => {
+    const x = PAD.l + i * 100;
+    ctx.fillStyle = col; ctx.fillRect(x, legY, 10, 8);
+    ctx.fillStyle = '#7c7c8a'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(lbl, x + 14, legY + 8);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────
+// §04 — Step navigator for causal correction
+// ─────────────────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes = document.querySelectorAll('#causal-steps .step-box');
+  const prevBtn = document.getElementById('causal-prev');
+  const nextBtn = document.getElementById('causal-next');
+  const progEl  = document.getElementById('causal-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─────────────────────────────────────────────────────────
+// §05 — Training bars (animate on scroll)
+// ─────────────────────────────────────────────────────────
+(function() {
+  const sec = document.getElementById('s-training');
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#training-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+})();
+
+// ─────────────────────────────────────────────────────────
+// §06 — Results bars (animate on scroll)
+// ─────────────────────────────────────────────────────────
+(function() {
+  const sec = document.getElementById('s-results');
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+})();
+</script>
+</BaseLayout>

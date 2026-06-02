@@ -9,6 +9,15 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "opd-foresight.pdf":                       "https://arxiv.org/pdf/2605.11739",
+    "empirical-bayes-attention.pdf":           "https://arxiv.org/pdf/2605.27028",
+    "rtpurbo.pdf":                             "https://arxiv.org/pdf/2605.20613",
+    "domino-spec-decoding.pdf":                "https://arxiv.org/pdf/2605.29707v1",
+    "oryx-multi-mixer.pdf":                    "https://arxiv.org/pdf/2605.28769",
+    "opd-local-support-matching.pdf":          "https://arxiv.org/pdf/2603.25562",
+    "attention-empirical-bayes.pdf":           "https://arxiv.org/pdf/2605.29351",
+    "kv-cache-compression.pdf":               "https://arxiv.org/pdf/2605.16928",
+    "diffusion-opd.pdf":                      "https://arxiv.org/pdf/2605.15055v1",
     "tide-dllm.pdf":                          "https://arxiv.org/pdf/2604.26951",
     "rrattention.pdf":                        "https://arxiv.org/pdf/2602.05853",
     "nvfp4-pretraining.pdf":                  "https://arxiv.org/pdf/2509.25149",

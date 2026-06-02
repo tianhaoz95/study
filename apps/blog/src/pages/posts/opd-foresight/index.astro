@@ -1,0 +1,1490 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="OPD Has Foresight: Why Distillation Beats RL and How to Exploit It 3× | AI/ML Deep Dives"
+  description="On-policy distillation locks onto the correct parameter-update direction within 10% of training—far earlier than RL. EffOPD exploits this 'foresight' via directional extrapolation, achieving a 3× training speedup with no extra modules."
+  crumb="OPD Foresight"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+
+/* ── Callout boxes ── */
+.callout{border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;line-height:1.65}
+.callout-purple{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.25);color:var(--text2)}
+.callout-cyan{background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.25);color:var(--text2)}
+.callout-green{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);color:var(--text2)}
+.callout strong{font-weight:700;color:var(--text)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Canvas controls ── */
+.canvas-controls{display:flex;align-items:center;gap:.625rem;margin-top:.875rem;flex-wrap:wrap}
+.canvas-btn{padding:.3rem .85rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-btn.btn-play{border-color:var(--cyan);color:var(--cyan)}
+.canvas-btn.btn-play:hover{background:var(--cyan-dim)}
+.canvas-label{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted)}
+</style>
+
+<!-- ── HERO ── -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">On-Policy Distillation</span>
+    <span class="tag tag-cyan">LLM Post-Training</span>
+    <span class="tag tag-amber">Mechanistic Analysis</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>OPD Has Foresight: Why Distillation Beats RL and How to Exploit It 3×</h1>
+  <p class="lead">
+    On-policy distillation (OPD) isn't just "denser supervision" — at the parameter level it locks onto the correct update direction within the first 10% of training, far earlier than RL ever does. This foresight manifests as two measurable properties: <em>functional redundancy avoidance</em> (OPD ignores low-utility layers early) and <em>early low-rank lock-in</em> (its dominant subspaces stabilize fast). EffOPD exploits both to achieve a 3× training speedup with no extra modules.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.11739</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.11739" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/caiyuchen-ustc/EffOPD" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- ── THREE-COLUMN GRID ── -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Exploration Tax</a></li>
+    <li class="toc-item" id="toc-s-redundancy"><a href="#s-redundancy"><span class="toc-num">02</span> Functional Redundancy Avoidance</a></li>
+    <li class="toc-item" id="toc-s-locksin"><a href="#s-locksin"><span class="toc-num">03</span> Early Low-Rank Lock-in</a></li>
+    <li class="toc-item" id="toc-s-effopdg"><a href="#s-effopdg"><span class="toc-num">04</span> EffOPD: Extrapolating Foresight</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Results: 3× Speedup</a></li>
+    <li class="toc-item" id="toc-s-takeaways"><a href="#s-takeaways"><span class="toc-num">06</span> Takeaways</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════
+     §01 — THE EXPLORATION TAX
+     ═══════════════════════════════════════════════ -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Exploration Tax</div>
+<h2>RL explores mountains it doesn't need to climb</h2>
+<p>
+  Post-training a large language model for reasoning boils down to navigating a high-dimensional parameter space to find a region where the model reliably solves hard problems. Reinforcement Learning (RL — GRPO, PPO, DAPO) does this well but <em>expensively</em>: it needs many rollouts to discover which directions actually improve reasoning, and it wastes update budget on layers that don't matter.
+</p>
+<p>
+  On-policy distillation (OPD) uses a stronger teacher to generate supervision, and practitioners have long observed it converges faster. The standard explanation — "denser supervision" — is macroscopic and unsatisfying. <strong>This paper asks: what actually happens at the parameter level?</strong>
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">parameter-space navigation — RL vs OPD</span>
+    <span class="vp-hint">click Play to animate both trajectories</span>
+  </div>
+  <div class="vp-body" style="min-height:300px">
+    <canvas id="traj-canvas" style="width:100%;height:280px;display:block;border-radius:6px"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn btn-play" id="traj-play">▶ Play</button>
+      <button class="canvas-btn" id="traj-reset">↺ Reset</button>
+      <span class="canvas-label" id="traj-step-label">step: 0</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  Even under the same norm constraint, OPD achieves <strong>substantially higher reasoning gains per unit of parameter change</strong> than RL — meaning RL updates carry "dead weight": components that inflate the gradient norm without improving reasoning.
+</p>
+<p>
+  When you scale up OPD or RL updates by a factor α ∈ [0, 1] and measure the resulting accuracy, OPD's curve rises steeply while RL's is shallower — identical norm, different signal density. The mystery is <em>why</em> OPD is so much more precise.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     §02 — FUNCTIONAL REDUNDANCY AVOIDANCE
+     ═══════════════════════════════════════════════ -->
+<section id="s-redundancy" data-code="redundancy">
+<div class="section-no">02 — Functional Redundancy Avoidance</div>
+<h2>OPD ignores the layers that don't reason</h2>
+<p>
+  The first dimension of OPD's foresight operates at the <em>module</em> level. To locate where meaningful updates go, the authors ran a <em>sliding-window intervention</em>: for each block of layers, they inject only that block's RL or OPD update and measure the resulting reasoning accuracy. The picture is clear:
+</p>
+<ul>
+  <li><strong>MLP modules</strong> are far more important for reasoning than attention modules — they serve as the primary knowledge carriers.</li>
+  <li><strong>Middle layers</strong> (layers ~5–10 out of 32 in Qwen3-8B) produce the biggest accuracy jumps. Bottom and top layers contribute little.</li>
+  <li><strong>Embedding layer replacement</strong> has <em>negligible</em> effect on reasoning — embeddings are basically inert for task performance after pretraining.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">layer-wise update norm — Qwen3-8B</span>
+    <span class="vp-hint">toggle RL / OPD to see where each concentrates updates</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+      <button class="canvas-btn active" id="layer-rl-btn">RL updates</button>
+      <button class="canvas-btn" id="layer-opd-btn">OPD updates</button>
+      <button class="canvas-btn" id="layer-both-btn">both</button>
+    </div>
+    <canvas id="layer-canvas" style="width:100%;height:220px;display:block;border-radius:6px"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.625rem;margin-bottom:0">
+      Middle layers (shaded region) produce the largest reasoning gains — OPD concentrates its budget there.
+      RL spreads updates more evenly, accumulating large norms in peripheral layers with low marginal utility.
+    </p>
+  </div>
+</div>
+
+<p>
+  RL and OPD share nearly identical <em>sensitivity patterns</em> — they both "know" which layers matter for reasoning. But RL dumps large updates into the low-sensitivity peripheral layers anyway, generating redundancy. OPD suppresses updates in those layers early, concentrating its entire budget on the middle-layer MLPs where each delta actually moves accuracy.
+</p>
+
+<div class="callout callout-purple">
+  <strong>Property 1 — Functional Redundancy Avoidance:</strong> OPD identifies modules with low marginal utility early in training and suppresses their parameter updates, concentrating updates on reasoning-critical modules. RL accumulates large redundant updates in these peripheral regions.
+</div>
+
+<p>
+  A critical data point: on Qwen2.5-8B, the Top-1% subspace of OPD's update captures <strong>94.7%</strong> of the update energy — vs 88.5% for RL. More energy in fewer, better-aligned directions means less wasted compute.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     §03 — EARLY LOW-RANK LOCK-IN
+     ═══════════════════════════════════════════════ -->
+<section id="s-locksin" data-code="locksin">
+<div class="section-no">03 — Early Low-Rank Lock-in</div>
+<h2>The right direction is found at 10% training progress</h2>
+<p>
+  The second dimension of foresight is geometric: OPD's parameter updates form a <em>low-rank</em> structure that stabilizes early. To measure this, the authors applied SVD to the update matrix ∆W = W<sub>final</sub> − W<sub>base</sub> and tracked several metrics across training:
+</p>
+<ul>
+  <li><strong>Effective rank</strong>: OPD's update has lower effective rank (2341 vs 2754 for RL on 8B), meaning fewer dimensions carry the action.</li>
+  <li><strong>Top-1% subspace norm ratio</strong>: OPD concentrates 94.7% of its update energy in the top 1% of directions; RL only 88.5%.</li>
+  <li><strong>Subspace alignment</strong>: At each training step, cosine similarity of the dominant subspace to the <em>final</em> checkpoint's subspace is computed — OPD reaches high alignment within the first 10% of training. RL alignment grows slowly over the full training run.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">subspace alignment to final direction vs training progress</span>
+    <span class="vp-hint">OPD locks in early; RL explores the whole way</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="align-canvas" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.625rem;margin-bottom:0">
+      By 10% training, OPD's dominant subspace already has cosine similarity ~0.72 with the final direction.
+      RL doesn't reach similar alignment until ~60–70% of training.
+    </p>
+  </div>
+</div>
+
+<p>
+  The decisive experiment: take an OPD checkpoint at only <strong>10% training progress</strong>, preserve its update <em>direction</em> per module, but rescale each module's Frobenius norm to match the <em>final</em> checkpoint's norm. The resulting model recovers approximately <strong>80% of the final reasoning performance</strong>. The direction was already correct — only the magnitude was missing.
+</p>
+
+<div class="math-block">
+  <div class="math-label">magnitude scaling experiment</div>
+  <span class="math-var">W_scaled</span> = <span class="math-var">W_base</span> + (<span class="math-var">∆W_10%</span> / ‖<span class="math-var">∆W_10%</span>‖<sub>F</sub>) × ‖<span class="math-var">∆W_final</span>‖<sub>F</sub>
+  <br>
+  <span class="math-comment">→  recovers ~80% of final reasoning accuracy at only 10% training progress</span>
+</div>
+
+<div class="callout callout-cyan">
+  <strong>Property 2 — Early Low-Rank Lock-in:</strong> OPD stabilizes its dominant update subspaces early, with high alignment to the final solution from the first 10% of training. Subsequent training primarily amplifies magnitude along these locked-in directions rather than changing direction.
+</div>
+
+<p>
+  This structurally explains Property 1: because OPD locks into a small set of high-quality directions early, it automatically avoids redundant updates elsewhere — peripheral modules simply never receive much gradient energy. RL, lacking this directional stability, keeps exploring new directions throughout training, accumulating redundancy in the process.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     §04 — EffOPD
+     ═══════════════════════════════════════════════ -->
+<section id="s-effopdg" data-code="effopdg">
+<div class="section-no">04 — EffOPD: Extrapolating the Foresight</div>
+<h2>If the direction is correct at 10%, why train to 100%?</h2>
+<p>
+  The two properties above suggest an obvious shortcut: since OPD's update direction stabilizes early and subsequent training just increases magnitude along the same trajectory, we should be able to <em>extrapolate</em> — jump further along the known-good direction instead of grinding out each training step.
+</p>
+<p>
+  <strong>EffOPD</strong> does exactly this. It runs a lightweight directional extrapolation at exponentially spaced checkpoints (t = 1, 2, 4, 8, 16, &hellip;), each time estimating the current update direction and testing whether a larger leap produces better validation performance:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">EffOPD algorithm — step by step</span>
+    <span class="vp-hint">click Next to walk through each phase</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="effopdg-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Run OPD normally until checkpoint t = 2<sup>n</sup></div>
+          <div class="step-desc">Standard on-policy distillation — student generates samples, teacher provides token-level KL supervision. Checkpoints are at exponentially spaced steps: 1, 2, 4, 8, &hellip;</div>
+          <div class="step-code">t ∈ &#123;1, 2, 4, 8, 16, &hellip;&#125;   # exponential schedule</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Estimate the local update direction Δ<sub>n</sub></div>
+          <div class="step-desc">For the first checkpoint (n=0), use W₁ − W₀ as the direction. For n ≥ 1, use the displacement between adjacent exponential checkpoints — this captures the accumulated update trend.</div>
+          <div class="step-code">Δ_n = W_&#123;2^n&#125; − W_&#123;2^&#123;n−1&#125;&#125;</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Generate 5 extrapolation candidates</div>
+          <div class="step-desc">Project forward along Δ<sub>n</sub> with increasing step sizes 2¹, 2², &hellip;, 2⁵. These candidates represent "what if we jumped k times further along the current direction?"</div>
+          <div class="step-code">W_cand_k = W_&#123;2^n&#125; + 2^k · Δ_n   # k = 1..5</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Validate on 50 training examples</div>
+          <div class="step-desc">Evaluate each candidate on a tiny held-out set D<sub>v</sub> (50 samples). Accept greedily: if candidate k beats the running best, accept it. Stop at the first failure — no exhaustive search.</div>
+          <div class="step-code">if score(W_cand_k) &gt;= best_score:
+    W_acc = W_cand_k</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Resume training from the accepted point</div>
+          <div class="step-desc">Replace the current model with the best accepted candidate. Continue OPD training. If no candidate improved (k=1 failed), fall back to vanilla OPD — EffOPD degrades gracefully.</div>
+          <div class="step-code">W_current = W_acc   # jump if beneficial, else stay</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <button id="step-next">Next →</button>
+      <span class="step-prog" id="step-prog">Step 1 of 5</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The validation set D<sub>v</sub> serves only as a direction check — it doesn't need to be hard or representative. In ablation studies, easy, medium, and hard validation sets all give consistent signals, confirming that the check is verifying <em>directional quality</em> rather than fine-grained supervision.
+</p>
+<p>
+  The exponential checkpoint schedule means EffOPD runs the extrapolation search only O(log T) times over T total training steps — the overhead is tiny compared to the saved training iterations.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     §05 — RESULTS
+     ═══════════════════════════════════════════════ -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Results: 3× Training Speedup</div>
+<h2>10 steps beats 35 steps of vanilla OPD</h2>
+<p>
+  Experiments span model scales from 1.5B to 32B parameters (Qwen2.5 and Qwen3 families), trained on Eurus-RL-Code and DeepMath-103K, and evaluated on seven benchmarks: Codeforces, TACO, AIME24, AIME25, AIME26, MINERVA, and GPQA.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">convergence curve — accuracy vs training steps (math reasoning)</span>
+    <span class="vp-hint">EffOPD reaches 80% accuracy at step 10 vs step 35 for vanilla OPD</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="conv-canvas" style="width:100%;height:250px;display:block;border-radius:6px"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.625rem;margin-bottom:0">
+      Schematic based on Figure 6 of the paper. EffOPD (purple) reaches convergence ~3× earlier than vanilla OPD (cyan).
+      RL (grey) converges later and at a lower ceiling on math tasks.
+    </p>
+  </div>
+</div>
+
+<h3>Geometry of the speedup</h3>
+<p>
+  The speedup is not uniform across methods. Fixed-extrapolation baselines (AlphaOPD, ExOPD) sometimes overshoot and destabilize. EffOPD's adaptive validation prevents this: if a candidate is too aggressive, it's rejected and training continues normally. On Qwen3-4B-Non-Thinking, EffOPD attains strong reasoning performance by the <strong>4th training step</strong>.
+</p>
+
+<h3>Spectral structure across model scales (Table 1 numbers)</h3>
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>Method</th><th class="mn">Spec/Frob Ratio ↑</th><th class="mn">Eff. Rank ↓</th><th class="mn">Top-1% Norm Ratio ↑</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1.5B</td><td>RL</td><td class="mn">33.2%</td><td class="mn">964</td><td class="mn">78.1%</td></tr>
+    <tr class="highlight-row"><td>1.5B</td><td>OPD</td><td class="mn best">39.6%</td><td class="mn best">778</td><td class="mn best">92.3%</td></tr>
+    <tr><td>8B</td><td>RL</td><td class="mn">32.7%</td><td class="mn">2754</td><td class="mn">88.5%</td></tr>
+    <tr class="highlight-row"><td>8B</td><td>OPD</td><td class="mn best">36.8%</td><td class="mn best">2341</td><td class="mn best">94.7%</td></tr>
+    <tr><td>14B</td><td>RL</td><td class="mn">24.4%</td><td class="mn">3174</td><td class="mn">81.2%</td></tr>
+    <tr class="highlight-row"><td>14B</td><td>OPD</td><td class="mn best">28.1%</td><td class="mn best">2937</td><td class="mn best">94.5%</td></tr>
+  </tbody>
+</table>
+
+<p>
+  OPD consistently shows <strong>higher spectral-to-Frobenius ratio</strong> (dominant directions carry more of the energy), <strong>lower effective rank</strong> (fewer dimensions carry the action), and <strong>higher Top-1% norm ratio</strong> (energy is concentrated in the top 1% of singular vectors) at every scale.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     §06 — TAKEAWAYS
+     ═══════════════════════════════════════════════ -->
+<section id="s-takeaways" data-code="takeaways">
+<div class="section-no">06 — Takeaways</div>
+<h2>What this means for LLM post-training</h2>
+
+<div class="callout callout-purple">
+  <strong>For practitioners:</strong> EffOPD is plug-and-play — it requires no architectural changes, no new hyperparameters, and no extra trainable modules. If you're already running OPD, you can add EffOPD's extrapolation loop and expect ~3× fewer training steps for the same final performance. The only cost is validating 50 samples per exponential checkpoint.
+</div>
+
+<div class="callout callout-cyan">
+  <strong>For researchers:</strong> The two foresight properties (Functional Redundancy Avoidance + Early Low-Rank Lock-in) are measurable throughout training. They provide a diagnostic lens: if your fine-tuning method doesn't exhibit strong early subspace alignment, it likely has headroom. The cosine-similarity-to-final-checkpoint metric is a useful signal to track during training.
+</div>
+
+<div class="callout callout-green">
+  <strong>Broader implication:</strong> "Denser supervision" is the right intuition, but the mechanism is geometric. A teacher that constrains the student's update to a low-rank subspace aligned with the final solution creates a natural momentum that RL has to discover on its own. This is why distillation is structurally easier to optimize — not just statistically, but in the geometry of the loss landscape.
+</div>
+
+<h3>Open questions</h3>
+<ul>
+  <li>Can the foresight properties be induced in RL directly — e.g., by regularizing the update matrix's effective rank?</li>
+  <li>Does the early lock-in break at very large scales (70B+) or when teacher and student are from different architectures?</li>
+  <li>Can the validation set D<sub>v</sub> be replaced by a learned critic that predicts extrapolation success without sampling?</li>
+  <li>Do the same properties appear in RLHF (reward from human preferences), or is foresight specific to verifiable-reward settings?</li>
+</ul>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">analysis/redundancy.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Exploration Tax</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="redundancy">redundancy</button>
+    <button class="cs-tab" data-panel="locksin">lock-in</button>
+    <button class="cs-tab" data-panel="effopdg">effopdg</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="takeaways">takeaways</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre" id="pre-problem"></pre>
+    </div>
+
+    <!-- panel: redundancy -->
+    <div class="cs-panel" id="panel-redundancy">
+      <pre class="cs-pre" id="pre-redundancy"></pre>
+    </div>
+
+    <!-- panel: locksin -->
+    <div class="cs-panel" id="panel-locksin">
+      <pre class="cs-pre" id="pre-locksin"></pre>
+    </div>
+
+    <!-- panel: effopdg -->
+    <div class="cs-panel" id="panel-effopdg">
+      <pre class="cs-pre" id="pre-effopdg"></pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre" id="pre-results"></pre>
+    </div>
+
+    <!-- panel: takeaways -->
+    <div class="cs-panel" id="panel-takeaways">
+      <pre class="cs-pre" id="pre-takeaways"></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─────────────────────────────────────────────────────────
+//  TOC + sidebar toggles
+// ─────────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─────────────────────────────────────────────────────────
+//  Single-pass syntax highlighter
+// ─────────────────────────────────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield','async','await']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','np','os']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)            out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w))  out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else                 out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+function renderPanel(id, lines) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = lines.map(([cls, code]) => {
+    const lineClass = cls ? ` ${cls}` : '';
+    return `<span class="cs-line${lineClass}">${hl(code)}</span>`;
+  }).join('\n');
+}
+
+// ─────────────────────────────────────────────────────────
+//  Code sidebar content
+// ─────────────────────────────────────────────────────────
+const PANELS = {
+  problem: [
+    ['cmt', '# RL vs OPD: parameter efficiency comparison'],
+    ['',    '# Scale update by alpha, measure accuracy'],
+    ['',    'def scale_and_eval(W_base, delta_W, alpha, eval_fn):'],
+    ['',    '    W_scaled = W_base + alpha * delta_W'],
+    ['',    '    return eval_fn(W_scaled)'],
+    ['',    ''],
+    ['cmt', '# OPD curve rises steeply; RL curve is shallower'],
+    ['cmt', '# at the SAME update norm — RL delta contains'],
+    ['cmt', '# "dead weight": high norm, low reasoning signal'],
+    ['',    ''],
+    ['hl-p','alphas = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]'],
+    ['hl-p','for alpha in alphas:'],
+    ['hl-p','    acc_rl  = scale_and_eval(W_base, dW_rl,  alpha, eval)'],
+    ['hl-p','    acc_opd = scale_and_eval(W_base, dW_opd, alpha, eval)'],
+    ['',    ''],
+    ['cmt', '# Key result from Fig 2a (Qwen3-8B):'],
+    ['cmt', '# alpha=0.5 → RL: ~45% acc, OPD: ~68% acc'],
+    ['cmt', '# Same norm budget, very different reasoning gain'],
+  ],
+  redundancy: [
+    ['cmt', '# Sliding-window layer intervention'],
+    ['cmt', '# Injects per-block update, measures reasoning Δ'],
+    ['',    ''],
+    ['',    'def layer_intervention(W_base, delta_W, block, eval_fn):'],
+    ['',    '    W_test = W_base.clone()'],
+    ['hl-c','    # inject only the update for this block'],
+    ['hl-c','    for layer_idx in block:'],
+    ['hl-c','        W_test[layer_idx] += delta_W[layer_idx]'],
+    ['',    '    return eval_fn(W_test)  # reasoning accuracy'],
+    ['',    ''],
+    ['cmt', '# Key finding: middle-layer MLPs are critical'],
+    ['cmt', '# Embedding layer: negligible impact on accuracy'],
+    ['cmt', '# OPD suppresses embedding/peripheral updates early'],
+    ['',    ''],
+    ['hl-g','# Top-1% subspace norm ratios (8B model):'],
+    ['hl-g','# OPD: 94.7%  ← concentrated in few directions'],
+    ['hl-g','# RL:  88.5%  ← more dispersed, redundant energy'],
+    ['',    ''],
+    ['cmt', '# Decompose update into embedding / MLP / attn'],
+    ['',    'dW_embed = delta_W["embed_tokens"]'],
+    ['',    'dW_mlp   = {k: v for k, v in delta_W.items()'],
+    ['',    '            if "mlp" in k}'],
+    ['',    'dW_attn  = {k: v for k, v in delta_W.items()'],
+    ['',    '            if "attn" in k}'],
+  ],
+  locksin: [
+    ['cmt', '# SVD-based spectral analysis of update matrix'],
+    ['',    ''],
+    ['',    'def spectral_metrics(delta_W_flat):'],
+    ['',    '    U, S, Vt = torch.linalg.svd(delta_W_flat,'],
+    ['',    '                                 full_matrices=False)'],
+    ['hl-p','    spec_norm  = S[0].item()'],
+    ['hl-p','    frob_norm  = torch.norm(delta_W_flat, "fro").item()'],
+    ['hl-p','    spec_frob  = spec_norm / frob_norm'],
+    ['',    ''],
+    ['hl-c','    # effective rank = exp(H(p)) where p_i = s_i^2/sum(s^2)'],
+    ['hl-c','    p = (S ** 2) / (S ** 2).sum()'],
+    ['hl-c','    eff_rank = torch.exp(-(p * (p + 1e-9).log()).sum())'],
+    ['',    ''],
+    ['hl-g','    # top-1% subspace norm ratio'],
+    ['hl-g','    k = max(1, int(0.01 * len(S)))'],
+    ['hl-g','    top_k_norm = torch.norm(S[:k]) / torch.norm(S)'],
+    ['',    ''],
+    ['',    '    return spec_frob, eff_rank, top_k_norm'],
+    ['',    ''],
+    ['cmt', '# Subspace alignment to final checkpoint'],
+    ['',    'def subspace_cosine(dW_t, dW_final, top_k=20):'],
+    ['',    '    _, _, Vt_t     = torch.linalg.svd(dW_t)'],
+    ['',    '    _, _, Vt_final = torch.linalg.svd(dW_final)'],
+    ['',    '    V_t     = Vt_t[:top_k].T'],
+    ['',    '    V_final = Vt_final[:top_k].T'],
+    ['hl-p','    # principal angle cosine similarity'],
+    ['hl-p','    cos = (V_t.T @ V_final).norm() / top_k'],
+    ['',    '    return cos.item()'],
+  ],
+  effopdg: [
+    ['cmt', '# EffOPD: directional extrapolation for OPD'],
+    ['',    ''],
+    ['',    'def effopdg_train(model, teacher, train_data, eval_data,'],
+    ['',    '                  max_steps=40, n_val=50):'],
+    ['',    '    W_prev = model.state_dict()   # W_0'],
+    ['',    '    t, n = 0, 0'],
+    ['',    '    next_ckpt = 1   # 2^n schedule'],
+    ['',    ''],
+    ['',    '    while t < max_steps:'],
+    ['',    '        model = opd_step(model, teacher, train_data)'],
+    ['',    '        t += 1'],
+    ['',    ''],
+    ['hl-p','        if t == next_ckpt:'],
+    ['hl-p','            W_curr = model.state_dict()'],
+    ['hl-p','            delta  = subtract(W_curr, W_prev)'],
+    ['',    ''],
+    ['hl-c','            # try extrapolation candidates k=1..5'],
+    ['hl-c','            best, best_score = W_curr, eval(model, eval_data[:n_val])'],
+    ['hl-c','            for k in range(1, 6):'],
+    ['hl-c','                W_cand = add(W_curr, scale(delta, 2**k))'],
+    ['hl-c','                score  = eval(load(W_cand), eval_data[:n_val])'],
+    ['hl-c','                if score >= best_score:'],
+    ['hl-c','                    best, best_score = W_cand, score'],
+    ['hl-c','                else:'],
+    ['hl-c','                    break  # greedy: stop at first failure'],
+    ['',    ''],
+    ['hl-g','            model.load_state_dict(best)'],
+    ['hl-g','            W_prev = best'],
+    ['',    '            n += 1'],
+    ['',    '            next_ckpt = 2 ** n   # 1,2,4,8,...'],
+    ['',    ''],
+    ['',    '    return model'],
+  ],
+  results: [
+    ['cmt', '# Benchmark results — EffOPD vs baselines'],
+    ['cmt', '# Models: Qwen2.5 / Qwen3 family, 1.5B–32B'],
+    ['',    ''],
+    ['cmt', '# Convergence (math reasoning, ~32B scale):'],
+    ['cmt', '#   EffOPD:      ~10 steps to convergence'],
+    ['cmt', '#   Vanilla OPD: ~35 steps to convergence'],
+    ['cmt', '#   RL (GRPO):   ~50+ steps, lower ceiling'],
+    ['cmt', '#   → ~3× average speedup'],
+    ['',    ''],
+    ['cmt', '# Spectral structure (8B model, Table 1):'],
+    ['hl-g','#   Metric               RL       OPD'],
+    ['hl-g','#   Spec/Frob Ratio      32.7%    36.8%'],
+    ['hl-g','#   Effective Rank       2754     2341'],
+    ['hl-g','#   Top-1% Norm Ratio    88.5%    94.7%'],
+    ['',    ''],
+    ['cmt', '# Norm-scaling experiment (Fig 5c):'],
+    ['cmt', '#   OPD at 10% training → scale Frobenius norm'],
+    ['cmt', '#   to match final ckpt → recovers ~80% final acc'],
+    ['cmt', '#   Conclusion: direction correct from step 1'],
+    ['',    ''],
+    ['cmt', '# Ablations (Fig 7):'],
+    ['cmt', '#   - Dv difficulty: easy/med/hard all give same signal'],
+    ['cmt', '#   - LR sensitivity: EffOPD stable, vanilla OPD oscillates'],
+    ['cmt', '#   - Wall-clock: EffOPD faster despite validation overhead'],
+  ],
+  takeaways: [
+    ['cmt', '# Two core properties of OPD foresight:'],
+    ['',    ''],
+    ['hl-p','# Property 1: Functional Redundancy Avoidance'],
+    ['cmt', '#   OPD suppresses updates in low-sensitivity'],
+    ['cmt', '#   layers (embedding, peripheral) early in training.'],
+    ['cmt', '#   RL accumulates large norms there → wasted budget.'],
+    ['',    ''],
+    ['hl-c','# Property 2: Early Low-Rank Lock-in'],
+    ['cmt', '#   OPD dominant subspaces align with final direction'],
+    ['cmt', '#   within first 10% of training.'],
+    ['cmt', '#   Subsequent training = magnitude growth only.'],
+    ['',    ''],
+    ['hl-g','# EffOPD: exploit the foresight'],
+    ['cmt', '#   Exponential checkpoints: t = 1, 2, 4, 8, ...'],
+    ['cmt', '#   At each: estimate direction, try 2^k extrapolation'],
+    ['cmt', '#   Validate on 50 samples — accept best jump'],
+    ['cmt', '#   Result: ~3x speedup, same final performance'],
+    ['',    ''],
+    ['cmt', '# Open questions:'],
+    ['cmt', '#   - Can RL be regularized toward low-rank updates?'],
+    ['cmt', '#   - Does foresight hold at 70B+ scale?'],
+    ['cmt', '#   - Works for cross-architecture distillation?'],
+  ],
+};
+
+Object.entries(PANELS).forEach(([key, lines]) => renderPanel('pre-' + key, lines));
+
+// ─────────────────────────────────────────────────────────
+//  Tab switching
+// ─────────────────────────────────────────────────────────
+const tabMeta = {
+  problem:    { file: 'analysis/redundancy.py',    title: 'The Exploration Tax' },
+  redundancy: { file: 'analysis/layer_interv.py',  title: 'Functional Redundancy Avoidance' },
+  locksin:    { file: 'analysis/subspace_align.py',title: 'Early Low-Rank Lock-in' },
+  effopdg:    { file: 'effopdg/train.py',           title: 'EffOPD Training Loop' },
+  results:    { file: 'effopdg/eval_results.py',    title: 'Results & Ablations' },
+  takeaways:  { file: 'analysis/summary.py',        title: 'Takeaways' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─────────────────────────────────────────────────────────
+//  IntersectionObserver — TOC + tab sync
+// ─────────────────────────────────────────────────────────
+const sectionMap = {
+  's-problem':   'problem',
+  's-redundancy':'redundancy',
+  's-locksin':   'locksin',
+  's-effopdg':   'effopdg',
+  's-results':   'results',
+  's-takeaways': 'takeaways',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─────────────────────────────────────────────────────────
+//  Seeded PRNG (Mulberry32)
+// ─────────────────────────────────────────────────────────
+function seededRng(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s += 0x6D2B79F5;
+    let t = s;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ─────────────────────────────────────────────────────────
+//  §01 — Trajectory canvas
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('traj-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  function resize() {
+    W = canvas.clientWidth; H = 280;
+    canvas.width  = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  // Fixed layout (seeded)
+  const rng = seededRng(42);
+
+  // Parameter space: two basins
+  // "Wrong mountain" region: center roughly (0.25W, 0.4H), radius 0.15W
+  // "Correct mountain" (target): center roughly (0.72W, 0.38H)
+  const wrongC  = { x: 0.24, y: 0.45 };
+  const targetC = { x: 0.72, y: 0.38 };
+
+  // RL trajectory: wanders, visits wrong region, eventually hits target
+  // OPD trajectory: goes fairly directly to target
+  const totalSteps = 36;
+  function makeRLPath(rng) {
+    const pts = [];
+    // start near left
+    let x = 0.08 + rng() * 0.05;
+    let y = 0.5 + rng() * 0.1;
+    pts.push({ x, y });
+    // wander toward wrong mountain first (steps 1-14)
+    for (let i = 1; i < 15; i++) {
+      const t = i / 14;
+      const tx = wrongC.x + (rng() - 0.5) * 0.08;
+      const ty = wrongC.y + (rng() - 0.5) * 0.08;
+      x = x + (tx - x) * 0.25 + (rng() - 0.5) * 0.05;
+      y = y + (ty - y) * 0.25 + (rng() - 0.5) * 0.04;
+      pts.push({ x, y });
+    }
+    // escape wrong region and slowly converge to target (steps 15-35)
+    for (let i = 15; i <= totalSteps; i++) {
+      const t = (i - 15) / (totalSteps - 15);
+      const tx = targetC.x + (1 - t) * (rng() - 0.5) * 0.1;
+      const ty = targetC.y + (1 - t) * (rng() - 0.5) * 0.08;
+      x = x + (tx - x) * 0.15 + (rng() - 0.5) * 0.03;
+      y = y + (ty - y) * 0.15 + (rng() - 0.5) * 0.03;
+      pts.push({ x, y });
+    }
+    return pts;
+  }
+
+  function makeOPDPath(rng) {
+    const pts = [];
+    let x = 0.08 + rng() * 0.04;
+    let y = 0.55 + rng() * 0.05;
+    pts.push({ x, y });
+    // goes fairly directly to target, with small noise
+    for (let i = 1; i <= 10; i++) {
+      const t = i / 10;
+      x = x + (targetC.x - x) * 0.35 + (rng() - 0.5) * 0.025;
+      y = y + (targetC.y - y) * 0.35 + (rng() - 0.5) * 0.02;
+      pts.push({ x, y });
+    }
+    // converge tightly to target
+    for (let i = 11; i <= totalSteps; i++) {
+      x = x + (targetC.x - x) * 0.55 + (rng() - 0.5) * 0.01;
+      y = y + (targetC.y - y) * 0.55 + (rng() - 0.5) * 0.01;
+      pts.push({ x, y });
+    }
+    return pts;
+  }
+
+  const rlPath  = makeRLPath(seededRng(7));
+  const opdPath = makeOPDPath(seededRng(13));
+
+  let frame = 0;
+  let animId = null;
+  let playing = false;
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+
+    // subtle grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx < W; gx += 50) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+    for (let gy = 0; gy < H; gy += 50) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+    // "Wrong mountain" region
+    const wx = wrongC.x * W, wy = wrongC.y * H;
+    const grad1 = ctx.createRadialGradient(wx, wy, 5, wx, wy, W * 0.18);
+    grad1.addColorStop(0, 'rgba(239,68,68,0.18)');
+    grad1.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = grad1;
+    ctx.beginPath(); ctx.arc(wx, wy, W * 0.18, 0, Math.PI * 2); ctx.fill();
+    // label
+    ctx.fillStyle = 'rgba(239,68,68,0.55)';
+    ctx.font = `bold ${Math.round(9 * DPR / DPR)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('⛰ wrong mountain', wx, wy - W * 0.04);
+
+    // "Correct mountain" / target region
+    const tx = targetC.x * W, ty = targetC.y * H;
+    const grad2 = ctx.createRadialGradient(tx, ty, 5, tx, ty, W * 0.15);
+    grad2.addColorStop(0, 'rgba(16,185,129,0.22)');
+    grad2.addColorStop(1, 'rgba(16,185,129,0)');
+    ctx.fillStyle = grad2;
+    ctx.beginPath(); ctx.arc(tx, ty, W * 0.15, 0, Math.PI * 2); ctx.fill();
+    // label
+    ctx.fillStyle = 'rgba(16,185,129,0.75)';
+    ctx.font = `bold ${Math.round(9 * DPR / DPR)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('✦ optimal reasoning model', tx, ty - W * 0.035);
+    // target marker
+    ctx.beginPath(); ctx.arc(tx, ty, 7, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(16,185,129,0.9)'; ctx.fill();
+  }
+
+  function drawPath(path, color, showSteps, labelText, stepCount) {
+    const steps = Math.min(showSteps + 1, path.length);
+    if (steps < 2) {
+      if (steps === 1) {
+        const p = path[0];
+        ctx.beginPath();
+        ctx.arc(p.x * W, p.y * H, 5, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
+      }
+      return;
+    }
+    // draw trail
+    ctx.beginPath();
+    ctx.moveTo(path[0].x * W, path[0].y * H);
+    for (let i = 1; i < steps; i++) ctx.lineTo(path[i].x * W, path[i].y * H);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.75;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // draw current dot
+    const last = path[steps - 1];
+    ctx.beginPath();
+    ctx.arc(last.x * W, last.y * H, 6, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+
+    // label at start
+    const start = path[0];
+    ctx.fillStyle = color;
+    ctx.font = `bold 9px monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(labelText + ` (step ${Math.min(stepCount, steps - 1)})`, start.x * W + 8, start.y * H);
+  }
+
+  function draw() {
+    drawBackground();
+    const rlSteps  = Math.min(frame, rlPath.length - 1);
+    const opdSteps = Math.min(frame, opdPath.length - 1);
+    drawPath(rlPath,  'rgba(239,68,68,0.9)',   rlSteps,  'RL',  rlSteps);
+    drawPath(opdPath, 'rgba(139,92,246,0.95)', opdSteps, 'OPD', opdSteps);
+  }
+
+  function animate() {
+    if (frame < totalSteps) {
+      frame++;
+      draw();
+      document.getElementById('traj-step-label').textContent = `step: ${frame}`;
+      animId = requestAnimationFrame(animate);
+    } else {
+      playing = false;
+      document.getElementById('traj-play').textContent = '▶ Play';
+      document.getElementById('traj-step-label').textContent = `step: ${totalSteps} — OPD reached target at step 10, RL at step 35`;
+    }
+  }
+
+  draw();
+
+  document.getElementById('traj-play')?.addEventListener('click', () => {
+    if (playing) {
+      cancelAnimationFrame(animId); playing = false;
+      document.getElementById('traj-play').textContent = '▶ Play';
+    } else {
+      if (frame >= totalSteps) frame = 0;
+      playing = true;
+      document.getElementById('traj-play').textContent = '⏸ Pause';
+      animate();
+    }
+  });
+
+  document.getElementById('traj-reset')?.addEventListener('click', () => {
+    cancelAnimationFrame(animId); playing = false;
+    document.getElementById('traj-play').textContent = '▶ Play';
+    frame = 0;
+    draw();
+    document.getElementById('traj-step-label').textContent = 'step: 0';
+  });
+
+  window.addEventListener('resize', () => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    resize();
+    draw();
+  });
+})();
+
+// ─────────────────────────────────────────────────────────
+//  §02 — Layer update norm canvas
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('layer-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+  let mode = 'rl'; // 'rl' | 'opd' | 'both'
+
+  function resize() {
+    W = canvas.clientWidth; H = 220;
+    canvas.width  = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  // 12 representative layers: 2 bottom, 8 middle, 2 top
+  // Values calibrated from paper Figure 3(b) for Qwen3-8B
+  const layers = [
+    { label: 'L1',  rl: 0.28, opd: 0.09, critical: false },
+    { label: 'L2',  rl: 0.31, opd: 0.10, critical: false },
+    { label: 'L4',  rl: 0.38, opd: 0.24, critical: true  },
+    { label: 'L6',  rl: 0.52, opd: 0.61, critical: true  },
+    { label: 'L8',  rl: 0.55, opd: 0.82, critical: true  },
+    { label: 'L10', rl: 0.58, opd: 0.88, critical: true  },
+    { label: 'L12', rl: 0.54, opd: 0.85, critical: true  },
+    { label: 'L14', rl: 0.50, opd: 0.77, critical: true  },
+    { label: 'L20', rl: 0.45, opd: 0.55, critical: true  },
+    { label: 'L24', rl: 0.44, opd: 0.42, critical: true  },
+    { label: 'L30', rl: 0.42, opd: 0.15, critical: false },
+    { label: 'L32', rl: 0.36, opd: 0.11, critical: false },
+  ];
+
+  const maxVal = 1.0;
+  const PAD_L = 35, PAD_R = 16, PAD_T = 20, PAD_B = 28;
+
+  function drawLayers() {
+    ctx.clearRect(0, 0, W, H);
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const barW = chartW / layers.length;
+
+    // background shading for critical zone
+    const firstCrit = layers.findIndex(l => l.critical);
+    const lastCrit  = layers.map(l => l.critical).lastIndexOf(true);
+    const critX = PAD_L + firstCrit * barW;
+    const critW = (lastCrit - firstCrit + 1) * barW;
+    ctx.fillStyle = 'rgba(16,185,129,0.06)';
+    ctx.fillRect(critX, PAD_T, critW, chartH);
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let v = 0.25; v <= 1.0; v += 0.25) {
+      const y = PAD_T + chartH * (1 - v / maxVal);
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText((v * 100).toFixed(0) + '%', PAD_L - 4, y + 3);
+    }
+
+    // bars
+    const barGap = barW * 0.15;
+    layers.forEach((l, i) => {
+      const bx = PAD_L + i * barW;
+
+      if (mode === 'rl' || mode === 'both') {
+        const bh = l.rl / maxVal * chartH;
+        const by = PAD_T + chartH - bh;
+        const bw = mode === 'both' ? barW * 0.42 : barW - barGap * 2;
+        const bxoff = mode === 'both' ? barGap * 0.5 : barGap;
+        ctx.fillStyle = 'rgba(239,68,68,0.65)';
+        ctx.fillRect(bx + bxoff, by, bw, bh);
+      }
+
+      if (mode === 'opd' || mode === 'both') {
+        const bh = l.opd / maxVal * chartH;
+        const by = PAD_T + chartH - bh;
+        const bw = mode === 'both' ? barW * 0.42 : barW - barGap * 2;
+        const bxoff = mode === 'both' ? barW * 0.46 : barGap;
+        ctx.fillStyle = 'rgba(139,92,246,0.75)';
+        ctx.fillRect(bx + bxoff, by, bw, bh);
+      }
+
+      // x-axis label
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(l.label, bx + barW / 2, H - 6);
+    });
+
+    // critical zone label
+    ctx.fillStyle = 'rgba(16,185,129,0.6)';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('critical reasoning zone', critX + critW / 2, PAD_T - 6);
+
+    // axis baseline
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T + chartH); ctx.lineTo(W - PAD_R, PAD_T + chartH); ctx.stroke();
+
+    // legend
+    const legY = PAD_T + 10;
+    if (mode === 'rl' || mode === 'both') {
+      ctx.fillStyle = 'rgba(239,68,68,0.7)'; ctx.fillRect(W - PAD_R - 70, legY, 10, 10);
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('RL', W - PAD_R - 56, legY + 9);
+    }
+    if (mode === 'opd' || mode === 'both') {
+      ctx.fillStyle = 'rgba(139,92,246,0.8)'; ctx.fillRect(W - PAD_R - 40, legY, 10, 10);
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('OPD', W - PAD_R - 26, legY + 9);
+    }
+  }
+
+  drawLayers();
+
+  document.getElementById('layer-rl-btn')?.addEventListener('click', () => {
+    mode = 'rl'; drawLayers();
+    document.getElementById('layer-rl-btn').classList.add('active');
+    document.getElementById('layer-opd-btn').classList.remove('active');
+    document.getElementById('layer-both-btn').classList.remove('active');
+  });
+  document.getElementById('layer-opd-btn')?.addEventListener('click', () => {
+    mode = 'opd'; drawLayers();
+    document.getElementById('layer-rl-btn').classList.remove('active');
+    document.getElementById('layer-opd-btn').classList.add('active');
+    document.getElementById('layer-both-btn').classList.remove('active');
+  });
+  document.getElementById('layer-both-btn')?.addEventListener('click', () => {
+    mode = 'both'; drawLayers();
+    document.getElementById('layer-rl-btn').classList.remove('active');
+    document.getElementById('layer-opd-btn').classList.remove('active');
+    document.getElementById('layer-both-btn').classList.add('active');
+  });
+
+  window.addEventListener('resize', () => { ctx.setTransform(1,0,0,1,0,0); resize(); drawLayers(); });
+})();
+
+// ─────────────────────────────────────────────────────────
+//  §03 — Cosine similarity alignment chart
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('align-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  function resize() {
+    W = canvas.clientWidth; H = 240;
+    canvas.width  = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  const PAD_L = 44, PAD_R = 20, PAD_T = 20, PAD_B = 32;
+
+  // Cosine similarity curves (calibrated from paper Fig 5b)
+  // X: training progress 0-100%
+  // Y: cosine similarity to final direction
+  // OPD: rises fast to ~0.72 at 10%, plateaus near 0.86
+  // RL:  rises slowly from ~0.12 to ~0.72 by 80%
+  function opdCos(t) {
+    // rapid early rise then plateau
+    return 0.14 + 0.73 * (1 - Math.exp(-5.5 * t));
+  }
+  function rlCos(t) {
+    // slow monotonic rise
+    return 0.10 + 0.65 * (1 - Math.exp(-1.3 * t));
+  }
+
+  const nPts = 80;
+  function buildPoints(fn) {
+    return Array.from({ length: nPts + 1 }, (_, i) => {
+      const t = i / nPts;
+      return { t, v: fn(t) };
+    });
+  }
+
+  const opdPts = buildPoints(opdCos);
+  const rlPts  = buildPoints(rlCos);
+
+  function drawChart() {
+    ctx.clearRect(0, 0, W, H);
+    const cW = W - PAD_L - PAD_R;
+    const cH = H - PAD_T - PAD_B;
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let v = 0; v <= 1.0; v += 0.25) {
+      const y = PAD_T + cH * (1 - v);
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.font = '9px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(v.toFixed(2), PAD_L - 5, y + 3);
+    }
+    for (let x = 0; x <= 100; x += 20) {
+      const px = PAD_L + (x / 100) * cW;
+      ctx.beginPath(); ctx.moveTo(px, PAD_T); ctx.lineTo(px, PAD_T + cH); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(x + '%', px, PAD_T + cH + 14);
+    }
+
+    // 10% progress dashed vertical line
+    const line10x = PAD_L + 0.1 * cW;
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(16,185,129,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(line10x, PAD_T); ctx.lineTo(line10x, PAD_T + cH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // draw OPD line
+    function drawLine(pts, color) {
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const px = PAD_L + p.t * cW;
+        const py = PAD_T + cH * (1 - p.v);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.9; ctx.stroke(); ctx.globalAlpha = 1;
+    }
+
+    drawLine(rlPts,  'rgba(239,68,68,0.8)');
+    drawLine(opdPts, 'rgba(139,92,246,0.95)');
+
+    // annotation: OPD at 10%
+    const opd10 = opdCos(0.1);
+    const ann10x = line10x;
+    const ann10y = PAD_T + cH * (1 - opd10);
+    ctx.beginPath(); ctx.arc(ann10x, ann10y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(16,185,129,0.9)'; ctx.fill();
+    ctx.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('OPD: 0.72 similarity at 10%', ann10x + 8, ann10y - 4);
+
+    // labels at right end
+    const opdEnd = opdCos(1.0);
+    const rlEnd  = rlCos(1.0);
+    ctx.fillStyle = 'rgba(139,92,246,0.9)'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('OPD', W - PAD_R + 2, PAD_T + cH * (1 - opdEnd) + 4);
+    ctx.fillStyle = 'rgba(239,68,68,0.8)';
+    ctx.fillText('RL',  W - PAD_R + 2, PAD_T + cH * (1 - rlEnd) + 4);
+
+    // axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('training progress', PAD_L + cW / 2, H - 4);
+    ctx.save(); ctx.translate(10, PAD_T + cH / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('cosine similarity to final', 0, 0); ctx.restore();
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T); ctx.lineTo(PAD_L, PAD_T + cH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T + cH); ctx.lineTo(W - PAD_R, PAD_T + cH); ctx.stroke();
+  }
+
+  drawChart();
+  window.addEventListener('resize', () => { ctx.setTransform(1,0,0,1,0,0); resize(); drawChart(); });
+})();
+
+// ─────────────────────────────────────────────────────────
+//  §04 — Step navigator
+// ─────────────────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#effopdg-steps .step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step)      b.classList.add('active');
+      else if (i < step)   b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─────────────────────────────────────────────────────────
+//  §05 — Convergence chart
+// ─────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('conv-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  function resize() {
+    W = canvas.clientWidth; H = 250;
+    canvas.width  = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  const PAD_L = 42, PAD_R = 20, PAD_T = 24, PAD_B = 32;
+  const MAX_STEPS = 42;
+  const MAX_ACC   = 100;
+
+  // Convergence curves (schematic, based on Fig 6 description)
+  // EffOPD: rapid rise, converges by step 10 at ~82%
+  // Vanilla OPD: steady rise, converges by step 35 at ~81%
+  // RL: slower, reaches ~73% by step 42
+  function effAcc(t) {
+    if (t === 0) return 20;
+    return 20 + 62 * (1 - Math.exp(-0.55 * t));
+  }
+  function opdAcc(t) {
+    if (t === 0) return 18;
+    return 18 + 63 * (1 - Math.exp(-0.12 * t));
+  }
+  function rlAcc(t) {
+    if (t === 0) return 16;
+    return 16 + 57 * (1 - Math.exp(-0.07 * t));
+  }
+
+  const N = MAX_STEPS + 1;
+  const effPts = Array.from({ length: N }, (_, i) => ({ s: i, v: effAcc(i) }));
+  const opdPts = Array.from({ length: N }, (_, i) => ({ s: i, v: opdAcc(i) }));
+  const rlPts  = Array.from({ length: N }, (_, i) => ({ s: i, v: rlAcc(i) }));
+
+  function drawConv() {
+    ctx.clearRect(0, 0, W, H);
+    const cW = W - PAD_L - PAD_R;
+    const cH = H - PAD_T - PAD_B;
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let v = 20; v <= 100; v += 20) {
+      const y = PAD_T + cH * (1 - v / MAX_ACC);
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(v, PAD_L - 5, y + 3);
+    }
+    for (let s = 0; s <= MAX_STEPS; s += 10) {
+      const x = PAD_L + (s / MAX_STEPS) * cW;
+      ctx.beginPath(); ctx.moveTo(x, PAD_T); ctx.lineTo(x, PAD_T + cH); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(s, x, PAD_T + cH + 14);
+    }
+
+    // draw 3× speedup bracket
+    const stepEff = 10, stepOpd = 35;
+    const bracketY = PAD_T + cH * 0.18;
+    const bx1 = PAD_L + (stepEff / MAX_STEPS) * cW;
+    const bx2 = PAD_L + (stepOpd / MAX_STEPS) * cW;
+    ctx.strokeStyle = 'rgba(245,158,11,0.55)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(bx1, bracketY); ctx.lineTo(bx2, bracketY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,0.8)'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('← 3× speedup →', (bx1 + bx2) / 2, bracketY - 5);
+
+    // draw lines
+    function drawLine(pts, color, dash) {
+      if (dash) ctx.setLineDash(dash);
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const px = PAD_L + (p.s / MAX_STEPS) * cW;
+        const py = PAD_T + cH * (1 - p.v / MAX_ACC);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.9; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+    }
+
+    drawLine(rlPts,  'rgba(100,110,125,0.7)', [5, 4]);
+    drawLine(opdPts, 'rgba(6,182,212,0.85)');
+    drawLine(effPts, 'rgba(139,92,246,0.95)');
+
+    // line labels
+    const labelPts = [
+      { pts: effPts, col: 'rgba(139,92,246,0.95)', lbl: 'EffOPD' },
+      { pts: opdPts, col: 'rgba(6,182,212,0.85)',  lbl: 'Vanilla OPD' },
+      { pts: rlPts,  col: 'rgba(100,110,125,0.7)', lbl: 'RL baseline' },
+    ];
+    labelPts.forEach(({ pts, col, lbl }) => {
+      const last = pts[pts.length - 1];
+      const px = PAD_L + (last.s / MAX_STEPS) * cW;
+      const py = PAD_T + cH * (1 - last.v / MAX_ACC);
+      ctx.fillStyle = col; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(lbl, Math.min(px + 3, W - 80), py + 4);
+    });
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T); ctx.lineTo(PAD_L, PAD_T + cH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T + cH); ctx.lineTo(W - PAD_R, PAD_T + cH); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('training steps', PAD_L + cW / 2, H - 4);
+    ctx.save(); ctx.translate(10, PAD_T + cH / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('accuracy (%)', 0, 0); ctx.restore();
+  }
+
+  drawConv();
+  window.addEventListener('resize', () => { ctx.setTransform(1,0,0,1,0,0); resize(); drawConv(); });
+})();
+</script>
+</BaseLayout>

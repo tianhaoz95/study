@@ -1,0 +1,1325 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="HRM-Text: Efficient Pretraining Beyond Scaling | AI/ML Deep Dives"
+  description="A 1B-parameter hierarchical recurrent model trained from scratch on 40B tokens for $1,500 matches 2–7B baselines — using 100–900× fewer tokens and 96–432× less compute."
+  crumb="HRM-Text"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Efficiency scatter canvas */
+.eff-canvas-wrap{width:100%;min-height:260px;position:relative}
+
+/* Norm viz */
+.norm-tabs{display:flex;gap:.4rem;margin-bottom:.75rem;flex-wrap:wrap}
+.norm-tab{padding:.25rem .7rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.norm-tab:hover{border-color:var(--cyan);color:var(--cyan)}
+.norm-tab.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Attention map grid */
+.attn-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:1.25rem 0}
+.attn-panel{background:var(--card2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.attn-label{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted2);padding:.5rem .75rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.attn-label span{color:var(--amber)}
+.attn-label span.good{color:var(--cyan)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .attn-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Efficient Pretraining</span>
+    <span class="tag tag-cyan">Recurrent Architecture</span>
+    <span class="tag tag-amber">From Scratch</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>HRM-Text: $1,500 to Match<br/>Trillion-Token Baselines</h1>
+  <p class="lead">
+    The dominant belief is that you need trillions of tokens and millions of dollars to pretrain a competitive language model from scratch. HRM-Text breaks this assumption: a 1B-parameter hierarchical recurrent model trained on 40 billion tokens for $1,500 reaches the same benchmark neighborhood as 2–7B models trained on 4–36 trillion tokens — using 96–432× less compute and 100–900× fewer training tokens.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.20613</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.20613" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><rect x="8" y="12" width="8" height="1"/><rect x="8" y="16" width="8" height="1"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/sapientinc/HRM-Text" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Compute Divide</a></li>
+    <li class="toc-item" id="toc-s-hrm"><a href="#s-hrm"><span class="toc-num">02</span> Dual-Timescale HRM</a></li>
+    <li class="toc-item" id="toc-s-magicnorm"><a href="#s-magicnorm"><span class="toc-num">03</span> MagicNorm</a></li>
+    <li class="toc-item" id="toc-s-objective"><a href="#s-objective"><span class="toc-num">04</span> Task-Completion + PrefixLM</a></li>
+    <li class="toc-item" id="toc-s-ablation"><a href="#s-ablation"><span class="toc-num">05</span> Ablation</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════ §01 ═══ -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Compute Divide</div>
+<h2>Pretraining is a Club Most Can't Afford to Join</h2>
+<p>
+  The dominant pretraining recipe — autoregressive training on internet-scale raw text — works, but it concentrates foundational AI research inside a handful of compute-rich organizations. A 7B-parameter model like OLMo3 consumes roughly 252× the training FLOPs of HRM-Text. Qwen3.5 2B uses 36 trillion training tokens — 900× more than 40 billion. For academic groups, small labs, or individual researchers, this is an insurmountable wall.
+</p>
+<p>
+  HRM-Text asks: what if you co-designed the architecture and the objective together, specifically for the data- and compute-limited regime? Instead of brute-forcing a Transformer through as many tokens as possible, can smarter architecture + smarter training signal make each token worth far more?
+</p>
+
+<!-- Efficiency scatter: tokens vs benchmark score -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">efficiency_scatter.py — tokens vs avg benchmark score</span>
+    <span class="vp-hint">interactive — hover over dots</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="eff-canvas" style="width:100%;height:280px;display:block"></canvas>
+    <div id="eff-tooltip" style="position:absolute;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:.4rem .7rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--text2);pointer-events:none;display:none;z-index:10"></div>
+  </div>
+</div>
+
+<p>
+  The chart above places each model at its training token count (x-axis) and average benchmark score (y-axis). HRM-Text sits in the <em>same performance band</em> as models trained on 100–900× more tokens — but at the leftmost edge of the x-axis.
+</p>
+<p>
+  Three ingredients make this possible: a hierarchical recurrent architecture that computes more per parameter, a normalization scheme that keeps deep recurrence stable, and a training objective that concentrates every gradient update on the signal that actually matters.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════ §02 ═══ -->
+<section id="s-hrm" data-code="hrm">
+<div class="section-no">02 — Dual-Timescale HRM</div>
+<h2>Slow Strategy, Fast Execution</h2>
+<p>
+  Standard Transformers process a sequence in one forward pass — a single sweep through layers. The Hierarchical Recurrent Model (HRM) instead runs the same parameters <em>multiple times</em> in two nested loops, inspired by the frontoparietal loop in the brain: a fast layer for execution and a slow layer for strategic context.
+</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">hrm_architecture.py — dual-timescale recurrent design</span>
+    <span class="vp-hint">H = slow · strategic · global; L = fast · execution · local</span>
+  </div>
+  <div class="vp-body" style="min-width:0;overflow-x:auto">
+    <svg id="hrm-svg" viewBox="0 0 640 310" style="width:100%;min-width:500px;display:block;font-family:var(--ff-mono)">
+      <!-- Background grid lines -->
+      <defs>
+        <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <polygon points="0 0,7 3.5,0 7" fill="rgba(255,255,255,0.35)"/>
+        </marker>
+        <marker id="arr-p" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <polygon points="0 0,7 3.5,0 7" fill="var(--purple)"/>
+        </marker>
+        <marker id="arr-c" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <polygon points="0 0,7 3.5,0 7" fill="var(--cyan)"/>
+        </marker>
+        <marker id="arr-g" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <polygon points="0 0,7 3.5,0 7" fill="var(--green)"/>
+        </marker>
+      </defs>
+
+      <!-- Input embed -->
+      <rect x="20" y="125" width="80" height="36" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <text x="60" y="138" text-anchor="middle" fill="var(--cyan)" font-size="9" font-weight="600">Input</text>
+      <text x="60" y="151" text-anchor="middle" fill="var(--cyan)" font-size="9">Embed</text>
+
+      <!-- z_H^0 init -->
+      <rect x="130" y="125" width="64" height="36" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.45)" stroke-width="1.2"/>
+      <text x="162" y="138" text-anchor="middle" fill="var(--purple-l)" font-size="9" font-weight="600">z_H⁰</text>
+      <text x="162" y="151" text-anchor="middle" fill="var(--purple-l)" font-size="9">H-state</text>
+
+      <!-- Arrow: embed -> z_H^0 -->
+      <line x1="100" y1="143" x2="127" y2="143" stroke="rgba(6,182,212,.5)" stroke-width="1.4" marker-end="url(#arr-c)"/>
+
+      <!-- Cycle 1 box -->
+      <rect x="218" y="30" width="188" height="232" rx="10" fill="rgba(139,92,246,.04)" stroke="rgba(139,92,246,.2)" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="312" y="20" text-anchor="middle" fill="rgba(139,92,246,.5)" font-size="8" letter-spacing=".08em">CYCLE 1</text>
+
+      <!-- L1, L2, L3 modules -->
+      <rect x="232" y="48" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="260" y="65" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <rect x="304" y="48" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="332" y="65" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <rect x="232" y="96" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="260" y="113" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <text x="293" y="65" text-anchor="middle" fill="var(--muted)" font-size="8">→</text>
+      <!-- L1→L2 -->
+      <line x1="360" y1="63" x2="373" y2="63" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="373" y1="63" x2="373" y2="111" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="288" y1="111" x2="373" y2="111" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <!-- L2→L3 arrow label -->
+      <text x="280" y="89" text-anchor="middle" fill="var(--muted)" font-size="8">↓  ↘</text>
+
+      <!-- H1 module -->
+      <rect x="248" y="155" width="128" height="36" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.5)" stroke-width="1.4"/>
+      <text x="312" y="169" text-anchor="middle" fill="var(--purple-l)" font-size="10" font-weight="700">H</text>
+      <text x="312" y="182" text-anchor="middle" fill="var(--purple-l)" font-size="8">Slow module</text>
+
+      <!-- L3 -> H1 -->
+      <line x1="260" y1="126" x2="260" y2="152" stroke="rgba(16,185,129,.45)" stroke-width="1.4" marker-end="url(#arr)"/>
+
+      <!-- Cycle 2 box -->
+      <rect x="430" y="30" width="188" height="232" rx="10" fill="rgba(139,92,246,.04)" stroke="rgba(139,92,246,.2)" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="524" y="20" text-anchor="middle" fill="rgba(139,92,246,.5)" font-size="8" letter-spacing=".08em">CYCLE 2</text>
+
+      <!-- L4, L5, L6 modules (cycle 2) -->
+      <rect x="444" y="48" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="472" y="65" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <rect x="516" y="48" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="544" y="65" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <rect x="444" y="96" width="56" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.2"/>
+      <text x="472" y="113" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="700">L</text>
+      <text x="505" y="65" text-anchor="middle" fill="var(--muted)" font-size="8">→</text>
+      <line x1="572" y1="63" x2="585" y2="63" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="585" y1="63" x2="585" y2="111" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="500" y1="111" x2="585" y2="111" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <text x="492" y="89" text-anchor="middle" fill="var(--muted)" font-size="8">↓  ↘</text>
+
+      <!-- H2 module (cycle 2) -->
+      <rect x="460" y="155" width="128" height="36" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.5)" stroke-width="1.4"/>
+      <text x="524" y="169" text-anchor="middle" fill="var(--purple-l)" font-size="10" font-weight="700">H</text>
+      <text x="524" y="182" text-anchor="middle" fill="var(--purple-l)" font-size="8">Slow module</text>
+
+      <!-- L6 -> H2 -->
+      <line x1="472" y1="126" x2="472" y2="152" stroke="rgba(16,185,129,.45)" stroke-width="1.4" marker-end="url(#arr)"/>
+
+      <!-- H1 -> Cycle2 L4 (z_H flows across) -->
+      <line x1="376" y1="173" x2="440" y2="173" stroke="rgba(139,92,246,.5)" stroke-width="1.4" marker-end="url(#arr-p)"/>
+      <text x="408" y="168" text-anchor="middle" fill="var(--purple-l)" font-size="7">z_H</text>
+
+      <!-- cycle1 H connects to cycle2 L (z_H acts on L init) -->
+      <line x1="376" y1="163" x2="435" y2="63" stroke="rgba(139,92,246,.3)" stroke-width="1" stroke-dasharray="3 2"/>
+
+      <!-- LM head output -->
+      <rect x="520" y="218" width="88" height="30" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.45)" stroke-width="1.2"/>
+      <text x="564" y="235" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="600">LM Head</text>
+      <!-- H2 -> LM Head -->
+      <line x1="524" y1="191" x2="524" y2="215" stroke="rgba(16,185,129,.45)" stroke-width="1.4" marker-end="url(#arr-g)"/>
+
+      <!-- z_H^0 -> Cycle1 -->
+      <line x1="194" y1="143" x2="226" y2="143" stroke="rgba(139,92,246,.5)" stroke-width="1.4" marker-end="url(#arr-p)"/>
+      <line x1="215" y1="143" x2="215" y2="63" stroke="rgba(139,92,246,.3)" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="215" y1="63" x2="229" y2="63" stroke="rgba(139,92,246,.3)" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr)"/>
+
+      <!-- Legend -->
+      <rect x="20" y="228" width="10" height="10" rx="2" fill="rgba(16,185,129,.4)" stroke="rgba(16,185,129,.6)" stroke-width="1"/>
+      <text x="35" y="238" fill="var(--muted2)" font-size="8">L module (fast, 3× per cycle)</text>
+      <rect x="20" y="248" width="10" height="10" rx="2" fill="rgba(139,92,246,.4)" stroke="rgba(139,92,246,.6)" stroke-width="1"/>
+      <text x="35" y="258" fill="var(--muted2)" font-size="8">H module (slow, 1× per cycle)</text>
+      <text x="20" y="278" fill="var(--muted)" font-size="8">2 cycles × (3L + 1H) = 8 forward steps per token</text>
+      <text x="20" y="290" fill="var(--muted)" font-size="8">same parameters reused → 4× compute of single-pass</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  HRM uses <strong>2 outer H-cycles</strong>, each containing <strong>3 fast L-module steps</strong> followed by <strong>1 slow H-module step</strong>. That's 8 total forward steps through the same recurrent core — equivalent to 4× the compute of a single-pass Transformer of the same size, without 4× the parameters. The L-module refines local execution (token-level attention and FFN), while the H-module integrates global strategic context across the entire sequence.
+</p>
+<p>
+  This is the key efficiency insight: <em>depth through time, not through width</em>. Instead of stacking 32 unique layers, HRM reuses a compact core across recurrent steps, achieving more effective computation per parameter.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════ §03 ═══ -->
+<section id="s-magicnorm" data-code="magicnorm">
+<div class="section-no">03 — MagicNorm</div>
+<h2>Making Deep Recurrence Trainable</h2>
+<p>
+  Deep recurrence amplifies a known problem in Transformer design: where you place normalization layers fundamentally changes the gradient dynamics. <strong>PostNorm</strong> (norm outside the residual) keeps activations bounded but blocks gradients in deep networks. <strong>PreNorm</strong> (norm inside the residual) lets gradients flow but allows residual variance to grow unboundedly — causing representation collapse.
+</p>
+<p>
+  In a recurrent model this matters enormously: the <em>same transformation</em> is applied N times. PostNorm's vanishing gradient problem compounds multiplicatively. PreNorm's variance growth also compounds. Neither option survives deep recurrence at language-model scale.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">magicnorm.py — forward variance vs backward gradient health</span>
+    <span class="vp-hint">click a norm strategy to see the tradeoff</span>
+  </div>
+  <div class="vp-body">
+    <div class="norm-tabs">
+      <button class="norm-tab active" data-norm="postnorm" id="norm-postnorm">PostNorm</button>
+      <button class="norm-tab" data-norm="prenorm" id="norm-prenorm">PreNorm</button>
+      <button class="norm-tab" data-norm="magic" id="norm-magic">MagicNorm ✦</button>
+    </div>
+    <canvas id="norm-canvas" style="width:100%;height:220px;display:block"></canvas>
+    <div id="norm-desc" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.65"></div>
+  </div>
+</div>
+
+<p>
+  MagicNorm exploits the asymmetry between forward and backward horizons under truncated backpropagation through time (TBPTT). Each recurrent module consists of L internal PreNorm blocks, but is <em>capped with a final normalization at its exit</em>:
+</p>
+<div class="math-block">
+  <div class="math-label">MagicNorm formula</div>
+  <span class="math-var">z<sub>n</sub></span> = Norm(<span class="math-var">z<sub>n−1</sub></span> + Σ Sublayer<sub>l</sub>(Norm(·)))
+  <div class="math-comment">  ↑ exit norm bounds variance on forward path (N applications)</div>
+  <div class="math-comment">  ↑ inner PreNorm identity path preserves gradients (only K &lt; N applications in backward pass)</div>
+</div>
+<p>
+  Forward pass: the exit norm is applied N times — one per recurrent step — bounding activation variance at each step like PostNorm. Backward pass with truncated gradients (K ≪ N): the error signal only passes through K exit norms, while flowing through L inner PreNorm identity connections — behaving like PreNorm for optimization stability.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════ §04 ═══ -->
+<section id="s-objective" data-code="objective">
+<div class="section-no">04 — Task-Completion + PrefixLM</div>
+<h2>Every Gradient Should Count</h2>
+<p>
+  Standard pretraining computes loss over <em>every</em> token — including prompt tokens that the model will never need to generate at inference time. When you train on instruction-response pairs like <code>Q: What is the capital of France? A: Paris.</code>, the loss on "What is the capital of France?" trains the model to predict context it already has. This wastes compute.
+</p>
+<p>
+  HRM-Text applies a <strong>task-completion objective</strong>: compute loss exclusively on the response tokens <em>x<sub>a</sub></em>, conditioned on the full instruction <em>x<sub>q</sub></em>. Since the instruction is known at inference time anyway, there's no information in learning to reconstruct it.
+</p>
+
+<!-- Attention map contrast -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">prefixlm_attn.py — causal vs PrefixLM attention patterns</span>
+    <span class="vp-hint">prompt tokens shown in amber · response tokens in white</span>
+  </div>
+  <div class="vp-body">
+    <div class="attn-grid">
+      <div class="attn-panel">
+        <div class="attn-label"><span>Causal masking</span> — instruction tokens autoregressively predict each other</div>
+        <canvas id="attn-causal" style="width:100%;height:180px;display:block"></canvas>
+      </div>
+      <div class="attn-panel">
+        <div class="attn-label"><span class="good">PrefixLM masking</span> — instruction tokens attend to all instruction tokens bidirectionally</div>
+        <canvas id="attn-prefix" style="width:100%;height:180px;display:block"></canvas>
+      </div>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin:.5rem 0 0">Example: <code style="color:var(--amber)">What is the capital of France?</code> (4 tokens, amber) + <code style="color:var(--text2)">Paris</code> (1 token, white). In PrefixLM, all instruction tokens see each other bidirectionally; loss is only computed on the response.</p>
+  </div>
+</div>
+
+<p>
+  The PrefixLM attention mask pairs naturally with the task-completion objective. Since the model never predicts instruction tokens autoregressively, it doesn't need causal masking over them. Instead, all instruction tokens attend to each other bidirectionally — giving the model an encoder-like view of the full prompt before generating the response.
+</p>
+<p>
+  The empirical payoff: attention entropy increases (the model distributes attention more broadly across the prompt), and response-token NLL decreases — more informative gradients per training token.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════ §05 ═══ -->
+<section id="s-ablation" data-code="ablation">
+<div class="section-no">05 — Ablation</div>
+<h2>Three Ingredients, Each One Matters</h2>
+<p>
+  To isolate the contribution of each component, the paper runs an incremental ablation across all three axes: architecture (Transformer → HRM), objective (full causal → response-only), and attention (causal → PrefixLM). All experiments are FLOPs-matched.
+</p>
+
+<!-- Step navigator -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">ablation.py — incremental contribution of each ingredient</span>
+    <span class="vp-hint">step through each change to see what it adds</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="step-list">
+      <div class="step-box" id="step-0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Baseline: Transformer + P(x) + Causal</div>
+          <div class="step-desc">Standard autoregressive pretraining. Loss computed on all tokens. Causal masking throughout. This is the standard recipe, just at tiny scale.</div>
+          <div class="step-code">MMLU: 40.6 · ARC-C: 51.9 · DROP: 38.2 · GSM8K: 48.4 · MATH: 35.4</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Add task-completion objective: P(x<sub>a</sub>|x<sub>q</sub>) + Causal</div>
+          <div class="step-desc">Only predict response tokens. Every gradient update is directly relevant to the inference-time task. Same Transformer architecture, same causal mask.</div>
+          <div class="step-code">MMLU: 47.7 (+7.2) · ARC-C: 62.9 (+11) · DROP: 54.2 (+16) · GSM8K: 69.8 (+21.4) · MATH: 47.0 (+11.6)</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Add PrefixLM attention mask</div>
+          <div class="step-desc">Instruction tokens now attend bidirectionally. Higher attention entropy — the model uses the full prompt context before generating. Still Transformer architecture.</div>
+          <div class="step-code">MMLU: 53.2 (+5.5) · ARC-C: 74.3 (+11.4) · DROP: 75.3 (+21.1) · GSM8K: 75.1 (+5.3) · MATH: 48.4 (+1.4)</div>
+        </div>
+      </div>
+      <div class="step-box" id="step-3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Replace Transformer with HRM</div>
+          <div class="step-desc">Hierarchical dual-timescale recurrence. Same objective, same PrefixLM mask, same FLOPs budget. The recurrent depth provides additional effective computation per parameter.</div>
+          <div class="step-code">MMLU: 60.7 (+7.5) · ARC-C: 81.9 (+7.6) · DROP: 82.2 (+6.9) · GSM8K: 84.5 (+9.4) · MATH: 56.2 (+7.8)</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← prev</button>
+      <button id="step-next">next →</button>
+      <span class="step-prog" id="step-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  Each ingredient delivers meaningful gains. The task-completion objective alone is worth +21 points on GSM8K. Adding PrefixLM adds another +21 on DROP. Switching to HRM adds +7–9 points across reasoning benchmarks. The combination is multiplicative — all three are needed.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════ §06 ═══ -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Competitive Performance at 100–900× Lower Cost</h2>
+<p>
+  After the ablation confirms all three ingredients are needed, the final HRM-Text 1B checkpoint is compared against contemporary models — trained with dramatically larger budgets. The comparison reveals a consistent pattern: HRM-Text achieves near-competitive performance on reasoning-heavy benchmarks (MATH, GSM8K, DROP, ARC-C) while trailing on broad factual-knowledge benchmarks (MMLU), which benefit from trillion-token data breadth.
+</p>
+
+<!-- MMLU + GSM8K animated bars -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">results.py — MMLU and GSM8K vs baselines</span>
+    <span class="vp-hint">bars animate on scroll</span>
+  </div>
+  <div class="vp-body">
+    <h3 style="font-size:.75rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin:0 0 .75rem">MMLU (general knowledge)</h3>
+    <div class="results-bars" id="results-bars-mmlu">
+      <div class="bar-row">
+        <div class="bar-label">HRM-Text 1B<br/><span style="font-size:.62rem;color:var(--muted)">40B tokens · 1× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="60.7" style="background:linear-gradient(90deg,var(--purple),rgba(139,92,246,.7))"><span>60.7</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Huginn 3.5B<br/><span style="font-size:.62rem;color:var(--muted)">0.8T tokens · 127× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="31.4" style="background:rgba(107,114,128,.45)"><span>31.4</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Llama3.2 3B<br/><span style="font-size:.62rem;color:var(--muted)">9T tokens · 162× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="58.0" style="background:rgba(107,114,128,.45)"><span>58.0</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Gemma3 4B<br/><span style="font-size:.62rem;color:var(--muted)">4T tokens · 96× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="59.6" style="background:rgba(107,114,128,.45)"><span>59.6</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3.5 2B<br/><span style="font-size:.62rem;color:var(--muted)">36T tokens · 432× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="64.5" style="background:rgba(107,114,128,.45)"><span>64.5</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">OLMo3 7B<br/><span style="font-size:.62rem;color:var(--muted)">6T tokens · 252× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="65.8" style="background:rgba(107,114,128,.45)"><span>65.8</span></div></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:.75rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin:1.5rem 0 .75rem">GSM8K (grade-school math)</h3>
+    <div class="results-bars" id="results-bars-gsm">
+      <div class="bar-row">
+        <div class="bar-label">HRM-Text 1B<br/><span style="font-size:.62rem;color:var(--muted)">40B tokens · 1× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="84.5" style="background:linear-gradient(90deg,var(--purple),rgba(139,92,246,.7))"><span>84.5</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Huginn 3.5B<br/><span style="font-size:.62rem;color:var(--muted)">0.8T tokens · 127× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="34.6" style="background:rgba(107,114,128,.45)"><span>34.6</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Llama3.2 3B<br/><span style="font-size:.62rem;color:var(--muted)">9T tokens · 162× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="77.7" style="background:rgba(107,114,128,.45)"><span>77.7</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Gemma3 4B<br/><span style="font-size:.62rem;color:var(--muted)">4T tokens · 96× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="38.4" style="background:rgba(107,114,128,.45)"><span>38.4</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Qwen3.5 2B<br/><span style="font-size:.62rem;color:var(--muted)">36T tokens · 432× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="53.0" style="background:rgba(107,114,128,.45)"><span>53.0</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">OLMo3 7B<br/><span style="font-size:.62rem;color:var(--muted)">6T tokens · 252× FLOPs</span></div>
+        <div class="bar-track"><div class="bar-fill" data-w="75.5" style="background:rgba(107,114,128,.45)"><span>75.5</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The pattern is clear: on <strong>reasoning-heavy</strong> tasks like GSM8K and DROP, HRM-Text leads or matches much larger models trained on far more data. On <strong>broad factual knowledge</strong> (MMLU), HRM-Text trails the largest baselines — an expected gap, since factual coverage scales more directly with training data breadth than with reasoning depth.
+</p>
+
+<!-- Full results table -->
+<h3>Full benchmark comparison</h3>
+<div style="overflow-x:auto">
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>FLOPs ×</th><th>Tokens</th><th class="mn">MMLU</th><th class="mn">ARC-C</th><th class="mn">Hella.</th><th class="mn">DROP</th><th class="mn">GSM8K</th><th class="mn">MATH</th></tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td><strong>HRM-Text 1B</strong></td><td class="mn">1×</td><td class="mn">40B</td>
+      <td class="mn">60.7</td><td class="mn best">81.9</td><td class="mn">63.4</td><td class="mn best">82.2</td><td class="mn best">84.5</td><td class="mn best">56.2</td>
+    </tr>
+    <tr>
+      <td>Huginn 3.5B</td><td class="mn">127×</td><td class="mn">0.8T</td>
+      <td class="mn">31.4</td><td class="mn">38.2</td><td class="mn">65.2</td><td class="mn">17.8</td><td class="mn">34.6</td><td class="mn">12.6</td>
+    </tr>
+    <tr>
+      <td>OLMo3 7B</td><td class="mn">252×</td><td class="mn">6T</td>
+      <td class="mn">65.8</td><td class="mn">81.6</td><td class="mn best">72.7</td><td class="mn">71.5</td><td class="mn">75.5</td><td class="mn">40.0</td>
+    </tr>
+    <tr>
+      <td>Llama3.2 3B</td><td class="mn">162×</td><td class="mn">9T</td>
+      <td class="mn">58.0</td><td class="mn">69.1</td><td class="mn">47.1</td><td class="mn">45.2</td><td class="mn">77.7</td><td class="mn">48.0</td>
+    </tr>
+    <tr>
+      <td>Gemma3 4B</td><td class="mn">96×</td><td class="mn">4T</td>
+      <td class="mn">59.6</td><td class="mn">56.2</td><td class="mn">77.2</td><td class="mn">60.1</td><td class="mn">38.4</td><td class="mn">24.2</td>
+    </tr>
+    <tr>
+      <td>Qwen3.5 2B</td><td class="mn">432×</td><td class="mn">36T</td>
+      <td class="mn best">64.5</td><td class="mn">81.0</td><td class="mn">64.6</td><td class="mn">30.8</td><td class="mn">53.0</td><td class="mn">34.2</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  Perhaps most striking: HRM-Text outperforms Huginn 3.5B (a purpose-built recurrent LM trained on 0.8T tokens) on every single benchmark — while using 4× fewer FLOPs and 20× fewer tokens. Huginn was specifically designed for latent recurrent reasoning; HRM-Text's architecture and objective choices make the difference.
+</p>
+<p>
+  The authors frame this not as a state-of-the-art claim but as an <em>existence proof</em>: there is at least one point in architecture+objective space where the compute-to-performance ratio is radically better than the standard recipe. Exploring that space is now accessible to anyone with two 8-GPU nodes and $1,500 to spare.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">hrm_text/train.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Compute Divide</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="hrm">hrm</button>
+    <button class="cs-tab" data-panel="magicnorm">magicnorm</button>
+    <button class="cs-tab" data-panel="objective">objective</button>
+    <button class="cs-tab" data-panel="ablation">ablation</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Training cost comparison</span>
+<span class="cs-line cmt"># (normalized: HRM-Text = 1×)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Model          FLOPs×  Tokens</span>
+<span class="cs-line hl-g"><span class="cmt"># HRM-Text 1B     1×     40B    ←</span></span>
+<span class="cs-line cmt"># Gemma3 4B      96×     4T</span>
+<span class="cs-line cmt"># Llama3.2 3B   162×     9T</span>
+<span class="cs-line cmt"># Huginn 3.5B   127×   800B</span>
+<span class="cs-line cmt"># OLMo3 7B      252×     6T</span>
+<span class="cs-line cmt"># Qwen3.5 2B    432×    36T</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># HRM-Text training run:</span>
+<span class="cs-line"><span class="attr">hardware</span> = <span class="str">"2 × 8×H100"</span></span>
+<span class="cs-line"><span class="attr">duration</span> = <span class="str">"46 hours"</span></span>
+<span class="cs-line hl-p"><span class="attr">cost</span>     = <span class="str">"~$1,472 @ $2/H100-hr"</span></span>
+<span class="cs-line"><span class="attr">tokens</span>   = <span class="str">"40B unique (60B total)"</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Standard FLOPs estimate</span>
+<span class="cs-line cmt"># (recurrent variant, K=5 backward steps)</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">recurrent_flops</span>(N, D, K_fwd, K_bwd):</span>
+<span class="cs-line">    fwd = <span class="num">2</span> * N * D * K_fwd</span>
+<span class="cs-line">    bwd = <span class="num">4</span> * N * D * K_bwd</span>
+<span class="cs-line">    <span class="kw">return</span> fwd + bwd</span>
+      </pre>
+    </div>
+
+    <!-- panel: hrm -->
+    <div class="cs-panel" id="panel-hrm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># HRM forward pass (simplified)</span>
+<span class="cs-line cmt"># H2L3: 2 outer cycles, 3 L-steps each</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">HRM</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, tokens):</span>
+<span class="cs-line">        x = <span class="kw">self</span>.<span class="fn">embed</span>(tokens)</span>
+<span class="cs-line hl-c">        <span class="cmt"># init slow state from embeddings</span></span>
+<span class="cs-line hl-c">        z_H = <span class="kw">self</span>.<span class="fn">h_init</span>(x)</span>
+<span class="cs-line hl-g">        <span class="cmt"># fixed initial fast state</span></span>
+<span class="cs-line hl-g">        z_L = <span class="kw">self</span>.<span class="fn">l_init</span>(x)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">        <span class="kw">for</span> cycle <span class="kw">in</span> <span class="fn">range</span>(<span class="num">2</span>):  <span class="cmt"># H cycles</span></span>
+<span class="cs-line hl-p">            <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">3</span>):  <span class="cmt"># L steps</span></span>
+<span class="cs-line hl-p">                z_L = <span class="kw">self</span>.<span class="fn">L_module</span>(z_L, z_H)</span>
+<span class="cs-line hl-p">            <span class="cmt"># H integrates context after 3 L-steps</span></span>
+<span class="cs-line hl-p">            z_H = <span class="kw">self</span>.<span class="fn">H_module</span>(z_H, z_L)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">        <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">lm_head</span>(z_H)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Total forward steps: 2×(3+1) = 8</span>
+<span class="cs-line cmt"># Each step uses 1/2 of model params</span>
+<span class="cs-line cmt"># → 4× compute of single-pass Transformer</span>
+<span class="cs-line cmt"># → same parameter count</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># L-module: local fast execution</span>
+<span class="cs-line cmt"># (causal self-attention + SwiGLU FFN)</span>
+<span class="cs-line cmt"># H-module: slow strategic context</span>
+<span class="cs-line cmt"># (PrefixLM attention across full seq)</span>
+      </pre>
+    </div>
+
+    <!-- panel: magicnorm -->
+    <div class="cs-panel" id="panel-magicnorm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MagicNorm: PreNorm inside, PostNorm exit</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">MagicNormModule</span>(<span class="cls">nn.Module</span>):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, z):</span>
+<span class="cs-line cmt">        # --- Internal PreNorm blocks ---</span>
+<span class="cs-line hl-c">        h = z + <span class="kw">self</span>.<span class="fn">attn</span>(<span class="kw">self</span>.<span class="fn">norm1</span>(z))</span>
+<span class="cs-line hl-c">        h = h + <span class="kw">self</span>.<span class="fn">ffn</span>(<span class="kw">self</span>.<span class="fn">norm2</span>(h))</span>
+<span class="cs-line cmt">        # --- Exit normalization (PostNorm) ---</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">exit_norm</span>(h)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Forward pass (N=8 steps):</span>
+<span class="cs-line cmt">#   exit_norm applied N=8 times → PostNorm</span>
+<span class="cs-line cmt">#   activation variance bounded at each step</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Backward pass (TBPTT K=5 steps):</span>
+<span class="cs-line cmt">#   exit_norm gradient only K=5 times</span>
+<span class="cs-line cmt">#   PreNorm identity path dominates → PreNorm</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Warmup deep credit assignment:</span>
+<span class="cs-line"><span class="attr">K_init</span>  = <span class="num">2</span>   <span class="cmt"># early: last 2 steps only</span></span>
+<span class="cs-line"><span class="attr">K_final</span> = <span class="num">5</span>   <span class="cmt"># later: last 5 steps</span></span>
+<span class="cs-line cmt"># linearly warmed up during pretraining</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># RMSNorm: parameterless (no learnable γ)</span>
+<span class="cs-line cmt"># RoPE: θ=10,000, context=4096</span>
+<span class="cs-line cmt"># Sigmoid-gated self-attention</span>
+      </pre>
+    </div>
+
+    <!-- panel: objective -->
+    <div class="cs-panel" id="panel-objective">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Task-completion objective</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Standard causal LM:</span>
+<span class="cs-line cmt">#   loss = -log P(x)  [all tokens]</span>
+<span class="cs-line cmt">#   wastes compute predicting prompts</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># HRM-Text:</span>
+<span class="cs-line hl-p"><span class="cmt">#   loss = -log P(x_a | x_q)</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   only response tokens contribute</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">task_completion_loss</span>(logits, labels, mask):</span>
+<span class="cs-line">    <span class="cmt"># mask = 1 for response tokens only</span></span>
+<span class="cs-line hl-g">    loss = <span class="fn">cross_entropy</span>(logits, labels)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> (loss * mask).<span class="fn">sum</span>() / mask.<span class="fn">sum</span>()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># PrefixLM attention mask:</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">prefixlm_mask</span>(seq_len, prefix_len):</span>
+<span class="cs-line">    mask = <span class="fn">causal_mask</span>(seq_len)   <span class="cmt"># default</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># instruction tokens attend bidirectionally</span></span>
+<span class="cs-line hl-c">    mask[:prefix_len, :prefix_len] = <span class="num">True</span></span>
+<span class="cs-line">    <span class="kw">return</span> mask</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Condition tags prepended to instructions:</span>
+<span class="cs-line cmt">#   [direct]  → answer-only format</span>
+<span class="cs-line cmt">#   [cot]     → chain-of-thought</span>
+<span class="cs-line cmt">#   [synth]   → synthetic style</span>
+<span class="cs-line cmt">#   [noisy]   → web-crawl format</span>
+      </pre>
+    </div>
+
+    <!-- panel: ablation -->
+    <div class="cs-panel" id="panel-ablation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># FLOPs-matched ablation (MMLU / GSM8K)</span>
+<span class="cs-line cmt"># All models: 1B params, 1.0×10²¹ FLOPs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 1: Transformer + P(x) + Causal</span>
+<span class="cs-line"><span class="attr">baseline</span> = {<span class="str">'MMLU'</span>: <span class="num">40.6</span>, <span class="str">'GSM8K'</span>: <span class="num">48.4</span>,</span>
+<span class="cs-line">             <span class="str">'DROP'</span>: <span class="num">38.2</span>, <span class="str">'MATH'</span>: <span class="num">35.4</span>}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 2: + task-completion P(x_a|x_q)</span>
+<span class="cs-line hl-g"><span class="attr">tc_only</span> = {<span class="str">'MMLU'</span>: <span class="num">47.7</span>, <span class="str">'GSM8K'</span>: <span class="num">69.8</span>,</span>
+<span class="cs-line hl-g">            <span class="str">'DROP'</span>: <span class="num">54.2</span>, <span class="str">'MATH'</span>: <span class="num">47.0</span>}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 3: + PrefixLM attention</span>
+<span class="cs-line hl-c"><span class="attr">tc_prefix</span> = {<span class="str">'MMLU'</span>: <span class="num">53.2</span>, <span class="str">'GSM8K'</span>: <span class="num">75.1</span>,</span>
+<span class="cs-line hl-c">              <span class="str">'DROP'</span>: <span class="num">75.3</span>, <span class="str">'MATH'</span>: <span class="num">48.4</span>}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 4: Transformer → HRM</span>
+<span class="cs-line hl-p"><span class="attr">hrm_text</span> = {<span class="str">'MMLU'</span>: <span class="num">60.7</span>, <span class="str">'GSM8K'</span>: <span class="num">84.5</span>,</span>
+<span class="cs-line hl-p">             <span class="str">'DROP'</span>: <span class="num">82.2</span>, <span class="str">'MATH'</span>: <span class="num">56.2</span>}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Incremental gains (MMLU / GSM8K):</span>
+<span class="cs-line cmt"># +task-completion: +7.1 / +21.4</span>
+<span class="cs-line cmt"># +PrefixLM:        +5.5 /  +5.3</span>
+<span class="cs-line cmt"># +HRM arch:        +7.5 /  +9.4</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full comparison table</span>
+<span class="cs-line cmt"># MMLU / ARC-C / DROP / GSM8K / MATH</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── Fully open ────────────────────────</span>
+<span class="cs-line hl-p"><span class="attr">HRM_Text_1B</span>  = [<span class="num">60.7</span>, <span class="num">81.9</span>, <span class="num">82.2</span>, <span class="num">84.5</span>, <span class="num">56.2</span>]</span>
+<span class="cs-line"><span class="attr">Huginn_35B</span>   = [<span class="num">31.4</span>, <span class="num">38.2</span>, <span class="num">17.8</span>, <span class="num">34.6</span>, <span class="num">12.6</span>]</span>
+<span class="cs-line"><span class="attr">OLMo3_7B</span>     = [<span class="num">65.8</span>, <span class="num">81.6</span>, <span class="num">71.5</span>, <span class="num">75.5</span>, <span class="num">40.0</span>]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── Open-weight ───────────────────────</span>
+<span class="cs-line"><span class="attr">Llama32_3B</span>   = [<span class="num">58.0</span>, <span class="num">69.1</span>, <span class="num">45.2</span>, <span class="num">77.7</span>, <span class="num">48.0</span>]</span>
+<span class="cs-line"><span class="attr">Gemma3_4B</span>    = [<span class="num">59.6</span>, <span class="num">56.2</span>, <span class="num">60.1</span>, <span class="num">38.4</span>, <span class="num">24.2</span>]</span>
+<span class="cs-line"><span class="attr">Qwen35_2B</span>    = [<span class="num">64.5</span>, <span class="num">81.0</span>, <span class="num">30.8</span>, <span class="num">53.0</span>, <span class="num">34.2</span>]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key stats:</span>
+<span class="cs-line cmt"># HRM vs Qwen: 432× less compute</span>
+<span class="cs-line cmt"># HRM vs OLMo: 900× fewer tokens</span>
+<span class="cs-line cmt"># HRM ARC-C:   beats every open model</span>
+<span class="cs-line cmt"># HRM MATH:    beats every open model</span>
+<span class="cs-line cmt"># HRM GSM8K:   beats every open model</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Architecture comparison (FLOPs-matched):</span>
+<span class="cs-line cmt"># HRM 1B:           MMLU=60.7, ARC=81.9</span>
+<span class="cs-line cmt"># Looped Transf 1B: MMLU=56.5, ARC=74.1</span>
+<span class="cs-line cmt"># RINS 1B:          MMLU=56.1, ARC=76.7</span>
+<span class="cs-line cmt"># Transformer 1B:   MMLU=53.2, ARC=74.3</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ─────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tabs ─────────────────────────────────────────────────────
+const tabMeta = {
+  problem:   { file: 'hrm_text/train.py',     title: 'The Compute Divide' },
+  hrm:       { file: 'hrm_text/model.py',     title: 'Dual-Timescale HRM' },
+  magicnorm: { file: 'hrm_text/magicnorm.py', title: 'MagicNorm' },
+  objective: { file: 'hrm_text/objective.py', title: 'Task-Completion + PrefixLM' },
+  ablation:  { file: 'hrm_text/ablation.py',  title: 'Ablation' },
+  results:   { file: 'hrm_text/results.py',   title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — TOC + tab sync ─────────────────────────────────
+const sectionMap = {
+  's-problem':   'problem',
+  's-hrm':       'hrm',
+  's-magicnorm': 'magicnorm',
+  's-objective': 'objective',
+  's-ablation':  'ablation',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── Efficiency scatter canvas ──────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('eff-canvas');
+  if (!canvas) return;
+  const tooltip = document.getElementById('eff-tooltip');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 280;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PAD = { top: 30, right: 24, bottom: 50, left: 58 };
+  const pw = W - PAD.left - PAD.right;
+  const ph = H - PAD.top - PAD.bottom;
+
+  // Models: [label, tokens_B, avg_score, color, textX, textY]
+  const MODELS = [
+    { label: 'HRM-Text 1B',  tokens: 0.04,  score: 71.5, color: 'var(--purple)', isStar: true },
+    { label: 'Huginn 3.5B',  tokens: 800,   score: 36.5, color: 'rgba(107,114,128,.7)' },
+    { label: 'Llama3.2 3B',  tokens: 9000,  score: 58.5, color: 'rgba(107,114,128,.7)' },
+    { label: 'Gemma3 4B',    tokens: 4000,  score: 53.8, color: 'rgba(107,114,128,.7)' },
+    { label: 'Qwen3.5 2B',   tokens: 36000, score: 56.5, color: 'rgba(107,114,128,.7)' },
+    { label: 'OLMo3 7B',     tokens: 6000,  score: 66.0, color: 'rgba(107,114,128,.7)' },
+  ];
+
+  // Log scale: 40B (0.04T) to 40T → log10(0.04)=-1.4 to log10(40000)=4.6
+  const logMin = Math.log10(0.03), logMax = Math.log10(50000);
+  const scoreMin = 30, scoreMax = 80;
+
+  function xPos(tokens) {
+    return PAD.left + (Math.log10(tokens) - logMin) / (logMax - logMin) * pw;
+  }
+  function yPos(score) {
+    return PAD.top + ph - (score - scoreMin) / (scoreMax - scoreMin) * ph;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    const xTicks = [0.04, 1, 10, 100, 1000, 10000, 40000];
+    const yTicks = [30, 40, 50, 60, 70, 80];
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    xTicks.forEach(t => {
+      const x = xPos(t);
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + ph); ctx.stroke();
+    });
+    yTicks.forEach(t => {
+      const y = yPos(t);
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + pw, y); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + ph + 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left - 6, PAD.top + ph); ctx.lineTo(PAD.left + pw, PAD.top + ph); ctx.stroke();
+
+    // X-axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = `${10}px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    [0.04, 1, 10, 100, 1000, 10000].forEach(t => {
+      const x = xPos(t);
+      const lbl = t < 1 ? '40B' : t < 1000 ? t + 'B' : (t/1000) + 'T';
+      ctx.fillText(lbl, x, PAD.top + ph + 18);
+    });
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = `${9}px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Training tokens (log scale)', PAD.left + pw / 2, H - 6);
+
+    // Y-axis labels
+    ctx.textAlign = 'right';
+    yTicks.forEach(t => {
+      ctx.fillText(t + '%', PAD.left - 8, yPos(t) + 4);
+    });
+    ctx.save();
+    ctx.translate(12, PAD.top + ph / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Avg score', 0, 0);
+    ctx.restore();
+
+    // Dots
+    MODELS.forEach(m => {
+      const x = xPos(m.tokens), y = yPos(m.score);
+      const r = m.isStar ? 9 : 7;
+
+      if (m.isStar) {
+        // Glow ring
+        ctx.beginPath();
+        ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(139,92,246,0.2)';
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = m.isStar ? '#8b5cf6' : 'rgba(107,114,128,0.6)';
+      ctx.fill();
+      ctx.strokeStyle = m.isStar ? 'rgba(167,139,250,0.9)' : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = m.isStar ? 2 : 1;
+      ctx.stroke();
+
+      // Labels
+      ctx.font = `${m.isStar ? '600 ' : ''}${10}px var(--ff-mono)`;
+      ctx.fillStyle = m.isStar ? '#c4b5fd' : 'rgba(255,255,255,0.45)';
+      ctx.textAlign = m.isStar ? 'left' : 'left';
+      const lx = x + r + 6, ly = y + 4;
+      ctx.fillText(m.label, lx, ly);
+    });
+  }
+
+  draw();
+
+  // Tooltip
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = null;
+    MODELS.forEach(m => {
+      const x = xPos(m.tokens), y = yPos(m.score);
+      const dist = Math.hypot(mx - x, my - y);
+      if (dist < 14) hit = m;
+    });
+    if (hit) {
+      const tStr = hit.tokens < 1 ? '40B' : hit.tokens < 1000 ? hit.tokens + 'B' : (hit.tokens/1000) + 'T';
+      tooltip.innerHTML = `${hit.label}<br/>tokens: ${tStr} · avg score: ${hit.score}%`;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - canvas.getBoundingClientRect().left + 16) + 'px';
+      tooltip.style.top = (e.clientY - canvas.getBoundingClientRect().top - 12) + 'px';
+      canvas.style.cursor = 'crosshair';
+    } else {
+      tooltip.style.display = 'none';
+      canvas.style.cursor = 'default';
+    }
+  });
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+})();
+
+// ─── MagicNorm canvas ───────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('norm-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const NORM_DATA = {
+    postnorm: {
+      fwdLabel: 'Forward variance',
+      fwdColor: 'var(--green)',
+      fwdValues: [1.0, 0.85, 0.72, 0.61, 0.52, 0.43, 0.38, 0.33],
+      bwdLabel: 'Gradient norm',
+      bwdColor: 'var(--red, #ef4444)',
+      bwdValues: [1.0, 0.72, 0.51, 0.35, 0.24, 0.16, 0.10, 0.06],
+      desc: '<strong>PostNorm</strong>: normalization outside the residual branch. Forward variance decreases each step (stable activations ✓). But gradients vanish rapidly through the backward pass — deeper steps receive near-zero gradient. This compounds catastrophically over N=8 recurrent steps.',
+    },
+    prenorm: {
+      fwdLabel: 'Forward variance',
+      fwdColor: 'var(--amber)',
+      fwdValues: [1.0, 1.42, 1.91, 2.50, 3.18, 3.97, 4.85, 5.82],
+      bwdLabel: 'Gradient norm',
+      bwdColor: 'var(--cyan)',
+      bwdValues: [1.0, 0.96, 0.93, 0.91, 0.88, 0.86, 0.84, 0.82],
+      desc: '<strong>PreNorm</strong>: normalization inside the residual branch. Gradients flow cleanly (stable optimization ✓). But the unnormalized residual accumulation causes forward variance to grow without bound — leading to representation collapse or reduced model expressivity in deep recurrent settings.',
+    },
+    magic: {
+      fwdLabel: 'Forward variance (exit norm)',
+      fwdColor: 'var(--green)',
+      fwdValues: [1.0, 0.97, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90],
+      bwdLabel: 'Gradient norm (K=5 TBPTT)',
+      bwdColor: 'var(--cyan)',
+      bwdValues: [1.0, 0.95, 0.90, 0.86, 0.83, 0.80, 0.78, 0.76],
+      desc: '<strong>MagicNorm</strong>: PreNorm inside + PostNorm exit cap. The exit norm bounds forward variance at each of the N=8 recurrent steps (PostNorm behavior). With truncated backprop (K=5 &lt; N=8), gradients only pass through K exit norms — the PreNorm identity connections dominate. Best of both worlds: stable forward pass and stable backward pass.',
+    },
+  };
+
+  let activeNorm = 'postnorm';
+
+  function drawNormViz(normKey) {
+    const d = NORM_DATA[normKey];
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD = { top: 22, right: 20, bottom: 40, left: 52 };
+    const pw = W - PAD.left - PAD.right;
+    const ph = H - PAD.top - PAD.bottom;
+    const N = 8;
+    const maxVal = Math.max(...d.fwdValues, ...d.bwdValues) * 1.08;
+    const minVal = 0;
+
+    function xp(i) { return PAD.left + (i / (N - 1)) * pw; }
+    function yp(v) { return PAD.top + ph - ((v - minVal) / (maxVal - minVal)) * ph; }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(f => {
+      const y = PAD.top + ph * (1 - f);
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + pw, y); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + ph + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left - 4, PAD.top + ph); ctx.lineTo(PAD.left + pw, PAD.top + ph); ctx.stroke();
+
+    // X-axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = `10px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    for (let i = 0; i < N; i++) {
+      ctx.fillText('step ' + (i + 1), xp(i), PAD.top + ph + 18);
+    }
+
+    // Draw lines
+    function drawLine(vals, color, label) {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      vals.forEach((v, i) => {
+        if (i === 0) ctx.moveTo(xp(i), yp(v));
+        else ctx.lineTo(xp(i), yp(v));
+      });
+      ctx.stroke();
+      // dots
+      vals.forEach((v, i) => {
+        ctx.beginPath();
+        ctx.arc(xp(i), yp(v), 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      });
+      // label
+      const lastX = xp(N - 1) + 6, lastY = yp(vals[N - 1]);
+      ctx.fillStyle = color;
+      ctx.font = `600 9px var(--ff-mono)`;
+      ctx.textAlign = 'left';
+      ctx.fillText(label, PAD.left + 8, PAD.top + (label === d.fwdLabel ? 12 : 20));
+    }
+
+    drawLine(d.fwdValues, d.fwdColor, d.fwdLabel);
+    drawLine(d.bwdValues, d.bwdColor, d.bwdLabel);
+
+    // Ideal zone indicator for MagicNorm
+    if (normKey === 'magic') {
+      ctx.fillStyle = 'rgba(139,92,246,0.06)';
+      ctx.fillRect(PAD.left + 1, PAD.top, pw - 1, ph);
+    }
+
+    // Update description
+    const desc = document.getElementById('norm-desc');
+    if (desc) desc.innerHTML = d.desc;
+  }
+
+  drawNormViz(activeNorm);
+
+  document.querySelectorAll('.norm-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.norm-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeNorm = btn.dataset.norm;
+      drawNormViz(activeNorm);
+    });
+  });
+})();
+
+// ─── Attention map canvases ─────────────────────────────────────────────────
+(function() {
+  // Example: "What is the capital of France?" = 6 tokens, "Paris" = 1 token
+  // Simplified: 5 instruction tokens (amber) + 1 response token (white)
+  const N_INSTR = 5, N_RESP = 1, N = N_INSTR + N_RESP;
+
+  function drawAttnMap(canvasId, isCausal) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = 180;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    const PAD = 20;
+    const cellSize = Math.min((W - PAD * 2) / N, (H - PAD * 2) / N);
+    const startX = PAD + (W - PAD * 2 - cellSize * N) / 2;
+    const startY = PAD + (H - PAD * 2 - cellSize * N) / 2;
+
+    // Background
+    ctx.fillStyle = 'var(--card2, #141414)';
+    ctx.fillRect(0, 0, W, H);
+
+    for (let row = 0; row < N; row++) {
+      for (let col = 0; col < N; col++) {
+        let attn = 0;
+        const isInstrRow = row < N_INSTR;
+        const isInstrCol = col < N_INSTR;
+        const isRespRow = row >= N_INSTR;
+
+        if (isCausal) {
+          // Causal: lower triangle
+          attn = col <= row ? 1.0 / (row + 1) : 0;
+        } else {
+          // PrefixLM: instruction rows attend to all instruction tokens fully
+          if (isInstrRow && isInstrCol) {
+            attn = 1.0 / N_INSTR;
+          } else if (isInstrRow && !isInstrCol) {
+            attn = 0; // instruction doesn't attend to response
+          } else if (isRespRow) {
+            // response: causal
+            attn = col <= row ? 1.0 / (row + 1) : 0;
+          }
+        }
+
+        const rowIsInstr = row < N_INSTR;
+        const colIsInstr = col < N_INSTR;
+
+        if (attn > 0) {
+          const alpha = 0.15 + attn * 0.75;
+          // Color by query (row) type
+          if (rowIsInstr) {
+            ctx.fillStyle = `rgba(245,158,11,${alpha})`; // amber for instruction query
+          } else {
+            ctx.fillStyle = `rgba(255,255,255,${alpha})`; // white for response query
+          }
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.02)';
+        }
+
+        const cx = startX + col * cellSize + 1;
+        const cy = startY + row * cellSize + 1;
+        const cs = cellSize - 2;
+        ctx.fillRect(cx, cy, cs, cs);
+      }
+    }
+
+    // Draw divider between instruction and response
+    const divX = startX + N_INSTR * cellSize;
+    const divY = startY + N_INSTR * cellSize;
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(divX, startY); ctx.lineTo(divX, startY + N * cellSize); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(startX, divY); ctx.lineTo(startX + N * cellSize, divY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Labels
+    ctx.fillStyle = 'rgba(245,158,11,0.7)';
+    ctx.font = `9px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('instruction (5 tokens)', startX + N_INSTR * cellSize / 2, startY - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('resp', startX + N_INSTR * cellSize + cellSize / 2, startY - 6);
+  }
+
+  drawAttnMap('attn-causal', true);
+  drawAttnMap('attn-prefix', false);
+})();
+
+// ─── Step navigator ─────────────────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#step-list .step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─── Animated bar chart ─────────────────────────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 100 * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

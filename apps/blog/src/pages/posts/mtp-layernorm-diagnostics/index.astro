@@ -1,0 +1,1485 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime(Astro.url.pathname.split('/').filter(Boolean).at(-1)!);
+---
+<BaseLayout
+  title="Diagnosing MTP Training with LayerNorm Param-Norms | AI/ML Deep Dives"
+  description="One number — √d_model — tells you everything about whether your MTP module's final LayerNorm is healthy, over-specialized, or about to cause training instability."
+  crumb="MTP LayerNorm Diagnostics"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Norm slider widget */
+.norm-widget{display:flex;flex-direction:column;gap:1rem;padding:1rem;background:var(--card);border:1px solid var(--border);border-radius:10px;margin:1.5rem 0}
+.norm-widget-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.norm-widget label{font-size:.75rem;font-family:var(--ff-mono);color:var(--muted2);flex-shrink:0}
+.norm-widget input[type=range]{flex:1;min-width:140px;accent-color:var(--purple)}
+.norm-result{font-size:1.5rem;font-weight:700;font-family:var(--ff-mono);color:var(--purple-l)}
+.norm-result span{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:.4rem}
+.norm-presets{display:flex;gap:.5rem;flex-wrap:wrap}
+.norm-preset-btn{padding:.25rem .65rem;border-radius:4px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.norm-preset-btn:hover,.norm-preset-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+
+/* Signal bar chart */
+.sig-bars{display:grid;grid-template-columns:repeat(auto-fill, minmax(8px, 1fr));gap:2px;height:80px;align-items:end;margin:1rem 0}
+.sig-bar{border-radius:2px 2px 0 0;transition:height 0.6s ease, background-color 0.6s ease;min-height:2px}
+.sig-bar-labels{display:flex;justify-content:space-between;font-size:.62rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.25rem}
+
+/* Norm dial */
+.norm-dial-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1.25rem}
+.norm-dial-title{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted2);letter-spacing:.06em;text-transform:uppercase}
+
+/* Status callout */
+.callout{display:flex;align-items:flex-start;gap:.75rem;padding:.875rem 1.1rem;border-radius:8px;margin:1.25rem 0;border:1px solid}
+.callout.ok{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.25);color:var(--green)}
+.callout.warn{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.25);color:var(--amber)}
+.callout.bad{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.25);color:#f87171}
+.callout-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.callout-body{font-size:.8rem;color:var(--muted2);line-height:1.65}
+.callout-body strong{color:var(--text2)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .bad{color:#f87171}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">MTP Training</span>
+    <span class="tag tag-cyan">LayerNorm</span>
+    <span class="tag tag-amber">Training Diagnostics</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>One Number Tells You Everything: Diagnosing MTP Training with LayerNorm Param-Norms</h1>
+  <p class="lead">When training a Multi-Token Prediction module alongside your LLM, a single metric — the L₂ norm of <code>final_layernorm.weight</code> — tells you whether your representations are healthy, over-specialized for the main head, or silently corrupting MTP gradient flow. Here's exactly what to look for and why.</p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>{readTime}</span>
+    <span>Ref: <code>arXiv:2412.19437</code> (DeepSeek-V3)</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2412.19437" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><rect x="8" y="12" width="8" height="1.5" rx="0.5"/><rect x="8" y="16" width="8" height="1.5" rx="0.5"/></svg>
+      DeepSeek-V3 PDF
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2404.19737" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><rect x="8" y="12" width="8" height="1.5" rx="0.5"/><rect x="8" y="16" width="8" height="1.5" rx="0.5"/></svg>
+      MTP Paper (Gloeckle et al.)
+    </a>
+    <a class="hero-btn" href="https://docs.nvidia.com/nemo/megatron-bridge/latest/training/multi-token-prediction.html" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="2" y="11" width="20" height="2" rx="1"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      NeMo MTP Docs
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-baseline"><a href="#s-baseline"><span class="toc-num">01</span> The Baseline Number</a></li>
+    <li class="toc-item" id="toc-s-drift"><a href="#s-drift"><span class="toc-num">02</span> What Drift Means</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Where MTP Branches</a></li>
+    <li class="toc-item" id="toc-s-gradients"><a href="#s-gradients"><span class="toc-num">04</span> The Gradient Gate</a></li>
+    <li class="toc-item" id="toc-s-speculative"><a href="#s-speculative"><span class="toc-num">05</span> Speculative Decoding</a></li>
+    <li class="toc-item" id="toc-s-playbook"><a href="#s-playbook"><span class="toc-num">06</span> Diagnostic Playbook</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01: THE BASELINE ─────────────────────────────────────── -->
+<section id="s-baseline" data-code="baseline">
+<div class="section-no">01 — The Baseline Number</div>
+<h2>Why √d<sub>model</sub> Is Your North Star</h2>
+
+<p>
+  Before training starts, every LayerNorm (or RMSNorm) weight vector <strong>γ</strong> is initialized to all ones — a deliberate identity: after normalizing the activations to zero-mean unit-variance, the layer passes them through unchanged at step 0. This is the "do nothing" starting point that lets the model learn its own rescaling from scratch.
+</p>
+<p>
+  That all-ones vector has a precise L₂ norm. If your model's hidden dimension is <strong>d<sub>model</sub></strong>, then every element γ<sub>i</sub> = 1, and:
+</p>
+
+<div class="math-block">
+  <div class="math-label">L₂ norm at init</div>
+  ‖<span class="math-var">γ</span>‖₂ = √<span class="math-var">Σ</span> γ<sub>i</sub>² = √(<span class="math-var">d</span> × 1²) = √<span class="math-var">d</span><sub>model</sub>
+  <div class="math-comment" style="margin-top:.5rem">
+    Example: d_model=3072 → √3072 ≈ 55.42 &nbsp;&nbsp;|&nbsp;&nbsp; d_model=7168 (DeepSeek-V3) → √7168 ≈ 84.66
+  </div>
+</div>
+
+<p>
+  This is the <em>exact</em> norm you will see in your training logs at step 0, every time, for any model: it is a mathematical identity, not an empirical observation. It's the number against which all subsequent drift should be measured.
+</p>
+
+<h3>Try it: pick your d<sub>model</sub></h3>
+
+<div class="norm-widget">
+  <div class="norm-widget-row">
+    <label>d<sub>model</sub></label>
+    <input type="range" id="dmodel-slider" min="256" max="12288" step="128" value="3072">
+    <span id="dmodel-val" style="font-family:var(--ff-mono);font-size:.8rem;color:var(--text2);width:60px">3072</span>
+  </div>
+  <div class="norm-widget-row">
+    <div>
+      <div style="font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem">Initial param-norm of final_layernorm.weight</div>
+      <div class="norm-result" id="norm-result">55.42 <span>= √3072</span></div>
+    </div>
+  </div>
+  <div class="norm-presets">
+    <span style="font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin-right:.25rem">Known models:</span>
+    <button class="norm-preset-btn active" data-d="3072">LLaMA-3.2-3B</button>
+    <button class="norm-preset-btn" data-d="4096">LLaMA-3.1-8B</button>
+    <button class="norm-preset-btn" data-d="5120">LLaMA-3.1-13B</button>
+    <button class="norm-preset-btn" data-d="7168">DeepSeek-V3</button>
+    <button class="norm-preset-btn" data-d="8192">LLaMA-3.1-70B</button>
+  </div>
+</div>
+
+<p>
+  You can verify this in one line of PyTorch at step 0 before any optimizer update:
+</p>
+
+<div class="callout ok">
+  <span class="callout-icon">✓</span>
+  <div class="callout-body">
+    <strong>At step 0:</strong> <code>model.final_layernorm.weight.norm().item()</code> should equal <code>√d_model</code> to floating-point precision. If it doesn't, your weight initialization is wrong.
+  </div>
+</div>
+</section>
+
+<!-- ─── §02: WHAT DRIFT MEANS ──────────────────────────────────── -->
+<section id="s-drift" data-code="drift">
+<div class="section-no">02 — What Drift Means</div>
+<h2>Healthy Shrink vs. Dangerous Collapse</h2>
+
+<p>
+  During normal pretraining, the γ vector <em>will</em> drift away from all-ones — that is expected and healthy. The model is learning to up-weight informative feature dimensions and down-weight noisy ones. But the <em>direction</em> and <em>magnitude</em> of drift carry distinct signals.
+</p>
+
+<p>
+  The visualization below shows what happens to the per-dimension γ values as training progresses. Toggle between "healthy" and "collapsed" states to see the difference.
+</p>
+
+<!-- Interactive bar chart: per-dimension gamma values -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">final_layernorm.weight — per-dimension γ values (d_model = 64 representative)</span>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button id="state-init" class="norm-preset-btn active" style="font-size:.65rem">Step 0 (init)</button>
+      <button id="state-healthy" class="norm-preset-btn" style="font-size:.65rem">Healthy (mid-train)</button>
+      <button id="state-collapsed" class="norm-preset-btn" style="font-size:.65rem">Collapsed</button>
+      <button id="state-exploded" class="norm-preset-btn" style="font-size:.65rem">Exploded</button>
+    </div>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;align-items:flex-end;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <div class="norm-result" id="norm-display" style="font-size:1.2rem">55.42 <span>‖γ‖₂ for d=3072</span></div>
+      <div id="norm-status" style="font-size:.75rem;font-family:var(--ff-mono);padding:.2rem .6rem;border-radius:4px;background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)">● healthy</div>
+    </div>
+    <div class="sig-bars" id="gamma-bars"></div>
+    <div class="sig-bar-labels">
+      <span>dim 0</span>
+      <span>dim d/4</span>
+      <span>dim d/2</span>
+      <span>dim 3d/4</span>
+      <span>dim d-1</span>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin-top:.75rem;line-height:1.6" id="norm-interpretation">
+      All γ<sub>i</sub> = 1.0. The LayerNorm is an identity rescaler — each feature dimension carries equal weight. ‖γ‖₂ = √64 = 8.0 for this 64-dim example.
+    </p>
+  </div>
+</div>
+
+<h3>The three regimes</h3>
+<ul>
+  <li><strong>Healthy shrink (norm 40–55 for d=3072).</strong> Some dimensions are dampened, others amplified. The net norm is lower than init because the residual stream has grown across many layers — the LayerNorm weights compensate by contracting certain channels. This is normal and desirable.</li>
+  <li><strong>Dangerous collapse (norm &lt; 20).</strong> The γ vector has uniformly shrunk toward zero. The final LayerNorm is actively erasing signal — all feature dimensions are being heavily suppressed before they reach the LM head. For MTP heads that branch here, they receive impoverished representations.</li>
+  <li><strong>Explosion (norm &gt; 2× √d).</strong> Some γ<sub>i</sub> values have grown large, over-amplifying specific dimensions. The final hidden state is dominated by a few noisy channels. The LM head sees logit explosions, and the MTP auxiliary loss gradients carry enormous scale mismatches backward.</li>
+</ul>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠</span>
+  <div class="callout-body">
+    <strong>Rule of thumb:</strong> If <code>‖final_layernorm.weight‖₂</code> has drifted more than <strong>2× from √d_model</strong> in either direction, treat it as a training health warning. For d=3072 that means values outside [27, 110] need investigation.
+  </div>
+</div>
+</section>
+
+<!-- ─── §03: WHERE MTP BRANCHES ────────────────────────────────── -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — Where MTP Branches</div>
+<h2>The Exact Point Where Norms Become Critical</h2>
+
+<p>
+  To understand <em>why</em> the final LayerNorm norm matters so much, you need to know precisely where the MTP module branches off from the main model — and what state the representations are in at that branching point.
+</p>
+<p>
+  In DeepSeek-V3's implementation (and similar architectures like the EAGLE-style MTP used by Gemma 4), the MTP module receives the hidden states <strong>h<sup>0</sup><sub>i</sub></strong> from the last layer of the main transformer — the same representations that will pass through <code>final_layernorm</code> before reaching the LM head. The MTP module never sees the <em>normalized</em> output; it sees the raw residual-stream vectors.
+</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">MTP branching architecture — where the norm lives relative to the branching point</span>
+    <span class="vp-hint">the LayerNorm norm is a proxy for the scale of h⁰ᵢ</span>
+  </div>
+  <div class="vp-body" style="overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 680 310" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:580px;font-family:var(--ff-mono)">
+      <!-- Background -->
+      <rect width="680" height="310" fill="transparent"/>
+
+      <!-- Main transformer stack -->
+      <rect x="20" y="30" width="130" height="50" rx="6" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+      <text x="85" y="52" text-anchor="middle" font-size="9" fill="#c4b5fd">Transformer</text>
+      <text x="85" y="65" text-anchor="middle" font-size="8" fill="#7c6fad">Layers 0…N-1</text>
+
+      <!-- Arrow down from main transformer -->
+      <path d="M85 80 L85 108" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+      <text x="91" y="100" font-size="7.5" fill="#7c6fad">h⁰ᵢ ∈ ℝ^d</text>
+
+      <!-- Branch circle -->
+      <circle cx="85" cy="118" r="7" fill="#4c3d85" stroke="rgba(139,92,246,.7)" stroke-width="1.5"/>
+      <text x="85" y="121.5" text-anchor="middle" font-size="8" fill="#c4b5fd" font-weight="bold">⊕</text>
+
+      <!-- LEFT PATH: main model -->
+      <!-- Arrow left-down from branch to final LN -->
+      <path d="M85 125 L85 170" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+
+      <!-- Final LayerNorm box (main) -->
+      <rect x="20" y="170" width="130" height="44" rx="6" fill="rgba(239,68,68,.13)" stroke="rgba(239,68,68,.45)" stroke-width="1.5"/>
+      <text x="85" y="189" text-anchor="middle" font-size="9" fill="#fca5a5">final_layernorm</text>
+      <text x="85" y="202" text-anchor="middle" font-size="7.5" fill="#9b7070">‖γ‖₂ = √d_model (init)</text>
+
+      <!-- Arrow: final LN → LM Head -->
+      <path d="M85 214 L85 248" stroke="rgba(239,68,68,.4)" stroke-width="1.5" marker-end="url(#arr-red)"/>
+
+      <!-- LM Head box -->
+      <rect x="20" y="248" width="130" height="40" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+      <text x="85" y="265" text-anchor="middle" font-size="9" fill="#67e8f9">LM Head</text>
+      <text x="85" y="278" text-anchor="middle" font-size="8" fill="#4a8a94">→ predict t+1</text>
+
+      <!-- RIGHT PATH: MTP module -->
+      <!-- Arrow right from branch -->
+      <path d="M92 118 L230 118" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+      <text x="155" y="112" text-anchor="middle" font-size="7.5" fill="#d97706">h⁰ᵢ (raw, un-normalized)</text>
+
+      <!-- RMSNorm before projection -->
+      <rect x="230" y="98" width="90" height="40" rx="6" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+      <text x="275" y="115" text-anchor="middle" font-size="9" fill="#fcd34d">RMSNorm</text>
+      <text x="275" y="128" text-anchor="middle" font-size="7.5" fill="#997700">+ Emb(t_&#123;i+1&#125;)</text>
+
+      <!-- Arrow: RMSNorm → Projection -->
+      <path d="M320 118 L355 118" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+      <!-- Projection box -->
+      <rect x="355" y="98" width="90" height="40" rx="6" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+      <text x="400" y="115" text-anchor="middle" font-size="9" fill="#fcd34d">M_k · [·;·]</text>
+      <text x="400" y="128" text-anchor="middle" font-size="7.5" fill="#997700">ℝ^2d → ℝ^d</text>
+
+      <!-- Arrow: Projection → TRM block -->
+      <path d="M445 118 L480 118" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+      <!-- TRM block -->
+      <rect x="480" y="98" width="90" height="40" rx="6" fill="rgba(245,158,11,.15)" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+      <text x="525" y="115" text-anchor="middle" font-size="9" fill="#fcd34d">TRM_k</text>
+      <text x="525" y="128" text-anchor="middle" font-size="7.5" fill="#997700">MTP Transformer</text>
+
+      <!-- Arrow: TRM → MTP LM Head -->
+      <path d="M525 138 L525 170" stroke="rgba(245,158,11,.5)" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+      <!-- MTP LM Head (shared) -->
+      <rect x="475" y="170" width="100" height="40" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.35)" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="525" y="187" text-anchor="middle" font-size="9" fill="#67e8f9">LM Head</text>
+      <text x="525" y="200" text-anchor="middle" font-size="8" fill="#4a8a94">shared → predict t+2</text>
+
+      <!-- Label: shared -->
+      <text x="597" y="192" font-size="7" fill="#4a8a94" font-style="italic">(shared w/ main)</text>
+
+      <!-- Vertical label: main path -->
+      <text x="8" y="220" font-size="7.5" fill="#7c6fad" writing-mode="vertical-rl" transform="rotate(180,8,200)">main model path</text>
+
+      <!-- Vertical label: MTP path -->
+      <text x="220" y="85" font-size="7.5" fill="#d97706">── MTP module path ──────────────────────────────────────────</text>
+
+      <!-- KEY: norm annotation -->
+      <rect x="20" y="170" width="130" height="44" rx="6" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="5,3"/>
+      <text x="160" y="178" font-size="8" fill="#ef4444">← THE NORM</text>
+      <text x="160" y="190" font-size="8" fill="#ef4444">  LIVES HERE</text>
+      <text x="160" y="202" font-size="8" fill="#ef4444">  (affects both paths)</text>
+
+      <!-- NOTE: h0_i annotation -->
+      <rect x="230" y="60" width="340" height="30" rx="4" fill="rgba(245,158,11,.07)" stroke="rgba(245,158,11,.2)" stroke-width="1"/>
+      <text x="400" y="73" text-anchor="middle" font-size="7.5" fill="#d97706">MTP receives raw h⁰ᵢ — before final_layernorm — but its scale</text>
+      <text x="400" y="84" text-anchor="middle" font-size="7.5" fill="#d97706">is determined by the same residual stream that final_layernorm will normalize</text>
+
+      <!-- Loss labels -->
+      <text x="85" y="300" text-anchor="middle" font-size="8" fill="#67e8f9">L_main</text>
+      <text x="525" y="225" text-anchor="middle" font-size="8" fill="#67e8f9">L_MTP</text>
+
+      <!-- Gradient arrows (backward) -->
+      <path d="M475 190 L95 190 L95 175" stroke="rgba(239,68,68,.3)" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-red-sm)"/>
+      <text x="280" y="186" font-size="6.5" fill="rgba(239,68,68,.6)">∂L_MTP / ∂γ flows through final_layernorm</text>
+
+      <!-- Defs -->
+      <defs>
+        <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(139,92,246,.7)"/>
+        </marker>
+        <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(245,158,11,.7)"/>
+        </marker>
+        <marker id="arr-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(239,68,68,.7)"/>
+        </marker>
+        <marker id="arr-red-sm" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto">
+          <path d="M0,0 L0,5 L6,2.5 z" fill="rgba(239,68,68,.5)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The key architectural insight: <strong>final_layernorm sits on both paths</strong>. The main model passes through it to produce logits for t+1. The MTP module receives the <em>pre-norm</em> hidden state h⁰<sub>i</sub> — but the scale of that vector is fundamentally tied to what the LayerNorm has learned to do. If γ has collapsed, the representations that enter the MTP projection are already impoverished.
+</p>
+<p>
+  In DeepSeek-V3, each MTP module applies its own <code>RMSNorm</code> to h⁰<sub>i</sub> before combining it with the next token's embedding. So the MTP path has its own normalization — but the information content of the representations still depends on how the main model's final layer has learned to organize its hidden state.
+</p>
+</section>
+
+<!-- ─── §04: THE GRADIENT GATE ─────────────────────────────────── -->
+<section id="s-gradients" data-code="gradients">
+<div class="section-no">04 — The Gradient Gate</div>
+<h2>LayerNorm as a Gradient Scale Gate</h2>
+
+<p>
+  The most dangerous effect of norm drift in an MTP setup isn't representation quality — it's the <em>gradient flow</em>. LayerNorm's backward pass scales gradients by its weight vector γ. When the MTP auxiliary loss L<sub>MTP</sub> backpropagates through the final layers of the main transformer, those gradients are modulated by γ's current magnitude.
+</p>
+
+<div class="math-block">
+  <div class="math-label">LayerNorm backward — gradient scaling</div>
+  <div>Forward:  &nbsp;&nbsp;<span class="math-var">y</span> = ((<span class="math-var">x</span> − μ) / σ) ⊙ <span class="math-var">γ</span> + β</div>
+  <div>∂L/∂<span class="math-var">x</span> ≈ (<span class="math-var">γ</span> / σ) ⊙ ∂L/∂<span class="math-var">y</span> &nbsp;&nbsp;<span class="math-comment">  ← γ directly scales the gradient</span></div>
+  <div style="margin-top:.5rem;font-size:.75rem">
+    If ‖<span class="math-var">γ</span>‖₂ collapses from 55.4 → 15, gradient scale drops by ~3.7×
+    <span class="math-comment">  ← MTP gradients enter main model at 1/4 intended magnitude</span>
+  </div>
+</div>
+
+<p>
+  This creates a subtle but serious problem: the MTP auxiliary loss has a scaling factor λ (DeepSeek-V3 uses λ=0.3 for the first 10T tokens, then λ=0.1) intended to balance the MTP contribution against the main loss. But if γ has dramatically collapsed, the actual gradient entering the main transformer from the MTP path is far smaller than intended — effectively disabling the MTP training signal even though the loss looks fine.
+</p>
+
+<!-- Interactive canvas: gradient magnitude comparison -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Gradient magnitude entering main transformer — vary γ norm</span>
+    <span class="vp-hint">drag slider to simulate γ collapse</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+      <label style="font-size:.75rem;font-family:var(--ff-mono);color:var(--muted2)">‖γ‖₂ =</label>
+      <input type="range" id="gamma-norm-slider" min="5" max="120" step="1" value="55" style="flex:1;min-width:140px;accent-color:var(--purple)">
+      <span id="gamma-norm-val" style="font-family:var(--ff-mono);font-size:.85rem;color:var(--purple-l);width:50px">55.4</span>
+    </div>
+    <canvas id="grad-canvas" style="width:100%;height:180px;display:block"></canvas>
+    <div style="display:flex;justify-content:space-between;font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.3rem">
+      <span>‖γ‖₂ = 0 (total collapse)</span>
+      <span id="grad-label-current">current: ‖γ‖₂ = 55.4 (√3072)</span>
+      <span>‖γ‖₂ = 120 (explosion)</span>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin-top:.75rem;line-height:1.6" id="grad-interpretation">
+      At ‖γ‖₂ = 55.4 (healthy init), MTP gradients enter the main transformer at their intended scale. The λ=0.1 loss weight works as designed.
+    </p>
+  </div>
+</div>
+
+<p>
+  The converse failure — γ explosion — is equally dangerous. Oversized γ values amplify the MTP gradient by 2–3×, drowning out the main LM loss and destabilizing the primary pretraining objective. You can observe this as the MTP loss going down while the main language model loss suddenly starts rising or oscillating.
+</p>
+
+<h3>The stability trinity</h3>
+<ul>
+  <li><strong>MTP losses must both trend downward.</strong> Monitor <code>lm_loss</code>, <code>mtp_1_loss</code> separately in TensorBoard/WandB. The gap between them should stay roughly stable.</li>
+  <li><strong>The gap between main and MTP loss should be stable.</strong> If MTP loss is rising while main loss falls, the auxiliary task is being crowded out — lower <code>mtp_loss_scaling_factor</code>.</li>
+  <li><strong>‖final_layernorm.weight‖₂ should stay in [0.4×√d, 1.8×√d].</strong> Outside this band, the gradient scaling is distorted enough to require intervention.</li>
+</ul>
+</section>
+
+<!-- ─── §05: SPECULATIVE DECODING ──────────────────────────────── -->
+<section id="s-speculative" data-code="speculative">
+<div class="section-no">05 — Speculative Decoding Impact</div>
+<h2>Why Norm Matters at Inference Time Too</h2>
+
+<p>
+  During training, the MTP module is an auxiliary task. But in DeepSeek-V3 and similar models, the MTP heads are <em>repurposed at inference time</em> for speculative decoding: the MTP head drafts candidate tokens, and the main model verifies them. The throughput gain (often 1.8–2.5×) depends entirely on the <strong>acceptance rate</strong> — the fraction of draft tokens the verifier accepts.
+</p>
+<p>
+  Acceptance rate is determined by how well the draft distribution matches the target. A collapsed or exploded γ directly distorts this calibration:
+</p>
+
+<!-- Line chart: acceptance rate vs norm drift -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Conceptual: MTP draft acceptance rate vs final_layernorm norm drift</span>
+    <span class="vp-hint">conceptual illustration — actual values are model-specific</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="acceptance-canvas" style="width:100%;height:200px;display:block"></canvas>
+    <div style="display:flex;gap:1.5rem;font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.5rem;flex-wrap:wrap">
+      <span style="color:var(--green)">■ acceptance rate</span>
+      <span style="color:rgba(139,92,246,.8)">■ √d_model = 55.4</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The mechanism: <code>final_layernorm.weight</code> controls the scale of activations entering the output head. When γ collapses, the model's logits become artificially peaky (over-confident on a few tokens). When γ explodes, logits flatten (model becomes over-uncertain). Both distort the draft distribution away from what the verifier expects.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>‖γ‖₂ range (d=3072)</th>
+      <th>Training signal</th>
+      <th>Representation quality for MTP</th>
+      <th>Speculative decoding calibration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td class="mn">50–62 (≈√d)</td>
+      <td><span class="best">✓ balanced</span></td>
+      <td><span class="best">✓ rich, general-purpose features</span></td>
+      <td><span class="best">✓ high acceptance rate</span></td>
+    </tr>
+    <tr>
+      <td class="mn">27–50 (healthy shrink)</td>
+      <td>✓ normal</td>
+      <td>✓ somewhat specialized</td>
+      <td>✓ minor degradation</td>
+    </tr>
+    <tr>
+      <td class="mn">&lt;20 (collapse)</td>
+      <td><span class="bad">✗ MTP gradient starved</span></td>
+      <td><span class="bad">✗ impoverished, dimensionally flat</span></td>
+      <td><span class="bad">✗ over-confident drafts, low acceptance</span></td>
+    </tr>
+    <tr>
+      <td class="mn">&gt;110 (explosion)</td>
+      <td><span class="bad">✗ MTP gradient floods main loss</span></td>
+      <td><span class="bad">✗ noisy, spike-dominated</span></td>
+      <td><span class="bad">✗ flat drafts, low acceptance</span></td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── §06: DIAGNOSTIC PLAYBOOK ───────────────────────────────── -->
+<section id="s-playbook" data-code="playbook">
+<div class="section-no">06 — Diagnostic Playbook</div>
+<h2>What to Log, When to Act</h2>
+
+<p>
+  Here is a concrete step-by-step playbook for monitoring your MTP run. The critical principle: log these metrics from step 0, not after you notice a problem.
+</p>
+
+<div class="step-list" id="step-list">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Establish your baseline norm at step 0</div>
+      <div class="step-desc">Before any optimizer update, verify the init norm equals √d_model. This is your ground truth. Log it explicitly.</div>
+      <div class="step-code">norm0 = model.final_layernorm.weight.norm().item()<br>assert abs(norm0 - math.sqrt(d_model)) &lt; 0.01</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Log the norm every N steps (N=100 recommended)</div>
+      <div class="step-desc">Add it to your WandB/TensorBoard run alongside lm_loss and mtp_1_loss. Three values, three health signals.</div>
+      <div class="step-code">wandb.log(&#123;"final_ln_norm": model.final_layernorm.weight.norm().item()&#125;)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Watch for divergence from the 0.4–1.8× √d band</div>
+      <div class="step-desc">For d=3072 that is [22, 100]. For d=7168 (DeepSeek-V3) that is [34, 152]. If you exit this band, act before the next checkpoint.</div>
+      <div class="step-code">LOW, HIGH = 0.4 * math.sqrt(d_model), 1.8 * math.sqrt(d_model)<br>if not (LOW &lt;= norm &lt;= HIGH): alert("layernorm norm out of band")</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Act on collapse: lower mtp_loss_scaling_factor</div>
+      <div class="step-desc">If the norm is collapsing, the MTP gradient is over-powering. Drop λ from 0.3 to 0.1, or from 0.1 to 0.05. DeepSeek-V3 itself does exactly this: λ=0.3 for first 10T tokens, then λ=0.1.</div>
+      <div class="step-code"># DeepSeek-V3 schedule<br>lambda_mtp = 0.3 if tokens_seen &lt; 10e12 else 0.1</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Act on explosion: add NormFormer-style extra norms</div>
+      <div class="step-desc">If the norm is exploding, consider adding an additional RMSNorm at the input of each MTP module (NormFormer style) to cap the scale of representations entering the MTP projection.</div>
+      <div class="step-code">h_mtp = RMSNorm(h_backbone)  # cap scale before MTP projection<br>h_combined = M_k @ concat([h_mtp, Emb(t_&#123;i+k&#125;)])</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="step-next">Next →</button>
+</div>
+
+<h3>Common model configurations at a glance</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>d_model</th>
+      <th>Init norm (√d)</th>
+      <th>Healthy range</th>
+      <th>MTP λ</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LLaMA-3.2-3B</td>
+      <td class="mn">3072</td>
+      <td class="mn best">55.4</td>
+      <td class="mn">22 – 100</td>
+      <td class="mn">0.1–0.3</td>
+    </tr>
+    <tr>
+      <td>LLaMA-3.1-8B</td>
+      <td class="mn">4096</td>
+      <td class="mn">64.0</td>
+      <td class="mn">26 – 115</td>
+      <td class="mn">0.1–0.3</td>
+    </tr>
+    <tr>
+      <td>LLaMA-3.1-70B</td>
+      <td class="mn">8192</td>
+      <td class="mn">90.5</td>
+      <td class="mn">36 – 163</td>
+      <td class="mn">0.05–0.2</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>DeepSeek-V3</td>
+      <td class="mn">7168</td>
+      <td class="mn best">84.7</td>
+      <td class="mn">34 – 152</td>
+      <td class="mn">0.3→0.1</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-icon">✓</span>
+  <div class="callout-body">
+    <strong>TL;DR:</strong> Log <code>final_layernorm.weight.norm()</code> from step 0. Expect it to start at √d_model and gently shrink as training converges. If it collapses below 0.4×√d or explodes above 1.8×√d, your MTP gradient balance is broken — adjust λ before the damage propagates into the main model.
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">diagnostics/layernorm_norm.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Baseline Number</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="baseline">baseline</button>
+    <button class="cs-tab" data-panel="drift">drift</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="gradients">gradients</button>
+    <button class="cs-tab" data-panel="speculative">speculative</button>
+    <button class="cs-tab" data-panel="playbook">playbook</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: baseline -->
+    <div class="cs-panel active" id="panel-baseline">
+      <pre class="cs-pre" id="pre-baseline"></pre>
+    </div>
+
+    <!-- panel: drift -->
+    <div class="cs-panel" id="panel-drift">
+      <pre class="cs-pre" id="pre-drift"></pre>
+    </div>
+
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre" id="pre-arch"></pre>
+    </div>
+
+    <!-- panel: gradients -->
+    <div class="cs-panel" id="panel-gradients">
+      <pre class="cs-pre" id="pre-gradients"></pre>
+    </div>
+
+    <!-- panel: speculative -->
+    <div class="cs-panel" id="panel-speculative">
+      <pre class="cs-pre" id="pre-speculative"></pre>
+    </div>
+
+    <!-- panel: playbook -->
+    <div class="cs-panel" id="panel-playbook">
+      <pre class="cs-pre" id="pre-playbook"></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────
+const tabMeta = {
+  baseline:   { file: 'diagnostics/layernorm_norm.py',   title: 'The Baseline Number' },
+  drift:      { file: 'diagnostics/norm_drift.py',       title: 'What Drift Means' },
+  arch:       { file: 'mtp/architecture.py',             title: 'Where MTP Branches' },
+  gradients:  { file: 'mtp/grad_flow.py',                title: 'The Gradient Gate' },
+  speculative:{ file: 'mtp/speculative.py',              title: 'Speculative Decoding' },
+  playbook:   { file: 'diagnostics/playbook.py',         title: 'Diagnostic Playbook' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — sync TOC + sidebar on scroll ─────────
+const sectionMap = {
+  's-baseline':   'baseline',
+  's-drift':      'drift',
+  's-arch':       'arch',
+  's-gradients':  'gradients',
+  's-speculative':'speculative',
+  's-playbook':   'playbook',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Single-pass syntax highlighter ──────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','assert','lambda','yield']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor',
+                       'RMSNorm','LayerNorm','math','wandb','logging']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+function renderPanel(id, lines) {
+  const pre = document.getElementById(id);
+  if (!pre) return;
+  pre.innerHTML = lines.map(l => {
+    const cls = l.c ? ` ${l.c}` : '';
+    return `<span class="cs-line${cls}">${hl(l.t)}</span>`;
+  }).join('\n');
+}
+
+// ─── Sidebar panel content ────────────────────────────────────────
+const PANELS = {
+  baseline: [
+    {t:'import math'},
+    {t:'import torch'},
+    {t:''},
+    {t:'# At step 0, every LN weight is all-ones'},
+    {t:'# Its L2 norm is exactly sqrt(d_model)'},
+    {c:'hl-p',t:'d_model = 3072  # LLaMA-3.2-3B'},
+    {c:'hl-p',t:'baseline_norm = math.sqrt(d_model)'},
+    {c:'hl-p',t:'# => 55.4257...'},
+    {t:''},
+    {t:'# Verify before training starts'},
+    {c:'hl-c',t:'def check_ln_init(model, d_model):'},
+    {c:'hl-c',t:'    norm = model.final_layernorm.weight.norm()'},
+    {c:'hl-c',t:'    expected = math.sqrt(d_model)'},
+    {c:'hl-c',t:'    assert abs(norm - expected) < 0.01, ('},
+    {c:'hl-c',t:'        f"LN init wrong: {norm:.3f} != {expected:.3f}"'},
+    {c:'hl-c',t:'    )'},
+    {t:''},
+    {t:'# Known baseline norms:'},
+    {t:'#  LLaMA-3.2-3B  d=3072 => 55.42'},
+    {t:'#  LLaMA-3.1-8B  d=4096 => 64.00'},
+    {t:'#  LLaMA-3.1-70B d=8192 => 90.51'},
+    {t:'#  DeepSeek-V3   d=7168 => 84.66'},
+  ],
+  drift: [
+    {t:'import math'},
+    {t:''},
+    {t:'# Interpret norm drift during training'},
+    {c:'hl-p',t:'def interpret_ln_norm(norm, d_model):'},
+    {c:'hl-p',t:'    baseline = math.sqrt(d_model)'},
+    {c:'hl-p',t:'    ratio = norm / baseline'},
+    {t:''},
+    {c:'hl-g',t:'    if 0.7 <= ratio <= 1.3:'},
+    {c:'hl-g',t:'        return "healthy — near baseline"'},
+    {c:'hl-c',t:'    elif 0.4 <= ratio < 0.7:'},
+    {c:'hl-c',t:'        return "healthy shrink — normal convergence"'},
+    {c:'hl-a',t:'    elif 0.2 <= ratio < 0.4:'},
+    {c:'hl-a',t:'        return "WARNING: significant collapse"'},
+    {c:'hl-p',t:'    elif ratio < 0.2:'},
+    {c:'hl-p',t:'        return "CRITICAL: gamma collapsed"'},
+    {t:'    elif ratio > 1.8:'},
+    {t:'        return "CRITICAL: gamma exploded"'},
+    {t:'    else:'},
+    {t:'        return "WARNING: gamma elevated"'},
+    {t:''},
+    {t:'# Example outputs for d=3072 (baseline=55.4):'},
+    {t:'#  norm=50  ratio=0.90 => healthy'},
+    {t:'#  norm=35  ratio=0.63 => healthy shrink'},
+    {t:'#  norm=18  ratio=0.32 => WARNING collapse'},
+    {t:'#  norm=8   ratio=0.14 => CRITICAL collapsed'},
+    {t:'#  norm=120 ratio=2.17 => CRITICAL exploded'},
+  ],
+  arch: [
+    {t:'# DeepSeek-V3 MTP architecture (simplified)'},
+    {t:'# from arXiv:2412.19437 Section 2.2'},
+    {t:''},
+    {c:'hl-p',t:'class MTPModule(nn.Module):'},
+    {c:'hl-p',t:'    def __init__(self, d_model, shared_emb, shared_head):'},
+    {c:'hl-p',t:'        self.proj = nn.Linear(2*d_model, d_model, bias=False)'},
+    {c:'hl-p',t:'        self.norm_h = RMSNorm(d_model)   # normalizes h^0_i'},
+    {c:'hl-p',t:'        self.norm_e = RMSNorm(d_model)   # normalizes Emb(t_{i+k})'},
+    {c:'hl-p',t:'        self.trm = TransformerBlock(d_model)'},
+    {t:''},
+    {c:'hl-c',t:'    def forward(self, h_backbone, next_token_ids):'},
+    {c:'hl-c',t:'        # h_backbone: raw hidden state from main model'},
+    {c:'hl-c',t:'        # BEFORE final_layernorm — but its scale is'},
+    {c:'hl-c',t:'        # determined by the same residual stream'},
+    {c:'hl-c',t:'        e = self.norm_e(self.shared_emb(next_token_ids))'},
+    {c:'hl-c',t:'        h = self.norm_h(h_backbone)       # MTP applies own norm'},
+    {c:'hl-c',t:'        h_prime = self.proj(torch.cat([h, e], dim=-1))'},
+    {c:'hl-c',t:'        h_k = self.trm(h_prime)'},
+    {c:'hl-c',t:'        return self.shared_head(h_k)      # shared output head'},
+    {t:''},
+    {t:'# Total loss (DeepSeek-V3)'},
+    {c:'hl-g',t:'# L_total = L_main + lambda * (1/D) * sum(L_MTP_k)'},
+    {c:'hl-g',t:'# lambda = 0.3 for first 10T tokens'},
+    {c:'hl-g',t:'# lambda = 0.1 for remaining 4.8T tokens'},
+    {c:'hl-g',t:'# D = 1 (one MTP depth in DeepSeek-V3)'},
+  ],
+  gradients: [
+    {t:'# LayerNorm backward — gradient scaling'},
+    {t:''},
+    {t:'# Forward: y = ((x - mu) / sigma) * gamma + beta'},
+    {t:'# Backward: dL/dx ≈ (gamma / sigma) * dL/dy'},
+    {t:''},
+    {t:'# gamma directly scales the gradient magnitude'},
+    {t:'# If ||gamma||_2 collapses by 3.7x,'},
+    {t:'# MTP gradients enter main model at 1/3.7 magnitude'},
+    {t:''},
+    {c:'hl-p',t:'def effective_mtp_gradient_scale(gamma_norm, d_model, lambda_mtp):'},
+    {c:'hl-p',t:'    baseline = math.sqrt(d_model)'},
+    {c:'hl-p',t:'    # Actual effective scale entering the main transformer'},
+    {c:'hl-p',t:'    return lambda_mtp * (gamma_norm / baseline)'},
+    {t:''},
+    {t:'# Example for d=3072, lambda=0.1:'},
+    {c:'hl-c',t:'#  gamma_norm=55.4  => effective scale = 0.10  (intended)'},
+    {c:'hl-c',t:'#  gamma_norm=30.0  => effective scale = 0.054 (half!)'},
+    {c:'hl-c',t:'#  gamma_norm=15.0  => effective scale = 0.027 (MTP disabled!)'},
+    {c:'hl-c',t:'#  gamma_norm=110   => effective scale = 0.20  (2x overpower)'},
+    {t:''},
+    {t:'# Symptom of overpower:'},
+    {t:'# main lm_loss rises while mtp_loss falls'},
+    {t:''},
+    {t:'# Fix: reduce mtp_loss_scaling_factor'},
+    {c:'hl-g',t:'lambda_mtp = 0.3  # initial'},
+    {c:'hl-g',t:'lambda_mtp = 0.1  # after 10T tokens (DeepSeek-V3 schedule)'},
+  ],
+  speculative: [
+    {t:'# MTP as speculative decoding draft model'},
+    {t:'# (inference-time use after pretraining)'},
+    {t:''},
+    {t:'# Acceptance rate depends on how well'},
+    {t:'# draft distribution matches target distribution'},
+    {t:''},
+    {c:'hl-p',t:'# Collapsed gamma -> over-confident logits'},
+    {c:'hl-p',t:'# Large gamma/sigma -> peaky softmax -> wrong tokens accepted less'},
+    {t:''},
+    {c:'hl-c',t:'# Exploded gamma -> flat/noisy logits'},
+    {c:'hl-c',t:'# Low gamma/sigma -> uniform softmax -> random drafts, low acceptance'},
+    {t:''},
+    {t:'# Throughput gain approximation:'},
+    {c:'hl-g',t:'# speedup ≈ 1 / (1 - alpha * (1 - 1/beta))'},
+    {c:'hl-g',t:'# alpha = acceptance rate'},
+    {c:'hl-g',t:'# beta  = draft-to-verify cost ratio'},
+    {t:''},
+    {t:'# For DeepSeek-V3 (1 MTP depth, D=1):'},
+    {t:'# D=1 means drafting 1 extra token per step'},
+    {t:'# Expected speedup ~ 1.8x at alpha=0.80'},
+    {t:'# Drops to ~1.3x if alpha falls to 0.50'},
+    {t:'#   due to calibration error from collapsed gamma'},
+    {t:''},
+    {t:'# Key: train-time norm health directly'},
+    {t:'# determines inference-time throughput gain'},
+  ],
+  playbook: [
+    {t:'import math, wandb'},
+    {t:''},
+    {t:'# === MTP Training Diagnostic Playbook ==='},
+    {t:''},
+    {c:'hl-p',t:'class MTPHealthMonitor:'},
+    {c:'hl-p',t:'    def __init__(self, model, d_model, lambda_mtp=0.3):'},
+    {c:'hl-p',t:'        self.model = model'},
+    {c:'hl-p',t:'        self.baseline = math.sqrt(d_model)'},
+    {c:'hl-p',t:'        self.lambda_mtp = lambda_mtp'},
+    {c:'hl-p',t:'        self.low  = 0.4 * self.baseline'},
+    {c:'hl-p',t:'        self.high = 1.8 * self.baseline'},
+    {t:''},
+    {c:'hl-c',t:'    def check(self, step, lm_loss, mtp_loss):'},
+    {c:'hl-c',t:'        norm = self.model.final_layernorm.weight.norm().item()'},
+    {c:'hl-c',t:'        wandb.log({"final_ln_norm": norm,'},
+    {c:'hl-c',t:'                   "lm_loss": lm_loss,'},
+    {c:'hl-c',t:'                   "mtp_loss": mtp_loss,'},
+    {c:'hl-c',t:'                   "loss_gap": mtp_loss - lm_loss}, step=step)'},
+    {t:''},
+    {c:'hl-g',t:'        if norm < self.low:'},
+    {c:'hl-g',t:'            self._alert("COLLAPSE", norm, step)'},
+    {c:'hl-g',t:'            # Action: halve lambda_mtp'},
+    {c:'hl-a',t:'        elif norm > self.high:'},
+    {c:'hl-a',t:'            self._alert("EXPLOSION", norm, step)'},
+    {c:'hl-a',t:'            # Action: add NormFormer norm at MTP input'},
+    {t:''},
+    {t:'    def _alert(self, kind, norm, step):'},
+    {t:'        print(f"[step {step}] LN norm {kind}: {norm:.2f}")'},
+  ],
+};
+
+for (const [k, lines] of Object.entries(PANELS)) {
+  renderPanel('pre-' + k, lines);
+}
+
+// ─── §01: d_model slider ─────────────────────────────────────────
+const slider  = document.getElementById('dmodel-slider');
+const dvalEl  = document.getElementById('dmodel-val');
+const normEl  = document.getElementById('norm-result');
+const presets = document.querySelectorAll('.norm-preset-btn[data-d]');
+
+function updateNorm(d) {
+  const n = Math.sqrt(d);
+  dvalEl.textContent = d;
+  normEl.innerHTML = `${n.toFixed(2)} <span>= √${d}</span>`;
+  presets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.d) === d));
+}
+
+slider.addEventListener('input', () => updateNorm(parseInt(slider.value)));
+presets.forEach(b => b.addEventListener('click', () => {
+  const d = parseInt(b.dataset.d);
+  slider.value = d;
+  updateNorm(d);
+}));
+
+// ─── §02: gamma bars visualization ───────────────────────────────
+const barContainer = document.getElementById('gamma-bars');
+const N_BARS = 64;
+
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+const states = {
+  init: {
+    label: '● at init — all γᵢ = 1.0',
+    status: '● healthy',
+    statusColor: 'rgba(16,185,129,.15)',
+    statusBorder: 'rgba(16,185,129,.3)',
+    statusText: 'var(--green)',
+    norm: 8.0,
+    interp: 'All γᵢ = 1.0. The LayerNorm is a pure identity rescaler — each feature dimension carries equal weight. ‖γ‖₂ = √64 = 8.0 for this 64-dim example.',
+    generateBars: () => Array(N_BARS).fill(1.0),
+  },
+  healthy: {
+    label: '● healthy — mid-training',
+    status: '● healthy',
+    statusColor: 'rgba(16,185,129,.15)',
+    statusBorder: 'rgba(16,185,129,.3)',
+    statusText: 'var(--green)',
+    norm: 6.1,
+    interp: 'Some γᵢ have grown (informative dims, brighter), others shrunk (redundant dims, darker). Net ‖γ‖₂ ≈ 6.1 — a healthy 24% shrink from √64 = 8. The residual stream has grown and the model compensates selectively.',
+    generateBars: () => {
+      const r = seededRand(42);
+      return Array.from({length: N_BARS}, (_, i) => {
+        const base = 0.6 + r() * 0.9;
+        return Math.max(0.1, base);
+      });
+    },
+  },
+  collapsed: {
+    label: '● collapsed — γ uniformly small',
+    status: '● WARNING',
+    statusColor: 'rgba(239,68,68,.1)',
+    statusBorder: 'rgba(239,68,68,.3)',
+    statusText: '#f87171',
+    norm: 1.8,
+    interp: '‖γ‖₂ ≈ 1.8 — collapsed to 22% of √64. All γᵢ are near-zero: the final LayerNorm is suppressing almost all signal. MTP heads receive impoverished representations. The LM head can still produce reasonable logits (it has its own calibration), but the MTP auxiliary path is starved.',
+    generateBars: () => {
+      const r = seededRand(99);
+      return Array.from({length: N_BARS}, () => 0.1 + r() * 0.15);
+    },
+  },
+  exploded: {
+    label: '● exploded — a few γᵢ dominate',
+    status: '● CRITICAL',
+    statusColor: 'rgba(245,158,11,.1)',
+    statusBorder: 'rgba(245,158,11,.3)',
+    statusText: 'var(--amber)',
+    norm: 18.5,
+    interp: '‖γ‖₂ ≈ 18.5 — exploded to 2.3× √64. A handful of feature dimensions have grown huge (spikes) while others remain small. The LM head logits are dominated by these channels. MTP gradients flow back through these same channels at 2–3× intended magnitude, overwhelming the main pretraining loss.',
+    generateBars: () => {
+      const r = seededRand(7);
+      return Array.from({length: N_BARS}, (_, i) => {
+        if (i % 12 === 5 || i % 17 === 3) return 3.5 + r() * 2.5;
+        return 0.15 + r() * 0.3;
+      });
+    },
+  },
+};
+
+function renderBars(stateKey) {
+  const s = states[stateKey];
+  const vals = s.generateBars();
+  const maxVal = Math.max(...vals, 1);
+  barContainer.innerHTML = vals.map(v => {
+    const pct = (v / maxVal) * 100;
+    let color;
+    if (stateKey === 'init') color = 'rgba(139,92,246,.6)';
+    else if (stateKey === 'healthy') color = v > 1.2 ? 'rgba(6,182,212,.8)' : v < 0.4 ? 'rgba(100,116,139,.4)' : 'rgba(139,92,246,.6)';
+    else if (stateKey === 'collapsed') color = 'rgba(239,68,68,.4)';
+    else color = v > 2 ? 'rgba(245,158,11,.9)' : 'rgba(100,116,139,.3)';
+    return `<div class="sig-bar" style="height:${pct}%;background:${color}"></div>`;
+  }).join('');
+
+  document.getElementById('norm-display').innerHTML = `${s.norm.toFixed(1)} <span>‖γ‖₂ (d=64 example)</span>`;
+  const statusEl = document.getElementById('norm-status');
+  statusEl.textContent = s.status;
+  statusEl.style.background = s.statusColor;
+  statusEl.style.borderColor = s.statusBorder;
+  statusEl.style.color = s.statusText;
+  document.getElementById('norm-interpretation').textContent = s.interp;
+
+  ['init','healthy','collapsed','exploded'].forEach(k => {
+    const btn = document.getElementById('state-' + k);
+    if (btn) btn.classList.toggle('active', k === stateKey);
+  });
+}
+
+renderBars('init');
+['init','healthy','collapsed','exploded'].forEach(k => {
+  document.getElementById('state-' + k)?.addEventListener('click', () => renderBars(k));
+});
+
+// ─── §04: gradient canvas ─────────────────────────────────────────
+const gradCanvas = document.getElementById('grad-canvas');
+if (gradCanvas) {
+  const gCtx = gradCanvas.getContext('2d');
+  const GW = gradCanvas.clientWidth, GH = 180;
+  const DPR = window.devicePixelRatio || 1;
+  gradCanvas.width = GW * DPR; gradCanvas.height = GH * DPR;
+  gCtx.scale(DPR, DPR);
+
+  const gammaNormSlider = document.getElementById('gamma-norm-slider');
+  const gammaNormVal = document.getElementById('gamma-norm-val');
+  const gradInterpEl = document.getElementById('grad-interpretation');
+  const gradLabelCurrent = document.getElementById('grad-label-current');
+
+  function drawGradCanvas(gammaNorm) {
+    gCtx.clearRect(0, 0, GW, GH);
+    const baselineNorm = 55.4; // sqrt(3072)
+    const lambdaMTP = 0.1;
+
+    // Background
+    gCtx.fillStyle = 'rgba(15,17,26,0.5)';
+    gCtx.fillRect(0, 0, GW, GH);
+
+    const padL = 50, padR = 20, padT = 20, padB = 30;
+    const chartW = GW - padL - padR;
+    const chartH = GH - padT - padB;
+
+    // Grid
+    gCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+    gCtx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (i / 4) * chartH;
+      gCtx.beginPath(); gCtx.moveTo(padL, y); gCtx.lineTo(padL + chartW, y); gCtx.stroke();
+    }
+
+    // X axis (gamma norm 0→120)
+    const normMin = 0, normMax = 120;
+    const xOf = n => padL + ((n - normMin) / (normMax - normMin)) * chartW;
+
+    // Y axis (effective gradient scale 0→0.25)
+    const scaleMax = 0.25;
+    const yOf = s => padT + chartH - (s / scaleMax) * chartH;
+
+    // Curve: effective scale = lambda * (norm / baseline)
+    gCtx.beginPath();
+    gCtx.strokeStyle = 'rgba(16,185,129,.8)';
+    gCtx.lineWidth = 2.5;
+    for (let n = 0; n <= 120; n++) {
+      const scale = lambdaMTP * (n / baselineNorm);
+      const x = xOf(n), y = yOf(Math.min(scale, scaleMax));
+      if (n === 0) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+    }
+    gCtx.stroke();
+
+    // Intended scale reference line (lambda=0.1)
+    const intendedScale = lambdaMTP;
+    const intendedY = yOf(intendedScale);
+    gCtx.setLineDash([4, 4]);
+    gCtx.strokeStyle = 'rgba(139,92,246,.5)';
+    gCtx.lineWidth = 1.5;
+    gCtx.beginPath();
+    gCtx.moveTo(padL, intendedY);
+    gCtx.lineTo(padL + chartW, intendedY);
+    gCtx.stroke();
+    gCtx.setLineDash([]);
+
+    // Label: intended
+    gCtx.fillStyle = 'rgba(139,92,246,.7)';
+    gCtx.font = `${10 * DPR / DPR}px var(--ff-mono,monospace)`;
+    gCtx.fillText('intended (λ=0.1)', xOf(60), intendedY - 5);
+
+    // Current position
+    const curScale = lambdaMTP * (gammaNorm / baselineNorm);
+    const curX = xOf(gammaNorm);
+    const curY = yOf(Math.min(curScale, scaleMax));
+
+    // Vertical line at current
+    gCtx.strokeStyle = 'rgba(245,158,11,.6)';
+    gCtx.lineWidth = 1.5;
+    gCtx.setLineDash([3, 3]);
+    gCtx.beginPath(); gCtx.moveTo(curX, padT); gCtx.lineTo(curX, padT + chartH); gCtx.stroke();
+    gCtx.setLineDash([]);
+
+    // sqrt(d) marker
+    const sqrtD = 55.4;
+    const sqrtX = xOf(sqrtD);
+    gCtx.strokeStyle = 'rgba(139,92,246,.4)';
+    gCtx.lineWidth = 1;
+    gCtx.setLineDash([4, 4]);
+    gCtx.beginPath(); gCtx.moveTo(sqrtX, padT); gCtx.lineTo(sqrtX, padT + chartH); gCtx.stroke();
+    gCtx.setLineDash([]);
+    gCtx.fillStyle = 'rgba(139,92,246,.7)';
+    gCtx.fillText('√3072', sqrtX + 3, padT + 14);
+
+    // Current dot
+    const color = gammaNorm < 22 ? '#ef4444' : gammaNorm > 100 ? '#f59e0b' : '#10b981';
+    gCtx.beginPath();
+    gCtx.arc(curX, curY, 6, 0, Math.PI * 2);
+    gCtx.fillStyle = color;
+    gCtx.fill();
+    gCtx.strokeStyle = '#fff';
+    gCtx.lineWidth = 1.5;
+    gCtx.stroke();
+
+    // Axes
+    gCtx.strokeStyle = 'rgba(255,255,255,.15)';
+    gCtx.lineWidth = 1;
+    gCtx.beginPath(); gCtx.moveTo(padL, padT); gCtx.lineTo(padL, padT + chartH); gCtx.stroke();
+    gCtx.beginPath(); gCtx.moveTo(padL, padT + chartH); gCtx.lineTo(padL + chartW, padT + chartH); gCtx.stroke();
+
+    // Y axis labels
+    gCtx.fillStyle = 'rgba(255,255,255,.4)';
+    gCtx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const s = (i / 4) * scaleMax;
+      gCtx.fillText(s.toFixed(2), padL - 5, yOf(s) + 4);
+    }
+    gCtx.textAlign = 'left';
+    gCtx.fillText('eff. gradient scale', padL + 2, padT + 12);
+
+    // Interpretation
+    const ratio = gammaNorm / baselineNorm;
+    let interp;
+    if (ratio < 0.4) interp = `At ‖γ‖₂ = ${gammaNorm.toFixed(0)}, the effective MTP gradient scale is ${(curScale*100).toFixed(1)}% of intended — MTP is effectively disabled. The auxiliary task has no real influence on the main transformer.`;
+    else if (ratio < 0.7) interp = `At ‖γ‖₂ = ${gammaNorm.toFixed(0)}, effective scale = ${(curScale*100).toFixed(1)}% of intended. This is a significant reduction — MTP is operating at half capacity. Consider whether this is acceptable or whether λ needs adjustment.`;
+    else if (ratio <= 1.3) interp = `At ‖γ‖₂ = ${gammaNorm.toFixed(0)}, effective MTP gradient scale ≈ ${(curScale*100).toFixed(1)}% of intended — healthy. The λ=0.1 weighting is working as designed.`;
+    else if (ratio <= 1.8) interp = `At ‖γ‖₂ = ${gammaNorm.toFixed(0)}, effective scale = ${(curScale*100).toFixed(1)}% of intended — slightly elevated. Monitor whether main lm_loss is being displaced.`;
+    else interp = `At ‖γ‖₂ = ${gammaNorm.toFixed(0)}, effective MTP gradient scale = ${(curScale*100).toFixed(1)}% — MORE THAN DOUBLE intended. The MTP auxiliary loss is dominating gradients. Main pretraining is at risk. Reduce λ immediately.`;
+    if (gradInterpEl) gradInterpEl.textContent = interp;
+    if (gradLabelCurrent) gradLabelCurrent.textContent = `current: ‖γ‖₂ = ${gammaNorm.toFixed(1)}`;
+  }
+
+  drawGradCanvas(55);
+  gammaNormSlider?.addEventListener('input', () => {
+    const v = parseFloat(gammaNormSlider.value);
+    gammaNormVal.textContent = v.toFixed(1);
+    drawGradCanvas(v);
+  });
+}
+
+// ─── §05: acceptance rate canvas ─────────────────────────────────
+const accCanvas = document.getElementById('acceptance-canvas');
+if (accCanvas) {
+  const aCtx = accCanvas.getContext('2d');
+  const AW = accCanvas.clientWidth, AH = 200;
+  const DPR = window.devicePixelRatio || 1;
+  accCanvas.width = AW * DPR; accCanvas.height = AH * DPR;
+  aCtx.scale(DPR, DPR);
+
+  const padL = 55, padR = 20, padT = 20, padB = 40;
+  const chartW = AW - padL - padR;
+  const chartH = AH - padT - padB;
+
+  // Acceptance rate as function of gamma norm (conceptual bell curve around sqrt(d))
+  function acceptanceRate(norm) {
+    const baseline = 55.4;
+    const ratio = norm / baseline;
+    // Bell curve: peaks at ratio=1, falls off on both sides
+    // Collapse side: over-confident logits
+    // Explosion side: under-confident logits
+    if (ratio <= 0) return 0.10;
+    if (ratio <= 1) {
+      // Sigmoid rise from 0.15 at collapse to peak at 1
+      return 0.15 + 0.65 * Math.pow(ratio, 1.5) / (1 + Math.pow(ratio, 1.5) * 0.3);
+    } else {
+      // Gentle fall-off after peak
+      const excess = ratio - 1;
+      return 0.80 * Math.exp(-excess * excess * 1.5);
+    }
+  }
+
+  const normMin = 0, normMax = 140;
+  const xOf = n => padL + ((n - normMin) / (normMax - normMin)) * chartW;
+  const yOf = r => padT + chartH - r * chartH;
+
+  // Background
+  aCtx.fillStyle = 'rgba(15,17,26,0.5)';
+  aCtx.fillRect(0, 0, AW, AH);
+
+  // Grid
+  aCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+  aCtx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (i / 4) * chartH;
+    aCtx.beginPath(); aCtx.moveTo(padL, y); aCtx.lineTo(padL + chartW, y); aCtx.stroke();
+  }
+
+  // Acceptance rate curve
+  aCtx.beginPath();
+  aCtx.strokeStyle = 'rgba(16,185,129,.8)';
+  aCtx.lineWidth = 2.5;
+  for (let n = 0; n <= 140; n++) {
+    const r = acceptanceRate(n);
+    const x = xOf(n), y = yOf(r);
+    if (n === 0) aCtx.moveTo(x, y); else aCtx.lineTo(x, y);
+  }
+  aCtx.stroke();
+
+  // Shaded regions
+  // Collapse zone
+  aCtx.fillStyle = 'rgba(239,68,68,0.07)';
+  aCtx.fillRect(padL, padT, xOf(22) - padL, chartH);
+  aCtx.fillStyle = 'rgba(239,68,68,.4)';
+  aCtx.font = '9px var(--ff-mono,monospace)';
+  aCtx.fillText('collapse', padL + 3, padT + 14);
+
+  // Healthy zone
+  aCtx.fillStyle = 'rgba(16,185,129,0.05)';
+  aCtx.fillRect(xOf(22), padT, xOf(100) - xOf(22), chartH);
+
+  // Explosion zone
+  aCtx.fillStyle = 'rgba(245,158,11,0.07)';
+  aCtx.fillRect(xOf(100), padT, padL + chartW - xOf(100), chartH);
+  aCtx.fillStyle = 'rgba(245,158,11,.5)';
+  aCtx.fillText('explosion', xOf(103), padT + 14);
+
+  // sqrt(d) vertical line
+  const sqrtX = xOf(55.4);
+  aCtx.strokeStyle = 'rgba(139,92,246,.6)';
+  aCtx.lineWidth = 1.5;
+  aCtx.setLineDash([4, 4]);
+  aCtx.beginPath(); aCtx.moveTo(sqrtX, padT); aCtx.lineTo(sqrtX, padT + chartH); aCtx.stroke();
+  aCtx.setLineDash([]);
+  aCtx.fillStyle = 'rgba(139,92,246,.8)';
+  aCtx.font = '9px var(--ff-mono,monospace)';
+  aCtx.fillText('√3072', sqrtX + 4, padT + 12);
+
+  // Peak annotation
+  const peakRate = acceptanceRate(55.4);
+  aCtx.beginPath();
+  aCtx.arc(sqrtX, yOf(peakRate), 5, 0, Math.PI * 2);
+  aCtx.fillStyle = '#10b981';
+  aCtx.fill();
+  aCtx.fillStyle = 'rgba(16,185,129,.8)';
+  aCtx.fillText(`peak α ≈ ${(peakRate*100).toFixed(0)}%`, sqrtX + 8, yOf(peakRate) - 5);
+
+  // Axes
+  aCtx.strokeStyle = 'rgba(255,255,255,.15)';
+  aCtx.lineWidth = 1;
+  aCtx.beginPath(); aCtx.moveTo(padL, padT); aCtx.lineTo(padL, padT + chartH); aCtx.stroke();
+  aCtx.beginPath(); aCtx.moveTo(padL, padT + chartH); aCtx.lineTo(padL + chartW, padT + chartH); aCtx.stroke();
+
+  // Y axis labels
+  aCtx.fillStyle = 'rgba(255,255,255,.4)';
+  aCtx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const r = i / 4;
+    aCtx.fillText(`${(r * 100).toFixed(0)}%`, padL - 5, yOf(r) + 4);
+  }
+  aCtx.textAlign = 'center';
+  aCtx.fillStyle = 'rgba(255,255,255,.3)';
+  aCtx.font = '8px var(--ff-mono,monospace)';
+  // X axis ticks
+  [0, 22, 55.4, 100, 140].forEach(n => {
+    aCtx.fillText(n === 55.4 ? '√3072' : n.toString(), xOf(n), padT + chartH + 14);
+    aCtx.strokeStyle = 'rgba(255,255,255,.1)';
+    aCtx.lineWidth = 1;
+    aCtx.beginPath(); aCtx.moveTo(xOf(n), padT + chartH); aCtx.lineTo(xOf(n), padT + chartH + 4); aCtx.stroke();
+  });
+  aCtx.fillStyle = 'rgba(255,255,255,.3)';
+  aCtx.fillText('‖final_layernorm.weight‖₂ →', padL + chartW/2, padT + chartH + 28);
+  aCtx.textAlign = 'left';
+  aCtx.fillText('draft acceptance rate', padL + 5, padT + 12);
+}
+
+// ─── §06: step navigator ─────────────────────────────────────────
+let step = 0;
+const boxes   = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+
+prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); }});
+nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); }});
+updateSteps();
+</script>
+</BaseLayout>

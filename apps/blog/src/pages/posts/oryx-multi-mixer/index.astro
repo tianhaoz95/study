@@ -1,0 +1,1278 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Oryx: Switching Attention Mid-Sequence | AI/ML Deep Dives"
+  description="Oryx ties 90%+ of attention and linear RNN parameters together, letting the model flexibly switch between quadratic attention and linear recurrence across the sequence — without degradation."
+  crumb="Oryx Multi-Mixer"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ────────────────────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ── Math blocks ────────────────────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results table ──────────────────────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Animated bar chart ─────────────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.62rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:.5rem 0 .2rem;margin-top:.35rem}
+
+/* ── Chunk canvas controls ──────────────────────────────────────────────── */
+.chunk-controls{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.875rem}
+.chunk-btn{padding:.3rem .85rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.chunk-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.chunk-stat{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+.chunk-stat span{color:var(--cyan)}
+
+/* ── Perplexity chart controls ──────────────────────────────────────────── */
+.ppl-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.875rem}
+.ppl-dir-toggle{display:flex;border:1px solid var(--border-hi);border-radius:5px;overflow:hidden;flex-shrink:0}
+.ppl-dir-btn{padding:.28rem .7rem;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:none;background:var(--surface);color:var(--muted);transition:all .15s}
+.ppl-dir-btn.active{background:var(--purple-dim);color:var(--purple-l)}
+.ppl-switch-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.ppl-sw-btn{padding:.28rem .7rem;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted);transition:all .15s}
+.ppl-sw-btn:hover{color:var(--text2)}
+.ppl-sw-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Retrieval chart tab ─────────────────────────────────────────────────── */
+.ret-tabs{display:flex;border:1px solid var(--border-hi);border-radius:5px;overflow:hidden;margin-bottom:.875rem;width:fit-content}
+.ret-tab{padding:.3rem .9rem;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:none;background:var(--surface);color:var(--muted);transition:all .15s}
+.ret-tab.active{background:var(--purple-dim);color:var(--purple-l)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Hybrid Architectures</span>
+    <span class="tag tag-cyan">Linear RNNs</span>
+    <span class="tag tag-amber">Mamba / GDN</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Oryx: Switching Between Attention and Linear Recurrence Mid-Sequence</h1>
+  <p class="lead">
+    What if a language model could use quadratic attention for the retrieval-heavy parts of a sequence, and flip to a linear recurrent model for the rest — at inference time, without retraining? Oryx makes this possible by tying 90%+ of parameters across softmax attention and linear RNN (Mamba-2 / Gated DeltaNet) variants, so both mechanisms share internal representations and can hand off to each other seamlessly.
+  </p>
+  <div class="post-hero-meta">
+    <span>May 27, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.28769</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.28769" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-tradeoff"><a href="#s-tradeoff"><span class="toc-num">01</span> The Speed–Recall Trade-off</a></li>
+    <li class="toc-item" id="toc-s-shared"><a href="#s-shared"><span class="toc-num">02</span> One Language for Both</a></li>
+    <li class="toc-item" id="toc-s-block"><a href="#s-block"><span class="toc-num">03</span> The Oryx Block</a></li>
+    <li class="toc-item" id="toc-s-training"><a href="#s-training"><span class="toc-num">04</span> Chunked Mixed-Mode Training</a></li>
+    <li class="toc-item" id="toc-s-switch"><a href="#s-switch"><span class="toc-num">05</span> Mode Switching Just Works</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ─ The Speed–Recall Trade-off ──────────────────────────────────── -->
+<section id="s-tradeoff" data-code="tradeoff">
+<div class="section-no">01 — The Speed–Recall Trade-off</div>
+<h2>Attention is great at retrieval. Linear models are fast. You usually have to pick one.</h2>
+<p>
+  Softmax attention reads every previous token on every step. It never forgets — but that comes at a cost: the KV cache grows linearly with sequence length, and computing attention takes O(n²) work. As sequences grow to thousands of tokens, this becomes expensive.
+</p>
+<p>
+  Linear recurrent models like Mamba-2 and Gated DeltaNet (GDN) compress the entire past into a fixed-size state matrix. Each step is O(1) memory, O(n) total — fast, cache-free. But that compression loses information. Ask them to find a specific fact buried 1,500 tokens ago and they often fail.
+</p>
+<p>
+  The chart below makes this concrete. On <strong>Needle-in-a-Haystack (NIAH-3)</strong> — the hardest variant, where the model must retrieve a specific fact from a 2K-token context — Mamba-2 succeeds just 33% of the time. Softmax attention succeeds 95% of the time.
+</p>
+
+<div class="vp" id="vp-niah">
+  <div class="vp-head">
+    <span class="vp-title">needle-in-a-haystack · NIAH-3 · 1.4B models · 2K context</span>
+    <span class="vp-hint">the retrieval gap at a glance</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="niah-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  Most real tasks aren't uniformly retrieval-heavy. A reasoning trace might spend 1,000 tokens on working memory and just 50 tokens retrieving a named fact. Wouldn't it be great if the model could use the cheap linear mode for the former and switch to attention only when it needs to look something up?
+</p>
+<p>
+  Existing hybrid architectures don't offer this flexibility. <strong>Inter-layer hybrids</strong> (e.g., Jamba, NVIDIA Hymba) fix attention at certain layers and linear recurrence at others — the assignment is static and layer-level. <strong>Intra-layer hybrids</strong> blend both mechanisms within a single block. Neither approach lets you vary the mechanism <em>along the sequence</em>.
+</p>
+<p>
+  Oryx introduces a third option: <strong>sequence-axis hybridization</strong>. The model can switch between softmax attention and a linear recurrent mechanism from chunk to chunk, dynamically allocating richer context utilization exactly where it's needed.
+</p>
+</section>
+
+<!-- §02 ─ One Language for Both ─────────────────────────────────────────── -->
+<section id="s-shared" data-code="shared">
+<div class="section-no">02 — One Language for Both</div>
+<h2>Attention and linear RNNs both speak Query–Key–Value</h2>
+<p>
+  The key observation that makes Oryx possible is that softmax attention and modern linear RNNs can be viewed through the same lens: <strong>associative key-value memory</strong>. Both mechanisms project the input into queries, keys, and values using learned weight matrices, and both produce outputs by querying a stored memory with the current query vector.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Input → Shared Projections</div>
+  <span class="math-var">q</span> = x · W<sub>Q</sub>,&nbsp;&nbsp;<span class="math-var">k</span> = x · W<sub>K</sub>,&nbsp;&nbsp;<span class="math-var">v</span> = x · W<sub>V</sub>
+</div>
+
+<p>
+  They differ only in <em>how</em> they store and query this memory:
+</p>
+<ul>
+  <li><strong>Softmax attention</strong> keeps an explicit, ever-growing KV cache. At each step it computes a softmax-weighted sum over all past (k, v) pairs.</li>
+  <li><strong>Mamba-2 / GDN</strong> compress the past into a fixed-size state matrix S. Each new (k, v) pair updates S via an outer product; the output is a simple query read-out: o = q · S.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">associative memory view · both mechanisms use Q, K, V</span>
+    <span class="vp-hint">same projections, different memory storage</span>
+  </div>
+  <div class="vp-body">
+    <svg id="kv-svg" viewBox="0 0 640 240" style="width:100%;max-width:640px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+      <!-- Input token -->
+      <rect x="265" y="8" width="110" height="36" rx="6" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+      <text x="320" y="31" text-anchor="middle" fill="#c4b5fd" font-size="12" font-family="monospace" font-weight="600">input token x</text>
+      <!-- Arrow down -->
+      <line x1="320" y1="44" x2="320" y2="68" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Shared projections box -->
+      <rect x="200" y="68" width="240" height="36" rx="6" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.45)" stroke-width="1.5"/>
+      <text x="320" y="82" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="monospace">SHARED K, V projections</text>
+      <text x="320" y="96" text-anchor="middle" fill="#92400e" font-size="9" font-family="monospace">k = xW_K,  v = xW_V  (tied across modes)</text>
+      <!-- Arrow left and right -->
+      <line x1="250" y1="104" x2="140" y2="132" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="390" y1="104" x2="500" y2="132" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Attention box -->
+      <rect x="40" y="132" width="190" height="60" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+      <text x="135" y="152" text-anchor="middle" fill="#c4b5fd" font-size="11" font-family="monospace" font-weight="600">Softmax Attention</text>
+      <text x="135" y="168" text-anchor="middle" fill="#7c3aed" font-size="9" font-family="monospace">KV cache: grows with t</text>
+      <text x="135" y="181" text-anchor="middle" fill="#7c3aed" font-size="9" font-family="monospace">o = softmax(q K^T) V</text>
+      <!-- Linear box -->
+      <rect x="410" y="132" width="190" height="60" rx="6" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.35)" stroke-width="1.5"/>
+      <text x="505" y="152" text-anchor="middle" fill="#67e8f9" font-size="11" font-family="monospace" font-weight="600">Linear Recurrence</text>
+      <text x="505" y="168" text-anchor="middle" fill="#0e7490" font-size="9" font-family="monospace">state S: fixed size</text>
+      <text x="505" y="181" text-anchor="middle" fill="#0e7490" font-size="9" font-family="monospace">S ← A·S + k^T·v; o = q·S</text>
+      <!-- Separate Q boxes -->
+      <rect x="40" y="202" width="190" height="30" rx="5" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <text x="135" y="221" text-anchor="middle" fill="#6ee7b7" font-size="9" font-family="monospace">Q_attn  (separate weights)</text>
+      <rect x="410" y="202" width="190" height="30" rx="5" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <text x="505" y="221" text-anchor="middle" fill="#6ee7b7" font-size="9" font-family="monospace">Q_linear  (separate weights)</text>
+
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+          <path d="M0,0 L0,8 L8,4 z" fill="rgba(255,255,255,.25)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The shared K and V projections are the linchpin. If both mechanisms derive their keys and values from the same weight matrices, then updating one mechanism's state is equivalent to updating the other's — they're accumulating the same associations in different storage formats. This compatibility is what allows switching without information loss.
+</p>
+<p>
+  The query projections, however, are kept <em>separate</em> per mechanism. This matters: the query is the read-out operation, and the way you want to retrieve information from a softmax KV cache differs from how you read out a compressed linear state. Sharing queries hurts performance — an ablation confirms it.
+</p>
+</section>
+
+<!-- §03 ─ The Oryx Block ────────────────────────────────────────────────── -->
+<section id="s-block" data-code="block">
+<div class="section-no">03 — The Oryx Block</div>
+<h2>One block, two modes, 90%+ shared weights</h2>
+<p>
+  The Oryx block wraps both mechanisms in a unified layer. At each forward pass, a <strong>mode</strong> is selected (attention or linear), but both internal states are updated regardless — keeping them synchronized so the model can switch cleanly on the next chunk.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">oryx block architecture · shared weights in amber, mode-specific in green</span>
+    <span class="vp-hint">one forward pass, two compatible states</span>
+  </div>
+  <div class="vp-body">
+    <svg id="block-svg" viewBox="0 0 640 310" style="width:100%;max-width:640px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="barr" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+          <path d="M0,0 L0,7 L7,3.5 z" fill="rgba(255,255,255,.3)"/>
+        </marker>
+      </defs>
+
+      <!-- Input -->
+      <rect x="255" y="4" width="130" height="30" rx="5" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.45)" stroke-width="1.5"/>
+      <text x="320" y="23" text-anchor="middle" fill="#c4b5fd" font-size="11" font-family="monospace" font-weight="600">input X</text>
+
+      <!-- LayerNorm -->
+      <line x1="320" y1="34" x2="320" y2="50" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <rect x="265" y="50" width="110" height="26" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1"/>
+      <text x="320" y="67" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="monospace">Gated RMSNorm</text>
+
+      <!-- Three projection arrows -->
+      <line x1="270" y1="76" x2="120" y2="106" stroke="rgba(255,255,255,.18)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <line x1="320" y1="76" x2="320" y2="106" stroke="rgba(255,255,255,.18)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <line x1="370" y1="76" x2="530" y2="106" stroke="rgba(255,255,255,.18)" stroke-width="1.5" marker-end="url(#barr)"/>
+
+      <!-- Q_attn -->
+      <rect x="40" y="106" width="160" height="30" rx="4" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <text x="120" y="124" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">W_Q_attn (unique)</text>
+
+      <!-- Shared K, V + Gate -->
+      <rect x="228" y="106" width="184" height="30" rx="4" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.45)" stroke-width="1.5"/>
+      <text x="320" y="118" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="monospace" font-weight="600">W_K, W_V, W_Gate</text>
+      <text x="320" y="130" text-anchor="middle" fill="#92400e" font-size="8.5" font-family="monospace">SHARED across modes</text>
+
+      <!-- Q_linear -->
+      <rect x="440" y="106" width="160" height="30" rx="4" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <text x="520" y="124" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">W_Q_linear (unique)</text>
+
+      <!-- Short conv arrow -->
+      <line x1="320" y1="136" x2="320" y2="152" stroke="rgba(255,255,255,.18)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <rect x="228" y="152" width="184" height="24" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1"/>
+      <text x="320" y="167" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="monospace">Short Conv (on K, V only)</text>
+
+      <!-- Update both states -->
+      <line x1="228" y1="176" x2="140" y2="196" stroke="rgba(255,255,255,.15)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <line x1="412" y1="176" x2="500" y2="196" stroke="rgba(255,255,255,.15)" stroke-width="1.5" marker-end="url(#barr)"/>
+
+      <!-- KV cache -->
+      <rect x="34" y="196" width="212" height="28" rx="4" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="140" y="213" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="monospace">KV cache update (always)</text>
+
+      <!-- Linear state -->
+      <rect x="394" y="196" width="212" height="28" rx="4" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+      <text x="500" y="213" text-anchor="middle" fill="#67e8f9" font-size="10" font-family="monospace">RNN state update (always)</text>
+
+      <!-- Mode select arrow -->
+      <line x1="140" y1="224" x2="260" y2="252" stroke="rgba(255,255,255,.15)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#barr)"/>
+      <line x1="500" y1="224" x2="380" y2="252" stroke="rgba(255,255,255,.15)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#barr)"/>
+      <text x="320" y="245" text-anchor="middle" fill="#5c6370" font-size="9" font-family="monospace">select one output</text>
+
+      <!-- Output proj -->
+      <rect x="220" y="252" width="200" height="28" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1"/>
+      <text x="320" y="269" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="monospace">W_O shared output proj</text>
+
+      <!-- Output -->
+      <line x1="320" y1="280" x2="320" y2="296" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#barr)"/>
+      <text x="320" y="308" text-anchor="middle" fill="#abb2bf" font-size="10" font-family="monospace">output Y</text>
+    </svg>
+  </div>
+</div>
+
+<h3>What's shared vs. unique</h3>
+<ul>
+  <li><strong>Shared (amber)</strong>: K projection W_K, V projection W_V, gate W_G, output projection W_O, short convolution, all MLP weights — more than 90% of total parameters</li>
+  <li><strong>Unique (green)</strong>: Query projection W_Q per mechanism (attention vs linear) — different readout strategies from different state representations</li>
+  <li><strong>Both updated always</strong>: Both the KV cache and the linear RNN state receive updates every token step, keeping them in sync even when their output is not selected</li>
+</ul>
+
+<p>
+  Because both states are always kept current, switching the active mixer on the next chunk doesn't require any state re-computation. The selected mixer simply continues reading from a state that has already been accumulating compatible representations.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Oryx block forward (single token, mode M selected)</div>
+  q_M = x · W_Q_M<span class="math-comment">  &lt;-- mode-specific query</span>
+  k = conv(x · W_K),  v = conv(x · W_V)<span class="math-comment">  &lt;-- shared</span>
+  KV_cache ← append(k, v)<span class="math-comment">            &lt;-- always update</span>
+  S_t = A_t · S_&#123;t-1&#125; + k^T · v<span class="math-comment">       &lt;-- always update</span>
+  o = Mixer_M(q_M, KV_cache or S_t)<span class="math-comment">  &lt;-- select output</span>
+  Y = GatedRMSNorm(o, σ(x·W_G)) · W_O<span class="math-comment">  &lt;-- shared</span>
+</div>
+</section>
+
+<!-- §04 ─ Chunked Mixed-Mode Training ───────────────────────────────────── -->
+<section id="s-training" data-code="training">
+<div class="section-no">04 — Chunked Mixed-Mode Training</div>
+<h2>Train with random chunk assignments to teach seamless switching</h2>
+<p>
+  Sharing weights is necessary but not sufficient for robust mode switching. If the model is only ever trained with one mechanism active for the entire sequence, the two modes learn slightly incompatible representations and switching mid-sequence causes a perplexity spike that takes a long time to recover.
+</p>
+<p>
+  The solution is <strong>chunked mixed-mode training</strong>. Each training sequence is divided into fixed-length chunks of 128 tokens. Each chunk is independently and randomly assigned to either softmax attention or the linear mode, at a <strong>1:3 attention-to-linear ratio</strong>. All Oryx blocks in the model use the same chunk assignment for a given sequence.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">chunked mixed-mode training · 16 chunks · 128 tokens each</span>
+    <span class="vp-hint">click Randomize to see a new training assignment</span>
+  </div>
+  <div class="vp-body">
+    <div class="chunk-controls">
+      <button class="chunk-btn" id="chunk-randomize">Randomize</button>
+      <span class="chunk-stat" id="chunk-stat">attn: <span id="attn-count">4</span> &nbsp;|&nbsp; linear: <span id="linear-count">12</span></span>
+    </div>
+    <canvas id="chunk-canvas" style="width:100%;height:100px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  This forces the model to learn representations that are compatible at chunk boundaries in every possible configuration. After chunked training, the internal representations of both modes are aligned — keys and values encode the same semantic structure regardless of which mechanism is active.
+</p>
+
+<h3>Why 1:3?</h3>
+<p>
+  The ratio balances the performance of both modes. More attention chunks improve retrieval but slow training; more linear chunks preserve efficiency but may weaken attention-mode generalization. Ablations show 1:3 is the sweet spot.
+</p>
+<p>
+  Note that the model is effectively never trained with all chunks assigned to the same mode — the probability that all 16 chunks pick attention is (1/4)¹⁶ ≈ 2.3×10⁻¹⁰. Yet it generalizes perfectly to single-mode deployment.
+</p>
+</section>
+
+<!-- §05 ─ Mode Switching Just Works ─────────────────────────────────────── -->
+<section id="s-switch" data-code="switch">
+<div class="section-no">05 — Mode Switching Just Works</div>
+<h2>After a switch, perplexity recovers in ~200 tokens</h2>
+<p>
+  The real test is what happens at inference when you actually switch mechanisms mid-sequence. If the representations aren't compatible, perplexity should spike and stay high after the switch. If they are compatible, it should spike briefly and recover quickly.
+</p>
+<p>
+  The chart below shows token-level perplexity for the 1.4B Oryx-TM model (Transformer / Mamba-2 variant). You can switch between the two directions and pick the switch point. The dashed lines show the no-switch baselines for reference.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">token-level perplexity after mixer switch · 1.4B Oryx-TM</span>
+    <span class="vp-hint">select direction and switch position</span>
+  </div>
+  <div class="vp-body">
+    <div class="ppl-controls">
+      <div class="ppl-dir-toggle">
+        <button class="ppl-dir-btn active" data-dir="attn2mamba">Attn → Mamba-2</button>
+        <button class="ppl-dir-btn" data-dir="mamba2attn">Mamba-2 → Attn</button>
+      </div>
+      <div class="ppl-switch-btns">
+        <button class="ppl-sw-btn active" data-sw="512">Switch @512</button>
+        <button class="ppl-sw-btn" data-sw="1024">Switch @1024</button>
+        <button class="ppl-sw-btn" data-sw="1536">Switch @1536</button>
+        <button class="ppl-sw-btn" data-sw="none">No Switch</button>
+      </div>
+    </div>
+    <canvas id="ppl-canvas" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  In every case the perplexity spike resolves within roughly 150–200 tokens, after which the model runs at the same perplexity as the baseline that never switched. This holds for both directions and all switch positions.
+</p>
+<p>
+  By contrast, models trained without chunked mixed-mode training (sequence-level assignment only) show a much more severe spike when switching from Mamba-2 to attention — in some configurations it never fully recovers.
+</p>
+
+<h3>What this unlocks at inference time</h3>
+<ul>
+  <li><strong>Linear prefill, attention generation</strong>: Process the long context with the cheap linear mode (O(n) compute, constant memory), then switch to attention for the query + answer where retrieval matters most.</li>
+  <li><strong>Per-task routing</strong>: Route to attention for retrieval-heavy requests (Q&A, fact lookup), linear for generation-heavy ones (summarization, continuation).</li>
+  <li><strong>Speculative execution</strong>: Draft a reasoning trace with the linear model, verify / finalize with attention.</li>
+</ul>
+</section>
+
+<!-- §06 ─ Results ───────────────────────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>+13.5 pp real-world retrieval with linear prefill and attention generation</h2>
+<p>
+  The payoff of mode switching is clearest on retrieval tasks. Below are results for 1.4B models where Oryx uses the linear mode to process the context and switches to attention for the query/generation — a configuration that keeps most of the prefill cheap while regaining attention-level recall.
+</p>
+
+<div class="vp" id="vp-results">
+  <div class="vp-head">
+    <span class="vp-title">retrieval performance · 1.4B · 2K context · mixed-mode vs baselines</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="ret-tabs">
+      <button class="ret-tab active" data-rt="realworld">Real-World Retrieval</button>
+      <button class="ret-tab" data-rt="niah">NIAH (Synthetic)</button>
+    </div>
+    <div id="ret-realworld">
+      <div class="bar-group-label">Baselines</div>
+      <div class="results-bars">
+        <div class="bar-row"><span class="bar-label">Mamba-2 (linear only)</span><div class="bar-track"><div class="bar-fill" data-w="30.3" style="background:rgba(6,182,212,.35)"><span>30.3</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Gated DeltaNet (linear only)</span><div class="bar-track"><div class="bar-fill" data-w="32.8" style="background:rgba(6,182,212,.35)"><span>32.8</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Transformer (attn only)</span><div class="bar-track"><div class="bar-fill" data-w="42.6" style="background:rgba(100,100,120,.45)"><span>42.6</span></div></div></div>
+      </div>
+      <div class="bar-group-label">Oryx — linear context + attention generation</div>
+      <div class="results-bars">
+        <div class="bar-row"><span class="bar-label">Oryx-TM (Mamba-2 → Attn)</span><div class="bar-track"><div class="bar-fill" data-w="43.9" style="background:rgba(139,92,246,.55)"><span>43.9</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Oryx-TG (GDN → Attn)</span><div class="bar-track"><div class="bar-fill" data-w="41.4" style="background:rgba(139,92,246,.55)"><span>41.4</span></div></div></div>
+      </div>
+    </div>
+    <div id="ret-niah" style="display:none">
+      <div class="bar-group-label">Baselines</div>
+      <div class="results-bars">
+        <div class="bar-row"><span class="bar-label">Mamba-2 (linear only)</span><div class="bar-track"><div class="bar-fill" data-w="46.5" style="background:rgba(6,182,212,.35)"><span>46.5</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Gated DeltaNet (linear only)</span><div class="bar-track"><div class="bar-fill" data-w="57.2" style="background:rgba(6,182,212,.35)"><span>57.2</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Transformer (attn only)</span><div class="bar-track"><div class="bar-fill" data-w="94.8" style="background:rgba(100,100,120,.45)"><span>94.8</span></div></div></div>
+      </div>
+      <div class="bar-group-label">Oryx — linear context + attention generation</div>
+      <div class="results-bars">
+        <div class="bar-row"><span class="bar-label">Oryx-TM (Mamba-2 → Attn)</span><div class="bar-track"><div class="bar-fill" data-w="85.1" style="background:rgba(139,92,246,.55)"><span>85.1</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">Oryx-TG (GDN → Attn)</span><div class="bar-track"><div class="bar-fill" data-w="97.5" style="background:rgba(139,92,246,.55)"><span>97.5</span></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Language modeling is also improved</h3>
+<p>
+  Even when using a single mode for the entire sequence — something never seen during chunked training — Oryx outperforms the baselines. At 1.4B scale, Oryx-TM's attention mode reaches 56.3% average accuracy vs 55.6% for the standalone Transformer (+0.7 pp); the Mamba-2 mode reaches 56.6% vs 55.7% (+0.9 pp). Oryx-TG shows similar gains.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Mode</th>
+      <th class="mn">LAMBADA ppl ↓</th>
+      <th class="mn">Avg acc ↑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transformer (baseline)</td>
+      <td>attention</td>
+      <td class="mn">11.4</td>
+      <td class="mn">55.6</td>
+    </tr>
+    <tr>
+      <td>Mamba-2 (baseline)</td>
+      <td>linear</td>
+      <td class="mn">11.2</td>
+      <td class="mn">55.7</td>
+    </tr>
+    <tr>
+      <td>GDN (baseline)</td>
+      <td>linear</td>
+      <td class="mn">10.6</td>
+      <td class="mn">56.6</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Oryx-TM</td>
+      <td>attention</td>
+      <td class="mn">11.1</td>
+      <td class="mn best">56.3</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Oryx-TM</td>
+      <td>Mamba-2</td>
+      <td class="mn">10.5</td>
+      <td class="mn best">56.6</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Oryx-TG</td>
+      <td>attention</td>
+      <td class="mn">10.9</td>
+      <td class="mn best">56.5</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Oryx-TG</td>
+      <td>GDN</td>
+      <td class="mn">10.6</td>
+      <td class="mn best">57.3</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The improvement from the shared training regime likely comes from regularization: the chunked training regime forces both mechanisms to learn more robust representations that generalize better when deployed in single-mode too.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">oryx/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Speed–Recall Trade-off</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="tradeoff">tradeoff</button>
+    <button class="cs-tab" data-panel="shared">kv-memory</button>
+    <button class="cs-tab" data-panel="block">oryx-block</button>
+    <button class="cs-tab" data-panel="training">training</button>
+    <button class="cs-tab" data-panel="switch">switching</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-tradeoff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Memory cost comparison at sequence length T</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Softmax attention</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">attn_memory</span>(T, d_k, n_heads):</span>
+<span class="cs-line hl-p">    <span class="cmt"># KV cache stores all past keys + values</span></span>
+<span class="cs-line hl-p">    kv_cache = <span class="num">2</span> * T * d_k * n_heads    <span class="cmt"># O(T)</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> kv_cache</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Linear recurrence (Mamba-2 / GDN)</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">linear_memory</span>(d_k, d_v):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Fixed-size state: d_k × d_v matrix</span></span>
+<span class="cs-line hl-c">    state = d_k * d_v                   <span class="cmt"># O(1) w.r.t. T</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> state</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example: T=2048, d_k=128, 16 heads, d_v=128</span>
+<span class="cs-line"><span class="cmt"># attn_memory  ≈ 2*2048*128*16 = 8,388,608</span></span>
+<span class="cs-line"><span class="cmt"># linear_memory ≈ 128*128 = 16,384</span></span>
+<span class="cs-line"><span class="cmt"># ratio: ~512× more memory for attention!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># NIAH-3 accuracy at 1.4B scale (from paper)</span>
+<span class="cs-line">niah3 = {</span>
+<span class="cs-line">    <span class="str">'transformer'</span>: <span class="num">95.0</span>,  <span class="cmt"># finds the needle</span></span>
+<span class="cs-line">    <span class="str">'mamba_2'</span>:    <span class="num">33.2</span>,  <span class="cmt"># often forgets it</span></span>
+<span class="cs-line">    <span class="str">'gdn'</span>:         <span class="num">32.6</span>,  <span class="cmt"># similar story</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Traditional hybrid approaches</span>
+<span class="cs-line cmt"># Inter-layer: fixed attn at layers 4, 8, 12...</span>
+<span class="cs-line cmt"># Intra-layer: blend attn+linear in every block</span>
+<span class="cs-line cmt"># Both: mechanism is fixed per-position, not</span>
+<span class="cs-line cmt">#        adaptive to what the sequence needs</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-shared">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Both mechanisms under the KV-associative view</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Shared projections (same weights for both modes)</span>
+<span class="cs-line hl-a">q = x @ W_Q_M       <span class="cmt"># mode-specific query</span></span>
+<span class="cs-line hl-a">k = x @ W_K         <span class="cmt"># SHARED key proj</span></span>
+<span class="cs-line hl-a">v = x @ W_V         <span class="cmt"># SHARED value proj</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Softmax attention output</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">attn_output</span>(q, K_cache, V_cache):</span>
+<span class="cs-line hl-p">    scores = <span class="fn">softmax</span>(q @ K_cache.T)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> scores @ V_cache       <span class="cmt"># explicit lookup</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Mamba-2 output</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">mamba2_output</span>(q, k, v, S_prev, alpha):</span>
+<span class="cs-line hl-c">    S = alpha * S_prev + k.T @ v   <span class="cmt"># compress into S</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> q @ S                   <span class="cmt"># fast readout</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># GDN (Gated DeltaNet) output</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">gdn_output</span>(q, k, v, S_prev, alpha, beta):</span>
+<span class="cs-line hl-g">    <span class="cmt"># Delta rule: erase old entry, write new</span></span>
+<span class="cs-line hl-g">    S = (alpha*I - beta*k.T@k) @ S_prev + beta*k.T@v</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> q @ S</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># KEY INSIGHT: all three compute output = q · M</span>
+<span class="cs-line cmt"># where M is stored differently (explicit cache</span>
+<span class="cs-line cmt"># vs fixed state), but derived from the SAME</span>
+<span class="cs-line cmt"># k, v pairs → tied W_K, W_V enables sharing.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation: tying W_Q hurts (ppl 16.1 vs 15.9)</span>
+<span class="cs-line cmt"># Tying only W_K, W_V: optimal.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-block">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Oryx block pseudocode (single layer)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">OryxBlock</span>:</span>
+<span class="cs-line hl-p">    <span class="cmt"># Shared weights (>90% of params)</span></span>
+<span class="cs-line hl-p">    W_K, W_V, W_G, W_O = ...  <span class="cmt"># tied</span></span>
+<span class="cs-line hl-p">    conv = <span class="cls">ShortConv1d</span>()</span>
+<span class="cs-line hl-p">    <span class="cmt"># Mixer-specific weights</span></span>
+<span class="cs-line hl-p">    W_Q_attn, W_Q_linear = ...  <span class="cmt"># disjoint</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, x, mode, kv_cache, S):</span>
+<span class="cs-line hl-c">        <span class="cmt"># Shared key/value projections</span></span>
+<span class="cs-line hl-c">        k = <span class="self">self</span>.conv(x @ <span class="self">self</span>.W_K)</span>
+<span class="cs-line hl-c">        v = <span class="self">self</span>.conv(x @ <span class="self">self</span>.W_V)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a">        <span class="cmt"># Always update BOTH states</span></span>
+<span class="cs-line hl-a">        kv_cache.<span class="fn">append</span>(k, v)</span>
+<span class="cs-line hl-a">        S = <span class="fn">rnn_update</span>(S, k, v)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">        <span class="cmt"># Select output from chosen mode</span></span>
+<span class="cs-line hl-g">        <span class="kw">if</span> mode == <span class="str">'attn'</span>:</span>
+<span class="cs-line hl-g">            q = x @ <span class="self">self</span>.W_Q_attn</span>
+<span class="cs-line hl-g">            o = <span class="fn">softmax_attn</span>(q, kv_cache)</span>
+<span class="cs-line hl-g">        <span class="kw">else</span>:</span>
+<span class="cs-line hl-g">            q = x @ <span class="self">self</span>.W_Q_linear</span>
+<span class="cs-line hl-g">            o = q @ S</span>
+<span class="cs-line"></span>
+<span class="cs-line">        <span class="cmt"># Shared gated output projection</span></span>
+<span class="cs-line">        gate = <span class="fn">silu</span>(x @ <span class="self">self</span>.W_G)</span>
+<span class="cs-line">        <span class="kw">return</span> <span class="fn">GatedRMSNorm</span>(o, gate) @ <span class="self">self</span>.W_O</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-training">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Chunked mixed-mode training</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">CHUNK_SIZE = <span class="num">128</span>      <span class="cmt"># tokens per chunk</span></span>
+<span class="cs-line hl-p">ATTN_RATIO = <span class="num">0.25</span>    <span class="cmt"># 1:3 attention:linear</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">make_chunk_plan</span>(seq_len):</span>
+<span class="cs-line hl-c">    n_chunks = seq_len // CHUNK_SIZE</span>
+<span class="cs-line hl-c">    <span class="cmt"># Each chunk independently assigned</span></span>
+<span class="cs-line hl-c">    modes = [</span>
+<span class="cs-line hl-c">        <span class="str">'attn'</span> <span class="kw">if</span> rand() &lt; ATTN_RATIO <span class="kw">else</span> <span class="str">'linear'</span></span>
+<span class="cs-line hl-c">        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(n_chunks)</span>
+<span class="cs-line hl-c">    ]</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> modes  <span class="cmt"># same for all Oryx blocks</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">train_step</span>(model, batch):</span>
+<span class="cs-line hl-a">    <span class="kw">for</span> seq <span class="kw">in</span> batch:</span>
+<span class="cs-line hl-a">        plan = <span class="fn">make_chunk_plan</span>(<span class="fn">len</span>(seq))</span>
+<span class="cs-line hl-a">        loss = model.<span class="fn">forward</span>(seq, plan)</span>
+<span class="cs-line hl-a">        loss.<span class="fn">backward</span>()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key: ALL Oryx blocks share the same plan</span>
+<span class="cs-line cmt"># chunk 3 is 'linear' in every layer at once</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Sequence-level training (worse at switching):</span>
+<span class="cs-line cmt"># entire seq assigned to one mode — model never</span>
+<span class="cs-line cmt"># sees a boundary between modes during training.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Probability all 16 chunks get attention:</span>
+<span class="cs-line cmt"># (0.25)^16 ≈ 2.3e-10  → essentially never seen</span>
+<span class="cs-line cmt"># Yet model generalizes to full-attn mode!</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-switch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Inference with mid-sequence mode switch</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">oryx_inference</span>(model, tokens, switch_at):</span>
+<span class="cs-line hl-p">    kv_cache = <span class="cls">KVCache</span>()</span>
+<span class="cs-line hl-p">    S = <span class="fn">zeros</span>(d_k, d_v)  <span class="cmt"># linear state</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a">    <span class="kw">for</span> t, x <span class="kw">in</span> <span class="fn">enumerate</span>(tokens):</span>
+<span class="cs-line hl-a">        <span class="cmt"># Choose mode based on position</span></span>
+<span class="cs-line hl-a">        mode = <span class="str">'linear'</span> <span class="kw">if</span> t &lt; switch_at <span class="kw">else</span> <span class="str">'attn'</span></span>
+<span class="cs-line hl-a"></span>
+<span class="cs-line hl-c">        <span class="cmt"># BOTH states updated every step</span></span>
+<span class="cs-line hl-c">        k, v = <span class="fn">project_kv</span>(x)</span>
+<span class="cs-line hl-c">        kv_cache.<span class="fn">append</span>(k, v)  <span class="cmt"># even in linear mode</span></span>
+<span class="cs-line hl-c">        S = <span class="fn">rnn_update</span>(S, k, v)  <span class="cmt"># even in attn mode</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">        o = <span class="fn">oryx_output</span>(mode, kv_cache, S, x)</span>
+<span class="cs-line hl-g">        <span class="fn">yield</span> o</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Recovery after switch (Fig. 3 from paper):</span>
+<span class="cs-line cmt"># Switch @ 512 → ppl spike resolves by ~700</span>
+<span class="cs-line cmt"># Switch @ 1024 → resolves by ~1200</span>
+<span class="cs-line cmt"># Switch @ 1536 → resolves by ~1700</span>
+<span class="cs-line cmt"># ~150-200 token recovery in all cases</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Memory note: during switching, model keeps</span>
+<span class="cs-line cmt"># BOTH KV cache and RNN state in memory.</span>
+<span class="cs-line cmt"># At long context, KV cache dominates anyway.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># 1.4B model results (100B tokens, FineWeb-Edu)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Language modeling avg acc (7 tasks)</span>
+<span class="cs-line">lm_acc = {</span>
+<span class="cs-line">  <span class="str">'Transformer (base)'</span>:    <span class="num">55.6</span>,</span>
+<span class="cs-line">  <span class="str">'Mamba-2 (base)'</span>:        <span class="num">55.7</span>,</span>
+<span class="cs-line">  <span class="str">'GDN (base)'</span>:            <span class="num">56.6</span>,</span>
+<span class="cs-line hl-p">  <span class="str">'Oryx-TM (attn mode)'</span>:  <span class="num">56.3</span>,  <span class="cmt"># +0.7pp</span></span>
+<span class="cs-line hl-p">  <span class="str">'Oryx-TM (mamba mode)'</span>: <span class="num">56.6</span>,  <span class="cmt"># +0.9pp</span></span>
+<span class="cs-line hl-p">  <span class="str">'Oryx-TG (attn mode)'</span>:  <span class="num">56.5</span>,  <span class="cmt"># +0.9pp</span></span>
+<span class="cs-line hl-p">  <span class="str">'Oryx-TG (gdn mode)'</span>:   <span class="num">57.3</span>,  <span class="cmt"># +0.7pp</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Mixed-mode retrieval (linear ctx + attn gen)</span>
+<span class="cs-line">retrieval = {</span>
+<span class="cs-line">  <span class="cmt"># Real-world avg (SWDE, SQuAD, FDA, TQA, NQ, DROP)</span></span>
+<span class="cs-line">  <span class="str">'Mamba-2 baseline'</span>:  <span class="num">30.3</span>,</span>
+<span class="cs-line">  <span class="str">'GDN baseline'</span>:      <span class="num">32.8</span>,</span>
+<span class="cs-line">  <span class="str">'Transformer base'</span>:  <span class="num">42.6</span>,</span>
+<span class="cs-line hl-c">  <span class="str">'Oryx-TM mixed'</span>:     <span class="num">43.9</span>,  <span class="cmt"># +13.5pp vs M2</span></span>
+<span class="cs-line hl-c">  <span class="str">'Oryx-TG mixed'</span>:     <span class="num">41.4</span>,  <span class="cmt"># +8.6pp vs GDN</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># NIAH avg (synthetic needle-in-haystack)</span>
+<span class="cs-line">niah_avg = {</span>
+<span class="cs-line">  <span class="str">'Mamba-2 baseline'</span>:  <span class="num">46.5</span>,</span>
+<span class="cs-line">  <span class="str">'GDN baseline'</span>:      <span class="num">57.2</span>,</span>
+<span class="cs-line">  <span class="str">'Transformer base'</span>:  <span class="num">94.8</span>,</span>
+<span class="cs-line hl-g">  <span class="str">'Oryx-TM mixed'</span>:     <span class="num">85.1</span>,  <span class="cmt"># +38.6pp vs M2</span></span>
+<span class="cs-line hl-g">  <span class="str">'Oryx-TG mixed'</span>:     <span class="num">97.5</span>,  <span class="cmt"># +40.3pp vs GDN</span></span>
+<span class="cs-line">}</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────────────
+const tabMeta = {
+  tradeoff: { file: 'oryx/model.py',    title: 'The Speed–Recall Trade-off' },
+  shared:   { file: 'oryx/kv_view.py',  title: 'KV Associative Memory' },
+  block:    { file: 'oryx/block.py',    title: 'The Oryx Block' },
+  training: { file: 'oryx/train.py',    title: 'Chunked Mixed-Mode Training' },
+  switch:   { file: 'oryx/infer.py',    title: 'Mode Switching Inference' },
+  results:  { file: 'oryx/results.py',  title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — TOC sync ─────────────────────────────────────
+const sectionMap = {
+  's-tradeoff': 'tradeoff',
+  's-shared':   'shared',
+  's-block':    'block',
+  's-training': 'training',
+  's-switch':   'switch',
+  's-results':  'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Seeded PRNG ──────────────────────────────────────────────────────────
+function mkrng(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+// ─── §01: NIAH bar canvas ─────────────────────────────────────────────────
+{
+  const canvas = document.getElementById('niah-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+    function drawNiah() {
+      const W = canvas.clientWidth, H = 220;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      ctx.scale(DPR, DPR);
+
+      const bars = [
+        { label: 'Transformer', val: 95.0, color: 'rgba(100,100,140,.55)', note: 'NIAH-3: 95.0%' },
+        { label: 'Gated DeltaNet', val: 32.6, color: 'rgba(6,182,212,.45)', note: 'NIAH-3: 32.6%' },
+        { label: 'Mamba-2', val: 33.2, color: 'rgba(6,182,212,.45)', note: 'NIAH-3: 33.2%' },
+      ];
+
+      const pad = { l: 140, r: 90, t: 24, b: 30 };
+      const bH = 34, gap = 22;
+      const maxW = W - pad.l - pad.r;
+
+      // Title
+      ctx.fillStyle = 'rgba(255,255,255,.25)';
+      ctx.font = '600 11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('"What capital city is mentioned?" — find in 2K-token haystack', pad.l, 18);
+
+      bars.forEach((b, i) => {
+        const y = pad.t + 10 + i * (bH + gap);
+        const bW = (b.val / 100) * maxW;
+
+        // Label
+        ctx.fillStyle = 'rgba(255,255,255,.55)';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(b.label, pad.l - 10, y + bH / 2 + 4);
+
+        // Track
+        ctx.fillStyle = 'rgba(255,255,255,.05)';
+        ctx.beginPath();
+        ctx.roundRect(pad.l, y, maxW, bH, 4);
+        ctx.fill();
+
+        // Fill
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.roundRect(pad.l, y, bW, bH, 4);
+        ctx.fill();
+
+        // Value label
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(b.note, pad.l + bW + 8, y + bH / 2 + 4);
+      });
+
+      // X-axis
+      ctx.strokeStyle = 'rgba(255,255,255,.08)';
+      ctx.lineWidth = 1;
+      [0, 25, 50, 75, 100].forEach(v => {
+        const x = pad.l + (v / 100) * maxW;
+        ctx.beginPath(); ctx.moveTo(x, pad.t + 8); ctx.lineTo(x, H - pad.b + 4); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.25)';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(v + '%', x, H - pad.b + 16);
+      });
+    }
+    drawNiah();
+    window.addEventListener('resize', drawNiah);
+  }
+}
+
+// ─── §04: Chunk assignment canvas ────────────────────────────────────────
+{
+  const canvas = document.getElementById('chunk-canvas');
+  const randomizeBtn = document.getElementById('chunk-randomize');
+  const attnCount = document.getElementById('attn-count');
+  const linearCount = document.getElementById('linear-count');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+    const N = 16;
+    let rng = mkrng(42);
+    let modes = Array.from({ length: N }, () => rng() < 0.25 ? 'attn' : 'linear');
+
+    function drawChunks() {
+      const W = canvas.clientWidth, H = 100;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      ctx.scale(DPR, DPR);
+
+      const gap = 4;
+      const bW = (W - (N - 1) * gap) / N;
+      const bH = 56;
+      const y0 = 20;
+
+      // Seq label
+      ctx.fillStyle = 'rgba(255,255,255,.25)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('training sequence   ▸   16 chunks × 128 tokens', 0, 14);
+
+      let nAttn = 0;
+      modes.forEach((m, i) => {
+        const x = i * (bW + gap);
+        const isAttn = m === 'attn';
+        if (isAttn) nAttn++;
+
+        ctx.fillStyle = isAttn ? 'rgba(139,92,246,.55)' : 'rgba(6,182,212,.35)';
+        ctx.beginPath();
+        ctx.roundRect(x, y0, bW, bH, 3);
+        ctx.fill();
+
+        ctx.strokeStyle = isAttn ? 'rgba(139,92,246,.8)' : 'rgba(6,182,212,.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y0, bW, bH, 3);
+        ctx.stroke();
+
+        if (bW > 20) {
+          ctx.fillStyle = 'rgba(255,255,255,.75)';
+          ctx.font = '600 8.5px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(isAttn ? 'ATTN' : 'LIN', x + bW / 2, y0 + bH / 2 + 3);
+        }
+
+        ctx.fillStyle = 'rgba(255,255,255,.3)';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(i + 1), x + bW / 2, y0 + bH + 11);
+      });
+
+      if (attnCount) attnCount.textContent = String(nAttn);
+      if (linearCount) linearCount.textContent = String(N - nAttn);
+    }
+
+    function randomize() {
+      rng = mkrng(Math.floor(Math.random() * 99999));
+      modes = Array.from({ length: N }, () => rng() < 0.25 ? 'attn' : 'linear');
+      drawChunks();
+    }
+
+    randomizeBtn?.addEventListener('click', randomize);
+    drawChunks();
+    window.addEventListener('resize', drawChunks);
+  }
+}
+
+// ─── §05: Perplexity recovery line chart ─────────────────────────────────
+{
+  const canvas = document.getElementById('ppl-canvas');
+  const dirBtns  = document.querySelectorAll('.ppl-dir-btn');
+  const swBtns   = document.querySelectorAll('.ppl-sw-btn');
+
+  let direction = 'attn2mamba';
+  let switchAt  = '512';
+
+  // Approximate perplexity curves from paper Figure 3
+  // X: tokens 400..2000 (step 8), Y: perplexity
+  function makePplCurves(dir) {
+    const xs = [];
+    for (let t = 400; t <= 2000; t += 16) xs.push(t);
+
+    function gaussSmooth(arr, sigma) {
+      return arr.map((_, i) => {
+        let sum = 0, w = 0;
+        for (let j = 0; j < arr.length; j++) {
+          const d = Math.abs(i - j);
+          const wj = Math.exp(-d * d / (2 * sigma * sigma));
+          sum += arr[j] * wj; w += wj;
+        }
+        return sum / w;
+      });
+    }
+
+    // base1: mode that's running without switch
+    // base2: target mode (constant)
+    // switchAt=512/1024/1536: spike at switch, recover
+    const A2M = dir === 'attn2mamba'; // attn→mamba or mamba→attn
+
+    const base1 = A2M ? 9.35 : 9.38;  // no-switch source mode ppl
+    const base2 = A2M ? 9.38 : 9.35;  // no-switch target mode ppl
+
+    function makeSwitchCurve(swToken, spikeMag) {
+      return xs.map(t => {
+        if (t < swToken) return base1 + (Math.sin(t * 0.05) * 0.005);
+        const dt = t - swToken;
+        const decay = Math.exp(-dt / 120);
+        const spike = spikeMag * decay;
+        return base2 + spike + (Math.cos(t * 0.04) * 0.004);
+      });
+    }
+
+    return {
+      xs,
+      noswitch1: xs.map(t => base1 + Math.sin(t * 0.05) * 0.005),
+      noswitch2: xs.map(t => base2 + Math.cos(t * 0.04) * 0.004),
+      sw512:  gaussSmooth(makeSwitchCurve(512, A2M ? 0.18 : 0.22), 1.5),
+      sw1024: gaussSmooth(makeSwitchCurve(1024, A2M ? 0.16 : 0.20), 1.5),
+      sw1536: gaussSmooth(makeSwitchCurve(1536, A2M ? 0.14 : 0.18), 1.5),
+    };
+  }
+
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+
+    function drawPpl() {
+      const W = canvas.clientWidth, H = 260;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      ctx.scale(DPR, DPR);
+
+      const c = makePplCurves(direction);
+      const pad = { l: 52, r: 20, t: 20, b: 34 };
+      const cW = W - pad.l - pad.r;
+      const cH = H - pad.t - pad.b;
+
+      const allVals = [...c.noswitch1, ...c.noswitch2, ...c.sw512, ...c.sw1024, ...c.sw1536];
+      const minY = Math.min(...allVals) - 0.02;
+      const maxY = Math.max(...allVals) + 0.03;
+
+      function tx(t) { return pad.l + ((t - 400) / (2000 - 400)) * cW; }
+      function ty(v) { return pad.t + cH - ((v - minY) / (maxY - minY)) * cH; }
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,.05)';
+      ctx.lineWidth = 1;
+      [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000].forEach(t => {
+        ctx.beginPath(); ctx.moveTo(tx(t), pad.t); ctx.lineTo(tx(t), pad.t + cH); ctx.stroke();
+      });
+
+      // Y axis labels
+      const pplTicks = [];
+      const lo = Math.ceil(minY * 10) / 10;
+      const hi = Math.floor(maxY * 10) / 10;
+      for (let v = lo; v <= hi + 0.001; v += 0.1) {
+        pplTicks.push(Math.round(v * 10) / 10);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      pplTicks.forEach(v => {
+        const y = ty(v);
+        ctx.strokeStyle = 'rgba(255,255,255,.04)';
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cW, y); ctx.stroke();
+        ctx.fillText(v.toFixed(1), pad.l - 5, y + 3.5);
+      });
+
+      // X axis labels
+      ctx.textAlign = 'center';
+      [500, 750, 1000, 1250, 1500, 1750, 2000].forEach(t => {
+        ctx.fillText(t, tx(t), pad.t + cH + 16);
+      });
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('token position', pad.l + cW / 2, H - 4);
+
+      // Draw a curve
+      function drawCurve(ys, color, dash, lw) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lw;
+        ctx.setLineDash(dash);
+        ctx.beginPath();
+        c.xs.forEach((t, i) => {
+          const x = tx(t), y = ty(ys[i]);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // No-switch baselines (dashed, dim)
+      const A2M = direction === 'attn2mamba';
+      drawCurve(c.noswitch1, A2M ? 'rgba(139,92,246,.4)' : 'rgba(6,182,212,.4)', [5, 4], 1.5);
+      drawCurve(c.noswitch2, A2M ? 'rgba(6,182,212,.4)' : 'rgba(139,92,246,.4)', [5, 4], 1.5);
+
+      // Selected switch curve (bright)
+      const swCurves = { '512': c.sw512, '1024': c.sw1024, '1536': c.sw1536, 'none': c.noswitch1 };
+      const activeColor = 'rgba(245,158,11,.9)';
+      if (switchAt in swCurves && switchAt !== 'none') {
+        drawCurve(swCurves[switchAt], activeColor, [], 2);
+        // Vertical marker at switch point
+        const swT = parseInt(switchAt);
+        ctx.strokeStyle = 'rgba(245,158,11,.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(tx(swT), pad.t); ctx.lineTo(tx(swT), pad.t + cH); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(245,158,11,.7)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('switch', tx(swT), pad.t + 12);
+      }
+
+      // Legend
+      const legItems = A2M
+        ? [['Attn (no switch)', 'rgba(139,92,246,.6)', [5,4]], ['Mamba-2 (no switch)', 'rgba(6,182,212,.6)', [5,4]], ['Switch @ ' + switchAt, activeColor, []]]
+        : [['Mamba-2 (no switch)', 'rgba(6,182,212,.6)', [5,4]], ['Attn (no switch)', 'rgba(139,92,246,.6)', [5,4]], ['Switch @ ' + switchAt, activeColor, []]];
+      if (switchAt === 'none') legItems.pop();
+
+      let lx = pad.l + 10;
+      legItems.forEach(([label, col, dash]) => {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = dash.length ? 1.5 : 2;
+        ctx.setLineDash(dash);
+        ctx.beginPath(); ctx.moveTo(lx, pad.t + 8); ctx.lineTo(lx + 22, pad.t + 8); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,.45)';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, lx + 26, pad.t + 12);
+        lx += ctx.measureText(label).width + 54;
+      });
+    }
+
+    dirBtns.forEach(b => b.addEventListener('click', () => {
+      dirBtns.forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      direction = b.dataset.dir;
+      drawPpl();
+    }));
+    swBtns.forEach(b => b.addEventListener('click', () => {
+      swBtns.forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      switchAt = b.dataset.sw;
+      drawPpl();
+    }));
+
+    drawPpl();
+    window.addEventListener('resize', drawPpl);
+  }
+}
+
+// ─── §06: Retrieval bars animation + tab switch ───────────────────────────
+{
+  let barsTriggered = false;
+
+  function triggerBars() {
+    document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+      const maxVal = b.closest('#ret-realworld') || b.closest('#ret-niah') ? 100 : 100;
+      b.style.width = (parseFloat(b.dataset.w) / 100 * 100) + '%';
+    });
+  }
+
+  const retSec = document.getElementById('s-results');
+  if (retSec) {
+    new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !barsTriggered) {
+          barsTriggered = true;
+          triggerBars();
+        }
+      });
+    }, { threshold: 0.2 }).observe(retSec);
+  }
+
+  document.querySelectorAll('.ret-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ret-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      const which = btn.dataset.rt;
+      document.getElementById('ret-realworld').style.display = which === 'realworld' ? '' : 'none';
+      document.getElementById('ret-niah').style.display = which === 'niah' ? '' : 'none';
+      if (barsTriggered) triggerBars();
+    });
+  });
+}
+</script>
+</BaseLayout>

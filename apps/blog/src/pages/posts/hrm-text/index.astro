@@ -1,0 +1,629 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="HRM-Text: Efficient Pretraining Beyond Scaling | AI/ML Deep Dives"
+  description="A 1B-parameter hierarchical recurrent model trained from scratch on 40B tokens for $1,500 matches 2-7B baselines using 100-900x fewer tokens."
+  crumb="HRM-Text"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'&#x2192;';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'&#x25B6;';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.norm-tabs{display:flex;gap:.4rem;margin-bottom:.75rem;flex-wrap:wrap}
+.norm-tab{padding:.25rem .7rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.norm-tab:hover{border-color:var(--cyan);color:var(--cyan)}
+.norm-tab.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.attn-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:1.25rem 0}
+.attn-panel{background:var(--card2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.attn-label{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted2);padding:.5rem .75rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.attn-label .amber{color:var(--amber)}
+.attn-label .cyan{color:var(--cyan)}
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .attn-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Efficient Pretraining</span>
+    <span class="tag tag-cyan">Recurrent Architecture</span>
+    <span class="tag tag-amber">From Scratch</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>HRM-Text: $1,500 to Match<br>Trillion-Token Baselines</h1>
+  <p class="lead">
+    The dominant belief is that you need trillions of tokens and millions of dollars to pretrain a competitive language model from scratch. HRM-Text breaks this: a 1B-parameter hierarchical recurrent model trained on 40 billion tokens for $1,500 reaches the same benchmark neighborhood as 2&#x2013;7B models trained on 4&#x2013;36 trillion tokens &#x2014; using 96&#x2013;432&#xd7; less compute and 100&#x2013;900&#xd7; fewer tokens.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.20613</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.20613" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/sapientinc/HRM-Text" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#x2039;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Compute Divide</a></li>
+    <li class="toc-item" id="toc-s-hrm"><a href="#s-hrm"><span class="toc-num">02</span> Dual-Timescale HRM</a></li>
+    <li class="toc-item" id="toc-s-magicnorm"><a href="#s-magicnorm"><span class="toc-num">03</span> MagicNorm</a></li>
+    <li class="toc-item" id="toc-s-objective"><a href="#s-objective"><span class="toc-num">04</span> Task-Completion + PrefixLM</a></li>
+    <li class="toc-item" id="toc-s-ablation"><a href="#s-ablation"><span class="toc-num">05</span> Ablation</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<article class="post-body">
+
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 &#x2014; The Compute Divide</div>
+<h2>Pretraining is a Club Most Can't Afford to Join</h2>
+<p>The dominant pretraining recipe &#x2014; autoregressive training on internet-scale raw text &#x2014; works, but concentrates foundational AI research inside compute-rich organizations. OLMo3 7B consumes 252&#xd7; the training FLOPs of HRM-Text. Qwen3.5 2B uses 36 trillion training tokens &#x2014; 900&#xd7; more than 40 billion. For academic groups and small labs, this is an insurmountable wall.</p>
+<p>HRM-Text asks: what if you co-designed the architecture and the objective together, specifically for the data- and compute-limited regime? Can smarter architecture and smarter training signal make each token worth far more?</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">efficiency_scatter.py &#x2014; tokens vs avg benchmark score</span><span class="vp-hint">hover dots</span></div>
+  <div class="vp-body" style="position:relative">
+    <canvas id="eff-canvas" style="width:100%;height:280px;display:block"></canvas>
+    <div id="eff-tip" style="position:absolute;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:.4rem .7rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--text2);pointer-events:none;display:none;z-index:10;top:0;left:0"></div>
+  </div>
+</div>
+<p>HRM-Text sits in the <em>same performance band</em> as models trained on 100&#x2013;900&#xd7; more tokens &#x2014; but at the leftmost edge of the x-axis. Three ingredients make this possible: hierarchical recurrent architecture, MagicNorm stabilization, and response-only PrefixLM training.</p>
+</section>
+
+<section id="s-hrm" data-code="hrm">
+<div class="section-no">02 &#x2014; Dual-Timescale HRM</div>
+<h2>Slow Strategy, Fast Execution</h2>
+<p>Standard Transformers process a sequence in one forward pass. The Hierarchical Recurrent Model (HRM) runs the same parameters <em>multiple times</em> in two nested loops, inspired by the frontoparietal loop in the brain: a fast layer for execution and a slow layer for strategic context.</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">hrm_architecture &#x2014; dual-timescale recurrent design</span><span class="vp-hint">H = slow strategic; L = fast execution</span></div>
+  <div class="vp-body"><canvas id="hrm-canvas" style="width:100%;height:240px;display:block"></canvas></div>
+</div>
+<p>HRM uses <strong>2 outer H-cycles</strong>, each with <strong>3 fast L-module steps</strong> followed by <strong>1 slow H-module step</strong>: 8 total forward steps through the same recurrent core &#x2014; equivalent to 4&#xd7; the compute of a single-pass Transformer, without 4&#xd7; the parameters. This is <em>depth through time, not through width</em>.</p>
+</section>
+
+<section id="s-magicnorm" data-code="magicnorm">
+<div class="section-no">03 &#x2014; MagicNorm</div>
+<h2>Making Deep Recurrence Trainable</h2>
+<p><strong>PostNorm</strong> keeps activations bounded but blocks gradients in deep networks. <strong>PreNorm</strong> lets gradients flow but allows residual variance to grow unboundedly. In a recurrent model applied N times, both problems compound multiplicatively. Neither option survives deep recurrence at language-model scale.</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">magicnorm.py &#x2014; forward variance vs backward gradient health</span><span class="vp-hint">click to compare</span></div>
+  <div class="vp-body">
+    <div class="norm-tabs">
+      <button class="norm-tab active" data-norm="postnorm">PostNorm</button>
+      <button class="norm-tab" data-norm="prenorm">PreNorm</button>
+      <button class="norm-tab" data-norm="magic">MagicNorm &#x2726;</button>
+    </div>
+    <canvas id="norm-canvas" style="width:100%;height:220px;display:block"></canvas>
+    <div id="norm-desc" style="margin-top:.75rem;font-size:.78rem;color:var(--muted2);line-height:1.65"></div>
+  </div>
+</div>
+<p>MagicNorm exploits the asymmetry between forward and backward horizons under truncated BPTT. Each module has internal PreNorm blocks capped with a final normalization at its exit. Forward: exit norm applied N=8 times &#x2192; bounded variance. Backward with K&#x2264;5 steps: PreNorm identity path dominates &#x2192; stable optimization.</p>
+</section>
+
+<section id="s-objective" data-code="objective">
+<div class="section-no">04 &#x2014; Task-Completion + PrefixLM</div>
+<h2>Every Gradient Should Count</h2>
+<p>Standard pretraining computes loss over every token &#x2014; including prompt tokens the model will never need to generate. HRM-Text applies a <strong>task-completion objective</strong>: compute loss exclusively on response tokens, conditioned on the instruction. The PrefixLM mask lets instruction tokens attend bidirectionally, giving the model an encoder-like view of the full prompt.</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">prefixlm_attn.py &#x2014; causal vs PrefixLM attention patterns</span><span class="vp-hint">prompt in amber, response in white</span></div>
+  <div class="vp-body">
+    <div class="attn-grid">
+      <div class="attn-panel">
+        <div class="attn-label"><span class="amber">Causal:</span> triangular, instruction tokens autoregressively predict each other</div>
+        <canvas id="attn-causal" style="width:100%;height:180px;display:block"></canvas>
+      </div>
+      <div class="attn-panel">
+        <div class="attn-label"><span class="cyan">PrefixLM:</span> instruction tokens attend bidirectionally; loss only on response</div>
+        <canvas id="attn-prefix" style="width:100%;height:180px;display:block"></canvas>
+      </div>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin:.5rem 0 0">Example: <code style="color:var(--amber)">What is the capital of France?</code> (5 tokens) + <code>Paris</code> (1 response token). HRM-Text only computes loss on &#x201C;Paris&#x201D;.</p>
+  </div>
+</div>
+<p>The empirical payoff: attention entropy increases, response-token NLL decreases &#x2014; more informative gradients per training token.</p>
+</section>
+
+<section id="s-ablation" data-code="ablation">
+<div class="section-no">05 &#x2014; Ablation</div>
+<h2>Three Ingredients, Each One Matters</h2>
+<p>An incremental FLOPs-matched ablation across all three axes shows each ingredient contributes meaningfully.</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">ablation.py &#x2014; incremental contribution of each ingredient</span><span class="vp-hint">step through each change</span></div>
+  <div class="vp-body">
+    <div class="step-list" id="step-list">
+      <div class="step-box"><div class="step-num">1</div><div class="step-body">
+        <div class="step-title">Baseline: Transformer + P(x) + Causal</div>
+        <div class="step-desc">Standard autoregressive pretraining. Loss on all tokens. Causal masking throughout.</div>
+        <div class="step-code">MMLU: 40.6 &middot; ARC-C: 51.9 &middot; DROP: 38.2 &middot; GSM8K: 48.4 &middot; MATH: 35.4</div>
+      </div></div>
+      <div class="step-box"><div class="step-num">2</div><div class="step-body">
+        <div class="step-title">+ task-completion P(x&#x2090;|x&#x2099;) + Causal</div>
+        <div class="step-desc">Response-only loss. Every gradient update targets inference-time behavior. Same Transformer, same causal mask.</div>
+        <div class="step-code">MMLU: 47.7 (+7.2) &middot; ARC-C: 62.9 (+11.0) &middot; DROP: 54.2 (+16.0) &middot; GSM8K: 69.8 (+21.4) &middot; MATH: 47.0 (+11.6)</div>
+      </div></div>
+      <div class="step-box"><div class="step-num">3</div><div class="step-body">
+        <div class="step-title">+ PrefixLM attention mask</div>
+        <div class="step-desc">Instruction tokens attend bidirectionally. Higher attention entropy &#x2014; the model uses the full prompt. Still Transformer.</div>
+        <div class="step-code">MMLU: 53.2 (+5.5) &middot; ARC-C: 74.3 (+11.4) &middot; DROP: 75.3 (+21.1) &middot; GSM8K: 75.1 (+5.3) &middot; MATH: 48.4 (+1.4)</div>
+      </div></div>
+      <div class="step-box"><div class="step-num">4</div><div class="step-body">
+        <div class="step-title">+ HRM architecture (replace Transformer)</div>
+        <div class="step-desc">Hierarchical dual-timescale recurrence. Same objective, same PrefixLM mask, same FLOPs.</div>
+        <div class="step-code">MMLU: 60.7 (+7.5) &middot; ARC-C: 81.9 (+7.6) &middot; DROP: 82.2 (+6.9) &middot; GSM8K: 84.5 (+9.4) &middot; MATH: 56.2 (+7.8)</div>
+      </div></div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>&#x2190; prev</button>
+      <button id="step-next">next &#x2192;</button>
+      <span class="step-prog" id="step-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+<p>Task-completion alone: +21 GSM8K. PrefixLM adds +21 DROP. HRM adds +7&#x2013;9 across reasoning benchmarks. The combination is multiplicative.</p>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">06 &#x2014; Results</div>
+<h2>Competitive Performance at 100&#x2013;900&#xd7; Lower Cost</h2>
+<p>HRM-Text achieves near-competitive performance on reasoning-heavy benchmarks (MATH, GSM8K, DROP, ARC-C) while trailing on broad factual-knowledge benchmarks (MMLU) &#x2014; expected, since factual coverage scales more with data breadth than reasoning depth.</p>
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">results.py &#x2014; MMLU and GSM8K vs baselines</span><span class="vp-hint">bars animate on scroll</span></div>
+  <div class="vp-body">
+    <h3 style="font-size:.75rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin:0 0 .75rem">MMLU (general knowledge)</h3>
+    <div class="results-bars">
+      <div class="bar-row"><div class="bar-label">HRM-Text 1B<br><span style="font-size:.62rem;color:var(--muted)">40B tokens &middot; 1&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="60.7" style="background:linear-gradient(90deg,var(--purple),rgba(139,92,246,.7))"><span>60.7</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Huginn 3.5B<br><span style="font-size:.62rem;color:var(--muted)">0.8T &middot; 127&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="31.4" style="background:rgba(107,114,128,.45)"><span>31.4</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Llama3.2 3B<br><span style="font-size:.62rem;color:var(--muted)">9T &middot; 162&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="58.0" style="background:rgba(107,114,128,.45)"><span>58.0</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Gemma3 4B<br><span style="font-size:.62rem;color:var(--muted)">4T &middot; 96&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="59.6" style="background:rgba(107,114,128,.45)"><span>59.6</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Qwen3.5 2B<br><span style="font-size:.62rem;color:var(--muted)">36T &middot; 432&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="64.5" style="background:rgba(107,114,128,.45)"><span>64.5</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">OLMo3 7B<br><span style="font-size:.62rem;color:var(--muted)">6T &middot; 252&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="65.8" style="background:rgba(107,114,128,.45)"><span>65.8</span></div></div></div>
+    </div>
+    <h3 style="font-size:.75rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin:1.5rem 0 .75rem">GSM8K (math reasoning)</h3>
+    <div class="results-bars">
+      <div class="bar-row"><div class="bar-label">HRM-Text 1B<br><span style="font-size:.62rem;color:var(--muted)">40B tokens &middot; 1&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="84.5" style="background:linear-gradient(90deg,var(--purple),rgba(139,92,246,.7))"><span>84.5</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Huginn 3.5B<br><span style="font-size:.62rem;color:var(--muted)">0.8T &middot; 127&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="34.6" style="background:rgba(107,114,128,.45)"><span>34.6</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Llama3.2 3B<br><span style="font-size:.62rem;color:var(--muted)">9T &middot; 162&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="77.7" style="background:rgba(107,114,128,.45)"><span>77.7</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Gemma3 4B<br><span style="font-size:.62rem;color:var(--muted)">4T &middot; 96&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="38.4" style="background:rgba(107,114,128,.45)"><span>38.4</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">Qwen3.5 2B<br><span style="font-size:.62rem;color:var(--muted)">36T &middot; 432&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="53.0" style="background:rgba(107,114,128,.45)"><span>53.0</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">OLMo3 7B<br><span style="font-size:.62rem;color:var(--muted)">6T &middot; 252&#xd7;</span></div><div class="bar-track"><div class="bar-fill" data-w="75.5" style="background:rgba(107,114,128,.45)"><span>75.5</span></div></div></div>
+    </div>
+  </div>
+</div>
+<h3>Full benchmark comparison</h3>
+<div style="overflow-x:auto">
+<table class="results-table">
+  <thead><tr><th>Model</th><th>FLOPs</th><th>Tokens</th><th class="mn">MMLU</th><th class="mn">ARC-C</th><th class="mn">DROP</th><th class="mn">GSM8K</th><th class="mn">MATH</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td><strong>HRM-Text 1B</strong></td><td class="mn">1&#xd7;</td><td class="mn">40B</td><td class="mn">60.7</td><td class="mn best">81.9</td><td class="mn best">82.2</td><td class="mn best">84.5</td><td class="mn best">56.2</td></tr>
+    <tr><td>Huginn 3.5B</td><td class="mn">127&#xd7;</td><td class="mn">0.8T</td><td class="mn">31.4</td><td class="mn">38.2</td><td class="mn">17.8</td><td class="mn">34.6</td><td class="mn">12.6</td></tr>
+    <tr><td>OLMo3 7B</td><td class="mn">252&#xd7;</td><td class="mn">6T</td><td class="mn">65.8</td><td class="mn">81.6</td><td class="mn">71.5</td><td class="mn">75.5</td><td class="mn">40.0</td></tr>
+    <tr><td>Llama3.2 3B</td><td class="mn">162&#xd7;</td><td class="mn">9T</td><td class="mn">58.0</td><td class="mn">69.1</td><td class="mn">45.2</td><td class="mn">77.7</td><td class="mn">48.0</td></tr>
+    <tr><td>Gemma3 4B</td><td class="mn">96&#xd7;</td><td class="mn">4T</td><td class="mn">59.6</td><td class="mn">56.2</td><td class="mn">60.1</td><td class="mn">38.4</td><td class="mn">24.2</td></tr>
+    <tr><td>Qwen3.5 2B</td><td class="mn best">432&#xd7;</td><td class="mn">36T</td><td class="mn best">64.5</td><td class="mn">81.0</td><td class="mn">30.8</td><td class="mn">53.0</td><td class="mn">34.2</td></tr>
+  </tbody>
+</table>
+</div>
+<p>HRM-Text outperforms Huginn 3.5B on every benchmark &#x2014; while using 4&#xd7; fewer FLOPs and 20&#xd7; fewer tokens. This is an <em>existence proof</em>: there is at least one point in architecture+objective space where the compute-to-performance ratio is radically better. Exploring that space is now accessible to anyone with two 8-GPU nodes and $1,500.</p>
+</section>
+
+</article>
+
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">hrm_text/train.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Compute Divide</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#x203A;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="hrm">hrm</button>
+    <button class="cs-tab" data-panel="magicnorm">magicnorm</button>
+    <button class="cs-tab" data-panel="objective">objective</button>
+    <button class="cs-tab" data-panel="ablation">ablation</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Training cost comparison (HRM-Text = 1x)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># HRM-Text 1B    1x    40B tokens  &lt;--</span></span>
+<span class="cs-line cmt"># Gemma3 4B     96x     4T tokens</span>
+<span class="cs-line cmt"># Llama3.2 3B  162x     9T tokens</span>
+<span class="cs-line cmt"># Huginn 3.5B  127x   800B tokens</span>
+<span class="cs-line cmt"># OLMo3 7B     252x     6T tokens</span>
+<span class="cs-line cmt"># Qwen3.5 2B   432x    36T tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="attr">cost</span>     = <span class="str">"~$1,472 @ $2/H100-hr"</span></span>
+<span class="cs-line"><span class="attr">hardware</span> = <span class="str">"2 x 8xH100 (46 hours)"</span></span>
+<span class="cs-line"><span class="attr">tokens</span>   = <span class="str">"40B unique, 60B total"</span></span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-hrm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># HRM forward pass (H2L3 config)</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">HRM</span>:</span>
+<span class="cs-line">  <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, tokens):</span>
+<span class="cs-line">    x = <span class="kw">self</span>.<span class="fn">embed</span>(tokens)</span>
+<span class="cs-line hl-c">    z_H = <span class="kw">self</span>.<span class="fn">h_init</span>(x)  <span class="cmt"># slow state</span></span>
+<span class="cs-line hl-g">    z_L = <span class="kw">self</span>.<span class="fn">l_init</span>(x)  <span class="cmt"># fast state</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">2</span>):     <span class="cmt"># H cycles</span></span>
+<span class="cs-line hl-p">      <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">3</span>):   <span class="cmt"># L steps</span></span>
+<span class="cs-line hl-p">        z_L = <span class="kw">self</span>.<span class="fn">L</span>(z_L, z_H)</span>
+<span class="cs-line hl-p">      z_H = <span class="kw">self</span>.<span class="fn">H</span>(z_H, z_L)</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">lm_head</span>(z_H)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2x(3+1) = 8 steps, 4x compute</span>
+<span class="cs-line cmt"># same parameter count as 1x Transformer</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-magicnorm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MagicNorm: PreNorm inside, PostNorm exit</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">MagicNormModule</span>:</span>
+<span class="cs-line">  <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, z):</span>
+<span class="cs-line hl-c">    h = z + <span class="kw">self</span>.<span class="fn">attn</span>(<span class="kw">self</span>.<span class="fn">norm1</span>(z))</span>
+<span class="cs-line hl-c">    h = h + <span class="kw">self</span>.<span class="fn">ffn</span>(<span class="kw">self</span>.<span class="fn">norm2</span>(h))</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">exit_norm</span>(h)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># forward: exit_norm 8x -> PostNorm</span>
+<span class="cs-line cmt"># backward (K=5): PreNorm dominates</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">K_warmup = <span class="num">2</span>  <span class="cmt"># early steps (first half)</span></span>
+<span class="cs-line hl-g">K_final  = <span class="num">5</span>  <span class="cmt"># after warmup</span></span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-objective">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard: loss on ALL tokens</span>
+<span class="cs-line cmt"># loss = -log P(x)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># HRM-Text: response tokens only</span>
+<span class="cs-line hl-p"><span class="cmt"># loss = -log P(x_a | x_q)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">task_loss</span>(logits, labels, mask):</span>
+<span class="cs-line">  loss = <span class="fn">cross_entropy</span>(logits, labels)</span>
+<span class="cs-line hl-g">  <span class="kw">return</span> (loss * mask).<span class="fn">sum</span>() / mask.<span class="fn">sum</span>()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># PrefixLM mask</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">prefixlm</span>(seq_len, prefix_len):</span>
+<span class="cs-line">  mask = <span class="fn">causal_mask</span>(seq_len)</span>
+<span class="cs-line hl-c">  mask[:prefix_len, :prefix_len] = <span class="kw">True</span></span>
+<span class="cs-line">  <span class="kw">return</span> mask</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-ablation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># FLOPs-matched ablation (MMLU/GSM8K)</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="attr">base</span> = &#123;<span class="str">'M'</span>:<span class="num">40.6</span>, <span class="str">'G'</span>:<span class="num">48.4</span>, <span class="str">'D'</span>:<span class="num">38.2</span>&#125;</span>
+<span class="cs-line hl-g"><span class="attr">tc</span>   = &#123;<span class="str">'M'</span>:<span class="num">47.7</span>, <span class="str">'G'</span>:<span class="num">69.8</span>, <span class="str">'D'</span>:<span class="num">54.2</span>&#125;</span>
+<span class="cs-line hl-g"><span class="cmt"># +7.2 MMLU  +21.4 GSM  +16.0 DROP</span></span>
+<span class="cs-line hl-c"><span class="attr">plm</span>  = &#123;<span class="str">'M'</span>:<span class="num">53.2</span>, <span class="str">'G'</span>:<span class="num">75.1</span>, <span class="str">'D'</span>:<span class="num">75.3</span>&#125;</span>
+<span class="cs-line hl-c"><span class="cmt"># +5.5 MMLU   +5.3 GSM  +21.1 DROP</span></span>
+<span class="cs-line hl-p"><span class="attr">hrm</span>  = &#123;<span class="str">'M'</span>:<span class="num">60.7</span>, <span class="str">'G'</span>:<span class="num">84.5</span>, <span class="str">'D'</span>:<span class="num">82.2</span>&#125;</span>
+<span class="cs-line hl-p"><span class="cmt"># +7.5 MMLU   +9.4 GSM   +6.9 DROP</span></span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MMLU / ARC-C / DROP / GSM8K / MATH</span>
+<span class="cs-line hl-p"><span class="attr">HRM_1B</span>  = [<span class="num">60.7</span>,<span class="num">81.9</span>,<span class="num">82.2</span>,<span class="num">84.5</span>,<span class="num">56.2</span>]</span>
+<span class="cs-line"><span class="attr">Huginn</span>  = [<span class="num">31.4</span>,<span class="num">38.2</span>,<span class="num">17.8</span>,<span class="num">34.6</span>,<span class="num">12.6</span>]</span>
+<span class="cs-line"><span class="attr">OLMo3</span>   = [<span class="num">65.8</span>,<span class="num">81.6</span>,<span class="num">71.5</span>,<span class="num">75.5</span>,<span class="num">40.0</span>]</span>
+<span class="cs-line"><span class="attr">Llama32</span> = [<span class="num">58.0</span>,<span class="num">69.1</span>,<span class="num">45.2</span>,<span class="num">77.7</span>,<span class="num">48.0</span>]</span>
+<span class="cs-line"><span class="attr">Gemma3</span>  = [<span class="num">59.6</span>,<span class="num">56.2</span>,<span class="num">60.1</span>,<span class="num">38.4</span>,<span class="num">24.2</span>]</span>
+<span class="cs-line"><span class="attr">Qwen35</span>  = [<span class="num">64.5</span>,<span class="num">81.0</span>,<span class="num">30.8</span>,<span class="num">53.0</span>,<span class="num">34.2</span>]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># HRM vs Qwen: 432x less FLOPs</span>
+<span class="cs-line cmt"># HRM vs OLMo: 900x fewer tokens</span>
+<span class="cs-line cmt"># HRM: best ARC-C, DROP, GSM8K, MATH</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div>
+
+<script>
+const tocSidebar=document.getElementById('toc-sidebar'),tocToggle=document.getElementById('toc-toggle'),postGrid=document.getElementById('post-grid');
+tocToggle?.addEventListener('click',()=>{const c=tocSidebar.classList.toggle('collapsed');postGrid.classList.toggle('toc-collapsed',c);tocToggle.textContent=c?'›':'‹';});
+const codeSidebar=document.getElementById('code-sidebar'),csToggle=document.getElementById('cs-toggle');
+csToggle?.addEventListener('click',()=>{const c=codeSidebar.classList.toggle('collapsed');postGrid.classList.toggle('sidebar-collapsed',c);csToggle.textContent=c?'‹':'›';});
+
+const tabMeta={problem:{file:'hrm_text/train.py',title:'The Compute Divide'},hrm:{file:'hrm_text/model.py',title:'Dual-Timescale HRM'},magicnorm:{file:'hrm_text/magicnorm.py',title:'MagicNorm'},objective:{file:'hrm_text/objective.py',title:'Task-Completion + PrefixLM'},ablation:{file:'hrm_text/ablation.py',title:'Ablation'},results:{file:'hrm_text/results.py',title:'Results'}};
+function activateTab(n){document.querySelectorAll('.cs-tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===n));document.querySelectorAll('.cs-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+n));const m=tabMeta[n];if(m){document.getElementById('cs-file-label').textContent=m.file;document.getElementById('cs-section-title').textContent=m.title;}}
+document.querySelectorAll('.cs-tab').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.panel)));
+
+const sectionMap={'s-problem':'problem','s-hrm':'hrm','s-magicnorm':'magicnorm','s-objective':'objective','s-ablation':'ablation','s-results':'results'};
+document.querySelectorAll('.post-body section[id]').forEach(s=>new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('.toc-item').forEach(li=>li.classList.toggle('toc-active',li.id==='toc-'+e.target.id));const p=sectionMap[e.target.id];if(p)activateTab(p);}});},{threshold:0.25}).observe(s));
+
+// Efficiency scatter
+(function(){
+  const canvas=document.getElementById('eff-canvas');if(!canvas)return;
+  const DPR=window.devicePixelRatio||1,W=canvas.clientWidth,H=280;
+  canvas.width=W*DPR;canvas.height=H*DPR;const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
+  const PL=58,PT=30,PR=30,PB=50,pw=W-PL-PR,ph=H-PT-PB;
+  const MODELS=[{l:'HRM-Text 1B',t:0.04,s:71.5,star:true},{l:'Huginn 3.5B',t:800,s:36.5},{l:'Llama3.2 3B',t:9000,s:58.5},{l:'Gemma3 4B',t:4000,s:53.8},{l:'Qwen3.5 2B',t:36000,s:56.5},{l:'OLMo3 7B',t:6000,s:66.0}];
+  const lmin=Math.log10(0.03),lmax=Math.log10(50000),smin=30,smax=80;
+  function xp(t){return PL+(Math.log10(t)-lmin)/(lmax-lmin)*pw;}
+  function yp(s){return PT+ph-(s-smin)/(smax-smin)*ph;}
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  [0.04,1,100,1000,10000].forEach(t=>{ctx.beginPath();ctx.moveTo(xp(t),PT);ctx.lineTo(xp(t),PT+ph);ctx.stroke();});
+  [30,40,50,60,70,80].forEach(s=>{ctx.beginPath();ctx.moveTo(PL,yp(s));ctx.lineTo(PL+pw,yp(s));ctx.stroke();});
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(PL,PT);ctx.lineTo(PL,PT+ph+5);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(PL-5,PT+ph);ctx.lineTo(PL+pw,PT+ph);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='10px var(--ff-mono)';ctx.textAlign='center';
+  [{t:0.04,l:'40B'},{t:1,l:'1B'},{t:100,l:'100B'},{t:1000,l:'1T'},{t:10000,l:'10T'}].forEach(({t,l})=>ctx.fillText(l,xp(t),PT+ph+18));
+  ctx.fillText('Training tokens (log scale)',PL+pw/2,H-5);
+  ctx.textAlign='right';[30,40,50,60,70,80].forEach(s=>ctx.fillText(s+'%',PL-8,yp(s)+4));
+  MODELS.forEach(m=>{const x=xp(m.t),y=yp(m.s),r=m.star?9:7;
+    if(m.star){ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.fillStyle='rgba(139,92,246,.2)';ctx.fill();}
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=m.star?'#8b5cf6':'rgba(107,114,128,.6)';ctx.fill();
+    ctx.strokeStyle=m.star?'rgba(167,139,250,.9)':'rgba(255,255,255,.15)';ctx.lineWidth=m.star?2:1;ctx.stroke();
+    ctx.font=(m.star?'600 ':'')+'10px var(--ff-mono)';ctx.fillStyle=m.star?'#c4b5fd':'rgba(255,255,255,.45)';ctx.textAlign='left';ctx.fillText(m.l,x+r+5,y+4);
+  });
+  const tip=document.getElementById('eff-tip');
+  if(tip){canvas.addEventListener('mousemove',e=>{const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;let hit=null;MODELS.forEach(m=>{if(Math.hypot(mx-xp(m.t),my-yp(m.s))<14)hit=m;});if(hit){const ts=hit.t<1?'40B':hit.t<1000?hit.t+'B':(hit.t/1000)+'T';tip.innerHTML=hit.l+'<br>tokens: '+ts+' &middot; avg: '+hit.s+'%';tip.style.display='block';tip.style.left=(mx+16)+'px';tip.style.top=(my-12)+'px';}else tip.style.display='none';});canvas.addEventListener('mouseleave',()=>tip.style.display='none');}
+})();
+
+// HRM architecture canvas
+(function(){
+  const canvas=document.getElementById('hrm-canvas');if(!canvas)return;
+  const DPR=window.devicePixelRatio||1,W=canvas.clientWidth,H=240;
+  canvas.width=W*DPR;canvas.height=H*DPR;const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
+  function box(x,y,w,h,fill,stroke,label,sub){
+    ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.roundRect(x,y,w,h,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle=stroke;ctx.font='700 10px var(--ff-mono)';ctx.textAlign='center';
+    ctx.fillText(label,x+w/2,y+h/2+(sub?-2:4));
+    if(sub){ctx.font='9px var(--ff-mono)';ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText(sub,x+w/2,y+h/2+10);}
+  }
+  function arr(x1,y1,x2,y2,color){
+    ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const a=Math.atan2(y2-y1,x2-x1);ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-7*Math.cos(a-.4),y2-7*Math.sin(a-.4));ctx.lineTo(x2-7*Math.cos(a+.4),y2-7*Math.sin(a+.4));ctx.closePath();ctx.fill();
+  }
+  box(14,100,68,34,'rgba(6,182,212,.12)','rgba(6,182,212,.6)','Input','Embed');
+  box(96,100,60,34,'rgba(139,92,246,.12)','rgba(139,92,246,.6)','z_H0','H-state');
+  arr(82,117,94,117,'rgba(6,182,212,.5)');
+  ctx.strokeStyle='rgba(139,92,246,.2)';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.roundRect(172,24,176,210,8);ctx.stroke();
+  ctx.beginPath();ctx.roundRect(362,24,176,210,8);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(139,92,246,.4)';ctx.font='8px var(--ff-mono)';ctx.textAlign='center';
+  ctx.fillText('CYCLE 1',260,16);ctx.fillText('CYCLE 2',450,16);
+  // Cycle 1 L modules
+  box(186,38,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  box(242,38,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  box(186,82,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  arr(230,52,240,52,'rgba(16,185,129,.5)');
+  ctx.strokeStyle='rgba(16,185,129,.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(286,52);ctx.lineTo(296,52);ctx.lineTo(296,96);ctx.lineTo(230,96);ctx.stroke();
+  box(194,142,130,34,'rgba(139,92,246,.15)','rgba(139,92,246,.7)','H','Slow module');
+  arr(208,110,208,140,'rgba(16,185,129,.5)');
+  arr(156,117,170,52,'rgba(139,92,246,.35)');
+  // Cycle 2 L modules
+  box(376,38,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  box(432,38,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  box(376,82,44,28,'rgba(16,185,129,.12)','rgba(16,185,129,.6)','L',null);
+  arr(420,52,430,52,'rgba(16,185,129,.5)');
+  ctx.strokeStyle='rgba(16,185,129,.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(476,52);ctx.lineTo(486,52);ctx.lineTo(486,96);ctx.lineTo(420,96);ctx.stroke();
+  box(384,142,130,34,'rgba(139,92,246,.15)','rgba(139,92,246,.7)','H','Slow module');
+  arr(398,110,398,140,'rgba(16,185,129,.5)');
+  arr(324,159,360,159,'rgba(139,92,246,.7)');
+  ctx.fillStyle='rgba(139,92,246,.6)';ctx.font='8px var(--ff-mono)';ctx.textAlign='center';ctx.fillText('z_H',342,155);
+  ctx.strokeStyle='rgba(139,92,246,.25)';ctx.lineWidth=1;ctx.setLineDash([3,2]);
+  ctx.beginPath();ctx.moveTo(324,149);ctx.lineTo(360,52);ctx.stroke();ctx.setLineDash([]);
+  box(458,200,76,28,'rgba(16,185,129,.12)','rgba(16,185,129,.5)','LM Head',null);
+  arr(449,176,496,198,'rgba(16,185,129,.5)');
+  ctx.font='9px var(--ff-mono)';ctx.textAlign='left';
+  ctx.fillStyle='rgba(16,185,129,.8)';ctx.fillText('L = fast execution (3x per cycle)',14,206);
+  ctx.fillStyle='rgba(139,92,246,.8)';ctx.fillText('H = slow strategy (1x per cycle)',14,220);
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillText('8 forward steps total = 4x compute of single-pass Transformer',14,234);
+})();
+
+// MagicNorm canvas
+(function(){
+  const canvas=document.getElementById('norm-canvas');if(!canvas)return;
+  const DPR=window.devicePixelRatio||1,W=canvas.clientWidth,H=220;
+  canvas.width=W*DPR;canvas.height=H*DPR;const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
+  const DATA={
+    postnorm:{fwdC:'#10b981',fwdV:[1,.85,.72,.61,.52,.43,.38,.33],fwdL:'Forward variance',bwdC:'#ef4444',bwdV:[1,.72,.51,.35,.24,.16,.10,.06],bwdL:'Gradient norm',desc:'<strong>PostNorm</strong>: Forward variance decreases each step (stable activations). But gradients vanish rapidly &#x2014; deeper steps receive near-zero gradient. Compounds catastrophically over N=8 recurrent steps.'},
+    prenorm:{fwdC:'#f59e0b',fwdV:[1,1.42,1.91,2.5,3.18,3.97,4.85,5.82],fwdL:'Forward variance',bwdC:'#06b6d4',bwdV:[1,.96,.93,.91,.88,.86,.84,.82],bwdL:'Gradient norm',desc:'<strong>PreNorm</strong>: Gradients flow cleanly (stable optimization). But unnormalized residual accumulation causes forward variance to grow without bound &#x2014; leading to representation collapse in deep recurrent settings.'},
+    magic:{fwdC:'#10b981',fwdV:[1,.97,.95,.94,.93,.92,.91,.90],fwdL:'Forward variance (exit norm)',bwdC:'#06b6d4',bwdV:[1,.95,.90,.86,.83,.80,.78,.76],bwdL:'Gradient norm (K=5 TBPTT)',desc:'<strong>MagicNorm</strong>: PreNorm inside + PostNorm exit cap. Forward: exit norm bounds variance at each of N=8 steps. Backward (K=5): gradient only traverses K exit norms; PreNorm identity dominates. Both stable. &#x2726;'}
+  };
+  let active='postnorm';
+  function draw(key){
+    const d=DATA[key];ctx.clearRect(0,0,W,H);
+    const PL=52,PT=22,PR=20,PB=40,pw=W-PL-PR,ph=H-PT-PB,N=8;
+    const maxV=Math.max(...d.fwdV,...d.bwdV)*1.1;
+    function xp(i){return PL+(i/(N-1))*pw;}function yp(v){return PT+ph-(v/maxV)*ph;}
+    ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+    [0,.25,.5,.75,1].forEach(f=>{ctx.beginPath();ctx.moveTo(PL,PT+ph*(1-f));ctx.lineTo(PL+pw,PT+ph*(1-f));ctx.stroke();});
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PL,PT);ctx.lineTo(PL,PT+ph+4);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PL-4,PT+ph);ctx.lineTo(PL+pw,PT+ph);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='10px var(--ff-mono)';ctx.textAlign='center';
+    for(let i=0;i<N;i++)ctx.fillText('s'+(i+1),xp(i),PT+ph+18);
+    function line(vals,color,label,isFirst){
+      ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;
+      vals.forEach((v,i)=>i===0?ctx.moveTo(xp(i),yp(v)):ctx.lineTo(xp(i),yp(v)));ctx.stroke();
+      vals.forEach((v,i)=>{ctx.beginPath();ctx.arc(xp(i),yp(v),3.5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();});
+      ctx.fillStyle=color;ctx.font='600 9px var(--ff-mono)';ctx.textAlign='left';
+      ctx.fillText(label,PL+8,PT+(isFirst?12:22));
+    }
+    line(d.fwdV,d.fwdC,d.fwdL,true);line(d.bwdV,d.bwdC,d.bwdL,false);
+    const desc=document.getElementById('norm-desc');if(desc)desc.innerHTML=d.desc;
+  }
+  draw(active);
+  document.querySelectorAll('.norm-tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.norm-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');active=btn.dataset.norm;draw(active);}));
+})();
+
+// Attention map canvases
+(function(){
+  const NI=5,NR=1,N=NI+NR;
+  function drawAttn(id,causal){
+    const canvas=document.getElementById(id);if(!canvas)return;
+    const DPR=window.devicePixelRatio||1,W=canvas.clientWidth,H=180;
+    canvas.width=W*DPR;canvas.height=H*DPR;const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
+    const P=20,cell=Math.min((W-P*2)/N,(H-P*2)/N),sx=P+(W-P*2-cell*N)/2,sy=P+(H-P*2-cell*N)/2;
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+      let a=0;
+      if(causal){a=c<=r?1/(r+1):0;}
+      else{if(r<NI&&c<NI)a=1/NI;else if(r>=NI)a=c<=r?1/(r+1):0;}
+      ctx.fillStyle=a>0?(r<NI?'rgba(245,158,11,'+(0.15+a*.75)+')':'rgba(255,255,255,'+(0.1+a*.7)+')'):'rgba(255,255,255,.02)';
+      ctx.fillRect(sx+c*cell+1,sy+r*cell+1,cell-2,cell-2);
+    }
+    ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(sx+NI*cell,sy);ctx.lineTo(sx+NI*cell,sy+N*cell);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(sx,sy+NI*cell);ctx.lineTo(sx+N*cell,sy+NI*cell);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='9px var(--ff-mono)';ctx.textAlign='center';
+    ctx.fillStyle='rgba(245,158,11,.7)';ctx.fillText('instruction (5)',sx+NI*cell/2,sy-5);
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('resp',sx+NI*cell+cell/2,sy-5);
+  }
+  drawAttn('attn-causal',true);drawAttn('attn-prefix',false);
+})();
+
+// Step navigator
+(function(){
+  let step=0;const boxes=document.querySelectorAll('#step-list .step-box'),prev=document.getElementById('step-prev'),next=document.getElementById('step-next'),prog=document.getElementById('step-prog');
+  function upd(){boxes.forEach((b,i)=>{b.classList.remove('active','done');if(i===step)b.classList.add('active');else if(i<step)b.classList.add('done');});if(prev)prev.disabled=step===0;if(next)next.disabled=step===boxes.length-1;if(prog)prog.textContent='Step '+(step+1)+' of '+boxes.length;boxes.forEach((b,i)=>{const n=b.querySelector('.step-num');if(n)n.textContent=i<step?'&#x2713;':String(i+1);});}
+  prev?.addEventListener('click',()=>{if(step>0){step--;upd();}});next?.addEventListener('click',()=>{if(step<boxes.length-1){step++;upd();}});upd();
+})();
+
+// Animated bar chart
+const rs=document.getElementById('s-results');
+if(rs)new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)document.querySelectorAll('.bar-fill[data-w]').forEach(b=>b.style.width=parseFloat(b.dataset.w)+'%');});},{threshold:.2}).observe(rs);
+</script>
+</BaseLayout>

@@ -1,0 +1,1378 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="DiffusionOPD: Multi-Task RL for Diffusion via On-Policy Distillation | AI/ML Deep Dives"
+  description="DiffusionOPD solves multi-task RL for diffusion models by training specialist teachers independently, then distilling them into one student along its own denoising trajectories — using a closed-form KL that eliminates PPO's variance."
+  crumb="DiffusionOPD"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
+.cs-line{display:block;padding:0 1.25rem}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Canvas controls */
+.canvas-controls{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center}
+.ctrl-btn{padding:.3rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ctrl-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-label{font-size:.68rem;color:var(--muted);font-family:var(--ff-mono)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion RL</span>
+    <span class="tag tag-cyan">Multi-Task Learning</span>
+    <span class="tag tag-amber">Knowledge Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>DiffusionOPD: Multi-Task Alignment via On-Policy Distillation</h1>
+  <p class="lead">Training a single diffusion model to be good at aesthetics, OCR, and compositional alignment simultaneously is hard — jointly optimizing all three causes gradient conflicts, while doing them in sequence leads to forgetting. DiffusionOPD breaks the deadlock: train specialist teachers independently, then distill all of them into one student along the student's own denoising trajectories using a variance-free closed-form KL objective.</p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.15055</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.15055v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://quanhaol.github.io/DiffusionOPD-site/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+    <a class="hero-btn" href="https://github.com/ali-vilab/DiffusionOPD" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Multi-Task Trap</a></li>
+    <li class="toc-item" id="toc-s-opd"><a href="#s-opd"><span class="toc-num">02</span> On-Policy Distillation</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Two-Stage Architecture</a></li>
+    <li class="toc-item" id="toc-s-kl"><a href="#s-kl"><span class="toc-num">04</span> Closed-Form KL Trick</a></li>
+    <li class="toc-item" id="toc-s-noise"><a href="#s-noise"><span class="toc-num">05</span> Noise Level Ablation</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ====== §01 THE PROBLEM ====== -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Multi-Task Trap</div>
+<h2>Two failed strategies for multi-task RL</h2>
+<p>RL has supercharged single-task diffusion fine-tuning. Feed in a reward signal — aesthetic score, OCR correctness, compositional faithfulness — and the model learns to maximize it. The problem: users want <em>all three at once</em>. A single generated image should look beautiful <em>and</em> render text correctly <em>and</em> place the pizza correctly to the right of the suitcase.</p>
+<p>Two natural strategies both fail in practice:</p>
+<ul>
+  <li><strong>Joint RL</strong> — optimize all rewards simultaneously. Gradient directions conflict: making images more aesthetic can degrade OCR accuracy. Harder tasks are swamped by easier ones. Convergence slows dramatically.</li>
+  <li><strong>Cascade RL</strong> — optimize tasks sequentially, one stage at a time. Works per-stage, but the model catastrophically <em>forgets</em> earlier tasks as it trains on later ones. Also the slowest strategy (148+ GPU hours for three tasks).</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gradient_conflict.canvas</span>
+    <span class="vp-hint">Click a strategy to see its failure mode</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls">
+      <button class="ctrl-btn active" id="btn-joint">Joint RL</button>
+      <button class="ctrl-btn" id="btn-cascade">Cascade RL</button>
+      <button class="ctrl-btn" id="btn-opd">DiffusionOPD</button>
+    </div>
+    <canvas id="conflict-canvas" style="width:100%;height:260px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>The canvas above shows the core tension in vector form. In <strong>Joint RL</strong>, the aesthetic gradient and OCR gradient pull the model in different directions — the net update lands somewhere suboptimal for both. In <strong>Cascade RL</strong>, the model specializes sequentially but forgets as it goes. <strong>DiffusionOPD</strong> sidesteps both problems: each teacher trains cleanly in its own domain, then the student learns from all of them simultaneously via its own denoising rollouts.</p>
+
+<h3>Real numbers on the failure modes</h3>
+<p>A specialist teacher trained only for GenEval reaches <strong>0.96</strong> GenEval score — but its OCR score drops to 0.40 and aesthetics barely moves. A specialist OCR teacher inverts the picture. You can't just pick one.</p>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>GenEval</th><th>OCR</th><th>Aesthetic</th><th>Average</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>GenEval Teacher (specialist)</td><td class="mn best">0.96</td><td class="mn">0.40</td><td class="mn">5.24</td><td class="mn">0.473</td></tr>
+    <tr><td>OCR Teacher (specialist)</td><td class="mn">0.65</td><td class="mn best">0.93</td><td class="mn">5.26</td><td class="mn">0.550</td></tr>
+    <tr><td>Aesthetics Teacher (specialist)</td><td class="mn">0.49</td><td class="mn">0.59</td><td class="mn best">6.22</td><td class="mn">0.698</td></tr>
+    <tr class="highlight-row"><td>DiffusionOPD (unified)</td><td class="mn best">0.96</td><td class="mn">0.94</td><td class="mn">6.15</td><td class="mn best">0.929</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ====== §02 OPD BACKGROUND ====== -->
+<section id="s-opd" data-code="opd">
+<div class="section-no">02 — On-Policy Distillation</div>
+<h2>What is OPD and why does it work for LLMs?</h2>
+<p>On-Policy Distillation (OPD) was developed for language models to address exactly the same tension: you want a single student model that can do multiple things well, but joint RL from scratch is chaotic. The insight is clean: <em>decouple exploration from integration</em>.</p>
+<p>OPD's recipe in three moves:</p>
+
+<div class="step-list" id="opd-steps">
+  <div class="step-box">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Student generates its own sequence</div>
+      <div class="step-desc">The student model autoregressively samples a full response from its <em>current</em> policy — not a replay buffer, not a reference model's outputs. On-policy means the student visits the states it would actually encounter at test time.</div>
+      <div class="step-code">x = ["The", "cat", "sat", ...]  # student-generated</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Teacher scores every prefix</div>
+      <div class="step-desc">At each token position t, the frozen teacher model sees the same prefix x&lt;t and outputs its full next-token distribution. The student gets dense supervision at every decoding step — not just a final reward.</div>
+      <div class="step-code">KL(student("cat|The") ‖ teacher("cat|The"))</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Minimize the sum of per-step KLs</div>
+      <div class="step-desc">The total objective is the sum of per-step reverse-KL divergences along the student's own trajectory. This is analytically differentiable — no REINFORCE, no high-variance policy gradient estimates.</div>
+      <div class="step-code">L = Σ KL(πθ(·|x&lt;t) ‖ π*(·|x&lt;t))</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="opd-prev" disabled>← Prev</button>
+  <span id="opd-prog" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 3</span>
+  <button id="opd-next">Next →</button>
+</div>
+
+<p>The key property is that the KL between discrete token distributions has a <strong>closed form</strong> — it's just a sum over the vocabulary. This lets the gradient flow directly through the loss without any Monte Carlo sampling. That's the baseline that DiffusionOPD needs to lift to continuous denoising processes.</p>
+
+<div class="math-block">
+  <div class="math-label">OPD Objective (LLM)</div>
+  L<sub>OPD</sub>(θ) = E<sub>x∼πθ</sub> [Σ<sub>t</sub> KL(πθ(·|x&lt;t) ‖ π*(·|x&lt;t))]
+  <div class="math-comment"># KL between discrete distributions → closed form, no variance</div>
+</div>
+</section>
+
+<!-- ====== §03 ARCHITECTURE ====== -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — Two-Stage Architecture</div>
+<h2>Train specialists, then distill in parallel</h2>
+<p>DiffusionOPD adapts OPD's recipe to the diffusion setting with a two-stage training paradigm that cleanly separates single-task exploration from multi-task integration.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">diffusion_opd_architecture.svg</span>
+    <span class="vp-hint">Stage 1 trains specialists; Stage 2 distills them in parallel</span>
+  </div>
+  <div class="vp-body" style="min-width:580px;overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 760 340" style="width:100%;height:auto;max-height:340px" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background -->
+      <rect width="760" height="340" fill="transparent"/>
+
+      <!-- Stage 1 label -->
+      <text x="18" y="22" font-family="monospace" font-size="10" fill="#8b5cf6" font-weight="700" letter-spacing="1">STAGE 1 — TEACHER TRAINING</text>
+
+      <!-- Pretrained model box -->
+      <rect x="18" y="34" width="100" height="44" rx="6" fill="rgba(6,182,212,0.1)" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="68" y="53" font-family="monospace" font-size="8.5" fill="#06b6d4" text-anchor="middle">SD3.5-M</text>
+      <text x="68" y="66" font-family="monospace" font-size="8" fill="#64748b" text-anchor="middle">pretrained</text>
+
+      <!-- Arrow from SD3.5 to 3 teachers -->
+      <line x1="118" y1="56" x2="145" y2="56" stroke="#334155" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- GenEval teacher -->
+      <rect x="148" y="14" width="100" height="44" rx="6" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1.2"/>
+      <text x="198" y="33" font-family="monospace" font-size="8.5" fill="#10b981" text-anchor="middle">GenEval</text>
+      <text x="198" y="46" font-family="monospace" font-size="8" fill="#64748b" text-anchor="middle">Teacher φ₁</text>
+      <line x1="118" y1="42" x2="145" y2="32" stroke="#334155" stroke-width="0.8"/>
+
+      <!-- OCR teacher -->
+      <rect x="148" y="70" width="100" height="44" rx="6" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="1.2"/>
+      <text x="198" y="89" font-family="monospace" font-size="8.5" fill="#f59e0b" text-anchor="middle">OCR</text>
+      <text x="198" y="102" font-family="monospace" font-size="8" fill="#64748b" text-anchor="middle">Teacher φ₂</text>
+      <line x1="118" y1="56" x2="145" y2="90" stroke="#334155" stroke-width="0.8"/>
+
+      <!-- Aes teacher -->
+      <rect x="148" y="126" width="100" height="44" rx="6" fill="rgba(239,68,68,0.1)" stroke="#ef4444" stroke-width="1.2"/>
+      <text x="198" y="145" font-family="monospace" font-size="8.5" fill="#ef4444" text-anchor="middle">Aesthetics</text>
+      <text x="198" y="158" font-family="monospace" font-size="8" fill="#64748b" text-anchor="middle">Teacher φ₃</text>
+      <line x1="118" y1="68" x2="145" y2="148" stroke="#334155" stroke-width="0.8"/>
+
+      <!-- Task-specific reward labels -->
+      <text x="155" y="9" font-family="monospace" font-size="7" fill="#10b981">GRPO-Guard / DiffusionNFT</text>
+      <text x="155" y="64" font-family="monospace" font-size="7" fill="#f59e0b">GRPO-Guard (LoRA, r=32)</text>
+      <text x="155" y="120" font-family="monospace" font-size="7" fill="#ef4444">GRPO-Guard (PickScore+CLIP+HPS)</text>
+
+      <!-- Dividing line -->
+      <line x1="310" y1="0" x2="310" y2="200" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+      <!-- Stage 2 label -->
+      <text x="320" y="22" font-family="monospace" font-size="10" fill="#8b5cf6" font-weight="700" letter-spacing="1">STAGE 2 — ON-POLICY DISTILLATION</text>
+
+      <!-- Student model -->
+      <rect x="320" y="34" width="110" height="44" rx="6" fill="rgba(139,92,246,0.12)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="375" y="53" font-family="monospace" font-size="8.5" fill="#a78bfa" text-anchor="middle">Student θ</text>
+      <text x="375" y="66" font-family="monospace" font-size="8" fill="#64748b" text-anchor="middle">rolls out trajectory</text>
+
+      <!-- Trajectory arrow down -->
+      <line x1="375" y1="80" x2="375" y2="108" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arrowP)"/>
+      <text x="385" y="98" font-family="monospace" font-size="7.5" fill="#64748b">&#123;x_t₀, x_t₁, … x_tN&#125;</text>
+
+      <!-- Denoising steps box -->
+      <rect x="320" y="110" width="110" height="40" rx="6" fill="rgba(139,92,246,0.06)" stroke="#334155" stroke-width="1"/>
+      <text x="375" y="127" font-family="monospace" font-size="7.5" fill="#64748b" text-anchor="middle">N denoising steps</text>
+      <text x="375" y="141" font-family="monospace" font-size="7.5" fill="#64748b" text-anchor="middle">student trajectory</text>
+
+      <!-- Arrow right to teachers -->
+      <line x1="432" y1="130" x2="460" y2="130" stroke="#334155" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- Teacher eval boxes (stage 2 side) -->
+      <rect x="462" y="100" width="95" height="28" rx="5" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-width="1"/>
+      <text x="510" y="118" font-family="monospace" font-size="7.5" fill="#10b981" text-anchor="middle">φ₁ scores trajectory</text>
+      <line x1="432" y1="120" x2="460" y2="114" stroke="#334155" stroke-width="0.7"/>
+
+      <rect x="462" y="136" width="95" height="28" rx="5" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1"/>
+      <text x="510" y="154" font-family="monospace" font-size="7.5" fill="#f59e0b" text-anchor="middle">φ₂ scores trajectory</text>
+      <line x1="432" y1="130" x2="460" y2="150" stroke="#334155" stroke-width="0.7"/>
+
+      <rect x="462" y="172" width="95" height="28" rx="5" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1"/>
+      <text x="510" y="190" font-family="monospace" font-size="7.5" fill="#ef4444" text-anchor="middle">φ₃ scores trajectory</text>
+      <line x1="432" y1="138" x2="460" y2="186" stroke="#334155" stroke-width="0.7"/>
+
+      <!-- Per-step KL losses -->
+      <line x1="558" y1="115" x2="590" y2="145" stroke="#334155" stroke-width="0.7"/>
+      <line x1="558" y1="151" x2="590" y2="151" stroke="#334155" stroke-width="0.7"/>
+      <line x1="558" y1="186" x2="590" y2="158" stroke="#334155" stroke-width="0.7"/>
+
+      <rect x="590" y="132" width="110" height="38" rx="6" fill="rgba(139,92,246,0.1)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <text x="645" y="148" font-family="monospace" font-size="7.5" fill="#a78bfa" text-anchor="middle">L_total = L₁+L₂+L₃</text>
+      <text x="645" y="163" font-family="monospace" font-size="7" fill="#64748b" text-anchor="middle">closed-form KL per step</text>
+
+      <!-- Arrow back to student -->
+      <path d="M645,133 L645,100 L375,100 L375,82" stroke="#8b5cf6" stroke-width="1" fill="none" stroke-dasharray="4,2" marker-end="url(#arrowP)"/>
+      <text x="510" y="95" font-family="monospace" font-size="7" fill="#8b5cf6" text-anchor="middle">∇θ update</text>
+
+      <!-- Round-robin note -->
+      <rect x="320" y="210" width="380" height="32" rx="6" fill="rgba(255,255,255,0.02)" stroke="#1e293b" stroke-width="1"/>
+      <text x="510" y="224" font-family="monospace" font-size="7.5" fill="#64748b" text-anchor="middle">Round-robin: accumulate all M task losses before one backward pass</text>
+      <text x="510" y="237" font-family="monospace" font-size="7.5" fill="#64748b" text-anchor="middle">gradient accumulation G = M prevents bias toward any single task</text>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#334155"/>
+        </marker>
+        <marker id="arrowP" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#8b5cf6"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<h3>Stage 1: Independent specialists</h3>
+<p>Each teacher is trained with the best-performing RL algorithm for its task. GenEval uses DiffusionNFT (fast convergence on compositional rewards). OCR and Aesthetics use GRPO-Guard. Critically, the teachers <em>never see each other's gradients</em> — there's no cross-task interference at all in Stage 1.</p>
+
+<h3>Stage 2: On-policy distillation</h3>
+<p>The student is initialized from the same pretrained SD3.5-Medium checkpoint. For each training round, it rolls out its own full 40-step denoising trajectory for a batch of prompts. All three frozen teachers evaluate this trajectory and provide per-step supervision via the closed-form KL objective. A single backward pass after accumulating all three task losses keeps each gradient update balanced.</p>
+</section>
+
+<!-- ====== §04 CLOSED-FORM KL ====== -->
+<section id="s-kl" data-code="kl">
+<div class="section-no">04 — Closed-Form KL Trick</div>
+<h2>Why diffusion KLs are just mean-matching</h2>
+<p>In discrete token generation, the per-step KL is a sum over vocabulary — trivially differentiable. For continuous diffusion denoising, this isn't obvious. DiffusionOPD's key theoretical result: <strong>the per-step KL between student and teacher reduces to a simple squared distance between their predicted velocities</strong>.</p>
+
+<p>The derivation proceeds in two steps. First: both student and teacher define Gaussian transition kernels at each denoising step — the next state is a Gaussian centered on a deterministic mean. Second: both Gaussians share <em>exactly the same covariance</em> (it depends only on the noise scheduler, not on the model's output). For two Gaussians with the same covariance:</p>
+
+<div class="math-block">
+  <div class="math-label">KL between same-covariance Gaussians</div>
+  KL(𝒩(µ₁, σ²I) ‖ 𝒩(µ₂, σ²I)) = <span class="math-var">‖µ₁ − µ₂‖²</span> / 2σ²
+  <div class="math-comment"># The covariance cancels — KL is just squared mean distance, divided by variance</div>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gaussian_kl.canvas</span>
+    <span class="vp-hint">Drag the teacher curve to see how KL changes</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="kl-canvas" style="width:100%;height:260px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.75rem">
+      <div style="display:flex;gap:1.25rem;font-size:.68rem;font-family:monospace;color:var(--muted)">
+        <span style="color:#a78bfa">■ Student µS</span>
+        <span style="color:#06b6d4">■ Teacher µT</span>
+        <span style="color:#f59e0b">■ KL = ‖µS−µT‖²/2σ²</span>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button class="ctrl-btn" id="kl-close">Move closer</button>
+        <button class="ctrl-btn" id="kl-far">Move farther</button>
+        <button class="ctrl-btn active" id="kl-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Why not use PPO here?</h3>
+<p>An alternative would be to treat the teacher as a per-step process reward model and optimize a PPO-style surrogate. The authors show that the expected gradient of the PPO objective <em>equals</em> the closed-form gradient — but PPO adds an extra stochastic term proportional to sampled Gaussian noise. For a Gaussian transition <code>aⱼ = µS + σ̄ εⱼ</code>, the score function term is <code>εⱼ/σ̄</code> times the gradient. Unbiased — but nonzero variance, and completely absent from the closed-form approach.</p>
+
+<div class="math-block">
+  <div class="math-label">PPO gradient = closed-form gradient + noise term</div>
+  ∇L<sub>PPO</sub> = <span class="math-var">∇L<sub>closed-form</sub></span> + ∆ⱼ(θ) · (εⱼ/σ̄ⱼ) · ∇θµS
+  <div class="math-comment"># The ε noise term is unbiased but adds variance — closed-form drops it entirely</div>
+</div>
+
+<p>There's a second advantage: the closed-form loss works equally well for <strong>deterministic ODE samplers</strong> (noise level = 0), where PPO has no valid policy density to compute log probabilities from. DiffusionOPD unifies both SDE and ODE sampling under one training objective.</p>
+</section>
+
+<!-- ====== §05 NOISE ABLATION ====== -->
+<section id="s-noise" data-code="noise">
+<div class="section-no">05 — Noise Level Ablation</div>
+<h2>Lower noise = faster convergence</h2>
+<p>During Stage 2 distillation, the student rolls out trajectories using a stochastic SDE sampler with a global noise level <code>a</code>. This controls how much randomness is injected at each denoising step. The authors run a careful ablation across three noise levels, measuring how quickly the student's reward score improves during training.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">noise_ablation.canvas</span>
+    <span class="vp-hint">Click a noise level to highlight its convergence curve</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls">
+      <span class="ctrl-label">SDE noise level a =</span>
+      <button class="ctrl-btn" id="btn-n07" data-noise="0.7">0.7 (SDE)</button>
+      <button class="ctrl-btn" id="btn-n04" data-noise="0.4">0.4 (SDE)</button>
+      <button class="ctrl-btn active" id="btn-n00" data-noise="0.0">0.0 (ODE)</button>
+    </div>
+    <canvas id="noise-canvas" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>The pattern is stark: <strong>ODE (noise=0) is up to 5× more sample-efficient than SDE (noise=0.7)</strong>. The intuition is that high noise during rollout makes the student's trajectory more erratic — the closed-form KL loss is still exact, but the variance of the trajectory estimates increases, slowing convergence. Reducing noise to zero (pure ODE) makes each rollout fully deterministic, giving the cleanest possible supervision signal.</p>
+
+<p>This connects naturally to the theoretical analysis: the closed-form KL objective is valid for any noise level, but the gradient <em>variance</em> due to stochastic rollouts is minimized when the trajectory itself is deterministic.</p>
+</section>
+
+<!-- ====== §06 RESULTS ====== -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>State-of-the-art on all three benchmarks</h2>
+<p>DiffusionOPD achieves the best multi-task average score (0.929) across all evaluated methods — while requiring substantially less training compute than the nearest baseline, Cascade NFT (0.851 average, 148 GPU hours vs ~97 GPU hours for DiffusionOPD).</p>
+
+<div class="results-bars">
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">SD3.5-M baseline</span>
+    <div class="bar-track"><div class="bar-fill" data-w="52.1" style="background:rgba(100,116,139,.5)"><span>0.484</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">Multi-Task NFT</span>
+    <div class="bar-track"><div class="bar-fill" data-w="77.0" style="background:rgba(100,116,139,.6)"><span>0.715</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">Multi-Task GRPO-Guard</span>
+    <div class="bar-track"><div class="bar-fill" data-w="82.2" style="background:rgba(100,116,139,.7)"><span>0.763</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">Cascade NFT (148 h)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="91.6" style="background:rgba(6,182,212,.5)"><span>0.851</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="font-weight:700;color:var(--text2)">DiffusionOPD (~97 h)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:linear-gradient(90deg,#8b5cf6,#a78bfa)"><span>0.929</span></div></div>
+  </div>
+</div>
+
+<h3>Full benchmark breakdown</h3>
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>GPU hrs</th><th>GenEval</th><th>OCR</th><th>Aesthetic</th><th>ImgRwd</th><th>Average</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SD3.5-M + CFG</td><td class="mn">—</td><td class="mn">0.63</td><td class="mn">0.59</td><td class="mn">5.36</td><td class="mn">0.85</td><td class="mn">0.484</td></tr>
+    <tr><td>Multi-Task NFT</td><td class="mn">128</td><td class="mn">0.95</td><td class="mn">0.96</td><td class="mn">5.41</td><td class="mn">1.08</td><td class="mn">0.715</td></tr>
+    <tr><td>Multi-Task GRPO-Guard</td><td class="mn">130</td><td class="mn">0.89</td><td class="mn">0.94</td><td class="mn">5.61</td><td class="mn">1.31</td><td class="mn">0.763</td></tr>
+    <tr><td>Cascade NFT</td><td class="mn">148</td><td class="mn">0.94</td><td class="mn">0.91</td><td class="mn">6.01</td><td class="mn">1.49</td><td class="mn">0.851</td></tr>
+    <tr class="highlight-row"><td><strong>DiffusionOPD (Ours)</strong></td><td class="mn">~97</td><td class="mn best">0.96</td><td class="mn">0.94</td><td class="mn best">6.15</td><td class="mn best">1.50</td><td class="mn best">0.929</td></tr>
+  </tbody>
+</table>
+
+<h3>Distillation method comparison</h3>
+<p>DiffusionOPD also outperforms alternative ways to distill from the same set of specialist teachers. The comparison is controlled: all methods receive identical teacher models and training data, and all use on-policy student rollouts except SFT (which trains on teacher-generated images).</p>
+
+<div class="results-bars" id="dist-bars">
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">SFT (teacher images)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="60" style="background:rgba(100,116,139,.5)"><span>low</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">DMD (distribution match)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="72" style="background:rgba(100,116,139,.6)"><span>mid</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="color:var(--muted)">TDM (trajectory match)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="82" style="background:rgba(100,116,139,.7)"><span>good</span></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label" style="font-weight:700;color:var(--text2)">DiffusionOPD (closed-form KL)</span>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:linear-gradient(90deg,#8b5cf6,#a78bfa)"><span>best</span></div></div>
+  </div>
+</div>
+
+<p>The closed-form OPD objective consistently reaches the highest performance ceiling fastest. SFT lags behind because it trains on teacher-generated images (off-policy), so the student never learns from the states it would actually visit. DMD and TDM use on-policy rollouts but their objectives introduce additional variance compared to direct mean-matching.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">diffusion_opd/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Multi-Task Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="opd">opd</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="kl">kl</button>
+    <button class="cs-tab" data-panel="noise">noise</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre" id="pre-problem"></pre>
+    </div>
+
+    <!-- panel: opd -->
+    <div class="cs-panel" id="panel-opd">
+      <pre class="cs-pre" id="pre-opd"></pre>
+    </div>
+
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre" id="pre-arch"></pre>
+    </div>
+
+    <!-- panel: kl -->
+    <div class="cs-panel" id="panel-kl">
+      <pre class="cs-pre" id="pre-kl"></pre>
+    </div>
+
+    <!-- panel: noise -->
+    <div class="cs-panel" id="panel-noise">
+      <pre class="cs-pre" id="pre-noise"></pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre" id="pre-results"></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Single-pass syntax highlighter ──────────────────────────────────────
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i); const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i,end)}</span>`; i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3); const triple = src.slice(i,i+3)===tq;
+      const delim = triple ? tq : ch; let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j]==='\\') { j+=2; continue; }
+        if (src.slice(j,j+delim.length)===delim) { j+=delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i,j)}</span>`; i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i+w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i===0 || !/\w/.test(src[i-1]))) {
+      out += `<span class="num">${nm[0]}</span>`; i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+function renderPanel(id, lines) {
+  const pre = document.getElementById('pre-' + id);
+  if (!pre) return;
+  pre.innerHTML = lines.map(([cls, code]) => {
+    const c = cls ? ` ${cls}` : '';
+    return `<span class="cs-line${c}">${hl(code)}</span>`;
+  }).join('\n');
+}
+
+// ─── Code panels ─────────────────────────────────────────────────────────
+const tabMeta = {
+  problem: { file: 'diffusion_opd/problem.py',   title: 'The Multi-Task Trap' },
+  opd:     { file: 'diffusion_opd/opd_llm.py',   title: 'On-Policy Distillation' },
+  arch:    { file: 'diffusion_opd/algorithm.py',  title: 'Two-Stage Architecture' },
+  kl:      { file: 'diffusion_opd/kl_math.py',   title: 'Closed-Form KL Trick' },
+  noise:   { file: 'diffusion_opd/noise.py',      title: 'Noise Level Ablation' },
+  results: { file: 'diffusion_opd/results.py',   title: 'Results & Benchmarks' },
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t =>
+  t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// Render sidebar code panels
+renderPanel('problem', [
+  ['cmt', '# Multi-task RL for diffusion: the challenge'],
+  ['',    ''],
+  ['cmt', '# Strategy 1: Joint RL — optimize all tasks simultaneously'],
+  ['hl-a','# PROBLEM: gradient conflict across tasks'],
+  ['',    'grad_aes = reward_aes.backward()   # points toward beauty'],
+  ['',    'grad_ocr = reward_ocr.backward()   # points toward text accuracy'],
+  ['',    'grad_gen = reward_gen.backward()   # points toward composition'],
+  ['hl-a','# Net update ≈ average → suboptimal for ALL tasks'],
+  ['',    'optimizer.step(grad_aes + grad_ocr + grad_gen)'],
+  ['',    ''],
+  ['cmt', '# Strategy 2: Cascade RL — optimize tasks sequentially'],
+  ['',    'train_task(model, reward=aesthetic, steps=50000)'],
+  ['',    'train_task(model, reward=ocr,       steps=50000)'],
+  ['hl-a','# PROBLEM: catastrophic forgetting'],
+  ['',    'train_task(model, reward=geneval,   steps=50000)'],
+  ['',    '# After GenEval stage: aesthetic score DEGRADES'],
+  ['',    ''],
+  ['cmt', '# DiffusionOPD benchmark numbers (Table 1)'],
+  ['cmt', '#   Multi-Task GRPO-Guard:  avg 0.763  (130 GPU hrs)'],
+  ['cmt', '#   Multi-Task NFT:         avg 0.715  (128 GPU hrs)'],
+  ['cmt', '#   Cascade NFT:            avg 0.851  (148 GPU hrs)'],
+  ['hl-g','#   DiffusionOPD:           avg 0.929  (~97 GPU hrs)'],
+]);
+
+renderPanel('opd', [
+  ['cmt', '# On-Policy Distillation (OPD) for LLMs'],
+  ['cmt', '# Decomposes sequence-level KL into per-step KLs'],
+  ['',    ''],
+  ['hl-p','# Sequence-level reverse-KL under student distribution'],
+  ['',    'def opd_loss(student, teacher, vocab):'],
+  ['',    '    x = student.sample()        # student generates its OWN sequence'],
+  ['',    '    total = 0'],
+  ['',    '    for t in range(len(x)):'],
+  ['hl-c','        # Teacher sees same prefix → gives distribution at step t'],
+  ['',    '        p_s = student.logprobs(x[:t])'],
+  ['',    '        p_t = teacher.logprobs(x[:t])'],
+  ['hl-g','        # KL between discrete distributions: sum over vocab'],
+  ['',    '        kl = sum(p_s[v] * (p_s[v] - p_t[v]) for v in vocab)'],
+  ['',    '        total += kl'],
+  ['',    '    return total'],
+  ['',    ''],
+  ['cmt', '# Key advantage: KL over finite vocab has a closed form'],
+  ['cmt', '# → backprop directly, no score-function estimator needed'],
+  ['cmt', '# → dense supervision: N tokens per sequence vs 1 reward'],
+  ['',    ''],
+  ['hl-p','# Eq. (3) from paper:'],
+  ['',    '# L_OPD = E_{x~πθ} [ Σ_t KL(πθ(·|x<t) ‖ π*(·|x<t)) ]'],
+]);
+
+renderPanel('arch', [
+  ['cmt', '# Algorithm 1: DiffusionOPD training loop'],
+  ['',    ''],
+  ['cmt', '# ── STAGE 1: Train specialist teachers independently ──'],
+  ['hl-p','for m in [GENEVAL, OCR, AESTHETICS]:'],
+  ['hl-p','    teacher[m] = train_single_task('],
+  ['hl-p','        base_model = sd35_medium,'],
+  ['hl-p','        reward     = reward_fn[m],'],
+  ['hl-p','        algorithm  = GRPO_GUARD if m != GENEVAL else DIFFUSION_NFT,'],
+  ['hl-p','        lora_rank  = 32,  alpha = 64,'],
+  ['hl-p','    )  # no cross-task gradients — completely isolated'],
+  ['',    ''],
+  ['cmt', '# ── STAGE 2: Multi-task on-policy distillation ──'],
+  ['',    'student = init_from(sd35_medium)   # fresh LoRA adapter'],
+  ['',    ''],
+  ['hl-c','for round in range(NUM_ROUNDS):'],
+  ['hl-c','    L_total = 0'],
+  ['hl-c','    for m in [GENEVAL, OCR, AESTHETICS]:'],
+  ['',    '        c = sample_prompts(dataset[m])'],
+  ['',    '        # Student rolls out its OWN N-step denoising trajectory'],
+  ['hl-g','        trajectory = student.rollout(c, steps=40)  # no_grad'],
+  ['',    '        # Teacher scores EVERY denoising step along that trajectory'],
+  ['',    '        L_m = closed_form_kl(student, teacher[m], trajectory)'],
+  ['',    '        L_total += L_m'],
+  ['',    '    # ONE backward pass after full round-robin'],
+  ['hl-a','    (L_total / M).backward()'],
+  ['hl-a','    optimizer.step()    # balanced gradient across all tasks'],
+]);
+
+renderPanel('kl', [
+  ['cmt', '# Closed-form KL for diffusion denoising transitions'],
+  ['',    ''],
+  ['cmt', '# Both student and teacher produce Gaussian one-step transitions:'],
+  ['',    '# p_S(x_{t+1} | x_t) = N(µ_S(x_t), σ̄²I)'],
+  ['',    '# p_T(x_{t+1} | x_t) = N(µ_T(x_t), σ̄²I)'],
+  ['',    ''],
+  ['cmt', '# SAME covariance σ̄²I (depends only on noise schedule, not model)'],
+  ['hl-p','# → KL reduces to squared mean distance:'],
+  ['hl-p','# KL(p_S ‖ p_T) = ‖µ_S − µ_T‖² / 2σ̄²'],
+  ['',    ''],
+  ['',    'def kl_per_step(student_vel, teacher_vel, x_t, t, dt, noise_level):'],
+  ['',    '    # Student mean transition'],
+  ['',    '    sigma_sq = noise_level**2 * t / (1 - t)'],
+  ['',    '    mu_S = (1 + sigma_sq/(2*t) * dt) * x_t \\'],
+  ['',    '         + (1 + sigma_sq*(1-t)/(2*t)) * student_vel * dt'],
+  ['',    '    # Teacher mean transition (same formula, frozen velocity)'],
+  ['',    '    mu_T = (1 + sigma_sq/(2*t) * dt) * x_t \\'],
+  ['',    '         + (1 + sigma_sq*(1-t)/(2*t)) * teacher_vel * dt'],
+  ['hl-g','    # Closed-form KL — no Monte Carlo, no score function'],
+  ['hl-g','    sigma_bar_sq = sigma_sq * (-dt)'],
+  ['hl-g','    return (mu_S - mu_T).pow(2).sum() / (2 * sigma_bar_sq)'],
+  ['',    ''],
+  ['cmt', '# PPO would add: ∆ⱼ * (εⱼ/σ̄ⱼ) * ∇µS   ← noisy, unbiased'],
+  ['cmt', '# Closed-form drops this term entirely → lower variance'],
+]);
+
+renderPanel('noise', [
+  ['cmt', '# Ablation: SDE sampler noise level during distillation'],
+  ['',    ''],
+  ['cmt', '# Training noise parameter `a` controls stochasticity:'],
+  ['',    '#   a = 0.7  → high noise SDE (slowest convergence)'],
+  ['',    '#   a = 0.4  → moderate noise SDE'],
+  ['',    '#   a = 0.0  → deterministic ODE (fastest, ~5× speedup)'],
+  ['',    ''],
+  ['hl-p','# ODE regime: noise-free Euler update'],
+  ['',    'def ode_step(x_t, velocity, dt):'],
+  ['',    '    # Deterministic → no stochastic term'],
+  ['',    '    return x_t + velocity * dt'],
+  ['',    ''],
+  ['hl-c','# SDE regime: adds Gaussian noise injection'],
+  ['',    'def sde_step(x_t, velocity, t, dt, a):'],
+  ['',    '    sigma_t = a * sqrt(t / (1 - t))'],
+  ['',    '    drift   = x_t + (velocity + sigma_t**2/(2*t)*x_t) * dt'],
+  ['hl-a','    noise   = sigma_t * sqrt(-dt) * randn_like(x_t)  # variance term'],
+  ['',    '    return drift + noise'],
+  ['',    ''],
+  ['cmt', '# Why ODE wins:'],
+  ['cmt', '# → trajectory is fully deterministic → lower rollout variance'],
+  ['cmt', '# → closed-form KL loss gets cleaner gradient signal'],
+  ['cmt', '# → L_ODE = E[Σ ||µS(θ) - µT||² / 2]  (Eq. 12 in paper)'],
+  ['hl-g','# ODE is ~5× more sample-efficient than SDE a=0.7'],
+]);
+
+renderPanel('results', [
+  ['cmt', '# Final results from Table 1 (SD3.5-Medium, 512×512)'],
+  ['',    ''],
+  ['cmt', '# Multi-task RL baselines'],
+  ['',    'baselines = {'],
+  ['',    '    "SD3.5-M+CFG":          {"avg": 0.484, "hours": None},'],
+  ['',    '    "Multi-Task GRPO-Guard": {"avg": 0.763, "hours": 130},'],
+  ['',    '    "Multi-Task NFT":        {"avg": 0.715, "hours": 128},'],
+  ['',    '    "Cascade NFT":           {"avg": 0.851, "hours": 148},'],
+  ['hl-g','    "DiffusionOPD (ours)":   {"avg": 0.929, "hours": 97},'],
+  ['',    '}'],
+  ['',    ''],
+  ['cmt', '# Per-task scores for DiffusionOPD vs best baseline'],
+  ['',    'scores = {'],
+  ['',    '    "GenEval":   {"DiffusionOPD": 0.96, "CascadeNFT": 0.94},'],
+  ['',    '    "OCR":       {"DiffusionOPD": 0.94, "CascadeNFT": 0.91},'],
+  ['',    '    "Aesthetic": {"DiffusionOPD": 6.15, "CascadeNFT": 6.01},'],
+  ['',    '    "ImgRwd":    {"DiffusionOPD": 1.50, "CascadeNFT": 1.49},'],
+  ['',    '}'],
+  ['',    ''],
+  ['cmt', '# Distillation ablation (same teachers, same student rollouts)'],
+  ['',    'distill_methods = {'],
+  ['',    '    "SFT (offline teacher images)": "lowest",'],
+  ['',    '    "DMD (distribution match)":     "mid",'],
+  ['',    '    "TDM (trajectory match)":       "good",'],
+  ['hl-g','    "DiffusionOPD (closed-form KL)":"best",'],
+  ['',    '}'],
+]);
+
+// ─── IntersectionObserver — sync TOC + sidebar ────────────────────────────
+const sectionMap = {
+  's-problem': 'problem',
+  's-opd':     'opd',
+  's-arch':    'arch',
+  's-kl':      'kl',
+  's-noise':   'noise',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── OPD Step navigator ───────────────────────────────────────────────────
+let opdStep = 0;
+const opdBoxes = document.querySelectorAll('#opd-steps .step-box');
+const opdPrev  = document.getElementById('opd-prev');
+const opdNext  = document.getElementById('opd-next');
+const opdProg  = document.getElementById('opd-prog');
+function updateOpdSteps() {
+  opdBoxes.forEach((b,i) => {
+    b.classList.remove('active','done');
+    if (i === opdStep) b.classList.add('active');
+    else if (i < opdStep) b.classList.add('done');
+  });
+  if (opdPrev) opdPrev.disabled = opdStep === 0;
+  if (opdNext) opdNext.disabled = opdStep === opdBoxes.length - 1;
+  if (opdProg) opdProg.textContent = `Step ${opdStep+1} of ${opdBoxes.length}`;
+  opdBoxes.forEach((b,i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < opdStep ? '✓' : String(i+1);
+  });
+}
+opdPrev?.addEventListener('click', () => { if (opdStep>0){opdStep--;updateOpdSteps();} });
+opdNext?.addEventListener('click', () => { if (opdStep<opdBoxes.length-1){opdStep++;updateOpdSteps();} });
+updateOpdSteps();
+
+// ─── Canvas: Gradient Conflict ────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('conflict-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawConflict(mode);
+  }
+
+  let mode = 'joint';
+
+  function arrow(x1, y1, x2, y2, color, label, labelPos) {
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const ux = dx/len, uy = dy/len;
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    // arrowhead
+    const hs = 10;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs*ux + hs*0.4*uy, y2 - hs*uy - hs*0.4*ux);
+    ctx.lineTo(x2 - hs*ux - hs*0.4*uy, y2 - hs*uy + hs*0.4*ux);
+    ctx.closePath(); ctx.fill();
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(label, labelPos ? labelPos[0] : x2+6, labelPos ? labelPos[1] : y2-6);
+    }
+  }
+
+  function drawConflict(m) {
+    ctx.clearRect(0,0,W,H);
+    // background grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+    for (let x=0; x<=W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=0; y<=H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    const cx = W * 0.22, cy = H * 0.5;
+
+    if (m === 'joint') {
+      // Two conflicting gradient arrows
+      arrow(cx, cy, cx+95, cy-80, '#10b981', 'Aesthetic gradient', [cx+98, cy-86]);
+      arrow(cx, cy, cx+70, cy+90, '#f59e0b', 'OCR gradient', [cx+73, cy+103]);
+      // Net update (average)
+      arrow(cx, cy, cx+90, cy+8, '#ef4444', 'Joint update (suboptimal)', [cx+92, cy+4]);
+      // Explanation
+      ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(100,116,139,0.9)';
+      ctx.fillText('Gradients conflict → net update', cx+2, cy-100);
+      ctx.fillText('satisfies neither task fully', cx+2, cy-86);
+      // origin dot
+      ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fill();
+
+    } else if (m === 'cascade') {
+      // Timeline: sequential stages with forgetting
+      const y1 = H*0.3, y2 = H*0.65;
+      const stages = [
+        { x: W*0.1, w: W*0.22, label: 'Stage 1: Aesthetic', color: '#ef4444' },
+        { x: W*0.36, w: W*0.22, label: 'Stage 2: OCR', color: '#f59e0b' },
+        { x: W*0.62, w: W*0.22, label: 'Stage 3: GenEval', color: '#10b981' },
+      ];
+      stages.forEach((s,i) => {
+        ctx.fillStyle = s.color.replace(')', ',0.15)').replace('rgb','rgba');
+        ctx.strokeStyle = s.color; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.roundRect(s.x, y1-20, s.w, 50, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = s.color; ctx.font = 'bold 10px monospace';
+        ctx.fillText(s.label, s.x+6, y1+6);
+        // connecting arrows
+        if (i < stages.length-1) {
+          arrow(s.x+s.w, y1+5, stages[i+1].x-2, y1+5, '#334155', '', null);
+        }
+      });
+      // Score curves below
+      ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(239,68,68,0.8)';
+      ctx.fillText('Aesthetic score', W*0.05, y2-22);
+      // Aesthetic: goes up then drops on stage 2+3
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(W*0.1, y2-2);
+      ctx.bezierCurveTo(W*0.22, y2-45, W*0.34, y2-45, W*0.38, y2-30);
+      ctx.bezierCurveTo(W*0.5, y2-5, W*0.62, y2-2, W*0.86, y2-2); ctx.stroke();
+      // OCR: starts low, rises in stage 2, then drops a bit
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(W*0.1, y2-0);
+      ctx.bezierCurveTo(W*0.24, y2-2, W*0.34, y2-2, W*0.38, y2-8);
+      ctx.bezierCurveTo(W*0.5, y2-50, W*0.58, y2-48, W*0.62, y2-30);
+      ctx.bezierCurveTo(W*0.72, y2-10, W*0.86, y2-12, W*0.86, y2-10); ctx.stroke();
+      ctx.fillStyle = 'rgba(245,158,11,0.8)'; ctx.fillText('OCR score', W*0.05, y2+2);
+      // Forgetting label
+      ctx.fillStyle = '#ef4444'; ctx.font = '10px monospace';
+      ctx.fillText('← forgetting', W*0.65, y2-22);
+
+    } else { // opd
+      // Teacher icons — cleanly separate
+      const teachers = [
+        { x: W*0.1, y: H*0.22, color: '#10b981', label: 'GenEval\nTeacher', score: '0.96' },
+        { x: W*0.1, y: H*0.5,  color: '#f59e0b', label: 'OCR\nTeacher', score: '0.93' },
+        { x: W*0.1, y: H*0.78, color: '#ef4444', label: 'Aes\nTeacher', score: '1.50' },
+      ];
+      teachers.forEach(t => {
+        ctx.fillStyle = t.color.replace(')', ',0.12)').replace('rgb','rgba');
+        ctx.strokeStyle = t.color; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.roundRect(t.x, t.y-20, 90, 38, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = t.color; ctx.font = '10px monospace';
+        t.label.split('\n').forEach((l,i) => ctx.fillText(l, t.x+5, t.y-4+i*14));
+      });
+      // Student rollout in center
+      const sx = W*0.45, sy = H*0.5;
+      ctx.fillStyle = 'rgba(139,92,246,0.12)';
+      ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(sx-52, sy-30, 104, 58, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('Student θ', sx, sy-10);
+      ctx.fillStyle = '#64748b'; ctx.font = '9px monospace';
+      ctx.fillText('on-policy rollout', sx, sy+5);
+      ctx.fillText('40 denoising steps', sx, sy+18);
+      ctx.textAlign = 'left';
+      // Arrows from teachers to student
+      teachers.forEach(t => {
+        const ty = t.y;
+        arrow(t.x+90, ty, sx-53, sy, t.color, '', null);
+      });
+      // Unified output
+      ctx.fillStyle = 'rgba(139,92,246,0.12)';
+      ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 1.5;
+      const ox = W*0.75;
+      ctx.beginPath(); ctx.roundRect(ox, sy-22, 110, 42, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 10px monospace'; ctx.textAlign='center';
+      ctx.fillText('Unified Model', ox+55, sy);
+      ctx.fillStyle = '#10b981'; ctx.font = '10px monospace';
+      ctx.fillText('avg 0.929 ✓', ox+55, sy+14);
+      ctx.textAlign = 'left';
+      arrow(sx+52, sy, ox-2, sy, '#8b5cf6', '', null);
+    }
+  }
+
+  const btnJoint   = document.getElementById('btn-joint');
+  const btnCascade = document.getElementById('btn-cascade');
+  const btnOpd     = document.getElementById('btn-opd');
+
+  function setMode(m) {
+    mode = m;
+    [btnJoint, btnCascade, btnOpd].forEach(b => b.classList.remove('active'));
+    if (m==='joint') btnJoint.classList.add('active');
+    else if (m==='cascade') btnCascade.classList.add('active');
+    else btnOpd.classList.add('active');
+    drawConflict(m);
+  }
+  btnJoint?.addEventListener('click',   () => setMode('joint'));
+  btnCascade?.addEventListener('click', () => setMode('cascade'));
+  btnOpd?.addEventListener('click',     () => setMode('opd'));
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ─── Canvas: Gaussian KL ─────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('kl-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+  // Offset of teacher relative to student (in "units")
+  let teacherOffset = 0;  // starts at 0 offset for reset
+  let targetOffset  = 0;
+
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawKL();
+  }
+
+  function gaussian(x, mu, sigma) {
+    return Math.exp(-0.5*((x-mu)/sigma)**2) / (sigma * Math.sqrt(2*Math.PI));
+  }
+
+  function drawKL() {
+    ctx.clearRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+    for (let y=0; y<=H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    const baseline = H * 0.78;
+    const scaleX = W / 6.0;       // x: -3 to +3 in "sigma units"
+    const scaleY = H * 0.48;
+
+    function toCanvasX(x) { return W/2 + x * scaleX * 0.7; }
+    function toCanvasY(y) { return baseline - y * scaleY; }
+
+    const sigma = 0.8;
+    const muS = 0;           // student mean fixed at center
+    const muT = 0.9 + teacherOffset * 1.2; // teacher mean moves
+
+    // Draw baseline
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, baseline); ctx.lineTo(W, baseline); ctx.stroke();
+
+    // Shaded KL region between curves
+    ctx.fillStyle = 'rgba(245,158,11,0.08)';
+    ctx.beginPath();
+    let first = true;
+    for (let xi = -3.5; xi <= 3.5; xi += 0.05) {
+      const gS = gaussian(xi, muS, sigma);
+      const gT = gaussian(xi, muT, sigma);
+      const cy = toCanvasY(Math.max(gS, gT));
+      if (first) { ctx.moveTo(toCanvasX(xi), cy); first = false; }
+      else ctx.lineTo(toCanvasX(xi), cy);
+    }
+    for (let xi = 3.5; xi >= -3.5; xi -= 0.05) {
+      const gS = gaussian(xi, muS, sigma);
+      const gT = gaussian(xi, muT, sigma);
+      const cy = toCanvasY(Math.min(gS, gT));
+      ctx.lineTo(toCanvasX(xi), cy);
+    }
+    ctx.closePath(); ctx.fill();
+
+    // Student curve (purple)
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); first = true;
+    for (let xi = -3.5; xi <= 3.5; xi += 0.04) {
+      const cy = toCanvasY(gaussian(xi, muS, sigma));
+      if (first) { ctx.moveTo(toCanvasX(xi), cy); first = false; }
+      else ctx.lineTo(toCanvasX(xi), cy);
+    }
+    ctx.stroke();
+
+    // Teacher curve (cyan)
+    ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); first = true;
+    for (let xi = -3.5; xi <= 3.5; xi += 0.04) {
+      const cy = toCanvasY(gaussian(xi, muT, sigma));
+      if (first) { ctx.moveTo(toCanvasX(xi), cy); first = false; }
+      else ctx.lineTo(toCanvasX(xi), cy);
+    }
+    ctx.stroke();
+
+    // Vertical lines at means
+    ctx.setLineDash([4,3]);
+    ctx.strokeStyle = 'rgba(167,139,250,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(toCanvasX(muS), baseline+5);
+    ctx.lineTo(toCanvasX(muS), toCanvasY(gaussian(muS, muS, sigma))-5); ctx.stroke();
+    ctx.strokeStyle = 'rgba(6,182,212,0.5)';
+    ctx.beginPath(); ctx.moveTo(toCanvasX(muT), baseline+5);
+    ctx.lineTo(toCanvasX(muT), toCanvasY(gaussian(muT, muT, sigma))-5); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Distance bracket
+    const yBracket = baseline + 18;
+    const xS = toCanvasX(muS), xT = toCanvasX(muT);
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(xS, yBracket); ctx.lineTo(xT, yBracket); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xS, yBracket-4); ctx.lineTo(xS, yBracket+4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xT, yBracket-4); ctx.lineTo(xT, yBracket+4); ctx.stroke();
+
+    const kl = (muS - muT)**2 / (2 * sigma**2);
+    const mx = (xS + xT) / 2;
+    ctx.fillStyle = '#f59e0b'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(`‖µS − µT‖ = ${Math.abs(muS-muT).toFixed(2)}σ`, mx, yBracket+18);
+    ctx.fillText(`KL = ${kl.toFixed(3)}`, mx, yBracket+34);
+    ctx.textAlign = 'left';
+
+    // Labels
+    ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 11px monospace';
+    ctx.fillText('µS (student)', toCanvasX(muS)+5, toCanvasY(gaussian(muS,muS,sigma))-8);
+    ctx.fillStyle = '#06b6d4';
+    const tLabelX = muT > 1 ? toCanvasX(muT)-75 : toCanvasX(muT)+5;
+    ctx.fillText('µT (teacher)', tLabelX, toCanvasY(gaussian(muT,muT,sigma))-8);
+
+    // Sigma label
+    ctx.fillStyle = 'rgba(100,116,139,0.8)'; ctx.font = '10px monospace';
+    ctx.fillText('same σ (covariance) →', W*0.02, H*0.12);
+    ctx.fillText('KL has closed form', W*0.02, H*0.12+15);
+  }
+
+  let animId = null;
+  function animateTo(target) {
+    if (animId) cancelAnimationFrame(animId);
+    const start = teacherOffset;
+    const startT = performance.now();
+    const dur = 500;
+    function tick(now) {
+      const t = Math.min((now - startT)/dur, 1);
+      const ease = 1 - (1-t)**3;
+      teacherOffset = start + (target - start) * ease;
+      drawKL();
+      if (t < 1) animId = requestAnimationFrame(tick);
+    }
+    animId = requestAnimationFrame(tick);
+  }
+
+  document.getElementById('kl-close')?.addEventListener('click', () => animateTo(-0.6));
+  document.getElementById('kl-far')?.addEventListener('click',   () => animateTo(0.8));
+  document.getElementById('kl-reset')?.addEventListener('click', () => animateTo(0));
+
+  resize();
+  window.addEventListener('resize', () => { if (animId) cancelAnimationFrame(animId); resize(); });
+})();
+
+// ─── Canvas: Noise Level Ablation ─────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('noise-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  // Convergence curves: (x=0..1 training progress, y=normalized score 0..1)
+  // Based on paper Figure 6 qualitative shape: ODE fastest, a=0.7 slowest
+  function curve07(t) { // SDE a=0.7 — slow ramp
+    return 0.72 * (1 - Math.exp(-1.5*t)) + 0.02*t;
+  }
+  function curve04(t) { // SDE a=0.4 — medium
+    return 0.82 * (1 - Math.exp(-2.2*t)) + 0.02*t;
+  }
+  function curveODE(t) { // ODE a=0 — fast (~5x steps to reach same score)
+    return 0.93 * (1 - Math.exp(-6.0*t)) + 0.01*t;
+  }
+
+  const curves = [
+    { id: 'btn-n07', fn: curve07, color: '#ef4444', label: 'SDE a=0.7', active: false },
+    { id: 'btn-n04', fn: curve04, color: '#f59e0b', label: 'SDE a=0.4', active: false },
+    { id: 'btn-n00', fn: curveODE, color: '#10b981', label: 'ODE a=0',  active: true  },
+  ];
+
+  let highlighted = 'btn-n00';
+
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawNoise();
+  }
+
+  function drawNoise() {
+    ctx.clearRect(0,0,W,H);
+    const pad = { l:52, r:20, t:20, b:42 };
+    const gW = W - pad.l - pad.r, gH = H - pad.t - pad.b;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+    for (let i=0; i<=4; i++) {
+      const y = pad.t + gH * (1 - i/4);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(100,116,139,0.7)'; ctx.font = '9px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText((i/4 * 0.93).toFixed(2), pad.l-6, y+3);
+    }
+    for (let i=0; i<=5; i++) {
+      const x = pad.l + gW * i/5;
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t+gH); ctx.stroke();
+    }
+    ctx.textAlign = 'left';
+
+    // Axes labels
+    ctx.fillStyle = 'rgba(100,116,139,0.8)'; ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Training Progress →', pad.l + gW/2, H-4);
+    ctx.save(); ctx.translate(13, pad.t + gH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('Avg Reward Score', 0, 0); ctx.restore();
+    ctx.textAlign = 'left';
+
+    // Draw all curves
+    curves.forEach(c => {
+      const isActive = c.id === highlighted;
+      ctx.globalAlpha = isActive ? 1 : 0.2;
+      ctx.strokeStyle = c.color;
+      ctx.lineWidth = isActive ? 2.8 : 1.5;
+      ctx.beginPath();
+      let first = true;
+      for (let ti=0; ti<=100; ti++) {
+        const t = ti/100;
+        const v = c.fn(t);
+        const cx = pad.l + gW*t;
+        const cy = pad.t + gH*(1-v);
+        if (first) { ctx.moveTo(cx,cy); first=false; }
+        else ctx.lineTo(cx,cy);
+      }
+      ctx.stroke();
+      // end label
+      if (isActive) {
+        const endV = c.fn(1.0);
+        const endX = pad.l + gW;
+        const endY = pad.t + gH*(1-endV);
+        ctx.fillStyle = c.color; ctx.font = 'bold 10px monospace';
+        ctx.fillText(c.label, endX - 65, endY - 8);
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Speedup annotation for ODE
+    if (highlighted === 'btn-n00') {
+      // Find x where ODE reaches 0.65 vs where a=0.7 reaches 0.65
+      const targetScore = 0.65;
+      let xODE = 0, x07 = 0;
+      for (let ti=0; ti<=100; ti++) {
+        if (xODE===0 && curveODE(ti/100) >= targetScore) xODE = ti/100;
+        if (x07===0  && curve07(ti/100)  >= targetScore) x07  = ti/100;
+      }
+      const pODE = pad.l + gW*xODE, p07  = pad.l + gW*x07;
+      const yLine = pad.t + gH*(1-targetScore);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pad.l, yLine); ctx.lineTo(W-pad.r, yLine); ctx.stroke();
+      ctx.setLineDash([]);
+      // bracket
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pODE, yLine-12); ctx.lineTo(p07, yLine-12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pODE, yLine-8); ctx.lineTo(pODE, yLine-16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p07, yLine-8); ctx.lineTo(p07, yLine-16); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '10px monospace'; ctx.textAlign='center';
+      ctx.fillText('~5× faster', (pODE+p07)/2, yLine-20);
+      ctx.textAlign='left';
+    }
+  }
+
+  curves.forEach(c => {
+    document.getElementById(c.id)?.addEventListener('click', () => {
+      highlighted = c.id;
+      curves.forEach(cc => document.getElementById(cc.id)?.classList.toggle('active', cc.id===c.id));
+      drawNoise();
+    });
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ─── Animated bar charts ──────────────────────────────────────────────────
+const barSections = [
+  document.getElementById('s-results'),
+  document.getElementById('dist-bars'),
+];
+barSections.forEach(el => {
+  if (!el) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.currentTarget.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(el);
+});
+</script>
+</BaseLayout>
