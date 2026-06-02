@@ -17,6 +17,11 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
   <meta name="description" content={description} />
   <title>{title}</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AI/ML Deep Dives" />
+  <meta name="theme-color" content="#09090f" />
   <script is:inline>
     (function(){var t=localStorage.getItem('heji-theme')||'dark';document.documentElement.dataset.theme=t;})();
   </script>
@@ -36,15 +41,57 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     <a class="nav-link" href="/" data-i18n="nav-posts">Posts</a>
     <a class="nav-link" href="/about" data-i18n="nav-about">About</a>
     <a class="nav-link nav-subscribe" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
+    <button class="nav-link nav-suggest" id="suggest-btn" data-i18n="nav-suggest">Suggest Topic</button>
     <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">
       <svg id="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       <svg id="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
     <button class="btn-icon" id="lang-toggle" aria-label="Toggle language">中</button>
+    <button class="btn-icon nav-menu-btn" id="menu-toggle" aria-label="Open navigation" aria-expanded="false">
+      <svg id="icon-menu" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg id="icon-menu-close" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   </div>
 </nav>
 
+<div id="mobile-menu" class="mobile-menu" aria-hidden="true">
+  <a class="mobile-menu-link" href="/" data-i18n="nav-posts">Posts</a>
+  <a class="mobile-menu-link" href="/about" data-i18n="nav-about">About</a>
+  <a class="mobile-menu-link" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
+  <button class="mobile-menu-link mobile-menu-suggest" id="suggest-btn-mobile" data-i18n="nav-suggest">Suggest Topic</button>
+</div>
+
 <div id="read-progress"></div>
+
+<div id="suggest-modal" class="modal-backdrop" aria-hidden="true" role="presentation">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 id="modal-title" data-i18n="modal-title">Suggest a Topic</h2>
+      <button class="btn-icon modal-close" id="suggest-close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p class="modal-desc" data-i18n="modal-desc">Have an AI/ML paper or topic you'd like to see covered? Drop it here.</p>
+    <form id="suggest-form" novalidate>
+      <div class="form-group">
+        <label for="suggest-topic" data-i18n="modal-label-topic">Topic or paper</label>
+        <input type="text" id="suggest-topic" name="topic" required autocomplete="off"
+          placeholder="e.g. Flash Attention 3, Mamba SSM, ..." />
+      </div>
+      <div class="form-group">
+        <label for="suggest-email" data-i18n="modal-label-email">Your email <span class="optional" data-i18n="modal-optional">(optional)</span></label>
+        <input type="email" id="suggest-email" name="email" placeholder="you@example.com" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="suggest-submit">
+        <span data-i18n="modal-submit">Submit suggestion</span>
+      </button>
+    </form>
+    <p id="suggest-success" class="suggest-feedback suggest-success" style="display:none" data-i18n="modal-success">
+      Thanks! Your suggestion has been received.
+    </p>
+    <p id="suggest-error" class="suggest-feedback suggest-error" style="display:none"></p>
+  </div>
+</div>
 
 <slot />
 
@@ -92,6 +139,7 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       'nav-posts':    'Posts',
       'nav-about':    'About',
       'nav-subscribe': 'Subscribe',
+      'nav-suggest':  'Suggest Topic',
       'hero-eyebrow': 'Personal Research Blog',
       'hero-title':   'Exploring the frontier of AI & ML',
       'hero-desc':    'Deep dives into research papers, model architectures, and open-source implementations — with interactive visualizations and annotated source code.',
@@ -99,12 +147,20 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       'post-badge':   '★ Latest',
       'post-read':    '~15 min read',
       'blog-footer':  'Built with curiosity. Source on GitHub.',
+      'modal-title':  'Suggest a Topic',
+      'modal-desc':   'Have an AI/ML paper or topic you\'d like to see covered? Drop it here.',
+      'modal-label-topic': 'Topic or paper',
+      'modal-label-email': 'Your email',
+      'modal-optional': '(optional)',
+      'modal-submit': 'Submit suggestion',
+      'modal-success': 'Thanks! Your suggestion has been received.',
     },
     zh: {
       'nav-brand':    'AI/ML 深度解析',
       'nav-posts':    '文章',
       'nav-about':    '关于',
       'nav-subscribe': '订阅',
+      'nav-suggest':  '建议主题',
       'hero-eyebrow': '个人研究博客',
       'hero-title':   '探索 AI & ML 的前沿',
       'hero-desc':    '深入解析研究论文、模型架构与开源实现——配合交互式可视化和注释源码。',
@@ -112,6 +168,13 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       'post-badge':   '★ 最新',
       'post-read':    '~15 分钟阅读',
       'blog-footer':  '用好奇心构建，代码开源于 GitHub。',
+      'modal-title':  '建议主题',
+      'modal-desc':   '有想看的 AI/ML 论文或话题？欢迎提交建议。',
+      'modal-label-topic': '主题或论文',
+      'modal-label-email': '你的邮箱',
+      'modal-optional': '（可选）',
+      'modal-submit': '提交建议',
+      'modal-success': '感谢！你的建议已收到。',
     },
   };
 
@@ -145,6 +208,97 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
   });
   document.getElementById('lang-toggle')?.addEventListener('click', () => {
     applyLang((localStorage.getItem(LANG_KEY) || 'en') === 'en' ? 'zh' : 'en');
+  });
+
+  // ── Mobile hamburger menu ──────────────────────────────────
+  const menuToggle  = document.getElementById('menu-toggle');
+  const mobileMenu  = document.getElementById('mobile-menu');
+  const iconMenu    = document.getElementById('icon-menu');
+  const iconMenuClose = document.getElementById('icon-menu-close');
+
+  function closeMobileMenu() {
+    mobileMenu?.setAttribute('aria-hidden', 'true');
+    mobileMenu?.classList.remove('is-open');
+    menuToggle?.setAttribute('aria-expanded', 'false');
+    if (iconMenu)      (iconMenu as HTMLElement).style.display = '';
+    if (iconMenuClose) (iconMenuClose as HTMLElement).style.display = 'none';
+  }
+
+  menuToggle?.addEventListener('click', () => {
+    const isOpen = mobileMenu?.classList.contains('is-open');
+    if (isOpen) {
+      closeMobileMenu();
+    } else {
+      mobileMenu?.setAttribute('aria-hidden', 'false');
+      mobileMenu?.classList.add('is-open');
+      menuToggle.setAttribute('aria-expanded', 'true');
+      if (iconMenu)      (iconMenu as HTMLElement).style.display = 'none';
+      if (iconMenuClose) (iconMenuClose as HTMLElement).style.display = '';
+    }
+  });
+
+  // Close menu on link click or when navigating away
+  mobileMenu?.querySelectorAll('.mobile-menu-link').forEach(link => {
+    link.addEventListener('click', closeMobileMenu);
+  });
+</script>
+
+<script>
+  import { db } from '../lib/firebase';
+  import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+  const modal    = document.getElementById('suggest-modal')!;
+  const form     = document.getElementById('suggest-form') as HTMLFormElement;
+  const success  = document.getElementById('suggest-success')!;
+  const errorEl  = document.getElementById('suggest-error')!;
+  const submitBtn = document.getElementById('suggest-submit') as HTMLButtonElement;
+
+  function openModal() {
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    (document.getElementById('suggest-topic') as HTMLInputElement)?.focus();
+  }
+
+  function closeModal() {
+    modal.setAttribute('aria-hidden', 'true');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    form.reset();
+    form.style.display = '';
+    success.style.display = 'none';
+    errorEl.style.display = 'none';
+  }
+
+  document.getElementById('suggest-btn')?.addEventListener('click', openModal);
+  document.getElementById('suggest-btn-mobile')?.addEventListener('click', openModal);
+  document.getElementById('suggest-close')?.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const topic = (document.getElementById('suggest-topic') as HTMLInputElement).value.trim();
+    const email = (document.getElementById('suggest-email') as HTMLInputElement).value.trim();
+    if (!topic) return;
+
+    submitBtn.disabled = true;
+    errorEl.style.display = 'none';
+
+    try {
+      await addDoc(collection(db, 'topic-suggestions'), {
+        topic,
+        ...(email ? { email } : {}),
+        createdAt: serverTimestamp(),
+      });
+      form.style.display = 'none';
+      success.style.display = '';
+    } catch (err) {
+      errorEl.textContent = 'Something went wrong. Please try again.';
+      errorEl.style.display = '';
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 </script>
 
