@@ -350,8 +350,17 @@ Copy these blocks verbatim — they are battle-tested and consistent across all 
 .cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .cs-panel{display:none}
 .cs-panel.active{display:block}
-.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.75;padding:.875rem 0;color:#abb2bf;white-space:pre}
-.cs-line{display:block;padding:0 1.25rem}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+/* ⚠️ STYLE RULES for .cs-pre / .cs-line — do NOT change these:
+   1. .cs-pre must use white-space:normal (NOT white-space:pre).
+      Each code line is a <span class="cs-line"> with display:block. Because the Astro
+      template puts a real \n between each </span> and the next <span>, using white-space:pre
+      on the <pre> container renders those newlines as blank lines between every code line.
+      white-space:normal collapses them so lines appear continuous.
+   2. .cs-line must use white-space:pre so that leading spaces (indentation) inside each
+      span are preserved — without it all indentation collapses.
+   3. line-height MUST stay at 1.5 — never use 1.75 (that is the body prose value). */
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
 .cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
 .cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
 .cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
@@ -619,6 +628,13 @@ if (barsSection) {
 
 5. **`page.$$` in Playwright** — Shell interpolation eats `$$`. Write screenshot scripts to a `.js` file and run with `node`.
 
+6. **`white-space` on `.cs-pre` / `.cs-line`** — The Astro template puts a literal `\n` between every `</span><span class="cs-line">`. If `.cs-pre` uses `white-space:pre` (or inherits it from the `<pre>` UA stylesheet), those newlines render as blank lines between every code line. The required values are:
+   ```css
+   .cs-pre  { white-space: normal }  /* collapse inter-span \n */
+   .cs-line { white-space: pre    }  /* preserve indentation within each line */
+   ```
+   Copy these exactly from the CSS pattern block — do NOT change them.
+
 ---
 
 ## Phase 5 — Add index entry
@@ -658,6 +674,7 @@ cd apps/blog && npm run build 2>&1 | tail -20
 
 **Visual bugs to catch during spot-check:**
 - Sidebar code shows raw `class=` text or nested `<span class="str">"cmt"</span>` fragments → the `hl()` function uses sequential regexes that re-scan their own output. Replace with the single-pass tokenizer in the "Syntax highlighter" snippet above.
+- **Sidebar code has a blank line between every code line** → `.cs-pre` has `white-space:pre` instead of `white-space:normal`, or `.cs-line` is missing `white-space:pre`. The Astro template puts a real `\n` between each `</span>` and the next `<span class="cs-line">`. With `white-space:pre` on the `<pre>` container those newlines render as blank lines. Fix: `.cs-pre` must use `white-space:normal`; `.cs-line` must use `white-space:pre` (to preserve indentation inside each line).
 
 After a clean build, optionally do a quick visual spot-check:
 ```bash
@@ -690,6 +707,7 @@ pkill -f "astro dev"
 - [ ] Build passes (`npm run build` exits 0)
 - [ ] Code sidebar has one tab per section with relevant pseudocode/results
 - [ ] TOC has one entry per section, IntersectionObserver wires sync
+- [ ] `.cs-pre` uses `white-space:normal` and `.cs-line` uses `white-space:pre` — **grep to confirm:** `grep "cs-pre{" index.astro` must show `white-space:normal`; `grep "cs-line{" index.astro` must show `white-space:pre`
 
 **Index**
 - [ ] Index entry added with `★ Latest` badge, previous post's badge removed

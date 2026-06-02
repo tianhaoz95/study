@@ -1,0 +1,1381 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="MLA: How DeepSeek Shrinks KV Cache by 93% Without Losing Quality | AI/ML Deep Dives"
+  description="Multi-head Latent Attention compresses the KV cache into a tiny latent vector — 576 floats instead of 32,768 — by absorbing projection matrices into one another and decoupling positional encoding. DeepSeek-V2 achieves 5.76× faster generation as a result."
+  crumb="MLA Attention"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ───────────────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ────────────────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.canvas-wrap{width:100%}
+.canvas-wrap canvas{display:block;width:100%}
+.canvas-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.875rem}
+.canvas-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Callouts ──────────────────────────────────────────────────────── */
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--text2)}
+.callout-idea{background:rgba(6,182,212,.04);border:1px solid rgba(6,182,212,.2);border-left:3px solid var(--cyan);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-idea strong{color:var(--cyan)}
+.callout-green{background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.2);border-left:3px solid var(--green);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-green strong{color:var(--green)}
+.callout-amber{background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--amber);border-radius:6px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout-amber strong{color:var(--amber)}
+
+/* ── Math blocks ───────────────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results table ─────────────────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l);font-weight:700}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Animated bars ─────────────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:.875rem 0 .375rem;font-family:var(--ff-mono)}
+
+/* ── Step navigator ────────────────────────────────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* ── Architecture SVG ──────────────────────────────────────────────── */
+.arch-svg-wrap{width:100%;overflow-x:auto;padding:.5rem 0}
+.arch-svg-wrap svg{min-width:580px;display:block;margin:0 auto}
+
+/* ── TOC sidebar ───────────────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ──────────────────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ── MLA-specific ──────────────────────────────────────────────────── */
+.cache-comparison{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin:1.5rem 0}
+.cache-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.875rem;text-align:center;transition:all .25s}
+.cache-card.highlight{border-color:var(--purple);background:var(--purple-dim)}
+.cache-card .cc-name{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.5rem}
+.cache-card .cc-size{font-size:1.4rem;font-weight:800;font-family:var(--ff-mono);line-height:1;margin-bottom:.25rem}
+.cache-card .cc-desc{font-size:.65rem;color:var(--muted);line-height:1.4}
+.cache-card .cc-verdict{font-size:.65rem;font-weight:600;margin-top:.4rem;font-family:var(--ff-mono)}
+@media(max-width:680px){.cache-comparison{grid-template-columns:repeat(2,1fr)}}
+
+.seq-slider-wrap{display:flex;align-items:center;gap:1rem;margin-top:.875rem;flex-wrap:wrap}
+.seq-slider-wrap label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);flex-shrink:0}
+.seq-slider-wrap input[type=range]{flex:1;min-width:120px;accent-color:var(--purple)}
+.seq-slider-wrap .seq-val{font-size:.78rem;font-family:var(--ff-mono);color:var(--purple-l);font-weight:700;min-width:60px}
+
+/* absorption diagram */
+.absorb-wrap{display:flex;align-items:stretch;gap:0;margin:1.25rem 0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.absorb-col{flex:1;padding:.875rem .75rem;display:flex;flex-direction:column;gap:.5rem}
+.absorb-col+.absorb-col{border-left:1px solid var(--border)}
+.absorb-col-title{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.25rem}
+.absorb-eq{font-family:var(--ff-mono);font-size:.72rem;color:var(--text2);line-height:1.6}
+.absorb-eq .hi-p{color:var(--purple-l);font-weight:700}
+.absorb-eq .hi-c{color:var(--cyan)}
+.absorb-eq .hi-g{color:var(--green)}
+.absorb-eq .hi-a{color:var(--amber)}
+.absorb-eq .strike{text-decoration:line-through;opacity:.4}
+.absorb-arrow{display:flex;align-items:center;justify-content:center;padding:0 .375rem;font-size:1.25rem;color:var(--muted);align-self:center}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Attention</span>
+    <span class="tag tag-cyan">LLM Inference</span>
+    <span class="tag tag-amber">KV Cache</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>MLA: How DeepSeek Shrinks the KV Cache by 93% Without Losing Quality</h1>
+  <p class="lead">Standard multi-head attention caches 32,768 floats per token per layer. Multi-head Latent Attention caches just 576 — a 57× reduction — by compressing keys and values into a tiny latent vector, then exploiting a matrix-absorption trick to reconstruct them at compute time. The result: 5.76× faster generation and better-than-MHA quality.</p>
+  <div class="post-hero-meta">
+    <span>June 1, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2405.04434</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2405.04434" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/deepseek-ai/DeepSeek-V2" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The KV Cache Problem</a></li>
+    <li class="toc-item" id="toc-s-compression"><a href="#s-compression"><span class="toc-num">02</span> Low-Rank Compression</a></li>
+    <li class="toc-item" id="toc-s-absorption"><a href="#s-absorption"><span class="toc-num">03</span> The Absorption Trick</a></li>
+    <li class="toc-item" id="toc-s-rope"><a href="#s-rope"><span class="toc-num">04</span> Decoupled RoPE</a></li>
+    <li class="toc-item" id="toc-s-math"><a href="#s-math"><span class="toc-num">05</span> Cache Math</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The KV Cache Problem</div>
+<h2>Why KV Cache Is the Bottleneck in Long-Context Inference</h2>
+<p>Every token you generate reads from the KV cache — the stored keys and values for every past token at every layer. In standard multi-head attention (MHA) with 128 heads of dimension 128, that's <strong>32,768 floats per token per layer</strong>. Run a 100-layer model on a 128K-token context and you need 100 × 128K × 32,768 × 2 bytes ≈ <strong>838 GB</strong> of KV cache alone.</p>
+<p>This is why long-context inference is so expensive: the model parameters fit in GPU memory, but the KV cache grows without bound as sequences get longer. Batching multiple users together makes it even worse — every concurrent request needs its own KV cache.</p>
+
+<div class="callout">
+  <strong>The core tension:</strong> MHA needs full heads for quality (multi-head = multiple independent subspaces), but caching full heads is prohibitively expensive at scale. GQA and MQA reduce cache by sharing heads, but they sacrifice quality. MLA finds a third way: compress the KV pairs into a tiny latent vector and reconstruct them on the fly.
+</div>
+
+<h3>Sequence length × cache size grows fast</h3>
+<p>The interactive chart below shows how KV cache memory scales with sequence length for each attention variant in a 100-layer model. Drag the slider to feel how quickly MHA's cache explodes while MLA stays nearly flat.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">kv_cache_growth.py — KV cache memory vs. sequence length (100 layers, bfloat16)</span>
+    <span class="vp-hint">drag slider</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-wrap">
+      <canvas id="cache-canvas" height="240"></canvas>
+    </div>
+    <div class="seq-slider-wrap">
+      <label>Seq. length:</label>
+      <input type="range" id="seq-slider" min="1" max="128" value="32" step="1">
+      <span class="seq-val" id="seq-val">32K tokens</span>
+    </div>
+  </div>
+</div>
+
+<p>At 128K tokens — DeepSeek-V2's context length — MHA needs <strong>~838 GB</strong> of KV cache per batch entry at full precision. MLA needs only <strong>~55 GB</strong>. That difference is the entire A100 you'd need to dedicate just to KV storage.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-compression" data-code="compression">
+<div class="section-no">02 — Low-Rank KV Compression</div>
+<h2>Compress Down, Expand Up — And Cache Only the Small Vector</h2>
+<p>The key insight of MLA is embarrassingly simple: keys and values live in a high-dimensional space, but a lower-dimensional latent vector is enough to reconstruct them. Instead of caching the full keys and values, cache the compressed latent.</p>
+
+<div class="math-block">
+  <div class="math-label">Standard MHA (cache both K and V)</div>
+  <span class="math-var">k</span>_t = W<sup>K</sup> · <span class="math-var">h</span>_t &nbsp;&nbsp;&nbsp; <span class="math-comment">← cached: n_h × d_h floats = 16,384</span><br>
+  <span class="math-var">v</span>_t = W<sup>V</sup> · <span class="math-var">h</span>_t &nbsp;&nbsp;&nbsp; <span class="math-comment">← cached: n_h × d_h floats = 16,384</span><br>
+  <br>
+  <div class="math-label">MLA (cache only the latent c)</div>
+  <span class="math-var">c</span>_t<sup>KV</sup> = W<sup>DKV</sup> · <span class="math-var">h</span>_t &nbsp;&nbsp;&nbsp; <span class="math-comment">← cached: d_c = 512 floats ← 57× smaller</span><br>
+  <span class="math-var">k</span>_t = W<sup>UK</sup> · <span class="math-var">c</span>_t<sup>KV</sup> &nbsp;&nbsp;&nbsp; <span class="math-comment">← recomputed at decode time</span><br>
+  <span class="math-var">v</span>_t = W<sup>UV</sup> · <span class="math-var">c</span>_t<sup>KV</sup> &nbsp;&nbsp;&nbsp; <span class="math-comment">← recomputed at decode time</span>
+</div>
+
+<p>The down-projection <strong>W<sup>DKV</sup></strong> maps from <em>d = 5120</em> to <em>d_c = 512</em>, squeezing the token representation to a latent that's 10× smaller than a single attention head. The up-projections <strong>W<sup>UK</sup></strong> and <strong>W<sup>UV</sup></strong> expand back to the full 128 heads during the decode step.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">mla_arch.svg — MLA data flow: compress → cache → expand</span>
+    <span class="vp-hint">architecture diagram</span>
+  </div>
+  <div class="vp-body">
+    <div class="arch-svg-wrap">
+      <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--ff-mono)">
+        <!-- Background -->
+        <rect width="760" height="340" fill="transparent"/>
+
+        <!-- Token input -->
+        <rect x="20" y="140" width="90" height="60" rx="6" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+        <text x="65" y="166" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">h_t</text>
+        <text x="65" y="181" text-anchor="middle" fill="#6b7280" font-size="9">5120-dim</text>
+        <text x="65" y="194" text-anchor="middle" fill="#6b7280" font-size="9">input</text>
+
+        <!-- Arrow h_t → DKV -->
+        <line x1="110" y1="170" x2="148" y2="170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- W^DKV box -->
+        <rect x="148" y="150" width="76" height="40" rx="5" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+        <text x="186" y="167" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="700">W^DKV</text>
+        <text x="186" y="181" text-anchor="middle" fill="#6b7280" font-size="8.5">5120→512</text>
+
+        <!-- Arrow → c^KV -->
+        <line x1="224" y1="170" x2="262" y2="170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- c^KV box (THE CACHE) -->
+        <rect x="262" y="140" width="90" height="60" rx="6" fill="rgba(16,185,129,.18)" stroke="rgba(16,185,129,.6)" stroke-width="2"/>
+        <text x="307" y="162" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">c_t^KV</text>
+        <text x="307" y="176" text-anchor="middle" fill="#34d399" font-size="8.5">512-dim</text>
+        <text x="307" y="191" text-anchor="middle" fill="#6b7280" font-size="8">← CACHED</text>
+
+        <!-- Cache badge -->
+        <rect x="273" y="207" width="68" height="18" rx="3" fill="rgba(16,185,129,.2)" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+        <text x="307" y="220" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">57× smaller</text>
+
+        <!-- Arrows from c^KV upward and downward -->
+        <line x1="352" y1="155" x2="400" y2="140" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+        <line x1="352" y1="185" x2="400" y2="200" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- W^UK -->
+        <rect x="400" y="120" width="72" height="36" rx="5" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+        <text x="436" y="135" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="700">W^UK</text>
+        <text x="436" y="149" text-anchor="middle" fill="#6b7280" font-size="8.5">512→16384</text>
+
+        <!-- W^UV -->
+        <rect x="400" y="184" width="72" height="36" rx="5" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+        <text x="436" y="199" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="700">W^UV</text>
+        <text x="436" y="213" text-anchor="middle" fill="#6b7280" font-size="8.5">512→16384</text>
+
+        <!-- Arrows to K, V -->
+        <line x1="472" y1="138" x2="512" y2="138" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+        <line x1="472" y1="202" x2="512" y2="202" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- K box -->
+        <rect x="512" y="118" width="60" height="40" rx="5" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+        <text x="542" y="135" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">k_t^C</text>
+        <text x="542" y="149" text-anchor="middle" fill="#6b7280" font-size="8.5">128 heads</text>
+
+        <!-- V box -->
+        <rect x="512" y="182" width="60" height="40" rx="5" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+        <text x="542" y="199" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">v_t^C</text>
+        <text x="542" y="213" text-anchor="middle" fill="#6b7280" font-size="8.5">128 heads</text>
+
+        <!-- Arrow K, V → Attention -->
+        <line x1="572" y1="138" x2="610" y2="158" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+        <line x1="572" y1="202" x2="610" y2="182" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+        <!-- Attention box -->
+        <rect x="610" y="147" width="80" height="46" rx="6" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+        <text x="650" y="167" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">Attention</text>
+        <text x="650" y="181" text-anchor="middle" fill="#6b7280" font-size="8.5">softmax(QK/√d)</text>
+
+        <!-- Arrow → output -->
+        <line x1="690" y1="170" x2="728" y2="170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowG)"/>
+        <rect x="728" y="151" width="22" height="38" rx="4" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.4)" stroke-width="1.5"/>
+        <text x="739" y="174" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">o</text>
+
+        <!-- Legend / labels top -->
+        <text x="307" y="60" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">ONLY THIS IS CACHED ↓</text>
+        <line x1="307" y1="64" x2="307" y2="138" stroke="#34d399" stroke-width="1" stroke-dasharray="4,3"/>
+
+        <!-- Label "decode-time recompute" -->
+        <text x="500" y="85" text-anchor="middle" fill="#6b7280" font-size="9.5" font-style="italic">recomputed at decode time →</text>
+        <line x1="400" y1="90" x2="600" y2="90" stroke="rgba(107,114,128,.3)" stroke-width="1" stroke-dasharray="3,3"/>
+
+        <!-- Markers -->
+        <defs>
+          <marker id="arrowG" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#4b5563"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<p>The same principle applies to queries — a compressed query latent <strong>c<sup>Q</sup></strong> (1536-dim) is computed first, then up-projected to the 128-head query space. This saves activation memory during training but is less critical for inference speed (queries aren't cached).</p>
+
+<div class="callout-idea">
+  <strong>Why does compression work?</strong> Keys and values are linear projections of the same hidden state <em>h_t</em>. If h_t's information can be faithfully preserved in 512 dimensions, then <em>any</em> linear function of h_t — including full KV — can be reconstructed from that 512-dim vector. The low-rank assumption is that typical token representations don't need the full 16,384-dimensional space.
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-absorption" data-code="absorption">
+<div class="section-no">03 — The Absorption Trick</div>
+<h2>Merge W<sup>UK</sup> Into W<sup>Q</sup> — Eliminate Key Materialization Entirely</h2>
+<p>Here's where MLA gets clever. During inference, you're computing attention scores as:</p>
+
+<div class="math-block">
+  score = <span class="math-var">q</span>_t<sup>T</sup> · <span class="math-var">k</span>_j = <span class="math-var">q</span>_t<sup>T</sup> · W<sup>UK</sup> · <span class="math-var">c</span>_j<sup>KV</sup>
+</div>
+
+<p>The query <em>q_t</em> itself comes from multiplying W<sup>UQ</sup> by the compressed query latent. So the full chain is:</p>
+
+<div class="math-block">
+  score = (W<sup>UQ</sup> · <span class="math-var">c</span>_t<sup>Q</sup>)<sup>T</sup> · W<sup>UK</sup> · <span class="math-var">c</span>_j<sup>KV</sup>
+         = (<span class="math-var">c</span>_t<sup>Q</sup>)<sup>T</sup> · (W<sup>UQ</sup>)<sup>T</sup> · W<sup>UK</sup> · <span class="math-var">c</span>_j<sup>KV</sup>
+</div>
+
+<p>The matrices (W<sup>UQ</sup>)<sup>T</sup> · W<sup>UK</sup> don't depend on the current position — they can be fused into a single weight matrix <strong>W<sup>Q'</sup> = (W<sup>UQ</sup>)<sup>T</sup> · W<sup>UK</sup></strong> offline, at model-load time. At decode time you never materialize the full keys at all:</p>
+
+<div class="absorb-wrap">
+  <div class="absorb-col">
+    <div class="absorb-col-title" style="color:var(--muted)">Naïve (two steps)</div>
+    <div class="absorb-eq">
+      k_j = <span class="hi-c">W^UK</span> · c_j^KV<br>
+      score = q_t<sup>T</sup> · k_j
+    </div>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem">Materializes a 16,384-dim k_j for <em>every cached token</em></div>
+  </div>
+  <div class="absorb-arrow">→</div>
+  <div class="absorb-col">
+    <div class="absorb-col-title" style="color:var(--purple-l)">Absorbed (one step)</div>
+    <div class="absorb-eq">
+      <span class="hi-p">W^Q' = (W^UQ)^T · W^UK</span> &nbsp;<span class="strike">precomputed</span><br>
+      score = (c_t^Q)<sup>T</sup> · <span class="hi-p">W^Q'</span> · c_j^KV
+    </div>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem">Scores computed directly from 512-dim c_j^KV — no key expansion</div>
+  </div>
+</div>
+
+<p>The same absorption applies to values: W<sup>UV</sup> can be merged into the output projection W<sup>O</sup>. At inference time, <strong>the model never materializes full keys or values</strong> — it works directly with the compact 512-dim latent vectors, expanding only once when writing the output.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">absorption_trick.py — Step-by-step inference walkthrough</span>
+    <span class="vp-hint">step through</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="absorb-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Prefill: compress all past tokens</div>
+          <div class="step-desc">For every token j in the context, compute and store the 512-dim latent: c_j^KV = W^DKV · h_j. Also store the 64-dim decoupled RoPE key k_j^R (explained in §04).</div>
+          <div class="step-code">c_cache[j] = W_DKV @ h[j]  # 512 floats</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Decode: compress the new query</div>
+          <div class="step-desc">For the new token t, compute the 1536-dim query latent c_t^Q = W^DQ · h_t. This is also smaller than the full query space.</div>
+          <div class="step-code">c_q = W_DQ @ h_t  # 1536 floats</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Compute attention scores (absorbed)</div>
+          <div class="step-desc">Use the pre-fused weight W^Q' = (W^UQ)^T · W^UK to score directly against cached c_j^KV — no key materialization needed.</div>
+          <div class="step-code">scores = c_q @ W_Qprime @ c_cache.T  # 512→512</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Weighted sum of values (absorbed)</div>
+          <div class="step-desc">Compute weighted sum of c_j^KV vectors, then apply the fused W^O' = W^UV · W^O to get the final output — values never materialized as full tensors.</div>
+          <div class="step-code">out = (attn_weights @ c_cache) @ W_Oprime</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Append new latent to cache</div>
+          <div class="step-desc">Store c_t^KV and k_t^R for this token. Total storage added: 512 + 64 = 576 floats — about 1.1 KB at bfloat16 per layer.</div>
+          <div class="step-code">c_cache.append(W_DKV @ h_t)  # 576 floats total</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="absorb-prev" disabled>← Prev</button>
+      <button id="absorb-next">Next →</button>
+      <span class="step-prog" id="absorb-prog">Step 1 of 5</span>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-rope" data-code="rope">
+<div class="section-no">04 — Decoupled RoPE</div>
+<h2>Why Positional Encoding Breaks the Absorption — and the Fix</h2>
+<p>There's one critical obstacle to the absorption trick: <strong>Rotary Position Embeddings (RoPE)</strong>. RoPE works by rotating the key and query vectors by an angle that depends on position. For standard attention:</p>
+
+<div class="math-block">
+  <div class="math-label">RoPE applied to keys</div>
+  k_j = <span class="math-var">RoPE</span>(W<sup>K</sup> · h_j, position=j)
+</div>
+
+<p>If you try to apply RoPE to the compressed key k_j^C = W<sup>UK</sup> · c_j^KV, the rotation matrix R(j) sits <em>between</em> W<sup>Q</sup> and W<sup>UK</sup> in the score computation:</p>
+
+<div class="math-block">
+  score = q<sup>T</sup> · R(j) · W<sup>UK</sup> · c<sup>KV</sup>
+  <span class="math-comment">← R(j) depends on position j, so W^UK can't be absorbed into W^Q</span>
+</div>
+
+<div class="callout-amber">
+  <strong>The problem:</strong> The whole point of absorption is pre-multiplying (W<sup>UQ</sup>)<sup>T</sup> · W<sup>UK</sup> once at load time. But if there's a position-dependent rotation between them, the fused weight changes for every token position — you'd need a separate W<sup>Q'</sup> for every sequence position. That's not precomputable.
+</div>
+
+<h3>The fix: separate position from content</h3>
+<p>MLA decouples RoPE from the compressed keys entirely. Each attention head uses a <em>two-part</em> query and key:</p>
+<ul>
+  <li><strong>Content part</strong> — derived from c^KV via W<sup>UK</sup> (no RoPE, absorb-able)</li>
+  <li><strong>Position part</strong> — a separate small key k^R computed directly from h_t via W<sup>KR</sup> and rotated with RoPE</li>
+</ul>
+
+<div class="math-block">
+  <div class="math-label">Decoupled RoPE</div>
+  q_&#123;t,i&#125; = [q_&#123;t,i&#125;^C ; q_&#123;t,i&#125;^R] &nbsp;&nbsp;&nbsp; <span class="math-comment">← content head ++ position head</span><br>
+  k_&#123;t,i&#125; = [k_&#123;t,i&#125;^C ; k_t^R] &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="math-comment">← content key  ++ position key (shared across heads)</span><br>
+  <br>
+  q_&#123;t,i&#125;^R = RoPE(W<sup>QR</sup> · c_t^Q) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="math-comment">← 64-dim per head, RoPE-encoded</span><br>
+  k_t^R = RoPE(W<sup>KR</sup> · h_t) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="math-comment">← 64-dim, shared across all heads, CACHED</span>
+</div>
+
+<p>The content key k^C is still absorbed into W<sup>Q</sup> (no RoPE → no position coupling). The position key k^R is cached separately — it's only 64 floats. The final dot product spans both parts:</p>
+
+<div class="math-block">
+  score(t,j,i) = q_&#123;t,i&#125;^T · k_&#123;j,i&#125; = (q_&#123;t,i&#125;^C)<sup>T</sup> k_&#123;j,i&#125;^C + (q_&#123;t,i&#125;^R)<sup>T</sup> k_j^R
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">decoupled_rope.svg — Content vs. position key paths</span>
+    <span class="vp-hint">architecture</span>
+  </div>
+  <div class="vp-body">
+    <div class="arch-svg-wrap">
+      <svg viewBox="0 0 700 270" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--ff-mono)">
+        <rect width="700" height="270" fill="transparent"/>
+
+        <!-- h_t input -->
+        <rect x="16" y="103" width="72" height="54" rx="6" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+        <text x="52" y="126" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">h_t</text>
+        <text x="52" y="140" text-anchor="middle" fill="#6b7280" font-size="9">input</text>
+        <text x="52" y="152" text-anchor="middle" fill="#6b7280" font-size="9">5120-d</text>
+
+        <!-- Arrow h → DKV (content path) -->
+        <line x1="88" y1="118" x2="126" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <!-- Arrow h → KR (position path) -->
+        <line x1="88" y1="142" x2="126" y2="170" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- W^DKV -->
+        <rect x="126" y="82" width="70" height="36" rx="5" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+        <text x="161" y="97" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="700">W^DKV</text>
+        <text x="161" y="110" text-anchor="middle" fill="#6b7280" font-size="8">5120→512</text>
+
+        <!-- W^KR -->
+        <rect x="126" y="152" width="70" height="36" rx="5" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+        <text x="161" y="167" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">W^KR</text>
+        <text x="161" y="180" text-anchor="middle" fill="#6b7280" font-size="8">5120→64</text>
+
+        <!-- Arrow DKV → c^KV -->
+        <line x1="196" y1="100" x2="230" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <!-- Arrow KR → RoPE -->
+        <line x1="196" y1="170" x2="230" y2="170" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- c^KV box -->
+        <rect x="230" y="80" width="72" height="40" rx="6" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.5)" stroke-width="2"/>
+        <text x="266" y="97" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">c^KV</text>
+        <text x="266" y="111" text-anchor="middle" fill="#34d399" font-size="8.5">512-d · CACHED</text>
+
+        <!-- RoPE box -->
+        <rect x="230" y="152" width="72" height="36" rx="5" fill="rgba(245,158,11,.15)" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+        <text x="266" y="168" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">RoPE</text>
+        <text x="266" y="181" text-anchor="middle" fill="#6b7280" font-size="8.5">pos-encoded</text>
+
+        <!-- k^R cached label -->
+        <rect x="230" y="194" width="72" height="18" rx="3" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+        <text x="266" y="207" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">k^R · CACHED</text>
+
+        <!-- Arrows → absorbed content score / position score -->
+        <line x1="302" y1="100" x2="360" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)" stroke-dasharray="5,3"/>
+        <line x1="302" y1="170" x2="360" y2="170" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- Absorbed W^Q' box -->
+        <rect x="360" y="80" width="86" height="40" rx="5" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+        <text x="403" y="97" text-anchor="middle" fill="#a78bfa" font-size="9.5" font-weight="700">W^Q' (absorbed)</text>
+        <text x="403" y="111" text-anchor="middle" fill="#6b7280" font-size="8">(W^UQ)^T · W^UK</text>
+
+        <!-- k^R dot prod box -->
+        <rect x="360" y="152" width="86" height="36" rx="5" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1.5"/>
+        <text x="403" y="169" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">RoPE dot-prod</text>
+        <text x="403" y="183" text-anchor="middle" fill="#6b7280" font-size="8">q^R · k^R</text>
+
+        <!-- Arrows to sum -->
+        <line x1="446" y1="100" x2="496" y2="130" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="446" y1="170" x2="496" y2="145" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- Sum circle -->
+        <circle cx="514" cy="138" r="16" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.6)" stroke-width="1.5"/>
+        <text x="514" y="143" text-anchor="middle" fill="#a78bfa" font-size="16" font-weight="700">+</text>
+
+        <!-- Arrow to score -->
+        <line x1="530" y1="138" x2="568" y2="138" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="568" y="120" width="76" height="36" rx="6" fill="rgba(139,92,246,.2)" stroke="rgba(139,92,246,.6)" stroke-width="2"/>
+        <text x="606" y="136" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">score(t,j)</text>
+        <text x="606" y="149" text-anchor="middle" fill="#6b7280" font-size="8.5">softmax input</text>
+
+        <!-- Labels -->
+        <text x="266" y="52" text-anchor="middle" fill="#34d399" font-size="9.5" font-weight="700">CONTENT PATH (no RoPE, absorb-able)</text>
+        <text x="266" y="235" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">POSITION PATH (RoPE, tiny 64-dim cache)</text>
+
+        <defs>
+          <marker id="arr2" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#4b5563"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<p>The position key <strong>k_t^R</strong> is shared across all 128 attention heads — it doesn't need a per-head copy. This is what keeps its cache cost low. Total cache per token: 512 (content latent) + 64 (position key) = <strong>576 floats</strong>.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-math" data-code="math">
+<div class="section-no">05 — Cache Math</div>
+<h2>MHA vs GQA vs MQA vs MLA: The Numbers</h2>
+<p>Let's make the savings concrete using DeepSeek-V2's actual hyperparameters: <strong>n_h = 128 heads</strong>, <strong>d_h = 128 dims/head</strong>, <strong>60 layers</strong>. All values in floats per token; multiply by 2 for bfloat16 bytes.</p>
+
+<div class="cache-comparison" id="cache-cards">
+  <div class="cache-card">
+    <div class="cc-name" style="color:var(--muted)">MHA</div>
+    <div class="cc-size" style="color:#ef4444">32,768</div>
+    <div class="cc-desc">2 × n_h × d_h = 2 × 128 × 128</div>
+    <div class="cc-verdict" style="color:#ef4444">baseline — too large</div>
+  </div>
+  <div class="cache-card">
+    <div class="cc-name" style="color:var(--muted)">GQA (g=8)</div>
+    <div class="cc-size" style="color:var(--amber)">2,048</div>
+    <div class="cc-desc">2 × 8 × d_h = 2 × 8 × 128</div>
+    <div class="cc-verdict" style="color:var(--amber)">16× smaller, quality↓</div>
+  </div>
+  <div class="cache-card">
+    <div class="cc-name" style="color:var(--muted)">MQA</div>
+    <div class="cc-size" style="color:var(--amber)">256</div>
+    <div class="cc-desc">2 × 1 × d_h = 2 × 1 × 128</div>
+    <div class="cc-verdict" style="color:var(--amber)">128× smaller, quality↓↓</div>
+  </div>
+  <div class="cache-card highlight">
+    <div class="cc-name" style="color:var(--purple-l)">MLA</div>
+    <div class="cc-size" style="color:var(--purple-l)">576</div>
+    <div class="cc-desc">d_c + d_h^R = 512 + 64</div>
+    <div class="cc-verdict" style="color:var(--green)">57× smaller, quality↑ vs MHA</div>
+  </div>
+</div>
+
+<p>The key surprise: MLA's <strong>576-float cache beats MHA quality</strong> while being smaller than even MQA in total effective capacity. Why? Because the latent vector is a richer representation than a single shared key — it retains the full information of h_t, allowing any number of heads to reconstruct distinct keys from it.</p>
+
+<h3>At full 128K context</h3>
+<p>For a single batch entry across 60 layers at 128K tokens (bfloat16, 2 bytes/float):</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Cache / layer / token</th>
+      <th>Total at 128K ctx</th>
+      <th>vs MHA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MHA</td>
+      <td class="mn">32,768 floats</td>
+      <td class="mn">~503 GB</td>
+      <td class="mn">1×</td>
+    </tr>
+    <tr>
+      <td>GQA (g=8)</td>
+      <td class="mn">2,048 floats</td>
+      <td class="mn">~31 GB</td>
+      <td class="mn">16×</td>
+    </tr>
+    <tr>
+      <td>MQA</td>
+      <td class="mn">256 floats</td>
+      <td class="mn">~3.9 GB</td>
+      <td class="mn">128×</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>MLA</strong></td>
+      <td class="mn">576 floats</td>
+      <td class="mn">~8.8 GB</td>
+      <td class="mn best">57×</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>DeepSeek-V2 reports a <strong>93.3% KV cache reduction vs. DeepSeek 67B</strong> (which used MHA). The difference between the raw 57× factor and the 93.3% reduction comes from the model having fewer total layers (60 vs. 95) and using d_c = 4·d_h rather than a larger head count.</p>
+
+<h3>Throughput impact</h3>
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">throughput_comparison.py — Decoding speed on 8× H800 GPUs</span>
+    <span class="vp-hint">animated on scroll</span>
+  </div>
+  <div class="vp-body">
+    <p class="bar-section-label">Peak Generation Throughput (tokens / second)</p>
+    <div class="results-bars" id="throughput-bars">
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek 67B (MHA)</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="17.4" style="background:rgba(107,114,128,.5)">
+            <span>8,696 tok/s</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek-V2 (MLA)</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="100" style="background:linear-gradient(90deg,var(--purple),var(--cyan))">
+            <span>50,083 tok/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin-top:.5rem">5.76× faster generation despite 3.5× more total parameters. The KV cache saving frees bandwidth for actual compute.</p>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Better Than MHA at a Fraction of the Cost</h2>
+<p>The payoff: DeepSeek-V2 (236B params, 21B activated) matches or beats dense models with 67–78B parameters on every major benchmark, while costing <strong>42.5% less to train</strong> per trillion tokens. The efficiency gains compound — smaller KV cache means larger effective batch sizes, which means better GPU utilization throughout training.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">benchmark_results.py — Base model comparison (0-shot to 8-shot, standard benchmarks)</span>
+    <span class="vp-hint">animated on scroll</span>
+  </div>
+  <div class="vp-body">
+    <p class="bar-section-label">MMLU 5-shot (general knowledge)</p>
+    <div class="results-bars" id="result-bars">
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek 67B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="71.3" style="background:rgba(107,114,128,.5)">
+            <span>71.3</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">LLaMA-3 70B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="78.9" style="background:rgba(6,182,212,.5)">
+            <span>78.9</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Mixtral 8×22B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="77.6" style="background:rgba(6,182,212,.4)">
+            <span>77.6</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Qwen1.5 72B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="77.2" style="background:rgba(6,182,212,.4)">
+            <span>77.2</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek-V2 (MLA)</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="78.5" style="background:linear-gradient(90deg,var(--purple),var(--cyan))">
+            <span>78.5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="bar-section-label" style="margin-top:1.25rem">MATH 4-shot (mathematical reasoning)</p>
+    <div class="results-bars" id="result-bars-math">
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek 67B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="18.7" style="background:rgba(107,114,128,.5)">
+            <span>18.7</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">LLaMA-3 70B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="42.2" style="background:rgba(6,182,212,.4)">
+            <span>42.2</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Mixtral 8×22B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="42.5" style="background:rgba(6,182,212,.4)">
+            <span>42.5</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Qwen1.5 72B</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="41.4" style="background:rgba(6,182,212,.4)">
+            <span>41.4</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DeepSeek-V2 (MLA)</span>
+        <div class="bar-track">
+          <div class="bar-fill" data-w="43.6" style="background:linear-gradient(90deg,var(--purple),var(--cyan))">
+            <span>43.6</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="callout-green">
+  <strong>The key insight from results:</strong> MLA doesn't trade quality for efficiency — DeepSeek-V2 scores <em>higher</em> than MHA-based models at similar scale. The compression is lossless in the sense that a 512-dim projection of a 5120-dim hidden state preserves enough information for full MHA-quality attention, while eliminating 98.2% of the KV memory footprint.
+</div>
+
+<h3>Full benchmark table</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Benchmark</th>
+      <th>DeepSeek 67B</th>
+      <th>LLaMA-3 70B</th>
+      <th>Mixtral 8×22B</th>
+      <th>Qwen1.5 72B</th>
+      <th class="highlight-row">DeepSeek-V2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MMLU 5-shot</td>
+      <td class="mn">71.3</td>
+      <td class="mn">78.9</td>
+      <td class="mn">77.6</td>
+      <td class="mn">77.2</td>
+      <td class="mn highlight-row">78.5</td>
+    </tr>
+    <tr>
+      <td>BBH 3-shot</td>
+      <td class="mn">68.7</td>
+      <td class="mn best">81.0</td>
+      <td class="mn">78.9</td>
+      <td class="mn">59.9</td>
+      <td class="mn highlight-row">78.9</td>
+    </tr>
+    <tr>
+      <td>DROP F1 3-shot</td>
+      <td class="mn">69.7</td>
+      <td class="mn best">82.5</td>
+      <td class="mn">80.4</td>
+      <td class="mn">71.5</td>
+      <td class="mn highlight-row">80.1</td>
+    </tr>
+    <tr>
+      <td>GSM8K 8-shot</td>
+      <td class="mn">63.4</td>
+      <td class="mn best">83.0</td>
+      <td class="mn">80.3</td>
+      <td class="mn">77.9</td>
+      <td class="mn highlight-row">79.2</td>
+    </tr>
+    <tr>
+      <td>MATH 4-shot</td>
+      <td class="mn">18.7</td>
+      <td class="mn">42.2</td>
+      <td class="mn">42.5</td>
+      <td class="mn">41.4</td>
+      <td class="mn highlight-row best">43.6</td>
+    </tr>
+    <tr>
+      <td>HumanEval 0-shot</td>
+      <td class="mn">45.1</td>
+      <td class="mn">48.2</td>
+      <td class="mn best">53.1</td>
+      <td class="mn">43.9</td>
+      <td class="mn highlight-row">48.8</td>
+    </tr>
+    <tr>
+      <td>CMMLU 5-shot</td>
+      <td class="mn">70.8</td>
+      <td class="mn">69.3</td>
+      <td class="mn">60.0</td>
+      <td class="mn best">84.3</td>
+      <td class="mn highlight-row">84.0</td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:.75rem;color:var(--muted)">DeepSeek-V2 uses only 21B activated parameters per token (MoE) — its full 236B parameter count is not activated simultaneously. Direct parameter comparison with dense models understates the efficiency advantage.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">mla/attention.py</div>
+      <div class="cs-section-title" id="cs-section-title">KV Cache Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="compression">compress</button>
+    <button class="cs-tab" data-panel="absorption">absorb</button>
+    <button class="cs-tab" data-panel="rope">rope</button>
+    <button class="cs-tab" data-panel="math">math</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard MHA KV cache cost</span>
+<span class="cs-line cmt"># DeepSeek-V2 config: 128 heads × 128 dim/head</span>
+<span class="cs-line"></span>
+<span class="cs-line">n_h = 128   <span class="cmt"># attention heads</span></span>
+<span class="cs-line">d_h = 128   <span class="cmt"># dim per head</span></span>
+<span class="cs-line">n_layers = 60</span>
+<span class="cs-line">ctx = 128_000  <span class="cmt"># 128K context</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># MHA: cache K and V separately</span>
+<span class="cs-line hl-p">kv_per_token = 2 * n_h * d_h  <span class="cmt"># 32,768</span></span>
+<span class="cs-line">total_mha = kv_per_token * n_layers * ctx</span>
+<span class="cs-line cmt"># total_mha = 32768 × 60 × 128000</span>
+<span class="cs-line cmt">#           = 251,658,240,000 floats</span>
+<span class="cs-line cmt">#           ≈ 503 GB at bfloat16</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># MLA: cache only the latent c^KV</span>
+<span class="cs-line">d_c = 512    <span class="cmt"># compressed KV dim</span></span>
+<span class="cs-line">d_rope = 64  <span class="cmt"># decoupled RoPE key dim</span></span>
+<span class="cs-line hl-g">kv_mla = (d_c + d_rope) * n_layers * ctx</span>
+<span class="cs-line cmt"># kv_mla = 576 × 60 × 128000</span>
+<span class="cs-line cmt">#        ≈ 8.8 GB at bfloat16</span>
+<span class="cs-line hl-g">reduction = kv_per_token / (d_c + d_rope)</span>
+<span class="cs-line cmt"># reduction = 32768 / 576 ≈ 56.9×</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-compression">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MLA forward pass — KV compression</span>
+<span class="cs-line kw">import</span> torch
+<span class="cs-line kw">import</span> torch.nn <span class="kw">as</span> nn
+<span class="cs-line"></span>
+<span class="cs-line kw">class</span> <span class="cls">MLALayer</span>(nn.Module):
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d, n_h, d_h, d_c):
+<span class="cs-line">        <span class="cmt"># d=5120, n_h=128, d_h=128, d_c=512</span></span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W_DKV = nn.Linear(d, d_c, bias=False)</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W_UK  = nn.Linear(d_c, n_h * d_h, bias=False)</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W_UV  = nn.Linear(d_c, n_h * d_h, bias=False)</span>
+<span class="cs-line">        <span class="kw">self</span>.W_DQ  = nn.Linear(d, 1536, bias=False)</span>
+<span class="cs-line">        <span class="kw">self</span>.W_UQ  = nn.Linear(1536, n_h * d_h, bias=False)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">prefill</span>(<span class="kw">self</span>, h_all):
+<span class="cs-line">        <span class="cmt"># h_all: (seq_len, d)</span></span>
+<span class="cs-line hl-g">        c_kv = <span class="kw">self</span>.W_DKV(h_all)  <span class="cmt"># (S, 512)</span></span>
+<span class="cs-line hl-g">        <span class="kw">return</span> c_kv  <span class="cmt"># ONLY THIS IS STORED</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">decode_step</span>(<span class="kw">self</span>, h_t, c_cache):
+<span class="cs-line">        <span class="cmt"># c_cache: (past_seq, 512)</span></span>
+<span class="cs-line">        c_q = <span class="kw">self</span>.W_DQ(h_t)         <span class="cmt"># (1, 1536)</span></span>
+<span class="cs-line">        q   = <span class="kw">self</span>.W_UQ(c_q)          <span class="cmt"># (1, n_h*d_h)</span></span>
+<span class="cs-line hl-p">        k   = <span class="kw">self</span>.W_UK(c_cache)      <span class="cmt"># expanded on the fly</span></span>
+<span class="cs-line hl-p">        v   = <span class="kw">self</span>.W_UV(c_cache)      <span class="cmt"># expanded on the fly</span></span>
+<span class="cs-line">        <span class="kw">return</span> <span class="fn">attention</span>(q, k, v)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-absorption">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Matrix absorption at model load time</span>
+<span class="cs-line cmt"># Fuse W^UQ^T · W^UK into a single matrix</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">def</span> <span class="fn">prepare_for_inference</span>(model_layer):
+<span class="cs-line">    W_UQ = model_layer.W_UQ.weight  <span class="cmt"># (n_h*d_h, 1536)</span></span>
+<span class="cs-line">    W_UK = model_layer.W_UK.weight  <span class="cmt"># (n_h*d_h, 512)</span></span>
+<span class="cs-line">    W_UV = model_layer.W_UV.weight  <span class="cmt"># (n_h*d_h, 512)</span></span>
+<span class="cs-line">    W_O  = model_layer.W_O.weight   <span class="cmt"># (d, n_h*d_h)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # Pre-fuse: W_Q' = W_UQ^T · W_UK</span>
+<span class="cs-line cmt">    # Shape: (1536, 512) — query latent → score</span>
+<span class="cs-line hl-p">    W_Qprime = W_UQ.T @ W_UK  <span class="cmt"># (1536, 512)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # Pre-fuse: W_O' = W_UV · W_O</span>
+<span class="cs-line cmt">    # Shape: (d, 512) — latent → output directly</span>
+<span class="cs-line hl-g">    W_Oprime = W_UV @ W_O  <span class="cmt"># (d, 512)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line kw">    return</span> W_Qprime, W_Oprime</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Inference: no key/value materialization</span>
+<span class="cs-line kw">def</span> <span class="fn">decode_absorbed</span>(c_q, c_cache, W_Qprime, W_Oprime):
+<span class="cs-line">    <span class="cmt"># c_q: (1, 1536), c_cache: (S, 512)</span></span>
+<span class="cs-line hl-c">    scores = c_q @ W_Qprime @ c_cache.T  <span class="cmt"># (1, S)</span></span>
+<span class="cs-line">    weights = softmax(scores / sqrt(d_h))</span>
+<span class="cs-line hl-c">    out = weights @ c_cache @ W_Oprime.T  <span class="cmt"># (1, d)</span></span>
+<span class="cs-line">    <span class="kw">return</span> out  <span class="cmt"># full output, no k/v expanded</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-rope">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Decoupled RoPE implementation</span>
+<span class="cs-line cmt"># Two separate paths: content + position</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">class</span> <span class="cls">MLAWithRoPE</span>(nn.Module):
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d, n_h, d_h, d_c, d_rope=64):
+<span class="cs-line">        <span class="cmt"># Content path (absorb-able, no RoPE)</span></span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W_DKV = nn.Linear(d, d_c)</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.W_UK  = nn.Linear(d_c, n_h * d_h)</span>
+<span class="cs-line"></span>
+<span class="cs-line">        <span class="cmt"># Position path (not absorb-able, uses RoPE)</span></span>
+<span class="cs-line hl-a">        <span class="kw">self</span>.W_KR = nn.Linear(d, d_rope)  <span class="cmt"># shared key</span></span>
+<span class="cs-line hl-a">        <span class="kw">self</span>.W_QR = nn.Linear(1536, n_h * d_rope)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">get_keys</span>(<span class="kw">self</span>, h_t, pos):
+<span class="cs-line">        <span class="cmt"># Content key: from compressed latent</span></span>
+<span class="cs-line hl-c">        c_kv = <span class="kw">self</span>.W_DKV(h_t)  <span class="cmt"># 512-dim</span></span>
+<span class="cs-line hl-c">        k_c  = <span class="kw">self</span>.W_UK(c_kv)  <span class="cmt"># n_h * d_h</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">        <span class="cmt"># Position key: RoPE-encoded, shared</span></span>
+<span class="cs-line hl-a">        k_r = rope(<span class="kw">self</span>.W_KR(h_t), pos)  <span class="cmt"># 64-dim</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">        <span class="cmt"># Cache both: 512 + 64 = 576 floats</span></span>
+<span class="cs-line hl-g">        <span class="kw">return</span> c_kv, k_r  <span class="cmt"># store these in KV cache</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">attention_score</span>(<span class="kw">self</span>, q_c, q_r, k_c, k_r):
+<span class="cs-line">        <span class="cmt"># q_c (content) · k_c (absorbed into W_Q')</span></span>
+<span class="cs-line">        s_content = q_c @ k_c.T</span>
+<span class="cs-line">        <span class="cmt"># q_r (RoPE) · k_r (RoPE) — relative position</span></span>
+<span class="cs-line">        s_pos = q_r @ k_r.T</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> (s_content + s_pos) / sqrt(d_h + 64)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-math">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># KV cache size comparison</span>
+<span class="cs-line cmt"># DeepSeek-V2 config: n_h=128, d_h=128</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── MHA ──────────────────────────────</span>
+<span class="cs-line hl-p">mha = 2 * 128 * 128  <span class="cmt"># = 32,768 floats</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── GQA (8 groups) ───────────────────</span>
+<span class="cs-line">gqa = 2 * 8 * 128    <span class="cmt"># = 2,048 floats</span></span>
+<span class="cs-line cmt"># 16× smaller than MHA, quality drops</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── MQA (1 group) ────────────────────</span>
+<span class="cs-line">mqa = 2 * 1 * 128    <span class="cmt"># = 256 floats</span></span>
+<span class="cs-line cmt"># 128× smaller, quality drops more</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── MLA ──────────────────────────────</span>
+<span class="cs-line hl-g">d_c = 512   <span class="cmt"># KV compression dim</span></span>
+<span class="cs-line hl-g">d_r = 64    <span class="cmt"># decoupled RoPE key dim</span></span>
+<span class="cs-line hl-g">mla = d_c + d_r  <span class="cmt"># = 576 floats</span></span>
+<span class="cs-line cmt"># 56.9× smaller than MHA</span>
+<span class="cs-line cmt"># STRONGER quality than MHA</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Effective "GQA equivalent":</span>
+<span class="cs-line">equiv_groups = mla / (2 * 128)  <span class="cmt"># = 2.25</span></span>
+<span class="cs-line cmt"># MLA ≈ GQA with only 2.25 groups</span>
+<span class="cs-line cmt"># but beats full 128-group MHA</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># At 128K context, 60 layers (bfloat16):</span>
+<span class="cs-line cmt"># MHA:  503 GB</span>
+<span class="cs-line cmt"># GQA8:  31 GB</span>
+<span class="cs-line cmt"># MLA:  8.8 GB  ← fits in a single A100</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DeepSeek-V2 (MLA) vs baselines</span>
+<span class="cs-line cmt"># Base model benchmarks</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">benchmark_results = {</span>
+<span class="cs-line">    <span class="str">"MMLU_5shot"</span>: {</span>
+<span class="cs-line">        <span class="str">"DeepSeek_67B"</span>:  <span class="num">71.3</span>,</span>
+<span class="cs-line">        <span class="str">"LLaMA3_70B"</span>:   <span class="num">78.9</span>,</span>
+<span class="cs-line">        <span class="str">"Mixtral_8x22B"</span>: <span class="num">77.6</span>,</span>
+<span class="cs-line">        <span class="str">"Qwen15_72B"</span>:   <span class="num">77.2</span>,</span>
+<span class="cs-line hl-p">        <span class="str">"DeepSeek_V2"</span>:  <span class="num">78.5</span>,  <span class="cmt"># ★</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line">    <span class="str">"MATH_4shot"</span>: {</span>
+<span class="cs-line">        <span class="str">"DeepSeek_67B"</span>:  <span class="num">18.7</span>,</span>
+<span class="cs-line">        <span class="str">"LLaMA3_70B"</span>:   <span class="num">42.2</span>,</span>
+<span class="cs-line">        <span class="str">"Mixtral_8x22B"</span>: <span class="num">42.5</span>,</span>
+<span class="cs-line">        <span class="str">"Qwen15_72B"</span>:   <span class="num">41.4</span>,</span>
+<span class="cs-line hl-p">        <span class="str">"DeepSeek_V2"</span>:  <span class="num">43.6</span>,  <span class="cmt"># best ★</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Throughput on 8× H800 GPUs</span>
+<span class="cs-line">throughput = {</span>
+<span class="cs-line">    <span class="str">"DeepSeek_67B"</span>: <span class="num">8696</span>,   <span class="cmt"># tok/s</span></span>
+<span class="cs-line hl-g">    <span class="str">"DeepSeek_V2"</span>:  <span class="num">50083</span>,  <span class="cmt"># 5.76× faster</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training cost</span>
+<span class="cs-line">train_cost = {</span>
+<span class="cs-line">    <span class="str">"DeepSeek_67B"</span>: <span class="num">300.6e3</span>,  <span class="cmt"># GPU-hours/T-tok</span></span>
+<span class="cs-line hl-g">    <span class="str">"DeepSeek_V2"</span>:  <span class="num">172.8e3</span>,  <span class="cmt"># 42.5% cheaper</span></span>
+<span class="cs-line">}</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tabs ────────────────────────────────────────────────
+const tabMeta = {
+  bottleneck:  { file: 'mla/kv_cache.py',     title: 'KV Cache Problem' },
+  compression: { file: 'mla/compression.py',  title: 'Low-Rank Compression' },
+  absorption:  { file: 'mla/absorption.py',   title: 'Matrix Absorption' },
+  rope:        { file: 'mla/rope.py',          title: 'Decoupled RoPE' },
+  math:        { file: 'mla/cache_math.py',    title: 'Cache Math' },
+  results:     { file: 'mla/benchmarks.py',    title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — TOC + sidebar sync ────────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-compression': 'compression',
+  's-absorption': 'absorption',
+  's-rope': 'rope',
+  's-math': 'math',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── KV Cache growth canvas ───────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('cache-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const H_CANVAS = 240;
+
+  function resize() {
+    const W = canvas.clientWidth;
+    canvas.width = W * DPR;
+    canvas.height = H_CANVAS * DPR;
+    ctx.scale(DPR, DPR);
+    draw(parseInt(document.getElementById('seq-slider').value));
+  }
+
+  const METHODS = [
+    { label: 'MHA',      color: '#ef4444', floats: function(k) { return 2 * 128 * 128; } },
+    { label: 'GQA (g=8)',color: '#f59e0b', floats: function(k) { return 2 * 8 * 128; } },
+    { label: 'MQA',      color: '#6b7280', floats: function(k) { return 2 * 1 * 128; } },
+    { label: 'MLA',      color: '#8b5cf6', floats: function(k) { return 576; } },
+  ];
+
+  function gbAtSeqLen(method, seqK) {
+    // seqK in thousands of tokens, 60 layers, bfloat16 (2 bytes)
+    return method.floats() * 60 * seqK * 1000 * 2 / 1e9;
+  }
+
+  function draw(seqK) {
+    const W = canvas.clientWidth;
+    const H = H_CANVAS;
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD_L = 54, PAD_R = 24, PAD_T = 18, PAD_B = 32;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+
+    // Max GB at seqK=128 for MHA
+    const maxGB = gbAtSeqLen(METHODS[0], 128);
+
+    function xOf(k) { return PAD_L + (k / 128) * chartW; }
+    function yOf(gb) { return PAD_T + chartH - (gb / maxGB) * chartH; }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(f => {
+      const y = PAD_T + f * chartH;
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(PAD_L + chartW, y); ctx.stroke();
+      const gbVal = maxGB * (1 - f);
+      ctx.fillStyle = '#4b5563'; ctx.font = '9px var(--ff-mono)';
+      ctx.textAlign = 'right';
+      ctx.fillText(gbVal >= 10 ? Math.round(gbVal) + 'G' : gbVal.toFixed(0) + 'G', PAD_L - 5, y + 3);
+    });
+
+    // X axis ticks
+    ctx.fillStyle = '#4b5563'; ctx.font = '9px var(--ff-mono)'; ctx.textAlign = 'center';
+    [16, 32, 64, 128].forEach(k => {
+      ctx.fillText(k + 'K', xOf(k), H - PAD_B + 14);
+    });
+    ctx.fillStyle = '#6b7280'; ctx.font = '9px var(--ff-mono)';
+    ctx.fillText('Context length (tokens)', PAD_L + chartW / 2, H - 4);
+
+    // Lines
+    METHODS.forEach(m => {
+      ctx.beginPath();
+      ctx.strokeStyle = m.color;
+      ctx.lineWidth = m.label === 'MLA' ? 2.5 : 1.5;
+      ctx.globalAlpha = m.label === 'MLA' ? 1 : 0.6;
+      for (let k = 1; k <= 128; k++) {
+        const gb = gbAtSeqLen(m, k);
+        const x = xOf(k), y = yOf(gb);
+        k === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // End label
+      const gb = gbAtSeqLen(m, 128);
+      ctx.fillStyle = m.color;
+      ctx.font = (m.label === 'MLA' ? 'bold ' : '') + '9px var(--ff-mono)';
+      ctx.textAlign = 'left';
+      ctx.fillText(m.label, xOf(128) + 4, yOf(gb) + 3);
+    });
+
+    // Vertical cursor at seqK
+    const xCur = xOf(seqK);
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xCur, PAD_T); ctx.lineTo(xCur, PAD_T + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dot + label for each method at cursor
+    METHODS.forEach(m => {
+      const gb = gbAtSeqLen(m, seqK);
+      const x = xCur, y = yOf(gb);
+      ctx.beginPath();
+      ctx.arc(x, y, m.label === 'MLA' ? 4 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = m.color;
+      ctx.fill();
+    });
+
+    // MLA vs MHA annotation at cursor
+    const gbMHA = gbAtSeqLen(METHODS[0], seqK);
+    const gbMLA = gbAtSeqLen(METHODS[3], seqK);
+    const ratio = (gbMHA / gbMLA).toFixed(0);
+    ctx.fillStyle = '#8b5cf6'; ctx.font = 'bold 10px var(--ff-mono)'; ctx.textAlign = 'center';
+    const labelX = Math.min(xCur + 60, PAD_L + chartW - 40);
+    ctx.fillText(ratio + '× smaller (MLA)', labelX, PAD_T + 14);
+  }
+
+  const slider = document.getElementById('seq-slider');
+  const seqValEl = document.getElementById('seq-val');
+  slider?.addEventListener('input', () => {
+    const k = parseInt(slider.value);
+    seqValEl.textContent = k + 'K tokens';
+    draw(k);
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ── Step navigator (absorption steps) ───────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#absorb-steps .step-box');
+  const prevBtn = document.getElementById('absorb-prev');
+  const nextBtn = document.getElementById('absorb-next');
+  const progEl  = document.getElementById('absorb-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── Animated bar charts (IntersectionObserver) ───────────────────────
+function animateBars(containerId) {
+  const section = document.getElementById(containerId);
+  if (!section) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        section.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(section);
+}
+animateBars('s-math');
+animateBars('s-results');
+</script>
+</BaseLayout>

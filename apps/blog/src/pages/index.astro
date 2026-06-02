@@ -16,8 +16,34 @@ interface Post {
 
 const latestPosts: Post[] = [
   {
-    href: '/posts/mfu-llm-training/',
+    href: '/posts/sdsl-spec-decoding/',
     badge: '★ Latest',
+    tags: [
+      { text: 'Speculative Decoding', cls: 'tag-purple' },
+      { text: 'Scaling Laws', cls: 'tag-cyan' },
+      { text: 'LLM Inference', cls: 'tag-amber' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'Speculative Decoding Scaling Laws: The 200× Rule',
+    desc: 'Before training a single draft model, you can predict the optimal size: it should be ~200× smaller than the target. SDSL derives this analytically — α is an affine function of draft/target perplexity (R²=0.98), and threading pre-training scaling laws through the throughput formula yields N* = 2.71×10⁻³ · M + 87M, validated on OPT, Qwen, and LLaMA families.',
+    date: 'June 1, 2026',
+    read: postReadTime('sdsl-spec-decoding'),
+  },
+  {
+    href: '/posts/mla-attention/',
+    tags: [
+      { text: 'Attention', cls: 'tag-purple' },
+      { text: 'LLM Inference', cls: 'tag-cyan' },
+      { text: 'KV Cache', cls: 'tag-amber' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'MLA: How DeepSeek Shrinks the KV Cache by 93% Without Losing Quality',
+    desc: 'Multi-head Latent Attention compresses keys and values into a 576-float latent vector — 57× smaller than standard MHA — using a low-rank projection and a matrix-absorption trick that eliminates key materialization entirely. The result: 5.76× faster generation and better-than-MHA quality in DeepSeek-V2.',
+    date: 'June 1, 2026',
+    read: postReadTime('mla-attention'),
+  },
+  {
+    href: '/posts/mfu-llm-training/',
     tags: [
       { text: 'LLM Training', cls: 'tag-purple' },
       { text: 'Performance', cls: 'tag-cyan' },
@@ -700,6 +726,55 @@ const deferredPosts = latestPosts.slice(BATCH);
   #posts-sentinel {
     height: 1px;
   }
+  /* ── Search ── */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 1.25rem;
+  }
+  .search-icon {
+    position: absolute;
+    left: .875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: .875rem;
+    font-family: var(--ff-sans, inherit);
+    padding: .7rem .9rem .7rem 2.5rem;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    -webkit-appearance: none;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus {
+    border-color: rgba(139,92,246,.5);
+    box-shadow: 0 0 0 3px rgba(139,92,246,.1);
+  }
+  .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .search-status {
+    font-family: var(--ff-mono);
+    font-size: .72rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .search-empty {
+    text-align: center;
+    padding: 3.5rem 0;
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.7;
+  }
+  .search-empty strong { color: var(--text2); }
   .post-progress-bar {
     position: absolute;
     bottom: 0;
@@ -749,6 +824,16 @@ const deferredPosts = latestPosts.slice(BATCH);
 
   <div class="section-rule" style="margin-top:2.5rem"><h2 data-i18n="section-latest">Latest Posts</h2></div>
 
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input id="post-search" class="search-input" type="search"
+      placeholder="Search posts by title, topic, or tag…"
+      autocomplete="off" spellcheck="false" aria-label="Search posts" />
+  </div>
+  <div id="search-status" class="search-status" hidden></div>
+
   <div id="posts-list">
     {initialPosts.map(post => (
       <a class="post-card" href={post.href}>
@@ -774,6 +859,7 @@ const deferredPosts = latestPosts.slice(BATCH);
 {deferredPosts.length > 0 && (
   <script type="application/json" id="deferred-posts" set:html={JSON.stringify(deferredPosts)} />
 )}
+<script type="application/json" id="all-posts" set:html={JSON.stringify(latestPosts)} />
 
 <footer data-i18n="blog-footer">Built with curiosity. Source on GitHub.</footer>
 </BaseLayout>
@@ -873,5 +959,118 @@ const deferredPosts = latestPosts.slice(BATCH);
     }, { rootMargin: '300px' });
 
     observer.observe(sentinel);
+  }
+</script>
+
+<script>
+  // ── Client-side instant search ──────────────────────────────────────────
+  interface SearchPost {
+    href: string;
+    badge?: string;
+    tags: { text: string; cls: string }[];
+    title: string;
+    desc: string;
+    date: string;
+    read: string;
+  }
+
+  const searchInput  = document.getElementById('post-search')   as HTMLInputElement | null;
+  const searchStatus = document.getElementById('search-status')  as HTMLElement | null;
+  const allPostsEl   = document.getElementById('all-posts');
+  const listEl       = document.getElementById('posts-list');
+
+  if (searchInput && allPostsEl && listEl) {
+    const allPosts: SearchPost[] = JSON.parse(allPostsEl.textContent!);
+
+    // Insert a dedicated results container before the lazy-load sentinel so
+    // deferred cards are never interleaved with search results.
+    const sentinelEl = document.getElementById('posts-sentinel');
+    const resultsEl  = document.createElement('div');
+    resultsEl.id = 'search-results';
+    listEl.insertBefore(resultsEl, sentinelEl);
+
+    function escSearch(s: string) {
+      return s
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function buildSearchCard(p: SearchPost): string {
+      const badge = p.badge
+        ? `<div class="post-featured-badge">${escSearch(p.badge)}</div>`
+        : '';
+      const tags = p.tags
+        .map(t => `<span class="tag ${escSearch(t.cls)}">${escSearch(t.text)}</span>`)
+        .join('');
+      return `<a class="post-card" href="${escSearch(p.href)}">
+        ${badge}
+        <div class="tags">${tags}</div>
+        <h3>${escSearch(p.title)}</h3>
+        <p>${escSearch(p.desc)}</p>
+        <div class="post-meta">
+          <span>${escSearch(p.date)}</span>
+          <span>${escSearch(p.read)}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>`;
+    }
+
+    function applyReadProgressSearch(container: HTMLElement) {
+      container.querySelectorAll<HTMLAnchorElement>('.post-card[href]').forEach(card => {
+        if (card.querySelector('.post-progress-bar')) return;
+        const slug = card.getAttribute('href')?.match(/\/posts\/([^/]+)/)?.[1];
+        if (!slug) return;
+        const pct = parseInt(localStorage.getItem(`heji-read-${slug}`) ?? '0', 10);
+        if (pct <= 0) return;
+        const el = document.createElement('div');
+        el.className = 'post-progress-bar';
+        el.style.width = `${pct}%`;
+        card.appendChild(el);
+      });
+    }
+
+    // Toggle visibility of the statically-rendered initial cards + sentinel
+    function setSearchMode(active: boolean) {
+      listEl!.querySelectorAll<HTMLElement>(':scope > .post-card').forEach(c => {
+        c.style.display = active ? 'none' : '';
+      });
+      if (sentinelEl) sentinelEl.style.display = active ? 'none' : '';
+    }
+
+    searchInput.addEventListener('input', () => {
+      const raw = searchInput.value;
+      const q   = raw.trim().toLowerCase();
+
+      if (!q) {
+        setSearchMode(false);
+        resultsEl.innerHTML = '';
+        if (searchStatus) searchStatus.hidden = true;
+        return;
+      }
+
+      setSearchMode(true);
+
+      const words   = q.split(/\s+/).filter(Boolean);
+      const matches = allPosts.filter(p => {
+        const hay = [p.title, p.desc, ...p.tags.map(t => t.text)]
+          .join(' ').toLowerCase();
+        return words.every(w => hay.includes(w));
+      });
+
+      if (matches.length === 0) {
+        resultsEl.innerHTML =
+          `<div class="search-empty">No posts found for <strong>"${escSearch(raw)}"</strong></div>`;
+      } else {
+        resultsEl.innerHTML = matches.map(buildSearchCard).join('');
+        applyReadProgressSearch(resultsEl);
+      }
+
+      if (searchStatus) {
+        searchStatus.hidden      = false;
+        searchStatus.textContent = matches.length === 1
+          ? '1 result'
+          : `${matches.length} results`;
+      }
+    });
   }
 </script>
