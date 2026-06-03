@@ -9,6 +9,7 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "cosmos3.pdf":                             "https://research.nvidia.com/labs/cosmos-lab/cosmos3/technical-report.pdf",
     "sdsl-spec-decoding.pdf":                  "https://arxiv.org/pdf/2603.11053",
     "opd-foresight.pdf":                       "https://arxiv.org/pdf/2605.11739",
     "empirical-bayes-attention.pdf":           "https://arxiv.org/pdf/2605.27028",
