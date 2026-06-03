@@ -1,0 +1,1123 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const slug = 'fixing-multimodal-degradation';
+const readTime = postReadTime(slug);
+---
+<BaseLayout
+  title="The Modality Regret: How the AI Industry Solved Multimodal Text Degradation | AI/ML Deep Dives"
+  description="A comprehensive history and architectural timeline of the 'multimodal tax' — why adding vision historically broke LLM coding and math capabilities, and the three key breakthroughs that finally fixed it."
+  crumb="Multimodal Degradation"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.5rem}
+.bar-group-label{font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:1.1rem;margin-bottom:.3rem;font-family:var(--ff-mono)}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.4rem;width:0%}
+.bar-fill span{font-size:.63rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+
+/* Mode buttons */
+.mode-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.875rem}
+.mode-btn{padding:.3rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.mode-btn:hover{border-color:var(--purple);color:var(--purple-l)}
+.mode-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Canvas style overrides */
+.canvas-container{position:relative;background:var(--card2);border-radius:8px;border:1px solid var(--border);padding:.75rem;margin:1rem 0}
+.canvas-meta{display:flex;align-items:center;justify-content:space-between;margin-top:.5rem;font-size:.68rem;color:var(--muted);font-family:var(--ff-mono)}
+
+/* SVG Arch style */
+.arch-svg{background:var(--card2);border-radius:8px;border:1px solid var(--border);padding:1rem;margin:1rem 0;display:block;width:100%;height:auto;max-width:580px;margin-left:auto;margin-right:auto}
+
+/* Interactive Slider Style */
+.slider-group{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;background:var(--surface);padding:.6rem 1rem;border-radius:6px;border:1px solid var(--border-hi)}
+.slider-group label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted2);flex-shrink:0}
+.slider-group input[type="range"]{flex:1;accent-color:var(--purple);cursor:pointer}
+.slider-val{font-size:.72rem;font-family:var(--ff-mono);color:var(--cyan);font-weight:700;min-width:3.5rem;text-align:right}
+
+/* Results Table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math Block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Multimodal</span>
+    <span class="tag tag-cyan">Training Dynamics</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>The Modality Regret: How the AI Industry Solved Multimodal Text Degradation</h1>
+  <p class="lead">For years, transforming a highly capable text model into a multimodal model acted like a lobotomy, severely degrading its coding and mathematical reasoning. Here is the engineering history of how we diagnosed the "modality tax" and the architectural breakthroughs that finally fixed it.</p>
+  <div class="post-hero-meta">
+    <span>June 3, 2026</span>
+    <span>~15 min read</span>
+    <span>Reference Papers: <code>arXiv:2304.08485, arXiv:2405.11073, arXiv:2409.20487</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2405.11073" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Chameleon PDF
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2409.20487" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Llama 3.2 PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item id="toc-s-tax" class="toc-active"><a href="#s-tax"><span class="toc-num">01</span> The Modality Tax</a></li>
+    <li class="toc-item id="toc-s-conflict"><a href="#s-conflict"><span class="toc-num">02</span> SFT Gradient Conflict</a></li>
+    <li class="toc-item id="toc-s-replay"><a href="#s-replay"><span class="toc-num">03</span> Balanced Replay</a></li>
+    <li class="toc-item id="toc-s-native"><a href="#s-native"><span class="toc-num">04</span> Native Pre-training</a></li>
+    <li class="toc-item id="toc-s-reasoning"><a href="#s-reasoning"><span class="toc-num">05</span> Test-Time Compute</a></li>
+    <li class="toc-item id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> State of the Art</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-tax" data-code="intro">
+  <div class="section-no">01 — The Modality Tax</div>
+  <h2>The Sudden Collapse of Reasoning</h2>
+  <p>In 2023, the open-source AI community witnessed a gold rush. Following the release of Meta's LLaMA, researchers figured out a remarkably elegant way to build Multimodal Large Language Models (MLLMs). By taking a powerful, pre-trained text model (like Vicuna-7B or Mistral-7B), locking a vision encoder (like CLIP ViT), and training a small linear adapter to translate image vectors into the LLM's token space, they created models like LLaVA and MiniGPT-4. They could see.</p>
+  <p>However, an alarming trade-off quickly emerged. When these adapted models were evaluated on pure text-only reasoning tasks, their performance collapsed. A base text model capable of solving 30% of grade-school algebra (GSM8K) or coding interview questions (HumanEval) would, after visual adaptation, drop to single digits. Translating images had somehow overwritten the logical neural pathways of the model.</p>
+  
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Interactive: The Text Performance Penalty</span>
+      <span class="vp-hint">Toggle training recipes to see text-only benchmark collapse</span>
+    </div>
+    <div class="vp-body">
+      <div class="mode-btns">
+        <button class="mode-btn active" data-recipe="vqa-only">Standard VQA-Only SFT</button>
+        <button class="mode-btn" data-recipe="balanced-replay">50% Text Replay Mix</button>
+        <button class="mode-btn" data-recipe="native-scratch">Native Early Fusion</button>
+      </div>
+      <div class="results-bars" id="tax-bars">
+        <div class="bar-group-label">Mathematical Reasoning (GSM8K)</div>
+        <div class="bar-row">
+          <span class="bar-label">Base LLM (Text-only)</span>
+          <div class="bar-track"><div class="bar-fill" style="background:var(--cyan); width:55%;" data-w="55"><span>55.0%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">After Vision Adaptation</span>
+          <div class="bar-track"><div class="bar-fill" id="bar-gsm8k-adapted" style="background:var(--purple); width:12%;" data-w="12"><span>12.0%</span></div></div>
+        </div>
+
+        <div class="bar-group-label">Code Generation (HumanEval)</div>
+        <div class="bar-row">
+          <span class="bar-label">Base LLM (Text-only)</span>
+          <div class="bar-track"><div class="bar-fill" style="background:var(--cyan); width:62%;" data-w="62"><span>62.0%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">After Vision Adaptation</span>
+          <div class="bar-track"><div class="bar-fill" id="bar-human-adapted" style="background:var(--purple); width:18%;" data-w="18"><span>18.0%</span></div></div>
+        </div>
+
+        <div class="bar-group-label">Core Language Reasoning (MMLU)</div>
+        <div class="bar-row">
+          <span class="bar-label">Base LLM (Text-only)</span>
+          <div class="bar-track"><div class="bar-fill" style="background:var(--cyan); width:70%;" data-w="70"><span>70.0%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">After Vision Adaptation</span>
+          <div class="bar-track"><div class="bar-fill" id="bar-mmlu-adapted" style="background:var(--purple); width:45%;" data-w="45"><span>45.0%</span></div></div>
+        </div>
+      </div>
+      <p style="font-size:0.75rem; color:var(--muted); text-align:center; margin-top:0.75rem; font-style:italic;">
+        Notice how standard visual instruction tuning (VQA-only) strips away math/code performance, but balanced mixes or native training mitigates this tax.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="s-conflict" data-code="mechanics">
+  <div class="section-no">02 — SFT Gradient Conflict</div>
+  <h2>Why it Happens: Gradient Hijacking</h2>
+  <p>The root cause of this regression is **gradient conflict** and representation shift. During pre-training, an LLM builds highly structured attention representations that execute complex causal step-by-step logic required for code and math. When we attach a vision encoder, we project high-dimensional visual patch embeddings (usually from a frozen CLIP or SigLIP model) directly into the word embedding space.</p>
+  <p>If we fine-tune the LLM backbone solely on visual question answering (VQA) datasets, the gradients computed on these inputs are entirely oriented toward aligning the newly introduced visual representations. These visual embeddings represent a complete out-of-distribution shock. Because there is no mathematical or logical reasoning data in the visual SFT dataset, the model updates its internal weights to represent visual shapes and spatial relationships, overwriting the narrow attention parameters that enforce coding syntax and logical inference.</p>
+  
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Interactive: Gradient Update Trajectory</span>
+      <span class="vp-hint">Adjust the Backbone Unfrozen Ratio to observe task-vector alignment</span>
+    </div>
+    <div class="vp-body">
+      <div class="slider-group">
+        <label for="unfrozen-ratio">Unfrozen LLM Ratio:</label>
+        <input type="range" id="unfrozen-ratio" min="0" max="100" value="100">
+        <span class="slider-val" id="unfrozen-val">100%</span>
+      </div>
+      <div class="canvas-container">
+        <canvas id="canvas-gradient" style="width:100%; height:250px; display:block;"></canvas>
+        <div class="canvas-meta">
+          <span>Task Gradient Vectors in Weight Space</span>
+          <span>Green = Math/Code, Purple = Vision, Cyan = Actual Step</span>
+        </div>
+      </div>
+      <p style="font-size:0.78rem; color:var(--muted); line-height:1.45;">
+        When the backbone is 100% unfrozen and we only train on vision instructions, the updates (Cyan) map purely onto the Vision-Language alignment vector (Purple), pulling the model's weights completely away from the Math/Code reasoning basin (Green dot).
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="s-replay" data-code="replay">
+  <div class="section-no">03 — Balanced Replay</div>
+  <h2>The First Fix: Joint Training Mixtures</h2>
+  <p>The earliest and most straightforward mitigation was the introduction of **balanced replay mixtures**. Instead of fine-tuning the model exclusively on image-text pairs, researchers interleaved high-quality, pure-text instruction datasets (e.g. GSM8K, MBPP, UltraChat) into the visual instruction-tuning batches.</p>
+  <p>This mixed training acts as a powerful regularizer. The loss gradients computed on the text reasoning batches generate parameter update vectors that pull the model back toward its original reasoning capabilities, while the vision batches align the adapter. When Meta trained Llama 3.2-Vision, they adopted a similar methodology: they used cross-attention adapters to connect the image encoder and kept a heavy mix of pure text-reasoning data in both the alignment and pre-training stages, achieving near-zero regret on text-only tasks.</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Simulation: Parameter Drift & Settle</span>
+      <span class="vp-hint">Set the Text data mix percentage and press Play to simulate training</span>
+    </div>
+    <div class="vp-body">
+      <div class="slider-group">
+        <label for="mix-percentage">Text Data Mix %:</label>
+        <input type="range" id="mix-percentage" min="0" max="100" value="20">
+        <span class="slider-val" id="mix-val">20%</span>
+      </div>
+      <div class="mode-btns" style="margin-bottom:0.75rem;">
+        <button class="mode-btn" id="btn-replay-play">▶ Play Epochs</button>
+        <button class="mode-btn" id="btn-replay-reset">Reset</button>
+      </div>
+      <div class="canvas-container">
+        <canvas id="canvas-replay" style="width:100%; height:260px; display:block;"></canvas>
+        <div class="canvas-meta">
+          <span>Active Parameter Path</span>
+          <span id="replay-epoch-val">Epoch: 0</span>
+        </div>
+      </div>
+      <p style="font-size:0.78rem; color:var(--muted); line-height:1.45;">
+        By keeping the mix at 50% or above, the parameter trajectory stays within the intersection zone (Cyan overlap), achieving stable vision understanding without degrading text reasoning.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="s-native" data-code="native">
+  <div class="section-no">04 — Native Pre-training</div>
+  <h2>Breakthrough: Early-Fusion Architectures</h2>
+  <p>While balanced mixtures solved the SFT forgetting problem, late-fusion adapter architectures still suffered from a fundamental bottleneck: the language model was still an afterthought for vision. In 2024, researchers introduced native multimodal models trained **from scratch** as unified architectures, such as Meta's **Chameleon** and Google's **Gemini**.</p>
+  <p>Instead of grafting an adapter onto a pre-trained LLM, early-fusion models tokenize both text and images into a single, shared vocabulary. An image is split into patches, which are mapped directly to discrete visual tokens using a VQ-GAN or projected into continuous embedding vectors. The entire model is then pre-trained from day one on interleaved web documents (e.g. text, images, and text-image sequences). Because text and vision co-evolve inside the transformer layers, the model learns a unified representation, completely eliminating the modality-grafting shock and maintaining text benchmark parity.</p>
+  
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Architecture Contrast</span>
+      <span class="vp-hint">Toggle between Adapter Late-Fusion and Native Early-Fusion</span>
+    </div>
+    <div class="vp-body">
+      <div class="mode-btns">
+        <button class="mode-btn active" id="btn-arch-late">Late Fusion (LLaVA-style)</button>
+        <button class="mode-btn" id="btn-arch-early">Early Fusion (Chameleon-style)</button>
+      </div>
+      <div id="arch-display-container">
+        <!-- Late Fusion SVG -->
+        <svg class="arch-svg" id="svg-late" viewBox="0 0 500 240">
+          <rect x="10" y="20" width="100" height="40" rx="5" fill="#0891b2" opacity="0.8"/>
+          <text x="60" y="45" fill="#fff" font-size="10" font-family="monospace" text-anchor="middle">Image Input</text>
+          
+          <rect x="10" y="100" width="100" height="40" rx="5" fill="#0891b2" opacity="0.8"/>
+          <text x="60" y="125" fill="#fff" font-size="10" font-family="monospace" text-anchor="middle">Vision Encoder</text>
+          
+          <rect x="150" y="100" width="90" height="40" rx="5" fill="#f59e0b" opacity="0.8"/>
+          <text x="195" y="125" fill="#fff" font-size="10" font-family="monospace" text-anchor="middle">Linear Adapter</text>
+          
+          <rect x="10" y="180" width="230" height="40" rx="5" fill="#7c3aed" opacity="0.6"/>
+          <text x="125" y="205" fill="#fff" font-size="10" font-family="monospace" text-anchor="middle">Text Prompt Input</text>
+          
+          <rect x="320" y="60" width="160" height="120" rx="8" fill="#7c3aed" opacity="0.9"/>
+          <text x="400" y="120" fill="#fff" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Pre-trained LLM</text>
+          <text x="400" y="140" fill="#fff" font-size="9" font-family="monospace" text-anchor="middle" opacity="0.8">Backbone (Grafted)</text>
+          
+          <path d="M60,60 L60,100" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M110,120 L150,120" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M240,120 L280,120 L280,100 L320,100" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M240,200 L290,200 L290,140 L320,140" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+          
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#a1a1aa"/>
+            </marker>
+          </defs>
+        </svg>
+
+        <!-- Early Fusion SVG (hidden by default) -->
+        <svg class="arch-svg" id="svg-early" viewBox="0 0 500 240" style="display:none;">
+          <rect x="10" y="20" width="220" height="35" rx="5" fill="#0891b2" opacity="0.8"/>
+          <text x="120" y="42" fill="#fff" font-size="9" font-family="monospace" text-anchor="middle">Interleaved Image Patches</text>
+          
+          <rect x="250" y="20" width="240" height="35" rx="5" fill="#7c3aed" opacity="0.7"/>
+          <text x="370" y="42" fill="#fff" font-size="9" font-family="monospace" text-anchor="middle">Interleaved Text Tokens</text>
+          
+          <rect x="10" y="85" width="480" height="40" rx="6" fill="#10b981" opacity="0.85"/>
+          <text x="250" y="110" fill="#fff" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">Shared Unified Embedding Table (Unified Vocab)</text>
+          
+          <rect x="10" y="165" width="480" height="55" rx="8" fill="#7c3aed" opacity="0.95"/>
+          <text x="250" y="195" fill="#fff" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Unified Multimodal Transformer (Trained from Scratch)</text>
+          
+          <path d="M120,55 L120,85" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow2)"/>
+          <path d="M370,55 L370,85" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow2)"/>
+          <path d="M250,125 L250,165" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow2)"/>
+          
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#a1a1aa"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <p style="font-size:0.78rem; color:var(--muted); line-height:1.45; margin-top:0.5rem;">
+        In **Early Fusion**, there are no separate modalities or adapters. Images and text flow through the same layers as token sequences from day one, allowing the model to develop joint representations.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="s-reasoning" data-code="reasoning">
+  <div class="section-no">05 — Test-Time Compute</div>
+  <h2>Extracting Dense Visual Information</h2>
+  <p>Even with unified pre-training, a core physical limitation remained: compression. Standard vision encoders compress a large 1024x1024 pixel image into a small, fixed grid of visual tokens (often 256 or 576 tokens). This compression acts as a low-pass filter, wiping out dense, small text, math symbols, and small charts.</p>
+  <p>To solve this, 2025 reasoning-focused multimodal models (like **Qwen2.5-VL** and **Gemini 2.0 Thinking**) shifted from one-shot generation to **test-time compute (inference scaling)**. Instead of instantly spitting out an answer, the model generates an internal Chain of Thought (CoT), allocates compute to examine sub-regions of the image at native resolution, and dynamically "zooms in" on details of interest before executing final logical steps. This mirrors human perception, allowing the model to ground its textual logic directly in high-fidelity visual evidence.</p>
+  
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Inference Step Navigator</span>
+      <span class="vp-hint">Step through visual reasoning steps to observe confidence score scaling</span>
+    </div>
+    <div class="vp-body">
+      <div class="step-list">
+        <div class="step-box active" id="step-card-0">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Initial Visual Scan (Global View)</div>
+            <div class="step-desc">The model takes a low-resolution scan of the image. It registers a geometry problem consisting of a square containing a circle, and a prompt: "Compute shaded area."</div>
+            <div class="step-code">Visual tokens: 256 | Target identified: [Square, Circle]</div>
+          </div>
+        </div>
+        <div class="step-box" id="step-card-1">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Active Region Crop & Zoom</div>
+            <div class="step-desc">The model allocates compute to zoom into the bottom-right corner where a small label resides. It reads: "Radius = 7cm" (a detail lost in the low-res global view).</div>
+            <div class="step-code">Visual tokens: 1024 (native patch) | Metric: Radius = 7</div>
+          </div>
+        </div>
+        <div class="step-box" id="step-card-2">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Chain-of-Thought Equation Formulating</div>
+            <div class="step-desc">The model generates reasoning steps: "If radius = 7, square side = 14. Area(Square) = 14*14 = 196. Area(Circle) = pi * 7^2 = 154."</div>
+            <div class="step-code">Thinking tokens: 48 | Eq: Shaded = 196 - 154</div>
+          </div>
+        </div>
+        <div class="step-box" id="step-card-3">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Math Execution & Self-Correction</div>
+            <div class="step-desc">The model performs arithmetic subtraction: "196 - 154 = 42. Double check if any units are specified: cm^2. Final answer = 42 cm^2."</div>
+            <div class="step-code">Confidence: 99.2% | Result: 42 cm^2</div>
+          </div>
+        </div>
+      </div>
+      <div class="step-nav">
+        <button id="step-prev" disabled>‹ Previous</button>
+        <button id="step-next">Next ›</button>
+        <span style="font-size:0.7rem; font-family:monospace; color:var(--muted);" id="step-prog">Step 1 of 4</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="s-results" data-code="results">
+  <div class="section-no">06 — State of the Art</div>
+  <h2>The Modality Tax is Dead</h2>
+  <p>Today, the "modality tax" is officially zero. Modern multimodal models are trained using native early fusion or carefully regularized cross-attention adapters paired with vast, balanced pre-training mixtures. When we compare Llama 3.2 11B Vision against its text-only progenitor Llama 3.1 8B, or Qwen2-VL 7B against Qwen2 7B, their text benchmarks are identical or even slightly improved.</p>
+  <p>Here is how modern multimodal models stand compared to their text-only counterparts, proving that adding vision no longer degrades the core reasoning engines of AI:</p>
+
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Modality</th>
+        <th>GSM8K (Math)</th>
+        <th>HumanEval (Code)</th>
+        <th>MMLU (Reasoning)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="mn">Llama 3.1 8B Instruct</td>
+        <td>Text Only</td>
+        <td>84.5%</td>
+        <td>72.6%</td>
+        <td>73.0%</td>
+      </tr>
+      <tr class="highlight-row">
+        <td class="mn">Llama 3.2 11B Vision</td>
+        <td style="color:var(--purple-l);">Vision + Text</td>
+        <td class="best">84.8%</td>
+        <td class="best">73.1%</td>
+        <td class="best">73.5%</td>
+      </tr>
+      <tr>
+        <td class="mn">Qwen2 7B Instruct</td>
+        <td>Text Only</td>
+        <td>82.3%</td>
+        <td>78.4%</td>
+        <td>70.5%</td>
+      </tr>
+      <tr class="highlight-row">
+        <td class="mn">Qwen2-VL 7B Instruct</td>
+        <td style="color:var(--purple-l);">Vision + Text</td>
+        <td class="best">83.1%</td>
+        <td class="best">79.0%</td>
+        <td class="best">71.2%</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>By shifting from naive fine-tuning to native early fusion and test-time visual crop search, AI models have transitioned from "blind text calculators" to grounded, spatial, and mathematical thinkers without sacrificing a single point of intellectual performance.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">vqa_sft.py</div>
+      <div class="cs-section-title" id="cs-section-title">Visual SFT Objective</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="mechanics">mechanics</button>
+    <button class="cs-tab" data-panel="replay">replay</button>
+    <button class="cs-tab" data-panel="native">native</button>
+    <button class="cs-tab" data-panel="reasoning">reasoning</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- Intro Panel -->
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard visual instruction tuning</span>
+<span class="cs-line cmt"># (No text-only reasoning batches mixed in)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">train_step_vqa</span>(model, batch):</span>
+<span class="cs-line">    <span class="cmt"># batch only contains multimodal VQA pairs</span></span>
+<span class="cs-line">    images, questions, answers = batch</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Forward pass through model</span></span>
+<span class="cs-line">    outputs = model(images, questions)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Loss on answer tokens only</span></span>
+<span class="cs-line">    loss = <span class="fn">cross_entropy</span>(outputs, answers)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # Backpropagation</span>
+<span class="cs-line">    loss.<span class="fn">backward</span>()</span>
+<span class="cs-line cmt">    # Weight update overwrites text logic pathways</span>
+<span class="cs-line hl-c">    optimizer.<span class="fn">step</span>()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # GSM8K accuracy begins to degrade</span>
+<span class="cs-line cmt">    # because text-only gradients are absent</span>
+<span class="cs-line">    <span class="kw">return</span> loss.item()</span>
+      </pre>
+    </div>
+
+    <!-- Mechanics Panel -->
+    <div class="cs-panel" id="panel-mechanics">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Gradient conflict in adapter models</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">gradient_conflict_metric</span>(grad_text, grad_vision):</span>
+<span class="cs-line">    <span class="cmt"># Cosine similarity of gradient vectors</span></span>
+<span class="cs-line">    dot_prod = torch.<span class="fn">dot</span>(grad_text.flatten(), grad_vision.flatten())</span>
+<span class="cs-line">    norm_t = torch.<span class="fn">linalg.norm</span>(grad_text)</span>
+<span class="cs-line">    norm_v = torch.<span class="fn">linalg.norm</span>(grad_vision)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    cos_sim = dot_prod / (norm_t * norm_v)</span>
+<span class="cs-line hl-c">    <span class="kw">if</span> cos_sim &lt; <span class="num">0</span>:</span>
+<span class="cs-line hl-c">        <span class="cmt"># Negative cosine similarity indicates</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># gradient conflict (cancelling out weights)</span></span>
+<span class="cs-line hl-c">        <span class="fn">print</span>(f<span class="str">"Gradient Conflict! CosSim: &#123;cos_sim:.4f&#125;"</span>)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> cos_sim</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># SFT updates without regularization:</span>
+<span class="cs-line cmt"># W_new = W_old - lr * grad_vision</span>
+<span class="cs-line cmt"># Overwrites math/code logical parameters</span>
+      </pre>
+    </div>
+
+    <!-- Replay Panel -->
+    <div class="cs-panel" id="panel-replay">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Joint Multitask DataLoader & Loss Mix</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">joint_train_step</span>(model, batch_text, batch_vision, mix_ratio=<span class="num">0.5</span>):</span>
+<span class="cs-line">    <span class="cmt"># 1. Text loss calculation (regularizer)</span></span>
+<span class="cs-line">    txt_in, txt_tgt = batch_text</span>
+<span class="cs-line">    loss_text = <span class="fn">cross_entropy</span>(model(txt_in), txt_tgt)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># 2. Vision loss calculation</span></span>
+<span class="cs-line">    vis_img, vis_in, vis_tgt = batch_vision</span>
+<span class="cs-line">    loss_vision = <span class="fn">cross_entropy</span>(model(vis_img, vis_in), vis_tgt)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># 3. Weighted total loss</span></span>
+<span class="cs-line hl-g">    total_loss = mix_ratio * loss_text + (1 - mix_ratio) * loss_vision</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    optimizer.<span class="fn">zero_grad</span>()</span>
+<span class="cs-line">    total_loss.<span class="fn">backward</span>()</span>
+<span class="cs-line hl-c">    optimizer.<span class="fn">step</span>()  <span class="cmt"># Balanced updates</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> total_loss.item()</span>
+      </pre>
+    </div>
+
+    <!-- Native Panel -->
+    <div class="cs-panel" id="panel-native">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Early-Fusion Interleaved Multimodal Model</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">EarlyFusionTransformer</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(self, vocab_size, num_vision_tokens, d_model):</span>
+<span class="cs-line">        super().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="cmt"># Shared embedding space</span></span>
+<span class="cs-line">        self.text_embed = nn.<span class="cls">Embedding</span>(vocab_size, d_model)</span>
+<span class="cs-line">        self.vision_proj = nn.<span class="cls">Linear</span>(num_vision_tokens, d_model)</span>
+<span class="cs-line">        self.layers = nn.<span class="cls">TransformerEncoder</span>(...)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="kw">def</span> <span class="fn">forward</span>(self, sequence_tokens, sequence_types):</span>
+<span class="cs-line hl-g">        embeddings = []</span>
+<span class="cs-line hl-g">        <span class="kw">for</span> token, t_type <span class="kw">in</span> <span class="fn">zip</span>(sequence_tokens, sequence_types):</span>
+<span class="cs-line hl-g">            <span class="kw">if</span> t_type == <span class="str">"text"</span>:</span>
+<span class="cs-line hl-g">                embeddings.<span class="fn">append</span>(self.text_embed(token))</span>
+<span class="cs-line hl-g">            <span class="kw">else</span>:</span>
+<span class="cs-line hl-g">                embeddings.<span class="fn">append</span>(self.vision_proj(token))</span>
+<span class="cs-line hl-g">        </span>
+<span class="cs-line">        <span class="cmt"># Fully homogeneous stack</span></span>
+<span class="cs-line">        x = torch.<span class="fn">stack</span>(embeddings)</span>
+<span class="cs-line">        <span class="kw">return</span> self.layers(x)</span>
+      </pre>
+    </div>
+
+    <!-- Reasoning Panel -->
+    <div class="cs-panel" id="panel-reasoning">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Test-Time Compute (TTC) Visual Cropper</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">VisualTTCReasoner</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(self, model):</span>
+<span class="cs-line">        self.model = model</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="kw">def</span> <span class="fn">reason_with_ttc</span>(self, image, prompt):</span>
+<span class="cs-line hl-g">        <span class="cmt"># 1. Low-res initial scan</span></span>
+<span class="cs-line hl-g">        plan = self.model.<span class="fn">generate_cot</span>(image, prompt)</span>
+<span class="cs-line hl-g">        </span>
+<span class="cs-line hl-g">        <span class="cmt"># 2. Identify detail coordinates needing crop</span></span>
+<span class="cs-line hl-g">        crop_box = self.model.<span class="fn">detect_focus_area</span>(plan)</span>
+<span class="cs-line hl-g">        </span>
+<span class="cs-line hl-g">        <span class="cmt"># 3. High-res crop visual token extraction</span></span>
+<span class="cs-line hl-g">        cropped_patch = image.<span class="fn">crop</span>(crop_box)</span>
+<span class="cs-line hl-g">        </span>
+<span class="cs-line hl-g">        <span class="cmt"># 4. Final step-by-step reasoning with cropped patch</span></span>
+<span class="cs-line hl-g">        response = self.model.<span class="fn">generate_final</span>(</span>
+<span class="cs-line hl-g">            cropped_patch, plan, prompt</span>
+<span class="cs-line hl-g">        )</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> response</span>
+      </pre>
+    </div>
+
+    <!-- Results Panel -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># SOTA Multimodal vs Text-Only benchmarks</span>
+<span class="cs-line cmt"># Showing 0% math/code performance degradation</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">benchmarks = &#123;</span>
+<span class="cs-line">    <span class="str">"Llama 3.1 8B"</span>: &#123;</span>
+<span class="cs-line">        <span class="str">"GSM8K"</span>: <span class="num">84.5</span>, <span class="str">"HumanEval"</span>: <span class="num">72.6</span>, <span class="str">"MMLU"</span>: <span class="num">73.0</span></span>
+<span class="cs-line">    &#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"Llama 3.2 11B Vision"</span>: &#123;</span>
+<span class="cs-line hl-g">        <span class="str">"GSM8K"</span>: <span class="num">84.8</span>, <span class="str">"HumanEval"</span>: <span class="num">73.1</span>, <span class="str">"MMLU"</span>: <span class="num">73.5</span></span>
+<span class="cs-line hl-g">    &#125;,</span>
+<span class="cs-line">    <span class="str">"Qwen2 7B"</span>: &#123;</span>
+<span class="cs-line">        <span class="str">"GSM8K"</span>: <span class="num">82.3</span>, <span class="str">"HumanEval"</span>: <span class="num">78.4</span>, <span class="str">"MMLU"</span>: <span class="num">70.5</span></span>
+<span class="cs-line">    &#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"Qwen2-VL 7B"</span>: &#123;</span>
+<span class="cs-line hl-g">        <span class="str">"GSM8K"</span>: <span class="num">83.1</span>, <span class="str">"HumanEval"</span>: <span class="num">79.0</span>, <span class="str">"MMLU"</span>: <span class="num">71.2</span></span>
+<span class="cs-line hl-g">    &#125;</span>
+<span class="cs-line">&#125;</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div>
+
+<script>
+// TOC + sidebar toggles
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// Code sidebar tab switching
+const tabMeta = {
+  intro:     { file: 'vqa_sft.py',          title: 'Visual SFT Objective' },
+  mechanics: { file: 'gradient_conflict.py',title: 'Gradient Interference' },
+  replay:    { file: 'balanced_replay.py',  title: 'Balanced Data Loader' },
+  native:    { file: 'early_fusion.py',     title: 'Early-Fusion Transformer' },
+  reasoning: { file: 'visual_ttc.py',       title: 'Visual Crop & Reason' },
+  results:   { file: 'benchmarks.py',       title: 'State of the Art' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// IntersectionObserver - sync TOC + sidebar tab on scroll
+const sectionMap = { 
+  's-tax': 'intro', 
+  's-conflict': 'mechanics', 
+  's-replay': 'replay', 
+  's-native': 'native', 
+  's-reasoning': 'reasoning', 
+  's-results': 'results' 
+};
+
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.35 }).observe(s)
+);
+
+// ----------------------------------------------------
+// Viz 1 Interactivity: The Text Performance Penalty Bars
+// ----------------------------------------------------
+const recipeData = {
+  'vqa-only': { gsm8k: 12, human: 18, mmlu: 45 },
+  'balanced-replay': { gsm8k: 52, human: 60, mmlu: 69 },
+  'native-scratch': { gsm8k: 58, human: 63, mmlu: 72 }
+};
+
+document.querySelectorAll('[data-recipe]').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('[data-recipe]').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    const data = recipeData[e.target.dataset.recipe];
+    if (data) {
+      const gFill = document.getElementById('bar-gsm8k-adapted');
+      const hFill = document.getElementById('bar-human-adapted');
+      const mFill = document.getElementById('bar-mmlu-adapted');
+      
+      gFill.style.width = data.gsm8k + '%';
+      gFill.querySelector('span').textContent = data.gsm8k + '.0%';
+      
+      hFill.style.width = data.human + '%';
+      hFill.querySelector('span').textContent = data.human + '.0%';
+      
+      mFill.style.width = data.mmlu + '%';
+      mFill.querySelector('span').textContent = data.mmlu + '.0%';
+    }
+  });
+});
+
+// ----------------------------------------------------
+// Viz 2 Canvas: Gradient Update Trajectory
+// ----------------------------------------------------
+const gradCanvas = document.getElementById('canvas-gradient');
+if (gradCanvas) {
+  const ctx = gradCanvas.getContext('2d');
+  const unfrozenSlider = document.getElementById('unfrozen-ratio');
+  const unfrozenVal = document.getElementById('unfrozen-val');
+  
+  function drawGradientVectors() {
+    const W = gradCanvas.clientWidth, H = 250, DPR = window.devicePixelRatio || 1;
+    if (gradCanvas.width !== W * DPR) {
+      gradCanvas.width = W * DPR; gradCanvas.height = H * DPR; ctx.scale(DPR, DPR);
+    }
+    ctx.clearRect(0, 0, W, H);
+    
+    // Draw background grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 30) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 30) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    
+    const unfrozen = parseFloat(unfrozenSlider.value) / 100.0;
+    unfrozenVal.textContent = Math.round(unfrozen * 100) + '%';
+    
+    const ox = W / 2, oy = H / 2 + 30; // origin
+    
+    // Target Basin regions
+    // Math target basin
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+    ctx.beginPath(); ctx.arc(ox - 100, oy - 120, 45, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'var(--green)';
+    ctx.font = '9px monospace';
+    ctx.fillText('Math/Code Reasoning Basin', ox - 150, oy - 180);
+    ctx.beginPath(); ctx.arc(ox - 100, oy - 120, 5, 0, Math.PI * 2); ctx.fill();
+    
+    // Vision target basin
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.08)';
+    ctx.beginPath(); ctx.arc(ox + 120, oy - 70, 45, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.fillText('Vision Alignment Space', ox + 80, oy - 125);
+    ctx.beginPath(); ctx.arc(ox + 120, oy - 70, 5, 0, Math.PI * 2); ctx.fill();
+    
+    // Draw Text logical direction vector (Green Arrow)
+    drawArrow(ox, oy, ox - 90, oy - 100, 'var(--green)', 2, 'Text reasoning direction');
+    
+    // Draw Vision alignment direction vector (Purple Arrow)
+    drawArrow(ox, oy, ox + 110, oy - 55, 'var(--purple)', 2, 'Vision alignment direction');
+    
+    // Actual parameter update vector (Cyan Arrow)
+    // As unfrozen ratio goes to 1.0 (100% SFT), the parameter updates lean 100% towards vision alignment
+    // (since VQA SFT has no math datasets). 
+    // If unfrozen ratio is 0.0 (frozen backbone), update is small and stays locked.
+    const updateLength = 10 + unfrozen * 120;
+    const angle = -0.45 + (1.0 - unfrozen) * -0.7; // angles towards vision at 1.0, math at 0.0
+    const ux = ox + Math.cos(angle) * updateLength;
+    const uy = oy + Math.sin(angle) * updateLength;
+    
+    drawArrow(ox, oy, ux, uy, 'var(--cyan)', 3, `Parameter SFT Update Vector`);
+    
+    // Label origin
+    ctx.fillStyle = 'var(--text)';
+    ctx.beginPath(); ctx.arc(ox, oy, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('Pretrained LLM W_0', ox - 40, oy + 20);
+  }
+  
+  function drawArrow(x1, y1, x2, y2, color, width, label) {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 10 * Math.cos(angle - Math.PI / 6), y2 - 10 * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - 10 * Math.cos(angle + Math.PI / 6), y2 - 10 * Math.sin(angle + Math.PI / 6));
+    ctx.fill();
+    
+    if (label) {
+      ctx.font = '8px monospace';
+      ctx.fillText(label, x2 + 5, y2 + (y2 > y1 ? 5 : -5));
+    }
+  }
+  
+  unfrozenSlider.addEventListener('input', drawGradientVectors);
+  window.addEventListener('resize', drawGradientVectors);
+  drawGradientVectors();
+}
+
+// ----------------------------------------------------
+// Viz 3 Canvas: Parameter Drift Simulation
+// ----------------------------------------------------
+const replayCanvas = document.getElementById('canvas-replay');
+if (replayCanvas) {
+  const ctx = replayCanvas.getContext('2d');
+  const mixSlider = document.getElementById('mix-percentage');
+  const mixVal = document.getElementById('mix-val');
+  const playBtn = document.getElementById('btn-replay-play');
+  const resetBtn = document.getElementById('btn-replay-reset');
+  const epochEl = document.getElementById('replay-epoch-val');
+  
+  let animationId = null;
+  let epoch = 0;
+  let px = 100, py = 160; // particle coords
+  
+  // Seeded PRNG for reproducible particle trajectories
+  let seed = 1234;
+  function random() {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  }
+  
+  function drawReplaySpace() {
+    const W = replayCanvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+    if (replayCanvas.width !== W * DPR) {
+      replayCanvas.width = W * DPR; replayCanvas.height = H * DPR; ctx.scale(DPR, DPR);
+    }
+    ctx.clearRect(0, 0, W, H);
+    
+    // Draw background grids
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    for (let x = 0; x < W; x += 25) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 25) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    
+    const mix = parseFloat(mixSlider.value);
+    mixVal.textContent = mix + '%';
+    
+    // Region A: Text Reason Space (Green circle)
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.07)';
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(120, 130, 80, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'var(--green)';
+    ctx.font = '9px monospace';
+    ctx.fillText('Text Reasoning (Math/Code)', 50, 45);
+    
+    // Region B: Vision Alignment Space (Purple circle)
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.07)';
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
+    ctx.beginPath(); ctx.arc(W - 120, 130, 80, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.fillText('Multimodal VQA space', W - 180, 45);
+    
+    // Overlap: The Balanced Sweet Spot
+    ctx.fillStyle = 'var(--text2)';
+    ctx.font = '8px monospace';
+    ctx.fillText('Target Intersection', W/2 - 45, 135);
+    
+    // Draw parameter particle
+    ctx.beginPath();
+    // Color of particle based on location
+    const dText = Math.hypot(px - 120, py - 130);
+    const dVis = Math.hypot(px - (W - 120), py - 130);
+    
+    if (dText <= 80 && dVis <= 80) {
+      ctx.fillStyle = 'var(--cyan)';
+      ctx.shadowColor = 'var(--cyan)';
+      ctx.shadowBlur = 10;
+    } else if (dText <= 80) {
+      ctx.fillStyle = 'var(--green)';
+      ctx.shadowColor = 'var(--green)';
+      ctx.shadowBlur = 10;
+    } else if (dVis <= 80) {
+      ctx.fillStyle = 'var(--purple)';
+      ctx.shadowColor = 'var(--purple)';
+      ctx.shadowBlur = 10;
+    } else {
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 10;
+    }
+    
+    ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0; // reset
+    
+    ctx.fillStyle = 'var(--text)';
+    ctx.fillText('Active Weights θ', px - 40, py - 12);
+  }
+  
+  function updateParticle() {
+    if (epoch >= 100) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+      playBtn.textContent = '▶ Play Epochs';
+      return;
+    }
+    
+    epoch++;
+    epochEl.textContent = `Epoch: ${epoch}`;
+    
+    const W = replayCanvas.clientWidth;
+    const mix = parseFloat(mixSlider.value) / 100.0;
+    
+    // Target coordinate calculation:
+    // 0% text mix -> particle moves entirely to the right (multimodal alignment only)
+    // 100% text mix -> particle stays at the left (text only)
+    // 50% text mix -> particle settles in center (the overlap sweet spot)
+    const targetX = 120 + mix * (W - 240) + (1 - mix) * (W - 240);
+    const textTargetX = 120;
+    const visTargetX = W - 120;
+    
+    // Final settling point is a interpolation of text and vision centers based on mixture
+    const fx = textTargetX * mix + visTargetX * (1 - mix);
+    const fy = 130;
+    
+    // Add random SGD-like noise to path
+    seed = epoch;
+    const noiseX = (random() - 0.5) * 8;
+    const noiseY = (random() - 0.5) * 8;
+    
+    px += (fx - px) * 0.08 + noiseX;
+    py += (fy - py) * 0.08 + noiseY;
+    
+    drawReplaySpace();
+    animationId = requestAnimationFrame(updateParticle);
+  }
+  
+  playBtn.addEventListener('click', () => {
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+      playBtn.textContent = '▶ Play Epochs';
+    } else {
+      if (epoch >= 100) {
+        epoch = 0;
+        px = 100;
+        py = 160;
+      }
+      playBtn.textContent = '⏸ Pause';
+      updateParticle();
+    }
+  });
+  
+  resetBtn.addEventListener('click', () => {
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    epoch = 0;
+    px = 100;
+    py = 160;
+    epochEl.textContent = `Epoch: 0`;
+    playBtn.textContent = '▶ Play Epochs';
+    drawReplaySpace();
+  });
+  
+  mixSlider.addEventListener('input', drawReplaySpace);
+  window.addEventListener('resize', drawReplaySpace);
+  drawReplaySpace();
+}
+
+// ----------------------------------------------------
+// Viz 4 Interactivity: Architecture Toggles
+// ----------------------------------------------------
+const lateSvg = document.getElementById('svg-late');
+const earlySvg = document.getElementById('svg-early');
+const btnLate = document.getElementById('btn-arch-late');
+const btnEarly = document.getElementById('btn-arch-early');
+
+btnLate?.addEventListener('click', () => {
+  btnLate.classList.add('active');
+  btnEarly?.classList.remove('active');
+  lateSvg.style.display = 'block';
+  earlySvg.style.display = 'none';
+});
+
+btnEarly?.addEventListener('click', () => {
+  btnEarly.classList.add('active');
+  btnLate.classList.remove('active');
+  earlySvg.style.display = 'block';
+  lateSvg.style.display = 'none';
+});
+
+// ----------------------------------------------------
+// Viz 5 Interactivity: Inference Step Navigator
+// ----------------------------------------------------
+let step = 0;
+const boxes = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl = document.getElementById('step-prog');
+
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+
+prevBtn?.addEventListener('click', () => { if (step > 0){ step--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1){ step++; updateSteps(); } });
+updateSteps();
+
+// ----------------------------------------------------
+// Viz 6 Interactivity: Modern SOTA animated bars
+// ----------------------------------------------------
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

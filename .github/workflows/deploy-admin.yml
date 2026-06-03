@@ -1,0 +1,40 @@
+name: Deploy Admin
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/admin/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/deploy-admin.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/admin
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/admin
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting:heji-study-admin --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

@@ -30,7 +30,7 @@ Open `scripts/download_papers.py` and add a new entry to the `PAPERS` dict:
 ```python
 "<slug>.pdf": "<pdf-url>",
 ```
-Insert it at the top of the dict (most-recent-first ordering). The file already exists — use the Edit tool to add the line.
+Insert it at the top of the dict (most-recent-first ordering). The file already exists — use your file editing/replacement tools to add the line.
 
 ### PDF extraction
 `pdftotext` must be installed. If the first extraction attempt fails with "not installed":
@@ -48,7 +48,7 @@ Read in chunks (e.g. `sed -n '1,400p'`, `sed -n '400,800p'`) if the paper is lon
 - Related work (for framing)
 
 ### URL references
-Use `WebFetch` or `WebSearch` for any URLs the user provides, plus targeted searches for missing context (e.g. "paper title site:arxiv.org" or searches for prerequisite concepts the post needs to explain).
+Use web search or URL page retrieval tools for any URLs the user provides, plus targeted searches for missing context (e.g. "paper title site:arxiv.org" or searches for prerequisite concepts the post needs to explain).
 
 ### Understand before planning
 Do not write code until you can answer all of these:
@@ -581,7 +581,7 @@ updateSteps();
 ```
 
 ### Canvas animation skeleton
-Write canvas code to an external script file at `/tmp/screenshot-*.js` for testing, but inline it in the `<script>` block in the final post. Key rules:
+Write canvas code to an external script file at a workspace-relative temporary path (e.g., `tmp/screenshot-*.js` or a temporary file in the workspace root) for testing, but inline it in the `<script>` block in the final post. (Do NOT use `/tmp` or paths outside the workspace, as Antigravity requires all commands and file writes to stay within the workspace). Key rules:
 - Always use `window.devicePixelRatio` for crisp rendering
 - Use `requestAnimationFrame` for animation
 - Set canvas `width`/`height` = `clientWidth * DPR` after the DOM is ready
@@ -620,7 +620,7 @@ if (barsSection) {
 
 1. **Escape `<` in HTML `<pre>` code blocks** — Astro's compiler parses `<` before HTML tags in template content as a JSX fragment. Anywhere inside `.cs-pre` or `.math-block` where you write `<` as a less-than operator *immediately followed by a word or span tag*, use `&lt;` instead. Example: `rand() &lt; 0.5`.
 
-2. **No `$` in heredocs** — When writing multi-line node scripts via shell heredocs, use a dedicated `/tmp/script.js` file (Write tool) instead, or single-quote the heredoc delimiter (`<<'EOF'`).
+2. **No `$` in heredocs** — When writing multi-line node scripts via shell heredocs, use a dedicated workspace-relative temporary file like `tmp/script.js` (using the `write_to_file` tool) instead, or single-quote the heredoc delimiter (`<<'EOF'`). (Do NOT use `/tmp` or paths outside the workspace).
 
 3. **`is:global` on `<style>`** — The post CSS lives in `<style is:global>`. Without it, scoped styles won't apply to SVG/canvas content or dynamically-created elements.
 
@@ -680,7 +680,7 @@ After a clean build, optionally do a quick visual spot-check:
 ```bash
 npm run dev -- --port 4321 &
 sleep 4
-# then use Playwright (node /tmp/screenshot.js) to take a screenshot
+# then use Playwright (node tmp/screenshot.js) to take a screenshot
 pkill -f "astro dev"
 ```
 

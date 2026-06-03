@@ -1,0 +1,1 @@
+../../../.claude/skills/new-blog-post/SKILL.md
