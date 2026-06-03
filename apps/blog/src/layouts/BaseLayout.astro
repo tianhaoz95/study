@@ -114,6 +114,59 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       });
     }
 
+    // Track active reading duration (only increment when tab is visible)
+    let activeTimeSeconds = 0;
+    let timerInterval: number | null = null;
+
+    const startTimer = () => {
+      if (timerInterval === null && slug) {
+        timerInterval = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            activeTimeSeconds++;
+            checkTimeMilestones(activeTimeSeconds);
+          }
+        }, 1000) as unknown as number;
+      }
+    };
+
+    const stopTimer = () => {
+      if (timerInterval !== null) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    };
+
+    // Duration milestones
+    const timeMilestones = [10, 30, 60, 180, 300];
+    const firedTimeMilestones = new Set<number>();
+
+    const checkTimeMilestones = (secs: number) => {
+      timeMilestones.forEach(m => {
+        if (secs >= m && !firedTimeMilestones.has(m)) {
+          firedTimeMilestones.add(m);
+          if (analytics) {
+            logEvent(analytics, 'post_read_time', {
+              item_id: slug,
+              seconds: m
+            });
+          }
+        }
+      });
+    };
+
+    // Track visibility state
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        startTimer();
+      } else {
+        stopTimer();
+      }
+    });
+
+    if (document.visibilityState === 'visible') {
+      startTimer();
+    }
+
     const firedMilestones = new Set<number>();
     const milestones = [25, 50, 75, 100];
 
@@ -130,7 +183,8 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
             if (analytics) {
               logEvent(analytics, 'post_read_progress', {
                 item_id: slug,
-                percentage: m
+                percentage: m,
+                time_spent_seconds: activeTimeSeconds
               });
             }
           }
