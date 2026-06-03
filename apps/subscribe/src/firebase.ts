@@ -23,6 +23,8 @@ if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' |
   connectFirestoreEmulator(db, 'localhost', 8081)
 }
 
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : undefined
+
 export function initAnalytics() {
   if (typeof window !== 'undefined') {
     return getAnalytics(app)

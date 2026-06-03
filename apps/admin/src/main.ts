@@ -1,5 +1,6 @@
 import './style.css'
-import { db, initAnalytics, auth } from './firebase'
+import { db, initAnalytics, auth, analytics } from './firebase'
+import { logEvent } from 'firebase/analytics'
 import {
   collection,
   getDocs,
@@ -104,6 +105,10 @@ function applyTheme(theme: Theme) {
   if (sun)  sun.style.display  = theme === 'light' ? 'none' : ''
   if (moon) moon.style.display = theme === 'dark'  ? 'none' : ''
   localStorage.setItem(THEME_KEY, theme)
+  
+  if (analytics) {
+    logEvent(analytics, 'theme_changed', { theme })
+  }
 }
 
 const savedTheme = (localStorage.getItem(THEME_KEY) || 'dark') as Theme
@@ -225,8 +230,29 @@ async function load() {
   }
 }
 
-searchEl.addEventListener('input', render)
-sortEl.addEventListener('change', render)
-refreshBtn.addEventListener('click', load)
+let searchTimeout: number | null = null;
+searchEl.addEventListener('input', () => {
+  render()
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    if (analytics && searchEl.value.trim()) {
+      logEvent(analytics, 'admin_search', { query_length: searchEl.value.trim().length })
+    }
+  }, 1000) as unknown as number
+})
+
+sortEl.addEventListener('change', () => {
+  if (analytics) {
+    logEvent(analytics, 'admin_sort', { sort_order: sortEl.value })
+  }
+  render()
+})
+
+refreshBtn.addEventListener('click', () => {
+  if (analytics) {
+    logEvent(analytics, 'admin_refresh')
+  }
+  load()
+})
 
 load()

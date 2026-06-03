@@ -19,6 +19,8 @@ if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' |
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
 }
 
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : undefined
+
 export function initAnalytics() {
   if (typeof window !== 'undefined') {
     return getAnalytics(app)

@@ -63,6 +63,9 @@ export function t(key: string): string {
   return translations[lang][key] ?? key
 }
 
+import { logEvent } from 'firebase/analytics'
+import { analytics } from './firebase'
+
 export function applyTheme(theme: Theme) {
   HTML.dataset.theme = theme
   const sun  = document.getElementById('icon-sun')
@@ -70,6 +73,10 @@ export function applyTheme(theme: Theme) {
   if (sun)  sun.style.display  = theme === 'light' ? 'none' : ''
   if (moon) moon.style.display = theme === 'dark'  ? 'none' : ''
   localStorage.setItem(THEME_KEY, theme)
+
+  if (analytics) {
+    logEvent(analytics, 'theme_changed', { theme })
+  }
 }
 
 export function applyLang(lang: Lang) {
@@ -85,6 +92,10 @@ export function applyLang(lang: Lang) {
   const btn = document.getElementById('lang-toggle')
   if (btn) btn.textContent = lang === 'zh' ? 'EN' : '中'
   localStorage.setItem(LANG_KEY, lang)
+
+  if (analytics) {
+    logEvent(analytics, 'language_changed', { language: lang })
+  }
 }
 
 export function initUI() {

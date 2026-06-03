@@ -1,4 +1,4 @@
-import { initAnalytics, auth } from './firebase'
+import { initAnalytics, auth, analytics } from './firebase'
 import { initUI } from './ui'
 import { initViz } from './viz'
 import {
@@ -88,14 +88,29 @@ function setupAuthUI(containerId: string) {
 
 setupAuthUI('auth-container')
 
+import { logEvent } from 'firebase/analytics'
+
 const BLOG_URL      = import.meta.env.VITE_BLOG_URL      ?? '#'
 const SUBSCRIBE_URL = import.meta.env.VITE_SUBSCRIBE_URL  ?? '#'
 const GITHUB_URL    = import.meta.env.VITE_GITHUB_URL     ?? 'https://github.com'
 
-// Wire up all links
+// Wire up all links and track clicks
 function setLink(id: string, href: string) {
   const el = document.getElementById(id) as HTMLAnchorElement | null
-  if (el) el.href = href
+  if (el) {
+    el.href = href
+    el.addEventListener('click', () => {
+      if (analytics) {
+        const category = id.startsWith('hero-') 
+          ? 'hero_action_click' 
+          : (id.startsWith('card-') ? 'card_click' : 'nav_link_click')
+        logEvent(analytics, category, {
+          element_id: id,
+          destination_url: href
+        })
+      }
+    })
+  }
 }
 
 setLink('nav-blog',         BLOG_URL)

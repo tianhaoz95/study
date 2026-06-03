@@ -97,11 +97,25 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
 <slot />
 
 <script>
+  import { initAnalytics, analytics } from '../lib/firebase';
+  import { logEvent } from 'firebase/analytics';
+  initAnalytics();
+
   const bar = document.getElementById('read-progress');
   if (bar) {
     const parts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
     const slug = parts[0] === 'posts' && parts[1] ? parts[1] : null;
     let saveTimer: number | null = null;
+
+    if (slug && analytics) {
+      logEvent(analytics, 'view_item', {
+        item_id: slug,
+        item_category: 'blog_post'
+      });
+    }
+
+    const firedMilestones = new Set<number>();
+    const milestones = [25, 50, 75, 100];
 
     const update = () => {
       const el = document.documentElement;
@@ -109,6 +123,19 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       const pct = scrollable > 0 ? Math.min((el.scrollTop / scrollable) * 100, 100) : 0;
       bar.style.width = pct + '%';
       if (slug) {
+        // Track milestones
+        milestones.forEach(m => {
+          if (pct >= m && !firedMilestones.has(m)) {
+            firedMilestones.add(m);
+            if (analytics) {
+              logEvent(analytics, 'post_read_progress', {
+                item_id: slug,
+                percentage: m
+              });
+            }
+          }
+        });
+
         if (saveTimer !== null) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
           const stored = parseInt(localStorage.getItem(`heji-read-${slug}`) ?? '0', 10);
@@ -123,11 +150,9 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
 </script>
 
 <script>
-  import { initAnalytics } from '../lib/firebase';
-  initAnalytics();
-</script>
+  import { logEvent } from 'firebase/analytics';
+  import { analytics } from '../lib/firebase';
 
-<script>
   type Theme = 'dark' | 'light';
   type Lang  = 'en' | 'zh';
   const THEME_KEY = 'heji-theme';
@@ -186,6 +211,9 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     if (sun)  (sun as HTMLElement).style.display  = theme === 'light' ? 'none' : '';
     if (moon) (moon as HTMLElement).style.display = theme === 'dark'  ? 'none' : '';
     localStorage.setItem(THEME_KEY, theme);
+    if (analytics) {
+      logEvent(analytics, 'theme_changed', { theme });
+    }
   }
 
   function applyLang(lang: Lang) {
@@ -197,6 +225,9 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     const btn = document.getElementById('lang-toggle');
     if (btn) btn.textContent = lang === 'zh' ? 'EN' : '中';
     localStorage.setItem(LANG_KEY, lang);
+    if (analytics) {
+      logEvent(analytics, 'language_changed', { language: lang });
+    }
   }
 
   const savedTheme = (localStorage.getItem(THEME_KEY) || 'dark') as Theme;
@@ -245,8 +276,9 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
 </script>
 
 <script>
-  import { db } from '../lib/firebase';
+  import { db, analytics } from '../lib/firebase';
   import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+  import { logEvent } from 'firebase/analytics';
 
   const modal    = document.getElementById('suggest-modal')!;
   const form     = document.getElementById('suggest-form') as HTMLFormElement;
@@ -259,6 +291,9 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
     (document.getElementById('suggest-topic') as HTMLInputElement)?.focus();
+    if (analytics) {
+      logEvent(analytics, 'suggest_topic_open');
+    }
   }
 
   function closeModal() {
@@ -294,9 +329,17 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
       });
       form.style.display = 'none';
       success.style.display = '';
+      if (analytics) {
+        logEvent(analytics, 'suggest_topic_submit', { topic });
+      }
     } catch (err) {
       errorEl.textContent = 'Something went wrong. Please try again.';
       errorEl.style.display = '';
+      if (analytics) {
+        logEvent(analytics, 'suggest_topic_error', {
+          error_message: err instanceof Error ? err.message : 'Unknown'
+        });
+      }
     } finally {
       submitBtn.disabled = false;
     }

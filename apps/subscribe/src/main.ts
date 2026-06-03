@@ -1,4 +1,4 @@
-import { db, initAnalytics, auth } from './firebase.ts'
+import { db, initAnalytics, auth, analytics } from './firebase.ts'
 import { initUI, t } from './ui.ts'
 import { initViz } from './viz'
 import {
@@ -92,9 +92,30 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 const HOME_URL = import.meta.env.VITE_HOME_URL ?? '#'
 const BLOG_URL = import.meta.env.VITE_BLOG_URL ?? '#'
 
+import { logEvent } from 'firebase/analytics'
+
+// Helper to hash emails for privacy when sending to analytics
+async function hashEmail(email: string): Promise<string> {
+  try {
+    const msgBuffer = new TextEncoder().encode(email.toLowerCase().trim());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    return 'error';
+  }
+}
+
 function setLink(id: string, href: string) {
   const el = document.getElementById(id) as HTMLAnchorElement | null
-  if (el) el.href = href
+  if (el) {
+    el.href = href
+    el.addEventListener('click', () => {
+      if (analytics) {
+        logEvent(analytics, 'nav_link_click', { element_id: id, destination_url: href })
+      }
+    })
+  }
 }
 setLink('nav-home',     HOME_URL)
 setLink('nav-blog',     BLOG_URL)
@@ -128,8 +149,11 @@ async function saveSubscription(email: string) {
       source: 'email',
       subscribedAt: serverTimestamp(),
     }, { merge: true })
-  } catch {
-    // swallow — still show success
+  } catch (err) {
+    if (analytics) {
+      logEvent(analytics, 'subscribe_error', { error_type: 'firestore' })
+    }
+    // still swallow to show success screen locally, but track it
   }
 }
 
@@ -161,12 +185,22 @@ emailForm?.addEventListener('submit', async (e) => {
   const email = emailInput?.value.trim() ?? ''
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     setFieldError(t('error-email'))
+    if (analytics) {
+      logEvent(analytics, 'subscribe_error', { error_type: 'validation' })
+    }
     return
   }
   setFieldError(null)
+  if (analytics) {
+    logEvent(analytics, 'subscribe_attempt')
+  }
   if (btnSubmit) btnSubmit.disabled = true
   setLoading()
   await saveSubscription(email)
+  const hash = await hashEmail(email)
+  if (analytics) {
+    logEvent(analytics, 'subscribe_success', { email_hash: hash })
+  }
   showSuccess(email)
 })
 
