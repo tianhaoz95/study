@@ -1,0 +1,1077 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime(Astro.url.pathname.split('/').filter(Boolean).at(-1)!);
+---
+<BaseLayout
+  title="Flow Matching: The Straight-Line Engine of Modern GenAI | AI/ML Deep Dives"
+  description="A deep dive into Flow Matching and Rectified Flow—how straight probability paths and simulation-free training beat traditional diffusion in Stable Diffusion 3, Flux.1, and Cosmos."
+  crumb="Flow Matching & Rectified Flow"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Simulator canvas ───────────────────────────────────── */
+#ot-sim-canvas {
+  display: block;
+  width: 100%;
+  height: 280px;
+  background: var(--card2);
+  border-radius: 8px;
+}
+.sim-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.sim-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.sim-label {
+  font-size: 0.72rem;
+  font-family: var(--ff-mono);
+  color: var(--muted);
+  min-width: 90px;
+}
+.sim-btn-group {
+  display: flex;
+  gap: 0.25rem;
+}
+.sim-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-family: var(--ff-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid var(--border-hi);
+  background: var(--surface);
+  color: var(--muted2);
+  user-select: none;
+}
+.sim-btn:hover {
+  border-color: var(--purple);
+  color: var(--purple-l);
+  background: var(--purple-dim);
+}
+.sim-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.sim-btn-action {
+  background: var(--purple-dim);
+  border-color: var(--purple);
+  color: var(--purple-l);
+  font-weight: 600;
+}
+.sim-btn-action:hover {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+}
+
+/* ── Callout and timelines ──────────────────────────────── */
+.callout{border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;display:flex;gap:.875rem;align-items:flex-start;font-size:.88rem;line-height:1.6;border:1px solid transparent}
+.callout-insight{background:rgba(6,182,212,.05);border-color:rgba(6,182,212,.2)}
+.callout-icon{font-size:1.1rem;flex-shrink:0;margin-top:.05rem}
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0.875rem 1rem;
+  background: var(--card);
+}
+.timeline-year {
+  font-family: var(--ff-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--purple);
+  flex-shrink: 0;
+  width: 55px;
+}
+.timeline-body {
+  flex: 1;
+}
+.timeline-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 0.2rem;
+}
+.timeline-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Math Block ────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-op{color:var(--muted2)}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results table ──────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2);line-height:1.5}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .model-name{font-family:var(--ff-mono);font-size:.75rem;font-weight:600;color:var(--text2)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .model-name{color:var(--purple-l)}
+
+/* ── TOC sidebar ────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:sticky;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){
+  .post-hero{padding:5rem 1.25rem 2.5rem}
+  .post-body{padding:1.25rem 1.25rem 4rem}
+}
+</style>
+
+<!-- ════════════════════════════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Flow Matching</span>
+    <span class="tag tag-cyan">Rectified Flow</span>
+    <span class="tag tag-cyan">Multimodal GenAI</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Flow Matching: The Straight-Line Engine of Modern Multimodal GenAI</h1>
+  <p class="lead">
+    Why did leading systems like Stable Diffusion 3, Flux.1, and NVIDIA Cosmos ditch traditional score-based diffusion? The answer lies in the shift from stochastic, curved trajectories to deterministic, straight probability paths. By matching vector fields directly and learning Optimal Transport paths, Flow Matching cuts sampling requirements to just 10 steps.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 3, 2026</span>
+    <span>{readTime}</span>
+    <span>Unified Foundation Guide</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2210.02747" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Original FM Paper
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2209.14577" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Rectified Flow Paper
+    </a>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════ GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- ══════════════════════════════════ TOC ══════════════════ -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents" aria-label="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-paradigm"><a href="#s-paradigm"><span class="toc-num">01</span> The Straight-Line Paradigm</a></li>
+    <li class="toc-item" id="toc-s-cfm"><a href="#s-cfm"><span class="toc-num">02</span> Conditional Flow Matching</a></li>
+    <li class="toc-item" id="toc-s-sim"><a href="#s-sim"><span class="toc-num">03</span> Interactive Simulator</a></li>
+    <li class="toc-item" id="toc-s-history"><a href="#s-history"><span class="toc-num">04</span> History of Flows</a></li>
+    <li class="toc-item" id="toc-s-breakthroughs"><a href="#s-breakthroughs"><span class="toc-num">05</span> Multimodal Breakthroughs</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════════════════════════ ARTICLE ══════════════════ -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────── §1 The Straight-Line Paradigm -->
+<section id="s-paradigm" data-code="paradigm">
+<div class="section-no">01 — The Straight-Line Paradigm</div>
+<h2>Beyond curved, stochastic diffusion</h2>
+<p>
+  Generative models operate by mapping a simple base distribution (such as Gaussian noise) into a complex data distribution (like natural language tokens or high-resolution images). Traditional diffusion models like DDPM or score-based SDEs achieve this by simulating a slow, stochastic process. They corrupt images with random noise step-by-step and train a model to denoise them.
+</p>
+<p>
+  However, this stochastic trajectory is mathematically noisy and highly curved. Because the path bends continuously, numerical ODE solvers struggle to trace it over large steps. Standard diffusion models often require between 50 and hundreds of steps to avoid compounding discretization errors, resulting in high inference latency.
+</p>
+<p>
+  <strong>Flow Matching</strong> shifts this paradigm. Instead of defining complex noise schedules that curve through latent space, Flow Matching parameterizes a time-dependent <strong>vector field</strong> (or velocity field) that defines a smooth, deterministic path. By choosing paths that connect noise and data in straight lines, we reduce curvature and make numerical integration incredibly efficient.
+</p>
+<div class="callout callout-insight">
+  <span class="callout-icon">💡</span>
+  <span><strong>Velocity over Noise:</strong> In traditional diffusion, the model predicts the noise component $\epsilon$ or the score function $\nabla \log p_t(x)$. In Flow Matching, the network directly predicts the <strong>velocity vector</strong> $v_\theta(x, t)$ indicating where the sample must move next to reach the target.</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────── §2 Conditional Flow Matching -->
+<section id="s-cfm" data-code="cfm_loss">
+<div class="section-no">02 — Conditional Flow Matching</div>
+<h2>Bypassing the simulation bottleneck</h2>
+<p>
+  A generative model based on Continuous Normalizing Flows (CNFs) is governed by an Ordinary Differential Equation:
+</p>
+<div class="math-block">
+  <div class="math-label">Continuous Normalizing Flow ODE</div>
+  <span class="math-op">d</span><span class="math-var">x_t</span> <span class="math-op">/</span> <span class="math-op">d</span><span class="math-var">t</span> <span class="math-op">=</span> <span class="math-var">v_theta</span><span class="math-op">(</span><span class="math-var">x_t</span><span class="math-op">,</span> <span class="math-var">t</span><span class="math-op">)</span>
+</div>
+<p>
+  Before 2022, training CNFs required numerical solvers to integrate this ODE during <em>every single training step</em> to compute the loss. This simulation-based training was computationally expensive and unstable, making it impractical for foundation models.
+</p>
+<p>
+  <strong>Conditional Flow Matching (CFM)</strong>, proposed by Lipman et al. (2022), bypassed this bottleneck completely. Instead of regressing the marginal vector field $u_t(x)$—which requires marginalizing over the entire dataset—CFM decomposes the objective into conditional paths. By conditioning on a specific noise sample $x_0$ and a clean data target $x_1$, we can analytically define a simple conditional probability path $p_t(x|x_1)$ and its corresponding vector field:
+</p>
+<div class="math-block">
+  <div class="math-label">Conditional Vector Field (Optimal Transport)</div>
+  <span class="math-var">u_t</span><span class="math-op">(</span><span class="math-var">x_t</span> <span class="math-op">|</span> <span class="math-var">x_1</span><span class="math-op">)</span> <span class="math-op">=</span> <span class="math-var">x_1</span> <span class="math-op">-</span> <span class="math-var">x_0</span>
+</div>
+<p>
+  Because this target velocity vector is constant along the trajectory connecting $x_0$ and $x_1$, we can train the network using simple mean-squared error. We sample $t \sim \mathcal&#123;U&#125;(0, 1)$, interpolate $x_t = t x_1 + (1-t) x_0$, and train the network to regress $(x_1 - x_0)$ at $x_t$. This objective is entirely **simulation-free**, allowing CNFs to be trained at the same cost as standard diffusion.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §3 Interactive Simulator -->
+<section id="s-sim" data-code="solver">
+<div class="section-no">03 — Interactive Simulator</div>
+<h2>Optimal Transport vs. Diffusion Paths</h2>
+<p>
+  Explore how particles move from random noise at $t=0$ to structured semantic clusters at $t=1$ ("Text" in cyan, "Images" in purple, "Audio" in green). Observe the impact of integration steps ($N$) on the final generated samples under three different path formulations.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">ODE Trajectory Integrator Simulation</div>
+    <div class="vp-hint">Adjust the integration steps and path type to see discretization errors.</div>
+  </div>
+  <div class="vp-body">
+    <canvas id="ot-sim-canvas"></canvas>
+    
+    <div class="sim-controls">
+      <!-- Row 1: Path Type Selection -->
+      <div class="sim-row">
+        <span class="sim-label">Path Type:</span>
+        <div class="sim-btn-group">
+          <button class="sim-btn active" id="path-ot">Optimal Transport (Straight)</button>
+          <button class="sim-btn" id="path-curved">Curved Diffusion</button>
+          <button class="sim-btn" id="path-sde">Stochastic (SDE)</button>
+        </div>
+      </div>
+      <!-- Row 2: Integration Steps N Selection -->
+      <div class="sim-row">
+        <span class="sim-label">Steps (N):</span>
+        <div class="sim-btn-group">
+          <button class="sim-btn" id="steps-3">3 Steps</button>
+          <button class="sim-btn active" id="steps-10">10 Steps</button>
+          <button class="sim-btn" id="steps-50">50 Steps</button>
+        </div>
+      </div>
+      <!-- Row 3: Action Buttons -->
+      <div class="sim-row" style="margin-top: 0.5rem;">
+        <button class="sim-btn sim-btn-action" id="sim-play">▶ Play Simulation</button>
+        <button class="sim-btn" id="sim-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  <strong>Key Insights from the Visualizer:</strong>
+</p>
+<ul>
+  <li><strong>Optimal Transport:</strong> With straight paths, the velocity along the path is constant ($v = x_1 - x_0$). An Euler step maps directly along the line. Thus, even at $N=3$ steps, the particles land exactly in the target clusters with zero discretization error.</li>
+  <li><strong>Curved Diffusion:</strong> If the path is curved (as in standard cosine-scheduled diffusion), a large step size causes the integrator to overshoot. At $N=3$ steps, the particles overshoot the curves and scatter into empty space. You need $N=10$ or $N=50$ steps to keep the solver aligned with the curved trajectory.</li>
+  <li><strong>Stochastic SDE:</strong> Injecting random Brownian noise during sampling requires many steps ($N=50$) to average out the variance. At $N=3$, the noise scatters particles wildly across the screen, failing to generate coherent outputs.</li>
+</ul>
+</section>
+
+<!-- ─────────────────────────────────── §4 History of Flows -->
+<section id="s-history" data-code="history">
+<div class="section-no">04 — History of Flows</div>
+<h2>From invertible flows to foundation models</h2>
+<p>
+  The evolution of Continuous Normalizing Flows and Flow Matching is a story of removing architectural constraints and computational bottlenecks:
+</p>
+
+<div class="timeline">
+  <div class="timeline-item">
+    <div class="timeline-year">2018</div>
+    <div class="timeline-body">
+      <div class="timeline-title">Neural ODEs & Invertible Networks</div>
+      <div class="timeline-desc">
+        Chen et al. introduce Continuous Normalizing Flows. CNFs allowed arbitrary neural network backbones, but training required backpropagating through numerical ODE solvers, making it slow and unstable.
+      </div>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-year">2020</div>
+    <div class="timeline-body">
+      <div class="timeline-title">Diffusion Explosion (DDPM & Score SDEs)</div>
+      <div class="timeline-desc">
+        DDPM (Ho et al.) and Score-Based SDEs (Song et al.) bypass ODE training by predicting noise directly (score matching) using simulation-free losses. However, sampling remains slow and stochastic.
+      </div>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-year">2022</div>
+    <div class="timeline-body">
+      <div class="timeline-title">Flow Matching & Rectified Flow</div>
+      <div class="timeline-desc">
+        Lipman et al. and Liu et al. independently publish Flow Matching and Rectified Flow. They unify diffusion and flows under vector-field regression, enabling simulation-free training of straight trajectories (Optimal Transport).
+      </div>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-year">2024</div>
+    <div class="timeline-body">
+      <div class="timeline-title">Scaling to State-of-the-Art Foundation Models</div>
+      <div class="timeline-desc">
+        OpenAI, Black Forest Labs, and NVIDIA adopt Flow Matching and Rectified Flow as the core generative engines for Stable Diffusion 3, Flux.1, and Cosmos.
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  This historical timeline highlights how the community transitioned from mathematically rigid invertible architectures to slow stochastic diffusion, and finally converged on flexible, simulation-free straight-line flows.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §5 Multimodal Breakthroughs -->
+<section id="s-breakthroughs" data-code="multimodal">
+<div class="section-no">05 — Multimodal Breakthroughs</div>
+<h2>The engine of modern visual and audio GenAI</h2>
+<p>
+  In the multimodal space, Flow Matching has replaced score-based diffusion as the default generative engine. This transition is visible in recent flagship models:
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Developer</th>
+      <th>Generative Framework</th>
+      <th>Primary Architecture</th>
+      <th>Typical Sampling Steps</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">Stable Diffusion XL</td>
+      <td>Stability AI</td>
+      <td>Standard Diffusion (DDIM/LMS)</td>
+      <td>U-Net + Cross-Attention</td>
+      <td>30 – 50 steps</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="model-name">Stable Diffusion 3</td>
+      <td>Stability AI</td>
+      <td>Rectified Flow Matching</td>
+      <td>MM-DiT (Multimodal Transformer)</td>
+      <td class="best">10 – 20 steps</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="model-name">FLUX.1</td>
+      <td>Black Forest Labs</td>
+      <td>Rectified Flow Matching</td>
+      <td>MM-DiT / MM-Double Attention</td>
+      <td class="best">15 – 25 steps</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="model-name">NVIDIA Cosmos</td>
+      <td>NVIDIA</td>
+      <td>Flow Matching</td>
+      <td>Joint Video-Audio Transformer</td>
+      <td class="best">10 – 15 steps</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Why Flow Matching thrives in Multimodal Architectures:</strong>
+</p>
+<ul>
+  <li><strong>MM-DiT Integration:</strong> Models like Flux.1 and SD3 replace the traditional U-Net with a Multimodal Diffusion Transformer. MM-DiT processes text embeddings and image patches in parallel using shared weights. Rectified Flow fits seamlessly into this, regressing the velocity vectors of both images and text latents jointly.</li>
+  <li><strong>Typographical Alignment:</strong> By enforcing a straight trajectory, Flow Matching reduces intermediate sample distortion. This preserves text token alignments inside the latent spaces, resulting in the correct rendering of complex letters and words in generated images.</li>
+  <li><strong>Modality Expansion (Voice and Audio):</strong> In audio models (like Voicebox or Stable Audio), learning straight flows on mel spectrograms or neural audio latents provides zero-shot editing and high-fidelity TTS generation in far fewer steps than autoregressive or traditional diffusion approaches.</li>
+</ul>
+
+<div class="callout callout-insight">
+  <span class="callout-icon">🚀</span>
+  <span><strong>Continuous Language Flows:</strong> The success of continuous flow matching has also spread back to language models. Systems like <strong>ELF (Embedded Language Flows)</strong> and <strong>Cola DLM</strong> bypass token-by-token autoregressive generation, performing continuous flow matching directly over T5 or VAE embeddings to generate entire paragraphs in parallel.</span>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">flow/paradigm.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Paradigm</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code" aria-label="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="paradigm">paradigm</button>
+    <button class="cs-tab" data-panel="cfm_loss">cfm loss</button>
+    <button class="cs-tab" data-panel="solver">solver</button>
+    <button class="cs-tab" data-panel="history">history</button>
+    <button class="cs-tab" data-panel="multimodal">multimodal</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: paradigm -->
+    <div class="cs-panel active" id="panel-paradigm">
+      <pre class="cs-pre"><span class="cs-line cmt"># The Paradigm: Score Diffusion vs Flow Matching</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────────────────────────</span>
+<span class="cs-line cmt"># 1. Score-Based Diffusion (Stochastic SDE)</span>
+<span class="cs-line cmt"># Particles migrate along curved paths with random noise:</span>
+<span class="cs-line hl-p"># dx_t = f(x_t, t) * dt + g(t) * dW</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 2. Flow Matching (Deterministic ODE)</span>
+<span class="cs-line cmt"># Particles follow straight, deterministic trajectories:</span>
+<span class="cs-line hl-g"># dx_t = v_theta(x_t, t) * dt</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Under Optimal Transport (OT) / Rectified Flow:</span>
+<span class="cs-line hl-c"># Probability path:   x_t = t * x_1 + (1 - t) * x_0</span>
+<span class="cs-line hl-c"># Target velocity:    u_t = x_1 - x_0</span>
+<span class="cs-line cmt"># (Notice how u_t is completely independent of t!)</span></pre>
+    </div>
+
+    <!-- panel: cfm_loss -->
+    <div class="cs-panel" id="panel-cfm_loss">
+      <pre class="cs-pre"><span class="cs-line kw">import</span> <span class="op">torch</span>
+<span class="cs-line kw">import</span> <span class="op">torch.nn</span> <span class="kw">as</span> <span class="op">nn</span>
+<span class="cs-line"></span>
+<span class="cs-line kw">class</span> <span class="cls">ConditionalFlowMatchingLoss</span>(<span class="op">nn.Module</span>):
+<span class="cs-line">    <span class="cmt">"""</span></span>
+<span class="cs-line cmt">    Conditional Flow Matching loss with Optimal Transport paths.</span>
+<span class="cs-line cmt">    Regresses target velocities directly without ODE simulation.</span>
+<span class="cs-line cmt">    """</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="op">self</span>, <span class="op">model</span>, <span class="op">x1</span>):</span>
+<span class="cs-line cmt">        # x1: clean target data points (e.g. images)</span>
+<span class="cs-line hl-p">        batch_size = x1.shape[<span class="num">0</span>]</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 1. Sample timestep t uniformly ∈ [0, 1]</span>
+<span class="cs-line hl-p">        t = torch.rand(batch_size, <span class="num">1</span>, device=x1.device)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 2. Sample base noise x0 ~ N(0, I)</span>
+<span class="cs-line hl-p">        x0 = torch.randn_like(x1)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 3. Compute linear path interpolation (probability path)</span>
+<span class="cs-line hl-c">        xt = t * x1 + (<span class="num">1.0</span> - t) * x0</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 4. Target conditional velocity vector (constant along path)</span>
+<span class="cs-line hl-c">        ut = x1 - x0</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 5. Predict velocity vector using neural network</span>
+<span class="cs-line hl-g">        vt = model(xt, t.squeeze(<span class="num">-1</span>))</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 6. Loss is standard MSE of predicted vs target velocity</span>
+<span class="cs-line hl-g">        loss = torch.mean((vt - ut) ** <span class="num">2</span>)</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> loss</span></pre>
+    </div>
+
+    <!-- panel: solver -->
+    <div class="cs-panel" id="panel-solver">
+      <pre class="cs-pre"><span class="cs-line kw">import</span> <span class="op">torch</span>
+<span class="cs-line"></span>
+<span class="cs-line op">@torch.no_grad()</span>
+<span class="cs-line kw">def</span> <span class="fn">solve_ode</span>(<span class="op">model</span>, <span class="op">x0</span>, <span class="op">steps</span>=<span class="num">10</span>):
+<span class="cs-line">    <span class="cmt">"""</span></span>
+<span class="cs-line cmt">    Euler ODE integrator for Flow Matching inference.</span>
+<span class="cs-line cmt">    Transforms noise x0 (t=0) into data x1 (t=1).</span>
+<span class="cs-line cmt">    """</span>
+<span class="cs-line hl-p">    xt = x0</span>
+<span class="cs-line hl-p">    dt = <span class="num">1.0</span> / steps</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(steps):</span>
+<span class="cs-line hl-c">        t_val = i / steps</span>
+<span class="cs-line hl-c">        t = torch.full((x0.shape[<span class="num">0</span>],), t_val, device=x0.device)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Predict velocity at current state</span>
+<span class="cs-line hl-g">        vt = model(xt, t)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Take a linear step along the velocity vector</span>
+<span class="cs-line hl-g">        xt = xt + vt * dt</span>
+<span class="cs-line">        </span>
+<span class="cs-line hl-p">    <span class="kw">return</span> xt  <span class="cmt"># Generated samples</span></span></pre>
+    </div>
+
+    <!-- panel: history -->
+    <div class="cs-panel" id="panel-history">
+      <pre class="cs-pre"><span class="cs-line cmt"># Generative Objective Comparison</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────────────────────────</span>
+<span class="cs-line cmt"># 1. Continuous Normalizing Flows (2018)</span>
+<span class="cs-line cmt"># Loss requires backpropagation through full ODE solver:</span>
+<span class="cs-line hl-p"># L_CNF = -log p_0(ODE_solve(x_1, 1 -> 0)) - log_det_jacobian</span>
+<span class="cs-line cmt"># (Extremely slow and memory-intensive)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 2. Score-Based Diffusion (2020)</span>
+<span class="cs-line cmt"># Loss minimizes MSE against the score function:</span>
+<span class="cs-line hl-c"># L_Score = E[ || s_theta(x_t, t) - grad_x log p(x_t|x_0) ||^2 ]</span>
+<span class="cs-line cmt"># (Stochastic sampling, curved schedules, slow generation)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 3. Flow Matching / Rectified Flow (2022)</span>
+<span class="cs-line cmt"># Loss minimizes MSE against velocity vectors (no solvers in loop):</span>
+<span class="cs-line hl-g"># L_CFM = E[ || v_theta(x_t, t) - (x_1 - x_0) ||^2 ]</span>
+<span class="cs-line cmt"># (Simulation-free, straight-line optimal transport, 10-step sampling)</span></pre>
+    </div>
+
+    <!-- panel: multimodal -->
+    <div class="cs-panel" id="panel-multimodal">
+      <pre class="cs-pre"><span class="cs-line cmt"># Flow Matching in Multimodal Diffusion Transformers (MM-DiT)</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────────────────────────</span>
+<span class="cs-line cmt"># MM-DiT encodes image and text latents. Flow velocities</span>
+<span class="cs-line cmt"># are regressed jointly across both paths:</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">MMDiTFlowMatching</span>(nn.Module):</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="op">self</span>, img_latents, text_latents, t):</span>
+<span class="cs-line hl-c">        # Sample noise matching the dimensions of both modalities</span>
+<span class="cs-line hl-c">        img_noise = torch.randn_like(img_latents)</span>
+<span class="cs-line hl-c">        text_noise = torch.randn_like(text_latents)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Linearly interpolate image and text latents</span>
+<span class="cs-line hl-c">        img_t = t * img_latents + (1 - t) * img_noise</span>
+<span class="cs-line hl-c">        text_t = t * text_latents + (1 - t) * text_noise</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Target velocities (constant along linear paths)</span>
+<span class="cs-line hl-g">        img_target_v = img_latents - img_noise</span>
+<span class="cs-line hl-g">        text_target_v = text_latents - text_noise</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Predict velocities jointly via MM-DiT block</span>
+<span class="cs-line hl-g">        img_pred_v, text_pred_v = self.mm_dit(img_t, text_t, t)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Compute average joint loss</span>
+<span class="cs-line hl-p">        loss = (torch.mean((img_pred_v - img_target_v)**2) +</span>
+<span class="cs-line hl-p">                torch.mean((text_pred_v - text_target_v)**2))</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> loss</span></pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC toggle ──────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle = document.getElementById('toc-toggle');
+const postGrid = document.getElementById('post-grid');
+
+tocToggle?.addEventListener('click', () => {
+  const collapsed = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', collapsed);
+  tocToggle.textContent = collapsed ? '›' : '‹';
+  tocToggle.title = collapsed ? 'Show contents' : 'Hide contents';
+});
+
+// ── Code sidebar toggle ─────────────────────────────────────────────
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle = document.getElementById('cs-toggle');
+
+csToggle?.addEventListener('click', () => {
+  const collapsed = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', collapsed);
+  csToggle.textContent = collapsed ? '‹' : '›';
+  csToggle.title = collapsed ? 'Show code' : 'Hide code';
+});
+
+// ── Code sidebar tabs ───────────────────────────────────────────────
+const csTabs = document.querySelectorAll('.cs-tab');
+const csPanels = document.querySelectorAll('.cs-panel');
+const csFileLabel = document.getElementById('cs-file-label');
+const csSectionTitle = document.getElementById('cs-section-title');
+
+const tabMeta = {
+  paradigm:   { file: 'flow/paradigm.py',   title: 'The Paradigm' },
+  cfm_loss:   { file: 'flow/cfm_loss.py',   title: 'CFM Loss function' },
+  solver:     { file: 'flow/solver.py',     title: 'ODE Euler Integrator' },
+  history:    { file: 'flow/history.py',    title: 'Generative History' },
+  multimodal: { file: 'flow/multimodal.py', title: 'MM-DiT Flow Matching' },
+};
+
+function activateTab(name) {
+  csTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  csPanels.forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m && csFileLabel) csFileLabel.textContent = m.file;
+  if (m && csSectionTitle) csSectionTitle.textContent = m.title;
+}
+
+csTabs.forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.panel));
+});
+
+// ── IntersectionObserver: sync TOC + sidebar ───────────────────────
+const sectionCodeMap = {
+  's-paradigm':     'paradigm',
+  's-cfm':          'cfm_loss',
+  's-sim':          'solver',
+  's-history':      'history',
+  's-breakthroughs':'multimodal',
+};
+
+const observer = new IntersectionObserver((entries) => {
+  let best = null, bestRatio = 0;
+  entries.forEach(e => {
+    if (e.isIntersecting && e.intersectionRatio > bestRatio) {
+      best = e.target;
+      bestRatio = e.intersectionRatio;
+    }
+  });
+  if (!best) return;
+  const id = best.id;
+  // update TOC active
+  document.querySelectorAll('.toc-item').forEach(li => {
+    li.classList.toggle('toc-active', li.id === 'toc-' + id);
+  });
+  // sync sidebar tab
+  const panel = sectionCodeMap[id];
+  if (panel) activateTab(panel);
+}, { threshold: [0.15, 0.4] });
+
+document.querySelectorAll('.post-body section[id]').forEach(s => observer.observe(s));
+
+// ── ODE Integrator Canvas Simulation ───────────────────────────────
+const simCanvas = document.getElementById('ot-sim-canvas');
+if (simCanvas) {
+  const ctx = simCanvas.getContext('2d');
+  const W_CSS = simCanvas.clientWidth;
+  const H_CSS = 280;
+  const DPR = window.devicePixelRatio || 1;
+  simCanvas.width = W_CSS * DPR;
+  simCanvas.height = H_CSS * DPR;
+  ctx.scale(DPR, DPR);
+
+  const W = W_CSS, H = H_CSS;
+  
+  // Base parameters
+  let pathType = 'ot'; // 'ot', 'curved', 'sde'
+  let stepsN = 10;     // 3, 10, 50
+  let t = 0;
+  let playing = false;
+  let animId = null;
+
+  // Define semantic targets
+  const clusters = [
+    { cx: 0.2, cy: 0.25, color: '#c678dd', label: 'Images' }, // Purple
+    { cx: 0.8, cy: 0.25, color: '#61afef', label: 'Text' },   // Cyan
+    { cx: 0.5, cy: 0.75, color: '#98c379', label: 'Audio' },  // Green
+  ];
+
+  // Particle configuration
+  const particles = [];
+  const rng = (seed) => {
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) & 0xffffffff;
+      return (s >>> 0) / 0xffffffff;
+    };
+  };
+
+  const rand = rng(101);
+  // Box-Muller generator for SDE noise
+  function gaussianRand(randFunc) {
+    const u1 = randFunc() || 0.00001;
+    const u2 = randFunc();
+    const r = Math.sqrt(-2.0 * Math.log(u1));
+    const theta = 2.0 * Math.PI * u2;
+    return r * Math.cos(theta);
+  }
+
+  // Create 30 particles (10 per cluster) starting in a Gaussian circle in the center
+  clusters.forEach((cl, ci) => {
+    for (let i = 0; i < 10; i++) {
+      // Gaussian distribution around center
+      const r = rand() * 25;
+      const angle = rand() * Math.PI * 2;
+      const noise_x = W / 2 + r * Math.cos(angle);
+      const noise_y = H / 2 + r * Math.sin(angle);
+      
+      // Clean target position inside cluster
+      const target_r = rand() * 20;
+      const target_angle = rand() * Math.PI * 2;
+      const clean_x = cl.cx * W + target_r * Math.cos(target_angle);
+      const clean_y = cl.cy * H + target_r * Math.sin(target_angle);
+
+      // Normal vector direction for curving (away from center)
+      const dx = clean_x - W/2;
+      const dy = clean_y - H/2;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+
+      particles.push({
+        id: particles.length,
+        x0: noise_x,
+        y0: noise_y,
+        x1: clean_x,
+        y1: clean_y,
+        nx: nx,
+        ny: ny,
+        color: cl.color,
+        clusterLabel: i === 0 ? cl.label : null
+      });
+    }
+  });
+
+  // Mathematically simulate the discrete Euler integration paths
+  function computeDiscretePoints(p, mode, N) {
+    const points = [{ x: p.x0, y: p.y0 }];
+    const dt = 1.0 / N;
+    let x = p.x0;
+    let y = p.y0;
+
+    // Seeded random numbers per particle for reproducible SDE sampling
+    const pRand = rng(p.id * 17 + N * 3);
+
+    for (let k = 0; k < N; k++) {
+      const tk = k / N;
+      if (mode === 'ot') {
+        // Optimal Transport constant velocity: v = x1 - x0
+        const vx = p.x1 - p.x0;
+        const vy = p.y1 - p.y0;
+        x += vx * dt;
+        y += vy * dt;
+      } else if (mode === 'curved') {
+        // Curved path velocity with normal displacement bowing out
+        // Path formulation: x_t = (1-t)*x0 + t*x1 + A * sin(pi * t) * n
+        // Velocity field: dx/dt = (x1 - x0) + A * pi * cos(pi * t) * n
+        const A = 100;
+        const vx = (p.x1 - p.x0) + A * Math.PI * Math.cos(Math.PI * tk) * p.nx;
+        const vy = (p.y1 - p.y0) + A * Math.PI * Math.cos(Math.PI * tk) * p.ny;
+        x += vx * dt;
+        y += vy * dt;
+      } else if (mode === 'sde') {
+        // Stochastic SDE bridge: drift = (x1 - x_k)/(1-t) + random diffusion noise
+        // dx_k = (x1 - x_k)/(1-t) * dt + g * sqrt(dt) * z
+        const g = 18;
+        const driftCoeff = (tk < 1.0) ? 1.0 / (1.0 - tk) : 0;
+        const vx = (p.x1 - x) * driftCoeff;
+        const vy = (p.y1 - y) * driftCoeff;
+        
+        const zx = gaussianRand(pRand);
+        const zy = gaussianRand(pRand);
+
+        // Limit the step drift to avoid infinite velocities at the very end
+        const stepX = Math.min(vx * dt, p.x1 - x);
+        const stepY = Math.min(vy * dt, p.y1 - y);
+
+        x += stepX + g * Math.sqrt(dt) * zx;
+        y += stepY + g * Math.sqrt(dt) * zy;
+      }
+      points.push({ x, y });
+    }
+    return points;
+  }
+
+  // Draw current simulation state for visual time t ∈ [0, 1]
+  function drawFrame(tt) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Subtle background grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx <= W; gx += 40) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+    for (let gy = 0; gy <= H; gy += 40) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+    // Render cluster boundaries
+    clusters.forEach(cl => {
+      ctx.beginPath();
+      ctx.arc(cl.cx * W, cl.cy * H, 45, 0, Math.PI * 2);
+      ctx.fillStyle = cl.color + '09';
+      ctx.fill();
+      ctx.strokeStyle = cl.color + '22';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label
+      ctx.font = '10px monospace';
+      ctx.fillStyle = cl.color + '88';
+      ctx.textAlign = 'center';
+      ctx.fillText(cl.label.toUpperCase(), cl.cx * W, cl.cy * H + 6);
+    });
+
+    // Draw particle paths and dots
+    particles.forEach(p => {
+      const pts = computeDiscretePoints(p, pathType, stepsN);
+      
+      // Map continuous time t to discrete segment index
+      const floatIdx = tt * stepsN;
+      const idx = Math.min(stepsN - 1, Math.floor(floatIdx));
+      const frac = floatIdx - idx;
+      
+      const pCurrent = pts[idx];
+      const pNext = pts[idx + 1];
+      
+      // Interpolate current position along current segment
+      const curX = pCurrent.x + (pNext.x - pCurrent.x) * frac;
+      const curY = pCurrent.y + (pNext.y - pCurrent.y) * frac;
+
+      // Draw path up to the current segment
+      ctx.beginPath();
+      ctx.moveTo(p.x0, p.y0);
+      for (let i = 1; i <= idx; i++) {
+        ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.lineTo(curX, curY);
+      ctx.strokeStyle = p.color + '44';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Draw discrete step points
+      for (let i = 0; i <= idx; i++) {
+        ctx.beginPath();
+        ctx.arc(pts[i].x, pts[i].y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + '88';
+        ctx.fill();
+      }
+
+      // Current particle dot
+      ctx.beginPath();
+      ctx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Label t in corner
+    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(6,182,212,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Integration step (t): ${tt.toFixed(2)}`, 15, 25);
+    ctx.fillText(`Steps (N): ${stepsN}`, 15, 40);
+  }
+
+  // Draw initial frame
+  drawFrame(0);
+
+  // Play animation loop
+  function step() {
+    t = Math.min(1.0, t + 0.007);
+    drawFrame(t);
+    if (t < 1.0) {
+      animId = requestAnimationFrame(step);
+    } else {
+      playing = false;
+      const playBtn = document.getElementById('sim-play');
+      if (playBtn) {
+        playBtn.textContent = '▶ Play Simulation';
+        playBtn.classList.remove('active');
+      }
+    }
+  }
+
+  // Hook up event listeners for path selection
+  const btnOt = document.getElementById('path-ot');
+  const btnCurved = document.getElementById('path-curved');
+  const btnSde = document.getElementById('path-sde');
+
+  function clearPathButtons() {
+    [btnOt, btnCurved, btnSde].forEach(btn => btn?.classList.remove('active'));
+  }
+
+  btnOt?.addEventListener('click', () => {
+    clearPathButtons();
+    btnOt.classList.add('active');
+    pathType = 'ot';
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  btnCurved?.addEventListener('click', () => {
+    clearPathButtons();
+    btnCurved.classList.add('active');
+    pathType = 'curved';
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  btnSde?.addEventListener('click', () => {
+    clearPathButtons();
+    btnSde.classList.add('active');
+    pathType = 'sde';
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  // Steps select listeners
+  const btnN3 = document.getElementById('steps-3');
+  const btnN10 = document.getElementById('steps-10');
+  const btnN50 = document.getElementById('steps-50');
+
+  function clearStepsButtons() {
+    [btnN3, btnN10, btnN50].forEach(btn => btn?.classList.remove('active'));
+  }
+
+  btnN3?.addEventListener('click', () => {
+    clearStepsButtons();
+    btnN3.classList.add('active');
+    stepsN = 3;
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  btnN10?.addEventListener('click', () => {
+    clearStepsButtons();
+    btnN10.classList.add('active');
+    stepsN = 10;
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  btnN50?.addEventListener('click', () => {
+    clearStepsButtons();
+    btnN50.classList.add('active');
+    stepsN = 50;
+    t = 0;
+    playing = false;
+    cancelAnimationFrame(animId);
+    drawFrame(0);
+  });
+
+  // Action listeners
+  const playBtn = document.getElementById('sim-play');
+  const resetBtn = document.getElementById('sim-reset');
+
+  playBtn?.addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      cancelAnimationFrame(animId);
+      playBtn.textContent = '▶ Play Simulation';
+      playBtn.classList.remove('active');
+    } else {
+      if (t >= 1.0) t = 0;
+      playing = true;
+      playBtn.textContent = '⏸ Pause';
+      playBtn.classList.add('active');
+      animId = requestAnimationFrame(step);
+    }
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    playing = false;
+    cancelAnimationFrame(animId);
+    t = 0;
+    drawFrame(0);
+    if (playBtn) {
+      playBtn.textContent = '▶ Play Simulation';
+      playBtn.classList.remove('active');
+    }
+  });
+}
+</script>
+</BaseLayout>
