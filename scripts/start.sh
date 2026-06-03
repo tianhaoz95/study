@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: ./scripts/start.sh
 #
-# Starts dev servers for all three apps (blog, home, subscribe).
-# Press Ctrl+C (or send SIGTERM) to stop all servers gracefully.
+# Starts Firebase emulators and dev servers for all apps (blog, home, subscribe, admin).
+# Press Ctrl+C (or send SIGTERM) to stop all services gracefully.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -10,25 +10,31 @@ PIDS=()
 
 cleanup() {
   echo ""
-  echo "Stopping all dev servers..."
+  echo "Stopping all dev servers and emulators..."
 
-  # Kill the npm wrapper processes and wait for them
+  # Kill the processes in PIDS and wait for them
   for pid in "${PIDS[@]}"; do
     kill -TERM "$pid" 2>/dev/null || true
   done
 
-  # Give npm a moment to forward the signal to its children
-  sleep 1
+  # Give processes a moment to forward the signal to their children
+  sleep 1.5
 
   # Kill any vite / astro child processes still running
   pkill -TERM -f "vite --port 4322" 2>/dev/null || true
   pkill -TERM -f "vite --port 4323" 2>/dev/null || true
+  pkill -TERM -f "vite --port 4324" 2>/dev/null || true
   pkill -TERM -f "astro dev --port 4321" 2>/dev/null || true
+
+  # Kill emulator ports via TERM
+  for port in 8080 8081 9099 4000; do
+    lsof -ti ":$port" 2>/dev/null | xargs kill -TERM 2>/dev/null || true
+  done
 
   sleep 1
 
-  # Final sweep: force-kill anything still holding the dev ports
-  for port in 4321 4322 4323; do
+  # Final sweep: force-kill anything still holding the dev or emulator ports
+  for port in 4321 4322 4323 4324 8080 8081 9099 4000; do
     lsof -ti ":$port" 2>/dev/null | xargs kill -KILL 2>/dev/null || true
   done
 
@@ -37,15 +43,31 @@ cleanup() {
     wait "$pid" 2>/dev/null || true
   done
 
-  echo "All servers stopped."
+  echo "All services stopped."
   exit 0
 }
 
 trap cleanup INT TERM
 
-# Clear any stale processes on the dev ports before starting
-for port in 4321 4322 4323; do
+# Clear any stale processes on the dev/emulator ports before starting
+for port in 4321 4322 4323 4324 8080 8081 9099 4000; do
   lsof -ti ":$port" 2>/dev/null | xargs kill -KILL 2>/dev/null || true
+done
+
+# Start Firebase Emulators
+echo "Starting Firebase emulators..."
+npx -y firebase-tools@latest emulators:start &
+EMU_PID=$!
+PIDS+=($EMU_PID)
+
+# Wait for emulator to be ready (checking Auth emulator port 9099)
+echo "Waiting for Firebase emulators to start..."
+for i in {1..30}; do
+  if lsof -i :9099 >/dev/null 2>&1; then
+    echo "Firebase emulators are ready."
+    break
+  fi
+  sleep 1
 done
 
 # Helper: install deps if node_modules is missing, then start dev server
@@ -71,14 +93,17 @@ start_app() {
 start_app "$REPO_ROOT/apps/blog"      4321
 start_app "$REPO_ROOT/apps/home"      4322
 start_app "$REPO_ROOT/apps/subscribe" 4323
+start_app "$REPO_ROOT/apps/admin"     4324
 
 echo ""
-echo "Dev servers starting up:"
-echo "  Blog      → http://localhost:4321"
-echo "  Home      → http://localhost:4322"
-echo "  Subscribe → http://localhost:4323"
+echo "All services starting up:"
+echo "  Firebase Emulator UI → http://localhost:4000"
+echo "  Blog                 → http://localhost:4321"
+echo "  Home                 → http://localhost:4322"
+echo "  Subscribe            → http://localhost:4323"
+echo "  Admin                → http://localhost:4324"
 echo ""
-echo "Press Ctrl+C to stop all servers."
+echo "Press Ctrl+C to stop all services."
 
 # Wait for all background jobs
 wait
