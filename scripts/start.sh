@@ -27,14 +27,14 @@ cleanup() {
   pkill -TERM -f "astro dev --port 4321" 2>/dev/null || true
 
   # Kill emulator ports via TERM
-  for port in 8080 8081 9099 4000; do
+  for port in 8085 8086 9095 4005; do
     lsof -ti ":$port" 2>/dev/null | xargs kill -TERM 2>/dev/null || true
   done
 
   sleep 1
 
   # Final sweep: force-kill anything still holding the dev or emulator ports
-  for port in 4321 4322 4323 4324 8080 8081 9099 4000; do
+  for port in 4321 4322 4323 4324 8085 8086 9095 4005; do
     lsof -ti ":$port" 2>/dev/null | xargs kill -KILL 2>/dev/null || true
   done
 
@@ -50,7 +50,7 @@ cleanup() {
 trap cleanup INT TERM
 
 # Clear any stale processes on the dev/emulator ports before starting
-for port in 4321 4322 4323 4324 8080 8081 9099 4000; do
+for port in 4321 4322 4323 4324 8085 8086 9095 4005; do
   lsof -ti ":$port" 2>/dev/null | xargs kill -KILL 2>/dev/null || true
 done
 
@@ -60,10 +60,10 @@ npx -y firebase-tools@latest emulators:start &
 EMU_PID=$!
 PIDS+=($EMU_PID)
 
-# Wait for emulator to be ready (checking Auth emulator port 9099)
+# Wait for emulator to be ready (checking Auth emulator port 9095)
 echo "Waiting for Firebase emulators to start..."
 for i in {1..30}; do
-  if lsof -i :9099 >/dev/null 2>&1; then
+  if lsof -i :9095 >/dev/null 2>&1; then
     echo "Firebase emulators are ready."
     break
   fi
@@ -97,7 +97,7 @@ start_app "$REPO_ROOT/apps/admin"     4324
 
 echo ""
 echo "All services starting up:"
-echo "  Firebase Emulator UI → http://localhost:4000"
+echo "  Firebase Emulator UI → http://localhost:4005"
 echo "  Blog                 → http://localhost:4321"
 echo "  Home                 → http://localhost:4322"
 echo "  Subscribe            → http://localhost:4323"

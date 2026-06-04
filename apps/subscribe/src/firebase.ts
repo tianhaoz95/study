@@ -19,8 +19,8 @@ export const db = getFirestore(app)
 export const auth = getAuth(app)
 
 if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
-  connectFirestoreEmulator(db, 'localhost', 8081)
+  connectAuthEmulator(auth, 'http://localhost:9095', { disableWarnings: true })
+  connectFirestoreEmulator(db, 'localhost', 8086)
 }
 
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : undefined
