@@ -481,5 +481,210 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
   }
 </script>
 
+<script>
+  function initExportButtons() {
+    const panels = document.querySelectorAll('.vp');
+    panels.forEach(vp => {
+      const canvas = vp.querySelector('canvas');
+      const svg = vp.querySelector('svg');
+      if (!canvas && !svg) return;
+      
+      let head = vp.querySelector('.vp-head');
+      if (!head) {
+        head = document.createElement('div');
+        head.className = 'vp-head';
+        vp.insertBefore(head, vp.firstChild);
+      }
+      
+      if (head.querySelector('.vp-export-btn')) return;
+      
+      let rightContainer = head.querySelector('.vp-head-right') as HTMLElement | null;
+      if (!rightContainer) {
+        rightContainer = document.createElement('div');
+        rightContainer.className = 'vp-head-right';
+        
+        const hint = head.querySelector('.vp-hint');
+        if (hint) {
+          hint.parentNode?.removeChild(hint);
+          rightContainer.appendChild(hint);
+        }
+        
+        head.appendChild(rightContainer);
+      }
+      
+      const btn = document.createElement('button');
+      btn.className = 'vp-export-btn';
+      btn.setAttribute('aria-label', 'Export PNG');
+      btn.title = 'Export as PNG image';
+      btn.innerHTML = `
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-top:-2px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Export</span>
+      `;
+      
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        const panelTitle = head.querySelector('.vp-title')?.textContent || 'visualization';
+        const filename = panelTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '') || 'export';
+          
+        if (canvas) {
+          exportCanvas(canvas, filename);
+        } else if (svg) {
+          exportSVG(svg, filename);
+        }
+      });
+      
+      rightContainer.appendChild(btn);
+    });
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCanvas(canvas: HTMLCanvasElement, filename: string) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    
+    const computedStyle = window.getComputedStyle(canvas.closest('.vp') || document.body);
+    let bgColor = computedStyle.backgroundColor;
+    if (!bgColor || bgColor === 'transparent' || bgColor === 'rgba(0, 0, 0, 0)') {
+      const isLgt = document.documentElement.dataset.theme === 'light';
+      bgColor = isLgt ? '#ffffff' : '#0e0e17';
+    }
+    
+    tempCtx.fillStyle = bgColor;
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempCtx.drawImage(canvas, 0, 0);
+    
+    tempCanvas.toBlob((blob) => {
+      if (blob) {
+        downloadBlob(blob, `${filename}.png`);
+      }
+    }, 'image/png');
+  }
+
+  function exportSVG(svg: SVGSVGElement, filename: string) {
+    const svgClone = svg.cloneNode(true) as SVGSVGElement;
+    
+    svgClone.removeAttribute('class');
+    svgClone.style.width = '100%';
+    svgClone.style.height = '100%';
+    svgClone.style.margin = '0';
+    
+    let cssText = ':root {';
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const varNames = [
+      '--bg', '--surface', '--card', '--card2', '--border', '--border-hi',
+      '--purple', '--purple-l', '--purple-dim', '--cyan', '--cyan-dim',
+      '--green', '--green-dim', '--amber', '--red', '--text', '--text2',
+      '--muted', '--muted2', '--code-bg', '--ff-sans', '--ff-mono'
+    ];
+    for (const name of varNames) {
+      const val = rootStyles.getPropertyValue(name);
+      if (val) cssText += `${name}:${val.trim()};`;
+    }
+    cssText += '}';
+    
+    cssText += `
+      text {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+    `;
+    
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = cssText;
+    svgClone.insertBefore(styleEl, svgClone.firstChild);
+    
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svgClone);
+    
+    if (!svgString.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+      svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const URLObj = window.URL || window.webkitURL || window;
+    const blobURL = URLObj.createObjectURL(svgBlob);
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const rect = svg.getBoundingClientRect();
+      const width = svg.viewBox?.baseVal?.width || rect.width || 680;
+      const height = svg.viewBox?.baseVal?.height || rect.height || 320;
+      
+      const scale = 2;
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      const computedStyle = window.getComputedStyle(svg.closest('.vp') || document.body);
+      let bgColor = computedStyle.backgroundColor;
+      if (!bgColor || bgColor === 'transparent' || bgColor === 'rgba(0, 0, 0, 0)') {
+        const isLgt = document.documentElement.dataset.theme === 'light';
+        bgColor = isLgt ? '#ffffff' : '#0e0e17';
+      }
+      
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          downloadBlob(blob, `${filename}.png`);
+        }
+        URLObj.revokeObjectURL(blobURL);
+      }, 'image/png');
+    };
+    
+    img.onerror = (err) => {
+      console.error('Failed to export SVG', err);
+      URLObj.revokeObjectURL(blobURL);
+    };
+    
+    img.src = blobURL;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initExportButtons);
+  } else {
+    initExportButtons();
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    let shouldInit = false;
+    for (const mutation of mutations) {
+      if (mutation.addedNodes.length) {
+        shouldInit = true;
+        break;
+      }
+    }
+    if (shouldInit) initExportButtons();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+</script>
+
 </body>
 </html>

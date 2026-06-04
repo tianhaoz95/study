@@ -1,0 +1,847 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Should We Train Speculative Drafters On-Policy? | AI/ML Deep Dives"
+  description="Speculative-decoding drafters are usually trained offline on teacher-forced data and treated as an attachment to the main model. Should we instead train them like a distilled student — on-policy, on their own self-generated drafts? An interactive synthesis of HASS, DistillSpec, EAGLE-3, Online Speculative Decoding, and GKD that shows the frontier already says yes."
+  crumb="On-Policy Drafters"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Components */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:210px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+.bars-group-label{font-size:.66rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-family:var(--ff-mono);margin:.5rem 0 .25rem}
+
+/* Local viz helpers */
+.viz-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem}
+.viz-btn{padding:.35rem .85rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.viz-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.viz-caption{font-size:.78rem;color:var(--muted2);line-height:1.6;margin-top:.85rem;padding:.7rem .9rem;background:var(--card2);border-left:2px solid var(--purple);border-radius:0 6px 6px 0}
+.viz-caption b{color:var(--text2)}
+.stat-row{display:flex;flex-wrap:wrap;gap:1.25rem;margin-top:1rem}
+.stat-box{flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem}
+.stat-num{font-size:1.45rem;font-weight:800;font-family:var(--ff-mono);color:var(--purple-l);line-height:1}
+.stat-cap{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:.35rem}
+.slider-row{display:flex;align-items:center;gap:.85rem;margin:.5rem 0 0}
+.slider-row input[type=range]{flex:1;accent-color:var(--purple)}
+.slider-row label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1.5rem 0}
+.callout . co-t{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);margin-bottom:.35rem;font-family:var(--ff-mono)}
+.callout p{margin:0;font-size:.86rem}
+.callout.amber{border-left-color:var(--amber)}.callout.amber .co-t{color:var(--amber)}
+.callout.green{border-left-color:var(--green)}.callout.green .co-t{color:var(--green)}
+canvas{display:block;width:100%}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.bar-label{width:130px}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">On-Policy Distillation</span>
+    <span class="tag tag-amber">Drafter Training</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Should We Train Speculative Drafters On-Policy?</h1>
+  <p class="lead">Drafters in speculative decoding are usually trained offline on teacher-forced data and bolted on as an attachment to the main model. But what if we trained the drafter like a distilled student — on its <i>own</i> self-generated drafts, the way we distill a big model into a small one? It turns out the frontier already answers this: <b>yes</b> — and the reason is subtle, because speculative decoding's lossless verifier means on-policy training buys pure <i>speed</i>, never quality.</p>
+  <div class="post-hero-meta">
+    <span>June 3, 2026</span>
+    <span>~16 min read</span>
+    <span>Synthesis: <code>HASS · DistillSpec · EAGLE-3 · OSD · GKD</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2408.15766" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      HASS (2408.15766)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2310.08461" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      DistillSpec (2310.08461)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2503.01840" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      EAGLE-3 (2503.01840)
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2310.07177" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      OSD (2310.07177)
+    </a>
+    <a class="hero-btn" href="https://github.com/sgl-project/SpecForge" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      SpecForge
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The teacher-forced drafter</a></li>
+    <li class="toc-item" id="toc-s-lossless"><a href="#s-lossless"><span class="toc-num">02</span> Acceptance is the only currency</a></li>
+    <li class="toc-item" id="toc-s-exposure"><a href="#s-exposure"><span class="toc-num">03</span> Exposure bias: εT² vs εT</a></li>
+    <li class="toc-item" id="toc-s-onpolicy"><a href="#s-onpolicy"><span class="toc-num">04</span> Feeding the drafter its own drafts</a></li>
+    <li class="toc-item" id="toc-s-divergence"><a href="#s-divergence"><span class="toc-num">05</span> Which distillation loss?</a></li>
+    <li class="toc-item" id="toc-s-evidence"><a href="#s-evidence"><span class="toc-num">06</span> What the numbers say</a></li>
+    <li class="toc-item" id="toc-s-verdict"><a href="#s-verdict"><span class="toc-num">07</span> Verdict & nuance</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- 01 -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The teacher-forced drafter</div>
+<h2>How drafters are trained today — and the hidden mismatch</h2>
+<p>A speculative-decoding drafter is a tiny model that proposes the next few tokens so the big <b>target</b> model can verify them in one parallel forward pass. Modern drafters (EAGLE, EAGLE-2, and the EAGLE-3 heads produced by frameworks like <b>SpecForge</b>) are not standalone language models — they consume the target's hidden states and autoregress a short chain of draft tokens on top of them.</p>
+<p>The standard recipe is <b>offline and teacher-forced</b>: collect a corpus of responses, run the target once to dump its hidden states and tokens, then train the drafter to predict the next token/feature given the <i>target's true</i> context at every position. The drafter is, in effect, an attachment trained against a frozen tape of perfect inputs.</p>
+<p>Here's the catch. At inference, after the first draft token, the drafter no longer sees the target's true context — it must condition on <i>its own</i> previously drafted tokens and features. The input distribution it was trained on and the one it actually runs on are <b>different</b>. Toggle the two modes below.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">drafter_context.viz — train vs. inference inputs</span><span class="vp-hint">toggle the mode</span></div>
+  <div class="vp-body">
+    <div class="viz-controls">
+      <button class="viz-btn active" id="ctx-train">Training (teacher-forced)</button>
+      <button class="viz-btn" id="ctx-infer">Inference (free-running)</button>
+    </div>
+    <canvas id="ctx-canvas" height="250"></canvas>
+    <div class="viz-caption" id="ctx-cap"></div>
+  </div>
+</div>
+
+<p>In training, every input cell is fed by the target's <b>green</b> ground-truth token. At inference, each cell is fed by the drafter's <b>own</b> previous output — and a single wrong guess ("a" instead of "the") drops the drafter onto a sequence it never saw in training, so every later position is now off-manifold. This is textbook <b>exposure bias</b>, and it's exactly what on-policy distillation was invented to fix.</p>
+</section>
+
+<!-- 02 -->
+<section id="s-lossless" data-code="lossless">
+<div class="section-no">02 — Acceptance is the only currency</div>
+<h2>Why a drafter is unlike any other distilled student</h2>
+<p>Before asking "would on-policy help," we have to be precise about what "help" means here — because speculative decoding is <b>lossless</b>. The target verifies each draft token and, on the first rejection, resamples from a corrected distribution. The final text is provably <i>identical</i> to what the target would have produced on its own. A bad drafter never corrupts the output; it only makes you verify more often.</p>
+<p>So unlike normal knowledge distillation — where a worse student means worse answers — a worse drafter means only <b>slower</b> generation. The single metric that matters is the <b>acceptance length τ</b>: how many draft tokens survive verification per target forward pass. Drag the alignment slider and watch the output stay identical while speed changes.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">verify.viz — accept / reject / resample</span><span class="vp-hint">drag the slider</span></div>
+  <div class="vp-body">
+    <canvas id="ver-canvas" height="170"></canvas>
+    <div class="slider-row">
+      <label>drafter&nbsp;alignment</label>
+      <input type="range" id="ver-slider" min="1" max="6" step="1" value="2">
+      <label id="ver-val">low</label>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num" id="ver-tau">2</div><div class="stat-cap">accept length τ</div></div>
+      <div class="stat-box"><div class="stat-num" id="ver-tps">3.0×</div><div class="stat-cap">speedup vs. target</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--green)">identical</div><div class="stat-cap">output quality</div></div>
+    </div>
+    <div class="viz-caption">Final text is <b>always</b> "Paris, the capital of France." — the verifier guarantees it. The drafter's quality only moves the <b>speed</b> dial. <b>That reframes the whole question</b>: distilling the drafter can never hurt accuracy, so the only risk of any training change is a lower acceptance rate.</div>
+  </div>
+</div>
+
+<p>This is liberating. We can be as aggressive as we like with on-policy methods, exotic divergences, or self-generated data — there is no quality downside to fear, only an acceptance-rate (speed) payoff to chase.</p>
+</section>
+
+<!-- 03 -->
+<section id="s-exposure" data-code="exposure">
+<div class="section-no">03 — Exposure bias: εT² vs εT</div>
+<h2>The imitation-learning law that predicts the win</h2>
+<p>Why should training on self-generated drafts beat teacher forcing? The answer predates LLMs. Training a sequence model on clean expert prefixes is <b>behavior cloning</b>; running it on its own outputs is a sequential decision process. The classic result (Ross &amp; Bagnell's DAgger analysis) is that per-step error <span class="math-var">ε</span> compounds <b>quadratically</b> in horizon T under behavior cloning, but only <b>linearly</b> when the model is trained on the distribution of states it actually visits.</p>
+
+<div class="math-block">
+<div class="math-label">compounding error bound</div>
+offline (teacher-forced):&nbsp;&nbsp;regret = O(<span class="math-var">ε</span> · T²)<br>
+on-policy (DAgger-style):&nbsp;&nbsp;regret = O(<span class="math-var">ε</span> · T)<br>
+<span class="math-comment"># ε = per-step drafter error,  T = draft window length</span>
+</div>
+
+<p>For a drafter the "horizon" is the draft window — usually short (T ≈ 5–8 tokens, or a small token tree). But the quadratic term still bites: the offline drafter's drift accumulates fastest exactly across the positions that decide acceptance length. The chart shows the gap.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">compounding.viz — drift vs. draft-window length</span><span class="vp-hint">hover the curves</span></div>
+  <div class="vp-body">
+    <canvas id="exp-canvas" height="260"></canvas>
+    <div class="viz-caption">The <b style="color:#ef6461">red</b> curve (offline / teacher-forced) is the drafter's expected drift off the target's manifold; it grows like <b>εT²</b>. The <b style="color:#34d399">green</b> curve (on-policy) grows like <b>εT</b>. Even at a modest window of T=6, the offline drafter has drifted far enough that the last drafted tokens are routinely rejected — capping acceptance length. On-policy training keeps the tail of the draft window on-manifold, which is precisely where the extra accepted tokens come from.</div>
+  </div>
+</div>
+<p>DistillSpec makes this rigorous for drafters specifically: it proves (their Theorem 4.1) that a small <i>on-policy</i> distillation loss inductively bounds the per-token divergence at <i>every</i> position of the window — which is exactly the chain that determines acceptance.</p>
+</section>
+
+<!-- 04 -->
+<section id="s-onpolicy" data-code="onpolicy">
+<div class="section-no">04 — Feeding the drafter its own drafts</div>
+<h2>The frontier already does this — it's called training-time test</h2>
+<p>Here's the punchline: the user's instinct isn't speculative — it's the dominant direction of drafter research over the last two years. Both <b>HASS</b> ("harmonized context alignment") and <b>EAGLE-3</b> ("training-time test", the recipe SpecForge implements) train the drafter across multiple unrolled steps, replacing the target's clean feature with the drafter's <i>own</i> feature from the previous step. That <b>is</b> on-policy distillation of the drafter. Step through it:</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">training_time_test.py — multi-step on-policy unroll</span><span class="vp-hint">use Next ▸</span></div>
+  <div class="vp-body">
+    <div class="step-list" id="ttt-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Step 0 — teacher-forced base (offline)</div>
+          <div class="step-desc">Draft position 1 sees the target's true feature. This is plain EAGLE / SpecForge warm-up.</div>
+          <div class="step-code">h₁ = target_feature ; loss += KD(draft(h₁), target_logits₁)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Step 1 — feed the drafter's own feature</div>
+          <div class="step-desc">For position 2, swap in the feature the drafter just produced — not the target's. Attention mask is shifted to keep causality.</div>
+          <div class="step-code">h₂ = draft_feature₁ ; loss += KD(draft(h₂), target_logits₂)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Step 2 — unroll again</div>
+          <div class="step-desc">Position 3 conditions on the drafter's step-2 output. The drafter now sees the same compounding it will face at inference.</div>
+          <div class="step-code">h₃ = draft_feature₂ ; loss += KD(draft(h₃), target_logits₃)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Step 3 — full harmonized window (HASS)</div>
+          <div class="step-desc">After 3–4 unrolled steps the train/inference contexts match. Acceptance length jumps — no extra inference cost.</div>
+          <div class="step-code">acc_len: 3.78 → 5.15 (LLaMA2-7B, EAGLE → HASS)</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="ttt-prev" disabled>◂ Prev</button>
+      <button id="ttt-next">Next ▸</button>
+      <span style="flex:1"></span>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num" id="ttt-acc">3.78</div><div class="stat-cap">acceptance length τ</div></div>
+      <div class="stat-box"><div class="stat-num" id="ttt-steps-n">0</div><div class="stat-cap">on-policy steps</div></div>
+    </div>
+  </div>
+</div>
+
+<p>EAGLE-3 adds a second, related move: it <b>drops the feature-regression (MSE) loss</b> that older EAGLE used to force the drafter's hidden state to match the target's. That constraint, the authors found, "limits the expressiveness of the draft model and makes it difficult to benefit from increased data." Removing it is precisely the spirit of the question — treating the drafter less like a bolted-on feature-mimic and more like a free <b>token-predicting student</b> whose only job is to match the target's <i>output distribution</i>. The result: EAGLE-3 keeps scaling with more training data where EAGLE plateaued.</p>
+<div class="callout green">
+  <div class=" co-t">Reframed</div>
+  <p>"Train the drafter on-policy like a distilled student" = HASS's harmonized context + EAGLE-3's training-time test + dropping the feature-MSE shackle. The field converged on the user's exact intuition.</p>
+</div>
+</section>
+
+<!-- 05 -->
+<section id="s-divergence" data-code="divergence">
+<div class="section-no">05 — Which distillation loss?</div>
+<h2>On-policy needs a divergence, and the choice matters</h2>
+<p>Once you train on self-generated drafts, you still have to pick what the loss <i>compares</i>. Plain next-token cross-entropy throws away the target's full distribution; a distillation divergence keeps it. DistillSpec, OSD, and GKD all confirm that matching the target's <b>distribution</b> (not just its argmax) lifts acceptance — but the right divergence is <b>decoding-dependent</b>.</p>
+<p>The two poles: <b>forward KL</b> is <i>mode-covering</i> (spreads mass to cover every token the target likes, plus some it doesn't), while <b>reverse KL</b> is <i>mode-seeking</i> (concentrates on the target's peak). For a peaky target under greedy/low-temperature decoding, the sharper reverse-KL drafter drafts the likely token more often and gets accepted more. Toggle them against the same target.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">divergence.viz — next-token distribution after "...capital of"</span><span class="vp-hint">toggle the loss</span></div>
+  <div class="vp-body">
+    <div class="viz-controls">
+      <button class="viz-btn active" id="div-rkl">Reverse KL (mode-seeking)</button>
+      <button class="viz-btn" id="div-fkl">Forward KL (mode-covering)</button>
+    </div>
+    <canvas id="div-canvas" height="220"></canvas>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num" id="div-acc">87%</div><div class="stat-cap">P(token accepted) = 1 − TV</div></div>
+      <div class="stat-box"><div class="stat-num" id="div-mode" style="color:var(--cyan)">sharp</div><div class="stat-cap">drafter shape</div></div>
+    </div>
+    <div class="viz-caption" id="div-cap"></div>
+  </div>
+</div>
+
+<p>The honest takeaway from DistillSpec is that no single divergence wins everywhere: forward-KL/JSD helped on summarization, reverse-KL with sampled data helped on GSM8K with temperature, and direct TVD optimization (despite being the quantity tied to acceptance) wasn't reliably best. The robust finding is the <b>data</b>, not the divergence: <i>on-policy, self-generated</i> data beat fixed ground-truth data across the board — and draft-generated data was nearly as good as target-generated data while costing far less to produce.</p>
+</section>
+
+<!-- 06 -->
+<section id="s-evidence" data-code="evidence">
+<div class="section-no">06 — What the numbers say</div>
+<h2>The evidence, four ways</h2>
+<p>Four independent lines of work all point the same direction. The bars animate the EAGLE → EAGLE-2 → HASS progression (HASS = on-policy harmonized context on top of EAGLE-2), and the table collects the rest.</p>
+
+<div class="bars-group-label">Acceptance length τ — LLaMA2-Chat 7B, T=0 (higher = faster)</div>
+<div class="results-bars">
+  <div class="bar-row"><div class="bar-label">EAGLE (offline)</div><div class="bar-track"><div class="bar-fill" data-w="63" style="background:var(--muted)"><span>3.78</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">EAGLE-2</div><div class="bar-track"><div class="bar-fill" data-w="77" style="background:var(--cyan)"><span>4.61</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">HASS (on-policy)</div><div class="bar-track"><div class="bar-fill" data-w="86" style="background:var(--purple)"><span>5.15</span></div></div></div>
+</div>
+
+<div class="bars-group-label">Wall-clock speedup — LLaMA3-Instruct 70B, T=0</div>
+<div class="results-bars">
+  <div class="bar-row"><div class="bar-label">EAGLE (offline)</div><div class="bar-track"><div class="bar-fill" data-w="54" style="background:var(--muted)"><span>2.43×</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">EAGLE-2</div><div class="bar-track"><div class="bar-fill" data-w="75" style="background:var(--cyan)"><span>3.37×</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">HASS (on-policy)</div><div class="bar-track"><div class="bar-fill" data-w="90" style="background:var(--purple)"><span>4.05×</span></div></div></div>
+</div>
+
+<table class="results-table">
+  <thead><tr><th>Work</th><th>What it changed</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td>HASS</td><td>Harmonized context: drafter trained on its own features (on-policy), top-K ranking distillation</td><td class="mn">+8–20% over EAGLE-2; <span class="best">2.81–4.05×</span> speedup</td></tr>
+    <tr><td>EAGLE-3</td><td>Training-time test (on-policy unroll) + drop feature-MSE loss + multi-layer fusion</td><td class="mn">3–6.5× speedup; keeps scaling with data</td></tr>
+    <tr><td>DistillSpec</td><td>On-policy data generation + tailored divergence for KD of the drafter</td><td class="mn">+10–45% over standard spec-decode</td></tr>
+    <tr><td>Online Spec Decoding</td><td>Keep distilling the drafter online on the live query distribution</td><td class="mn">accept-rate <span class="best">+0.1–0.65</span>; 1.22–3.06×</td></tr>
+    <tr><td>GKD (general KD)</td><td>On-policy self-generated sequences + teacher feedback (not drafter-specific)</td><td class="mn">1.7–2.1× over baseline KD</td></tr>
+  </tbody>
+</table>
+<p>The through-line: every method that moved the drafter from <b>offline teacher-forced</b> toward <b>on-policy / self-generated</b> data raised acceptance and speed, with zero quality cost (the verifier guarantees it).</p>
+</section>
+
+<!-- 07 -->
+<section id="s-verdict" data-code="verdict">
+<div class="section-no">07 — Verdict & nuance</div>
+<h2>Yes — but "on-policy" ≠ "standalone"</h2>
+<p>So is training the drafter on-policy, like a distilled student, a good idea? <b>Strongly yes.</b> It's the single highest-leverage change in modern drafter training, and the evidence (HASS, EAGLE-3, DistillSpec, OSD) is consistent. The one place to be careful is the word "<b>standalone</b>."</p>
+<p>The user's framing bundles two separable ideas. Pull them apart:</p>
+<ul>
+  <li><b>On-policy distillation</b> (train on the drafter's own drafts, match the target's distribution) — <b>clearly helps</b>. Adopt it.</li>
+  <li><b>Decoupling</b> the drafter into a truly standalone LM that no longer reads the target's hidden states — <b>usually hurts</b>. Those rich, free features are exactly why a tiny EAGLE head reaches acceptance lengths a same-size standalone model can't touch. OSD's standalone drafters need <i>continuous online</i> distillation just to stay competitive.</li>
+</ul>
+<p>The sweet spot is what EAGLE-3 already lands on: keep the drafter's input "at least partially from the main model" (the user's own phrasing — the fused hidden states), but <b>train it like a student</b> — on-policy, distribution-matching, and freed from the feature-MSE leash. That's standalone in <i>objective</i>, attached in <i>input</i>.</p>
+
+<div class="callout amber">
+  <div class=" co-t">The catch — cost</div>
+  <p>On-policy isn't free at <i>training</i> time: each step needs the drafter to generate, so unrolled training is several × slower than dumping a static tape. This is why SpecForge invests in decoupled target/draft execution and fused kernels, and why "Fast on-policy distillation" methods exist (2–47× via prefix truncation). The acceptance win is large enough to pay for it — but budget for it.</p>
+</div>
+<div class="callout">
+  <div class=" co-t">Practical recipe</div>
+  <p>(1) Warm-start the EAGLE/EAGLE-3 head teacher-forced for stability. (2) Switch to a 3–4 step training-time-test unroll so the drafter conditions on its own features. (3) Use a distribution-matching KD loss (top-K / reverse-KL is a strong default for greedy serving; pick per decoding strategy). (4) Drop the feature-regression loss. (5) If you serve a narrow, drifting query mix, keep distilling online (OSD).</p>
+</div>
+<p>In short: the instinct is right and the field already validated it. The drafter <i>should</i> be trained on-policy like a distilled student — just keep feeding it the target's features, because in speculative decoding that coupling is a feature, not a bug.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">offline_draft.py</div>
+      <div class="cs-section-title" id="cs-section-title">Teacher-forced training</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">offline</button>
+    <button class="cs-tab" data-panel="lossless">verify</button>
+    <button class="cs-tab" data-panel="exposure">drift</button>
+    <button class="cs-tab" data-panel="onpolicy">ttt</button>
+    <button class="cs-tab" data-panel="divergence">divergence</button>
+    <button class="cs-tab" data-panel="evidence">numbers</button>
+    <button class="cs-tab" data-panel="verdict">recipe</button>
+  </div>
+  <div class="cs-body">
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre"><span class="cs-line cmt"># Standard offline EAGLE-style training</span>
+<span class="cs-line cmt"># every input is the TARGET's true context</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">for</span> seq <span class="kw">in</span> corpus:</span>
+<span class="cs-line hl-g">    h = target.hidden_states(seq)   <span class="cmt"># clean</span></span>
+<span class="cs-line">    tok = target.logits(seq)</span>
+<span class="cs-line">    pred = draft(h[:-<span class="num">1</span>], seq[:-<span class="num">1</span>])</span>
+<span class="cs-line">    loss = ce(pred, seq[<span class="num">1</span>:])</span>
+<span class="cs-line">    loss.backward()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># PROBLEM: at inference, positions 2..k</span>
+<span class="cs-line cmt"># are fed the DRAFTER's own outputs,</span>
+<span class="cs-line cmt"># a distribution never seen in training.</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-lossless">
+      <pre class="cs-pre"><span class="cs-line cmt"># Speculative verification is LOSSLESS</span>
+<span class="cs-line"></span>
+<span class="cs-line">draft_toks = draft.propose(ctx, k)</span>
+<span class="cs-line">p = target.probs(ctx, draft_toks)   <span class="cmt"># 1 pass</span></span>
+<span class="cs-line">q = draft.probs(ctx, draft_toks)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">for</span> t <span class="kw">in</span> range(k):</span>
+<span class="cs-line hl-g">    <span class="kw">if</span> rand() &lt; min(<span class="num">1</span>, p[t]/q[t]):</span>
+<span class="cs-line hl-g">        accept(draft_toks[t])       <span class="cmt"># keep</span></span>
+<span class="cs-line">    <span class="kw">else</span>:</span>
+<span class="cs-line hl-c">        resample(p[t] - q[t])       <span class="cmt"># correct</span></span>
+<span class="cs-line">        <span class="kw">break</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># output distribution == target's, always.</span>
+<span class="cs-line cmt"># worse drafter => smaller tau => slower</span>
+<span class="cs-line cmt">#                  but NEVER worse text.</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-exposure">
+      <pre class="cs-pre"><span class="cs-line cmt"># Compounding error (imitation learning)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># behavior cloning / teacher forcing:</span>
+<span class="cs-line hl-a">regret_offline = O(eps * T**<span class="num">2</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DAgger / on-policy:</span>
+<span class="cs-line hl-g">regret_onpolicy = O(eps * T)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># T = draft window length (~5-8)</span>
+<span class="cs-line cmt"># eps = per-step drafter error</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DistillSpec Thm 4.1: small on-policy</span>
+<span class="cs-line cmt"># KD loss bounds per-token divergence</span>
+<span class="cs-line cmt"># at EVERY position => higher acceptance.</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-onpolicy">
+      <pre class="cs-pre"><span class="cs-line cmt"># Training-time test (EAGLE-3 / HASS)</span>
+<span class="cs-line cmt"># unroll the drafter on its OWN features</span>
+<span class="cs-line"></span>
+<span class="cs-line">h = target.hidden_states(seq)       <span class="cmt"># t=0</span></span>
+<span class="cs-line">feat = h</span>
+<span class="cs-line"><span class="kw">for</span> step <span class="kw">in</span> range(n_steps):       <span class="cmt"># 3-4</span></span>
+<span class="cs-line">    out = draft(feat)</span>
+<span class="cs-line hl-p">    loss += kd(out.logits, target.logits)</span>
+<span class="cs-line hl-c">    feat = out.feature   <span class="cmt"># self-generated!</span></span>
+<span class="cs-line">    shift_attn_mask()    <span class="cmt"># keep causal</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># EAGLE-3 also drops the feature-MSE</span>
+<span class="cs-line cmt"># regression loss -> drafter is free to</span>
+<span class="cs-line cmt"># match OUTPUTS, scales with more data.</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-divergence">
+      <pre class="cs-pre"><span class="cs-line cmt"># Pick the distillation divergence</span>
+<span class="cs-line cmt"># q = drafter, p = target</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># forward KL: mode-COVERING (spreads)</span>
+<span class="cs-line">fkl = sum(p * log(p / q))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># reverse KL: mode-SEEKING (sharpens)</span>
+<span class="cs-line hl-p">rkl = sum(q * log(q / p))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># acceptance prob = 1 - TV(p, q)</span>
+<span class="cs-line hl-g">acc = <span class="num">1</span> - <span class="num">0.5</span> * sum(abs(p - q))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DistillSpec: best divergence is</span>
+<span class="cs-line cmt"># task/decoding-dependent. The robust</span>
+<span class="cs-line cmt"># win is ON-POLICY DATA, not the loss.</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-evidence">
+      <pre class="cs-pre"><span class="cs-line cmt"># Acceptance length (LLaMA2-7B, T=0)</span>
+<span class="cs-line">EAGLE   (offline) : <span class="num">3.78</span></span>
+<span class="cs-line">EAGLE-2           : <span class="num">4.61</span></span>
+<span class="cs-line hl-p">HASS (on-policy)  : <span class="num">5.15</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Speedup (LLaMA3-70B, T=0)</span>
+<span class="cs-line">EAGLE / E2 / HASS : <span class="num">2.43</span> / <span class="num">3.37</span> / <span class="num">4.05</span>x</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DistillSpec : +10-45% vs spec-decode</span>
+<span class="cs-line cmt"># OSD         : accept +0.1-0.65</span>
+<span class="cs-line cmt"># EAGLE-3     : 3-6.5x, scales w/ data</span>
+<span class="cs-line cmt"># GKD         : 1.7-2.1x over baseline KD</span></pre>
+    </div>
+    <div class="cs-panel" id="panel-verdict">
+      <pre class="cs-pre"><span class="cs-line cmt"># Recommended drafter training recipe</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="num">1</span>. warm_start teacher-forced  <span class="cmt"># stable</span></span>
+<span class="cs-line hl-p"><span class="num">2</span>. unroll 3-4 steps on-policy <span class="cmt"># ttt</span></span>
+<span class="cs-line hl-c"><span class="num">3</span>. distribution-matching KD   <span class="cmt"># topK/RKL</span></span>
+<span class="cs-line"><span class="num">4</span>. drop feature-MSE loss</span>
+<span class="cs-line"><span class="num">5</span>. keep target features as input</span>
+<span class="cs-line"><span class="num">6</span>. (optional) online KD on live q</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># standalone in OBJECTIVE,</span>
+<span class="cs-line cmt"># attached in INPUT.</span>
+<span class="cs-line cmt"># cost: generation during training</span>
+<span class="cs-line cmt">#       (Fast-OPD: 2-47x via prefix trunc)</span></pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ---------- TOC + sidebar toggles ----------
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ---------- code tab switching ----------
+const tabMeta = {
+  problem:    { file: 'offline_draft.py',     title: 'Teacher-forced training' },
+  lossless:   { file: 'verify.py',            title: 'Lossless verification' },
+  exposure:   { file: 'compounding.py',       title: 'Exposure-bias bound' },
+  onpolicy:   { file: 'training_time_test.py',title: 'On-policy unroll' },
+  divergence: { file: 'divergence.py',        title: 'Distillation loss' },
+  evidence:   { file: 'numbers.txt',          title: 'Benchmark numbers' },
+  verdict:    { file: 'recipe.py',            title: 'Recommended recipe' },
+};
+function activateTab(name){
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m){ document.getElementById('cs-file-label').textContent = m.file; document.getElementById('cs-section-title').textContent = m.title; }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ---------- scroll sync ----------
+const sectionMap = { 's-problem':'problem','s-lossless':'lossless','s-exposure':'exposure','s-onpolicy':'onpolicy','s-divergence':'divergence','s-evidence':'evidence','s-verdict':'verdict' };
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting){
+        document.querySelectorAll('.toc-item').forEach(li => li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id]; if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+function fit(cv, h){ const DPR = window.devicePixelRatio || 1; const W = cv.clientWidth; cv.width = W * DPR; cv.height = h * DPR; const ctx = cv.getContext('2d'); ctx.setTransform(DPR,0,0,DPR,0,0); return { ctx, W, H:h }; }
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+const COL = { purple:'#8b5cf6', purpleL:'#a78bfa', cyan:'#06b6d4', green:'#34d399', amber:'#f59e0b', red:'#ef6461', muted:'#6b7280', text:'#e5e7eb' };
+
+// ===== 01 context canvas =====
+(function(){
+  const cv = document.getElementById('ctx-canvas'); if(!cv) return;
+  let mode = 'train';
+  const trueToks  = ['Paris', ',', 'the', 'capital', 'city'];
+  const draftToks = ['Paris', ',', 'a', 'major', 'port'];
+  const divergeAt = 2;
+  function draw(){
+    const { ctx, W, H } = fit(cv, 250);
+    ctx.clearRect(0,0,W,H);
+    const n = 5, pad = 18, gap = 10;
+    const cw = (W - pad*2 - gap*(n-1)) / n;
+    const topY = 95, botY = 175, bh = 40;
+    // bus label
+    ctx.font = '600 11px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = mode==='train' ? COL.green : COL.amber;
+    ctx.fillText(mode==='train' ? 'TARGET true tokens  →  fed as input' : "DRAFTER's own output  →  fed back as input", pad, 26);
+    ctx.fillStyle = COL.muted; ctx.font = '10px ui-monospace, monospace';
+    ctx.fillText('input context', pad, topY-12);
+    ctx.fillText('drafter prediction', pad, botY-12);
+    for(let i=0;i<n;i++){
+      const x = pad + i*(cw+gap);
+      const poisoned = mode==='infer' && i>=divergeAt;
+      // input cell
+      let inTok, inCol;
+      if(i===0){ inTok='⟨prompt⟩'; inCol=COL.cyan; }
+      else if(mode==='train'){ inTok=trueToks[i-1]; inCol=COL.green; }
+      else { inTok=draftToks[i-1]; inCol = (i-1>=divergeAt)?COL.red:COL.amber; }
+      ctx.globalAlpha = 1;
+      rr(ctx,x,topY,cw,bh,7); ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle=inCol; ctx.stroke();
+      ctx.fillStyle=inCol; ctx.font='600 12px ui-monospace, monospace'; ctx.textAlign='center';
+      ctx.fillText(inTok, x+cw/2, topY+bh/2+4);
+      // prediction cell
+      const pTok = mode==='train' ? trueToks[i] : draftToks[i];
+      const pCol = mode==='train' ? COL.green : (poisoned?COL.red:COL.amber);
+      rr(ctx,x,botY,cw,bh,7); ctx.fillStyle = mode==='train'?'rgba(52,211,153,.10)':(poisoned?'rgba(239,100,97,.12)':'rgba(245,158,11,.10)'); ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle=pCol; ctx.stroke();
+      ctx.fillStyle=pCol; ctx.fillText(pTok||'·', x+cw/2, botY+bh/2+4);
+      // arrow input->pred
+      ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(x+cw/2, topY+bh); ctx.lineTo(x+cw/2, botY); ctx.stroke();
+      // feedback arrow pred[i-1] -> input[i] in infer mode
+      if(mode==='infer' && i>0){
+        const px = pad + (i-1)*(cw+gap) + cw/2;
+        const tx = x + cw/2;
+        ctx.strokeStyle = (i-1>=divergeAt)?COL.red:COL.amber; ctx.lineWidth=1.6;
+        ctx.beginPath();
+        ctx.moveTo(px, botY+bh);
+        ctx.bezierCurveTo(px, botY+bh+26, tx, topY-26, tx, topY);
+        ctx.stroke();
+        // arrowhead
+        ctx.fillStyle=ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(tx,topY); ctx.lineTo(tx-4,topY-7); ctx.lineTo(tx+4,topY-7); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+  function setCap(){
+    const cap = document.getElementById('ctx-cap');
+    cap.innerHTML = mode==='train'
+      ? "<b>Training:</b> every input cell is the target's <b>true</b> token (green). The drafter only ever sees a perfect prefix — it never learns what to do after its own mistake."
+      : "<b>Inference:</b> each cell is fed the drafter's <b>own</b> previous output (amber). It guesses <b>\"a\"</b> instead of <b>\"the\"</b> at step 3 — and from there it's on a sequence it never saw in training (red). Everything downstream is off-manifold and gets rejected.";
+  }
+  const bT=document.getElementById('ctx-train'), bI=document.getElementById('ctx-infer');
+  bT.onclick=()=>{mode='train';bT.classList.add('active');bI.classList.remove('active');draw();setCap();};
+  bI.onclick=()=>{mode='infer';bI.classList.add('active');bT.classList.remove('active');draw();setCap();};
+  setCap(); draw(); window.addEventListener('resize', draw);
+})();
+
+// ===== 02 verify canvas =====
+(function(){
+  const cv = document.getElementById('ver-canvas'); if(!cv) return;
+  const sl = document.getElementById('ver-slider');
+  const toks = ['Paris',',','the','capital','of','France'];
+  const labels = ['low','low','mid','mid','high','high'];
+  function draw(){
+    const tau = parseInt(sl.value,10);
+    const { ctx, W, H } = fit(cv,170);
+    ctx.clearRect(0,0,W,H);
+    const n = toks.length, pad=16, gap=8;
+    const cw = (W-pad*2-gap*(n-1))/n, y=42, bh=42;
+    ctx.font='10px ui-monospace, monospace'; ctx.textAlign='left'; ctx.fillStyle=COL.muted;
+    ctx.fillText('drafter proposes 6 tokens — target verifies in ONE pass', pad, 24);
+    for(let i=0;i<n;i++){
+      const x=pad+i*(cw+gap);
+      let col, fill, tag;
+      if(i<tau){ col=COL.green; fill='rgba(52,211,153,.12)'; tag='✓'; }
+      else if(i===tau){ col=COL.purple; fill='rgba(139,92,246,.14)'; tag='↺'; }
+      else { col=COL.muted; fill='rgba(255,255,255,.03)'; tag='·'; }
+      rr(ctx,x,y,cw,bh,7); ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=col; ctx.stroke();
+      ctx.fillStyle=col; ctx.font='600 12px ui-monospace, monospace'; ctx.textAlign='center';
+      ctx.fillText(i===tau?'(resample)':toks[i], x+cw/2, y+bh/2+4);
+      ctx.font='10px ui-monospace, monospace'; ctx.fillText(tag, x+cw/2, y+bh+15);
+    }
+    // legend
+    ctx.textAlign='left'; ctx.font='10px ui-monospace, monospace';
+    ctx.fillStyle=COL.green; ctx.fillText('✓ accepted', pad, H-12);
+    ctx.fillStyle=COL.purple; ctx.fillText('↺ corrected resample', pad+90, H-12);
+    ctx.fillStyle=COL.muted; ctx.fillText('· discarded', pad+255, H-12);
+    // stats
+    document.getElementById('ver-tau').textContent = tau;
+    document.getElementById('ver-tps').textContent = (1 + tau*0.55).toFixed(1)+'×';
+    document.getElementById('ver-val').textContent = labels[tau-1];
+  }
+  sl.addEventListener('input', draw); draw(); window.addEventListener('resize', draw);
+})();
+
+// ===== 03 compounding canvas =====
+(function(){
+  const cv=document.getElementById('exp-canvas'); if(!cv) return;
+  function draw(){
+    const { ctx, W, H } = fit(cv,260);
+    ctx.clearRect(0,0,W,H);
+    const padL=46, padR=20, padT=20, padB=38;
+    const x0=padL, x1=W-padR, y0=H-padB, y1=padT;
+    const Tmax=8, eps=0.06, ymax=eps*Tmax*Tmax*1.05;
+    const X=t=>x0+(t/Tmax)*(x1-x0);
+    const Y=v=>y0-(v/ymax)*(y0-y1);
+    // grid
+    ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+    for(let t=1;t<=Tmax;t++){ ctx.beginPath(); ctx.moveTo(X(t),y0); ctx.lineTo(X(t),y1); ctx.stroke(); }
+    // axes
+    ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); ctx.moveTo(x0,y0); ctx.lineTo(x0,y1); ctx.stroke();
+    ctx.fillStyle=COL.muted; ctx.font='10px ui-monospace, monospace'; ctx.textAlign='center';
+    ctx.fillText('draft window length  T →', (x0+x1)/2, H-10);
+    ctx.save(); ctx.translate(13,(y0+y1)/2); ctx.rotate(-Math.PI/2); ctx.fillText('expected drift', 0,0); ctx.restore();
+    for(let t=2;t<=Tmax;t+=2){ ctx.fillText(String(t), X(t), y0+16); }
+    // curves
+    function curve(fn,color,dash){ ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.setLineDash(dash||[]); ctx.beginPath(); for(let t=0;t<=Tmax;t+=0.1){ const xx=X(t), yy=Y(fn(t)); t===0?ctx.moveTo(xx,yy):ctx.lineTo(xx,yy);} ctx.stroke(); ctx.setLineDash([]); }
+    curve(t=>eps*t*t, COL.red);
+    curve(t=>eps*t, COL.green);
+    // labels at end
+    ctx.textAlign='left'; ctx.font='600 11px ui-monospace, monospace';
+    ctx.fillStyle=COL.red; ctx.fillText('offline  ~ εT²', X(6.05), Y(eps*36)-6);
+    ctx.fillStyle=COL.green; ctx.fillText('on-policy  ~ εT', X(8)-78, Y(eps*8)-8);
+    // marker at T=6
+    ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.beginPath(); ctx.moveTo(X(6),y0); ctx.lineTo(X(6),y1); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=COL.text; ctx.font='10px ui-monospace, monospace'; ctx.textAlign='center';
+    ctx.fillText('typical window', X(6), y1+10);
+    [[6,eps*36,COL.red],[6,eps*6,COL.green]].forEach(([t,v,c])=>{ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(X(t),Y(v),4,0,7); ctx.fill(); });
+  }
+  draw(); window.addEventListener('resize', draw);
+})();
+
+// ===== 04 ttt step navigator =====
+(function(){
+  const boxes=[...document.querySelectorAll('#ttt-steps .step-box')];
+  const prev=document.getElementById('ttt-prev'), next=document.getElementById('ttt-next');
+  if(!boxes.length) return;
+  const accVals=['3.78','4.30','4.80','5.15'];
+  let step=0;
+  function upd(){
+    boxes.forEach((b,i)=>{ b.classList.remove('active','done'); if(i===step)b.classList.add('active'); else if(i<step)b.classList.add('done'); const n=b.querySelector('.step-num'); if(n)n.textContent=i<step?'✓':String(i+1); });
+    prev.disabled=step===0; next.disabled=step===boxes.length-1;
+    document.getElementById('ttt-acc').textContent=accVals[step];
+    document.getElementById('ttt-steps-n').textContent=String(step);
+  }
+  prev.onclick=()=>{if(step>0){step--;upd();}};
+  next.onclick=()=>{if(step<boxes.length-1){step++;upd();}};
+  upd();
+})();
+
+// ===== 05 divergence canvas =====
+(function(){
+  const cv=document.getElementById('div-canvas'); if(!cv) return;
+  let mode='rkl';
+  const toks=['Paris','France','Lyon','Nice','⟨other⟩'];
+  const target=[0.75,0.15,0.05,0.03,0.02];
+  const rkl=[0.88,0.10,0.01,0.005,0.005];
+  const fkl=[0.55,0.20,0.12,0.08,0.05];
+  function tv(a,b){ let s=0; for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]); return 0.5*s; }
+  function draw(){
+    const q = mode==='rkl'?rkl:fkl;
+    const { ctx, W, H } = fit(cv,220);
+    ctx.clearRect(0,0,W,H);
+    const n=toks.length, padL=20, padR=20, padB=40, padT=14;
+    const gw=(W-padL-padR)/n, y0=H-padB, maxh=y0-padT, bw=gw*0.32;
+    ctx.font='10px ui-monospace, monospace'; ctx.textAlign='left';
+    ctx.fillStyle=COL.muted; ctx.fillText('■ target', padL, 12); ctx.fillStyle=COL.purpleL; ctx.fillText('■ drafter', padL+62, 12);
+    for(let i=0;i<n;i++){
+      const cx=padL+gw*i+gw/2;
+      // target bar
+      let h=target[i]*maxh; rr(ctx,cx-bw-2,y0-h,bw,h,4); ctx.fillStyle='rgba(148,163,184,.5)'; ctx.fill();
+      // drafter bar
+      h=q[i]*maxh; rr(ctx,cx+2,y0-h,bw,h,4); ctx.fillStyle=COL.purple; ctx.fill();
+      ctx.fillStyle=COL.text; ctx.font='11px ui-monospace, monospace'; ctx.textAlign='center';
+      ctx.fillText(toks[i], cx, y0+16);
+    }
+    ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.beginPath(); ctx.moveTo(padL,y0); ctx.lineTo(W-padR,y0); ctx.stroke();
+    const acc=Math.round((1-tv(target,q))*100);
+    document.getElementById('div-acc').textContent=acc+'%';
+    document.getElementById('div-mode').textContent= mode==='rkl'?'sharp':'spread';
+    document.getElementById('div-cap').innerHTML = mode==='rkl'
+      ? "<b>Reverse KL</b> sharpens onto the target's peak (<b>Paris</b>). Against a peaky target under greedy serving it drafts the likely token more often → <b>higher acceptance (87%)</b>."
+      : "<b>Forward KL</b> spreads mass to cover every token the target likes — including low-probability ones. It drafts <b>Lyon/Nice</b> too often, those get rejected → <b>lower acceptance (80%)</b> here. (It wins instead when the target is high-entropy.)";
+  }
+  const bR=document.getElementById('div-rkl'), bF=document.getElementById('div-fkl');
+  bR.onclick=()=>{mode='rkl';bR.classList.add('active');bF.classList.remove('active');draw();};
+  bF.onclick=()=>{mode='fkl';bF.classList.add('active');bR.classList.remove('active');draw();};
+  draw(); window.addEventListener('resize', draw);
+})();
+
+// ===== 06 bars =====
+(function(){
+  const sec=document.getElementById('s-evidence'); if(!sec) return;
+  new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting){ document.querySelectorAll('#s-evidence .bar-fill[data-w]').forEach(b=>{ b.style.width=b.dataset.w+'%'; }); } }); },{threshold:0.25}).observe(sec);
+})();
+</script>
+</BaseLayout>
