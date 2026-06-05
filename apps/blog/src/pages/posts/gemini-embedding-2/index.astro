@@ -1,0 +1,1080 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('gemini-embedding-2');
+---
+<BaseLayout
+  title="Gemini Embedding 2: A Native Multimodal Embedding Model | AI/ML Deep Dives"
+  description="Gemini Embedding 2 processes interleaved combinations of text, image, video, and audio natively. Discover its unified representation space, label-masked contrastive learning, and model souping techniques."
+  crumb="Gemini Embedding 2"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Table styling */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Interactive container modifications */
+.interactive-panel{border:1px solid var(--border);border-radius:8px;background:var(--card);padding:1.25rem;margin:1.5rem 0}
+.panel-ctrls{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.panel-btn{padding:.35rem .8rem;font-size:.7rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);border-radius:4px;cursor:pointer;transition:all .15s}
+.panel-btn:hover{color:var(--text);border-color:var(--cyan)}
+.panel-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* SVG architecture visualization styling */
+.arch-svg{width:100%;height:auto;max-height:360px;background:var(--card2);border-radius:6px;border:1px solid var(--border-hi);padding:1rem}
+.arch-node{transition:all .25s;cursor:pointer}
+.arch-node rect,.arch-node polygon{fill:var(--card);stroke:var(--border-hi);stroke-width:1.5px;transition:all .2s}
+.arch-node:hover rect,.arch-node:hover polygon{stroke:var(--purple);fill:rgba(139,92,246,.08)}
+.arch-text{font-size:10px;font-family:var(--ff-mono);fill:var(--text2);text-anchor:middle;pointer-events:none}
+.arch-arrow{stroke:var(--muted);stroke-width:1.5px;fill:none}
+.arch-arrow-head{fill:var(--muted)}
+.arch-badge{font-size:8px;font-family:var(--ff-mono);fill:var(--cyan);font-weight:bold}
+.arch-active rect,.arch-active polygon{stroke:var(--cyan) !important;fill:rgba(6,182,212,.08) !important}
+.arch-active text{fill:var(--text) !important}
+
+/* Contrast grid matrix for Section 3 */
+.matrix-grid{display:grid;grid-template-columns:repeat(5, 1fr);gap:4px;max-width:320px;margin:0 auto}
+.matrix-cell{aspect-ratio:1;border-radius:4px;border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--ff-mono);cursor:pointer;transition:all .15s}
+.matrix-hdr{color:var(--muted);font-weight:600}
+.matrix-cell.pos{background:rgba(16,185,129,.15);border-color:var(--green);color:var(--green)}
+.matrix-cell.neg{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:var(--muted)}
+.matrix-cell.masked{background:rgba(245,158,11,.15);border-color:var(--amber);color:var(--amber);opacity:0.35;text-decoration:line-through}
+.matrix-cell.hovered{filter:brightness(1.3);box-shadow:0 0 8px var(--purple);border-color:var(--purple) !important}
+
+/* Dimensions & Soup controls */
+.slider-container{margin:1rem 0;display:flex;flex-direction:column;gap:.4rem}
+.slider-label{display:flex;justify-content:space-between;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.slider-val{color:var(--cyan);font-weight:600}
+.slider-input{width:100%;-webkit-appearance:none;background:var(--border);height:6px;border-radius:3px;outline:none;margin:.5rem 0}
+.slider-input::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--purple);cursor:pointer;transition:all .1s}
+.slider-input::-webkit-slider-thumb:hover{transform:scale(1.2);background:var(--purple-l)}
+
+/* Responsive design overrides */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Multimodal</span>
+    <span class="tag tag-cyan">Embeddings</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Gemini Embedding 2: A Native Multimodal Embedding Model</h1>
+  <p class="lead">Traditionally, multimodal retrieval relies on late fusion or speech-to-text cascades that introduce transcription bottlenecks and propagate errors. Gemini Embedding 2 solves this by natively processing interleaved video, audio, image, and text in a unified continuous semantic space, setting new state-of-the-art results on MTEB, MSCOCO, and MSEB.</p>
+  <div class="post-hero-meta">
+    <span>June 4, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.27295</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.27295" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Cascade Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-architecture"><a href="#s-architecture"><span class="toc-num">02</span> Native Architecture</a></li>
+    <li class="toc-item" id="toc-s-maskedloss"><a href="#s-maskedloss"><span class="toc-num">03</span> Masked Contrastive Loss</a></li>
+    <li class="toc-item" id="toc-s-matryoshka"><a href="#s-matryoshka"><span class="toc-num">04</span> Matryoshka Projections</a></li>
+    <li class="toc-item" id="toc-s-souping"><a href="#s-souping"><span class="toc-num">05</span> Generalization & Soups</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmark Payoff</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-bottleneck" data-code="intro">
+<div class="section-no">01 — The Cascade Bottleneck</div>
+<h2>The Cascade Failure of Transcription</h2>
+<p>Modern agentic systems must retrieve information across different modalities like voice recordings, documents, images, and video. Historically, systems accomplish this by converting non-text modalities into text first. For example, a voice query is run through an Automatic Speech Recognition (ASR) pipeline before being encoded by a text embedder.</p>
+<p>This cascade setup suffers from <strong>error propagation</strong>. If the speech transcriber makes a hard phonetic error on a noisy input—such as turning "recognize speech" into "wreck a nice beach"—the text embedder is fed a completely different query, destroying downstream retrieval quality.</p>
+<p>Gemini Embedding 2 maps raw modalities directly into a single continuous representation space. By bypassing the intermediate transcription stage, the model preserves acoustic and visual cues, keeping phonetic ambiguities unresolved until the final similarity comparison.</p>
+
+<div class="interactive-panel">
+  <div class="panel-ctrls">
+    <button class="panel-btn active" id="btn-asr">ASR Cascaded Model</button>
+    <button class="panel-btn" id="btn-native">Native Multimodal Model</button>
+  </div>
+  <div class="vp">
+    <div class="vp-head">
+      <div class="vp-title">Interactive Waveform & Retrieval Pipeline</div>
+      <div class="vp-hint">Click buttons to switch pipelines</div>
+    </div>
+    <div class="vp-body">
+      <canvas id="canvas-waveform" style="width:100%; height:120px; display:block;"></canvas>
+      <div id="pipeline-status" style="margin-top:1rem; font-family:var(--ff-mono); font-size:0.75rem; line-height:1.5; color:var(--text2);"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-architecture" data-code="architecture">
+<div class="section-no">02 — Native Architecture</div>
+<h2>Unified Cross-Modal Attention</h2>
+<p>Rather than using distinct dual-tower encoders (like CLIP or ALIGN) that only interact at the very end, Gemini Embedding 2 is built directly on top of the multimodal foundations of Gemini. It leverages a single bidirectional Transformer model to execute cross-modal interactions early during encoding.</p>
+<p>The processing pipeline consists of three steps:</p>
+<ul>
+  <li><strong>Multimodal Tokenization:</strong> Raw video (sampled at 1 frame per second up to 32 frames), audio, image, and text inputs are converted into unified token sequences.</li>
+  <li><strong>Bidirectional Encoding:</strong> The token sequences are concatenated and encoded by the bidirectional Transformer, allowing tokens of one modality to directly attend to other modalities.</li>
+  <li><strong>Mean Pooling & Projection:</strong> The token embeddings are averaged along the sequence axis, and projected to the target dimension using a linear layer.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Early Fusion Dataflow Architecture</div>
+    <div class="vp-hint">Hover over boxes to see details</div>
+  </div>
+  <div class="vp-body">
+    <svg class="arch-svg" viewBox="0 0 540 240">
+      <g class="arch-node" id="node-inputs" data-desc="Raw inputs: Text prompts, high-res images, video streams (sampled at 1 FPS up to 32 frames), and continuous audio waveforms.">
+        <rect x="20" y="20" width="80" height="40" rx="4" />
+        <text class="arch-text" x="60" y="44">Inputs</text>
+      </g>
+      
+      <g class="arch-node" id="node-tokenizer" data-desc="Ingests raw modalities natively using Gemini's unified tokenizer to emit a continuous sequence of interleaved tokens.">
+        <rect x="140" y="20" width="90" height="40" rx="4" />
+        <text class="arch-text" x="185" y="44">Gemini Tokenizer</text>
+      </g>
+
+      <g class="arch-node" id="node-transformer" data-desc="A bidirectional attention Transformer initialized from Gemini. Fuses features deeply across modalities before pooling.">
+        <rect x="270" y="20" width="110" height="40" rx="4" />
+        <text class="arch-text" x="325" y="44">Bidirectional Model</text>
+      </g>
+
+      <g class="arch-node" id="node-pooling" data-desc="Mean-pooling average computes the center of mass along the token sequence length.">
+        <rect x="420" y="20" width="100" height="40" rx="4" />
+        <text class="arch-text" x="470" y="44">Mean Pooling</text>
+      </g>
+
+      <g class="arch-node" id="node-projection" data-desc="A linear projection layer scaling the hidden dimension to target embedding output size (up to 3072).">
+        <rect x="200" y="140" width="140" height="40" rx="4" />
+        <text class="arch-text" x="270" y="164">Linear Projection f(x)</text>
+      </g>
+
+      <g class="arch-node" id="node-output" data-desc="Unit-normalized embedding vector of dimension d. Matryoshka learning optimizes sub-dimensions (768 and 1536) during training.">
+        <polygon points="400,160 480,140 480,180" />
+        <text class="arch-text" x="445" y="164">Embedding</text>
+      </g>
+
+      <path class="arch-arrow" d="M100,40 L140,40" marker-end="url(#arrow)" />
+      <path class="arch-arrow" d="M230,40 L270,40" marker-end="url(#arrow)" />
+      <path class="arch-arrow" d="M380,40 L420,40" marker-end="url(#arrow)" />
+      <path class="arch-arrow" d="M470,60 L470,100 L270,100 L270,140" marker-end="url(#arrow)" />
+      <path class="arch-arrow" d="M340,160 L400,160" marker-end="url(#arrow)" />
+
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" class="arch-arrow-head" />
+        </marker>
+      </defs>
+    </svg>
+    <div id="arch-explanation" style="margin-top:0.75rem; font-size:0.78rem; min-height:48px; color:var(--text2); background:var(--surface); border:1px solid var(--border-hi); border-radius:4px; padding:0.5rem; line-height:1.45;">
+      Hover over any architectural block to inspect data transformations.
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-maskedloss" data-code="maskedloss">
+<div class="section-no">03 — Masked Contrastive Loss</div>
+<h2>Label-Masked Contrastive Learning</h2>
+<p>The model is trained using Noise-Contrastive Estimation (NCE) with in-batch negatives. In standard contrastive loss, the query vector is pushed closer to its exact positive target while being pushed away from every other sample in the batch.</p>
+<p>However, when scaling up training data, classification datasets or label-heavy datasets can lead to multiple samples in the same batch sharing the same class label (e.g., two distinct images of dogs). Pushing them apart is counterproductive for semantic embedding structure.</p>
+<p>Gemini Embedding 2 fixes this by introducing a label mask: a masking term in the denominator that masks out in-batch negatives sharing the same label, preventing the model from penalizing correct semantic groupings.</p>
+
+<div class="math-block">
+  <div class="math-label">Label-Masked Noise-Contrastive Loss</div>
+  L = - (1 / B) * &Sigma;<sub>i=1</sub><sup>B</sup> log [ exp(sim(q<sub>i</sub>, p<sub>i</sub><sup>+</sup>) / &tau;) / ( exp(sim(q<sub>i</sub>, p<sub>i</sub><sup>+</sup>) / &tau;) + exp(sim(q<sub>i</sub>, p<sub>i</sub><sup>-</sup>) / &tau;) + &Sigma;<sub>j=1, mask(i,j)=1</sub><sup>B</sup> exp(sim(q<sub>i</sub>, p<sub>j</sub><sup>+</sup>) / &tau;) ) ]
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Contrastive Batch Matrix: Standard vs Masked</div>
+    <div class="vp-hint">Hover over cells to see target gradients</div>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex; justify-content:space-between; margin-bottom:1rem; font-family:var(--ff-mono); font-size:0.7rem; color:var(--muted);">
+      <div>Rows: Queries | Cols: Targets</div>
+      <div style="display:flex; gap:0.75rem;">
+        <span style="color:var(--green)">■ Pos</span>
+        <span style="color:var(--text2)">■ Neg</span>
+        <span style="color:var(--amber)">■ Masked</span>
+      </div>
+    </div>
+    <div class="matrix-grid" id="matrix-grid">
+      <!-- 5x5 matrix cells injected by JS -->
+    </div>
+    <div id="matrix-explanation" style="margin-top:1rem; font-size:0.78rem; text-align:center; color:var(--text2); min-height:42px;">
+      Hover over matrix cells to inspect standard vs. masked gradients.
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-matryoshka" data-code="matryoshka">
+<div class="section-no">04 — Matryoshka Projections</div>
+<h2>Nested Dimensions via Matryoshka Learning</h2>
+<p>Different downstream search pipelines have different latency and memory budgets. High-dimensional embeddings (e.g. 3072) are accurate but expensive to index and query in vector databases. Matryoshka Representation Learning (MRL) trains the model to structure embeddings so that prefix slices (e.g., the first 768 or 1536 dimensions) are valid, high-performance embeddings on their own.</p>
+<p>By computing separate contrastive losses across these overlapping sub-dimensions simultaneously during fine-tuning, the model nests semantics hierarchically. You can truncate the 3072-dimensional vector down to 768 dimensions for a 4x reduction in storage and memory footprint, losing less than 1% of retrieval accuracy.</p>
+
+<div class="interactive-panel">
+  <div class="slider-container">
+    <div class="slider-label">
+      <span>Vector Sub-Dimension (Matryoshka Truncation)</span>
+      <span class="slider-val" id="val-mrl">3072</span>
+    </div>
+    <input class="slider-input" id="slider-mrl" type="range" min="0" max="2" step="1" value="2" />
+  </div>
+  <div class="vp">
+    <div class="vp-head">
+      <div class="vp-title">2D Embedding Projection Canvas</div>
+      <div class="vp-hint">Slide dimension to watch cluster separation</div>
+    </div>
+    <div class="vp-body" style="background:#09090f;">
+      <canvas id="canvas-mrl" style="width:100%; height:260px; display:block;"></canvas>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-souping" data-code="souping">
+<div class="section-no">05 — Generalization & Soups</div>
+<h2>Model Souping: Balancing Generalization</h2>
+<p>When fine-tuning (FT) models on specific target tasks like video retrieval (e.g., MSR-VTT), embedding models often suffer from catastrophic forgetting, leading to drops in performance on out-of-domain benchmarks. Adding targeted data improves in-domain performance but degrades generalization elsewhere.</p>
+<p>Gemini Embedding 2 circumvents this bottleneck by employing <strong>Model Souping</strong>. By linearly interpolating (averaging) the parameters of the base pre-fine-tuned checkpoint and individual fine-tuned runs, the model achieves the best of both worlds: recovering out-of-domain quality while retaining target task improvements.</p>
+
+<div class="interactive-panel">
+  <div class="slider-container">
+    <div class="slider-label">
+      <span>Model Soup Interpolation Ratio (w_ft / (w_base + w_ft))</span>
+      <span class="slider-val" id="val-soup">0.50</span>
+    </div>
+    <input class="slider-input" id="slider-soup" type="range" min="0" max="1" step="0.05" value="0.5" />
+  </div>
+  <div class="vp">
+    <div class="vp-head">
+      <div class="vp-title">Evaluation Metrics vs. Souping Ratio</div>
+      <div class="vp-hint">Averaging parameters creates wider optima</div>
+    </div>
+    <div class="vp-body" style="background:#09090f;">
+      <canvas id="canvas-soup" style="width:100%; height:240px; display:block;"></canvas>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmark Payoff</div>
+<h2>Decisive Multimodal Payoffs</h2>
+<p>Gemini Embedding 2 establishes new state-of-the-art results across standard unimodal, cross-modal, and multimodal tasks. Most notably, the model achieves a score of 62.9 Recall@1 on MSCOCO, 68.8 NDCG@10 on Vatex, and 84.0 on MTEB Code, outperforming specialized models.</p>
+<p>By learning a continuous audio representation natively, Gemini Embedding 2 scores 73.99 MRR@10 on the Massive Sound Embedding Benchmark (MSEB), substantially beating the ASR-cascade baseline (70.40), particularly in cross-lingual retrieval scenarios.</p>
+
+<div class="results-bars" id="results-bars">
+  <div class="bar-row">
+    <div class="bar-label">Gemini Embedding 2</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="background:var(--purple); width: 0%;" data-w="69.9">
+        <span>69.9%</span>
+      </div>
+    </div>
+  </div>
+  <div style="font-family:var(--ff-mono); font-size:0.65rem; color:var(--muted); margin-left:220px; margin-bottom:0.25rem;">MTEB Multilingual (higher is better)</div>
+
+  <div class="bar-row">
+    <div class="bar-label">Voyage-3.5</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="background:var(--border-hi); width: 0%;" data-w="68.4">
+        <span>68.4%</span>
+      </div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Amazon Nova MME</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="background:var(--border-hi); width: 0%;" data-w="59.6">
+        <span>59.6%</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:1px; background:var(--border); margin:1rem 0;"></div>
+
+  <div class="bar-row">
+    <div class="bar-label">Gemini Embedding 2 (Audio)</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="background:var(--cyan); width: 0%;" data-w="73.99">
+        <span>73.99</span>
+      </div>
+    </div>
+  </div>
+  <div style="font-family:var(--ff-mono); font-size:0.65rem; color:var(--muted); margin-left:220px; margin-bottom:0.25rem;">MSEB Spoken Retrieval MRR@10</div>
+
+  <div class="bar-row">
+    <div class="bar-label">Gemini Embedding 2 (ASR Cascade)</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="background:var(--border-hi); width: 0%;" data-w="70.4">
+        <span>70.40</span>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">pipeline.py</div>
+      <div class="cs-section-title" id="cs-section-title">Transcription Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">intro</button>
+    <button class="cs-tab" data-panel="architecture">architecture</button>
+    <button class="cs-tab" data-panel="maskedloss">maskedloss</button>
+    <button class="cs-tab" data-panel="matryoshka">matryoshka</button>
+    <button class="cs-tab" data-panel="souping">souping</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- Panel 1: Bottleneck -->
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre"><span class="cs-line cmt"># Cascade Pipeline vs Native Multimodal</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">pipeline_retrieve</span>(audio_input, corpus):</span>
+<span class="cs-line cmt">    # Step 1: Transcribe audio to text (ASR bottleneck)</span>
+<span class="cs-line">    transcript = asr_model.transcribe(audio_input)</span>
+<span class="cs-line cmt">    # Commits to hard decision: "wreck a nice beach"</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Step 2: Embed transcribed text</span>
+<span class="cs-line">    query_emb = text_embedder.embed(transcript)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> cosine_similarity_search(query_emb, corpus)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">native_retrieve</span>(audio_input, corpus):</span>
+<span class="cs-line cmt">    # Embed continuous audio waveform natively</span>
+<span class="cs-line cmt">    # Preserves prosody, accent, and acoustic cues</span>
+<span class="cs-line hl-g">    query_emb = gemini_embedder.embed(audio_input)</span>
+<span class="cs-line">    <span class="kw">return</span> cosine_similarity_search(query_emb, corpus)</span></pre>
+    </div>
+
+    <!-- Panel 2: Architecture -->
+    <div class="cs-panel" id="panel-architecture">
+      <pre class="cs-pre"><span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">import</span> torch.nn <span class="kw">as</span> nn</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">GeminiEmbedding2</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, gemini_backbone, embed_dim=<span class="num">3072</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="kw">self</span>.backbone = gemini_backbone</span>
+<span class="cs-line">        <span class="kw">self</span>.projection = nn.Linear(backbone.config.hidden_size, embed_dim)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, interleaved_tokens):</span>
+<span class="cs-line cmt">        # M: Bidirectional representations of sequence tokens</span>
+<span class="cs-line hl-p">        token_embeddings = <span class="kw">self</span>.backbone(interleaved_tokens)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # P: Mean pooling along sequence length axis</span>
+<span class="cs-line hl-c">        pooled = torch.mean(token_embeddings, dim=<span class="num">0</span>)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # f: Linear projection to target dimension</span>
+<span class="cs-line hl-g">        output_emb = <span class="kw">self</span>.projection(pooled)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Normalize for cosine similarity metrics</span>
+<span class="cs-line">        <span class="kw">return</span> output_emb / output_emb.norm(dim=-<span class="num">1</span>, keepdim=<span class="kw">True</span>)</span></pre>
+    </div>
+
+    <!-- Panel 3: Masked Loss -->
+    <div class="cs-panel" id="panel-maskedloss">
+      <pre class="cs-pre"><span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">import</span> torch.nn.functional <span class="kw">as</span> F</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">label_masked_contrastive_loss</span>(queries, positives, negatives, labels, tau=<span class="num">0.07</span>):</span>
+<span class="cs-line">    B = queries.shape[<span class="num">0</span>]</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # pairwise similarities</span>
+<span class="cs-line">    sim_qp_pos = torch.sum(queries * positives, dim=-<span class="num">1</span>)</span>
+<span class="cs-line">    sim_qp_neg = torch.sum(queries * negatives, dim=-<span class="num">1</span>) <span class="kw">if</span> negatives <span class="kw">is</span> <span class="kw">not</span> <span class="kw">None</span> <span class="kw">else</span> <span class="num">0.0</span></span>
+<span class="cs-line">    sim_batch = torch.matmul(queries, positives.T)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Create mask: 1.0 if labels differ, else 0.0</span>
+<span class="cs-line hl-p">    label_mask = (labels.unsqueeze(<span class="num">1</span>) != labels.unsqueeze(<span class="num">0</span>)).float()</span>
+<span class="cs-line">    label_mask.fill_diagonal_(<span class="num">0.0</span>)</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    pos_exp = torch.exp(sim_qp_pos / tau)</span>
+<span class="cs-line">    neg_exp = torch.exp(sim_qp_neg / tau) <span class="kw">if</span> negatives <span class="kw">is</span> <span class="kw">not</span> <span class="kw">None</span> <span class="kw">else</span> <span class="num">0.0</span></span>
+<span class="cs-line hl-c">    batch_exp = torch.sum(torch.exp(sim_batch / tau) * label_mask, dim=-<span class="num">1</span>)</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-g">    loss = -torch.log(pos_exp / (pos_exp + neg_exp + batch_exp))</span>
+<span class="cs-line">    <span class="kw">return</span> torch.mean(loss)</span></pre>
+    </div>
+
+    <!-- Panel 4: Matryoshka -->
+    <div class="cs-panel" id="panel-matryoshka">
+      <pre class="cs-pre"><span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">import</span> torch.nn <span class="kw">as</span> nn</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">MatryoshkaLoss</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, sub_dims=[<span class="num">768</span>, <span class="num">1536</span>, <span class="num">3072</span>]):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="kw">self</span>.sub_dims = sub_dims</span>
+<span class="cs-line">        </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, queries, positives, labels):</span>
+<span class="cs-line">        total_loss = <span class="num">0.0</span></span>
+<span class="cs-line">        <span class="kw">for</span> dim <span class="kw">in</span> <span class="kw">self</span>.sub_dims:</span>
+<span class="cs-line cmt">            # Slice embeddings and compute loss for each sub-dimension</span>
+<span class="cs-line hl-p">            q_sub = queries[:, :dim]</span>
+<span class="cs-line hl-p">            p_sub = positives[:, :dim]</span>
+<span class="cs-line">            </span>
+<span class="cs-line cmt">            # Re-normalize sliced representations</span>
+<span class="cs-line">            q_sub = q_sub / q_sub.norm(dim=-<span class="num">1</span>, keepdim=<span class="kw">True</span>)</span>
+<span class="cs-line">            p_sub = p_sub / p_sub.norm(dim=-<span class="num">1</span>, keepdim=<span class="kw">True</span>)</span>
+<span class="cs-line">            </span>
+<span class="cs-line hl-g">            total_loss += info_nce_loss(q_sub, p_sub, labels)</span>
+<span class="cs-line">            </span>
+<span class="cs-line">        <span class="kw">return</span> total_loss / <span class="fn">len</span>(<span class="kw">self</span>.sub_dims)</span></pre>
+    </div>
+
+    <!-- Panel 5: Souping -->
+    <div class="cs-panel" id="panel-souping">
+      <pre class="cs-pre"><span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">average_model_soup</span>(base_checkpoint, ft_checkpoint, w_base=<span class="num">1.0</span>, w_ft=<span class="num">1.0</span>):</span>
+<span class="cs-line">    base_state = base_checkpoint[<span class="str">'state_dict'</span>]</span>
+<span class="cs-line">    ft_state = ft_checkpoint[<span class="str">'state_dict'</span>]</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    souped_state = {}</span>
+<span class="cs-line">    norm_factor = w_base + w_ft</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-p">    <span class="kw">for</span> key <span class="kw">in</span> base_state.keys():</span>
+<span class="cs-line">        <span class="kw">if</span> key <span class="kw">in</span> ft_state:</span>
+<span class="cs-line cmt">            # Average checkpoint parameters directly</span>
+<span class="cs-line hl-g">            souped_state[key] = (w_base * base_state[key] + w_ft * ft_state[key]) / norm_factor</span>
+<span class="cs-line">        <span class="kw">else</span>:</span>
+<span class="cs-line">            souped_state[key] = base_state[key]</span>
+<span class="cs-line">            </span>
+<span class="cs-line">    <span class="kw">return</span> souped_state</span></pre>
+    </div>
+
+    <!-- Panel 6: Results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre"><span class="cs-line cmt"># Key Evaluation Results summary</span>
+<span class="cs-line">RESULTS = {</span>
+<span class="cs-line hl-p">    <span class="str">"MTEB Multilingual"</span>: {</span>
+<span class="cs-line">        <span class="str">"Gemini Embedding 2"</span>: <span class="num">69.9</span>,</span>
+<span class="cs-line">        <span class="str">"Voyage-3.5"</span>: <span class="num">68.4</span>,</span>
+<span class="cs-line">        <span class="str">"Amazon Nova MME"</span>: <span class="num">59.6</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line hl-c">    <span class="str">"MTEB Code"</span>: {</span>
+<span class="cs-line">        <span class="str">"Gemini Embedding 2"</span>: <span class="num">84.0</span>,</span>
+<span class="cs-line">        <span class="str">"Gemini Embedding v1"</span>: <span class="num">76.0</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line hl-g">    <span class="str">"MSEB Retrieval (mrr@10)"</span>: {</span>
+<span class="cs-line">        <span class="str">"Native Audio Setup"</span>: <span class="num">73.99</span>,</span>
+<span class="cs-line">        <span class="str">"ASR Cascaded Setup"</span>: <span class="num">70.40</span></span>
+<span class="cs-line">    }</span>
+<span class="cs-line">}</span></pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// TOC + sidebar toggles
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// Code sidebar tab switching
+const tabMeta = {
+  bottleneck:   { file: 'pipeline.py',   title: 'ASR Transcription Bottleneck' },
+  architecture: { file: 'model.py',      title: 'Gemini Embedding 2 Forward Pass' },
+  maskedloss:   { file: 'loss.py',       title: 'Label-Masked Noise-Contrastive Loss' },
+  matryoshka:   { file: 'matryoshka.py', title: 'Matryoshka Truncated Loss' },
+  souping:      { file: 'souping.py',    title: 'Model Soup Parameter Averaging' },
+  results:      { file: 'results.py',    title: 'Evaluation Metrics Summary' },
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// IntersectionObserver - sync TOC + sidebar tab on scroll
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-architecture': 'architecture',
+  's-maskedloss': 'maskedloss',
+  's-matryoshka': 'matryoshka',
+  's-souping': 'souping',
+  's-results': 'results'
+};
+
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ----------------------------------------------------
+// Section 1: Audio Waveform Interactive Simulator
+// ----------------------------------------------------
+const canvasWaveform = document.getElementById('canvas-waveform');
+const btnAsr = document.getElementById('btn-asr');
+const btnNative = document.getElementById('btn-native');
+const pStatus = document.getElementById('pipeline-status');
+
+if (canvasWaveform) {
+  const ctx = canvasWaveform.getContext('2d');
+  let animationId;
+  let t = 0;
+  let mode = 'asr'; // 'asr' or 'native'
+
+  function resizeWaveform() {
+    const W = canvasWaveform.clientWidth, H = 120, DPR = window.devicePixelRatio || 1;
+    canvasWaveform.width = W * DPR;
+    canvasWaveform.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resizeWaveform();
+  window.addEventListener('resize', resizeWaveform);
+
+  function drawWaveform() {
+    const W = canvasWaveform.width / (window.devicePixelRatio || 1);
+    const H = 120;
+    ctx.clearRect(0, 0, W, H);
+    
+    // Draw background grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+
+    // Waveform envelope
+    ctx.strokeStyle = mode === 'asr' ? '#f59e0b' : '#06b6d4';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, H / 2);
+
+    for (let x = 0; x < W; x++) {
+      const envelope = Math.sin(x * 0.015) * Math.cos(x * 0.005) * 35;
+      const noise = (Math.sin(x * 0.15 + t) + Math.cos(x * 0.3 - t * 0.5)) * 8;
+      const y = H / 2 + (envelope + noise) * Math.sin(t * 0.05 + x * 0.005);
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    t += 0.5;
+    animationId = requestAnimationFrame(drawWaveform);
+  }
+  drawWaveform();
+
+  function updateStatusText() {
+    if (mode === 'asr') {
+      pStatus.innerHTML = `
+        <span style="color:var(--amber);">[ASR Pipeline]</span> Waveform parsed phonetically...<br>
+        <span style="color:var(--muted);">↳ Phonetic Ambiguity:</span> "/rɛk ə naɪs biːtʃ/" committed to transcription.<br>
+        <span style="color:var(--amber);">↳ Transcribed Query:</span> <strong style="color:var(--text)">"wreck a nice beach"</strong><br>
+        <span style="color:var(--red);">↳ Retrieval Results:</span> 1. Seaside Vacations (0.87) | 2. Sandy Shores (0.76) | 3. Speech Technology (0.12) <span style="font-weight:bold; color:var(--red);">[FAILED]</span>
+      `;
+    } else {
+      pStatus.innerHTML = `
+        <span style="color:var(--cyan);">[Native Multimodal]</span> Continuous acoustic signal tokenized natively...<br>
+        <span style="color:var(--muted);">↳ Phonetic Ambiguity:</span> Waveform characteristics preserved in dense embedding space.<br>
+        <span style="color:var(--cyan);">↳ Embedding Vector:</span> <strong style="color:var(--text)">[0.12, -0.45, 0.89, ... 3072 dimensions]</strong><br>
+        <span style="color:var(--green);">↳ Retrieval Results:</span> 1. Speech Recognition (0.91) <span style="font-weight:bold; color:var(--green);">[SUCCESS]</span> | 2. Acoustic Processing (0.78) | 3. Seaside (0.04)
+      `;
+    }
+  }
+  updateStatusText();
+
+  btnAsr?.addEventListener('click', () => {
+    mode = 'asr';
+    btnAsr.classList.add('active');
+    btnNative.classList.remove('active');
+    updateStatusText();
+  });
+
+  btnNative?.addEventListener('click', () => {
+    mode = 'native';
+    btnNative.classList.add('active');
+    btnAsr.classList.remove('active');
+    updateStatusText();
+  });
+}
+
+// ----------------------------------------------------
+// Section 2: SVG Architecture Interactions
+// ----------------------------------------------------
+const archExplanation = document.getElementById('arch-explanation');
+document.querySelectorAll('.arch-node').forEach(node => {
+  node.addEventListener('mouseenter', () => {
+    document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('arch-active'));
+    node.classList.add('arch-active');
+    const desc = node.getAttribute('data-desc');
+    if (archExplanation && desc) {
+      archExplanation.textContent = desc;
+    }
+  });
+});
+
+// ----------------------------------------------------
+// Section 3: Contrastive Loss Matrix Grid
+// ----------------------------------------------------
+const matrixGrid = document.getElementById('matrix-grid');
+const matrixExp = document.getElementById('matrix-explanation');
+
+const samples = [
+  { label: 'Dog', query: 'Img: Golden Retriever', target: 'Txt: Dog chasing ball' },
+  { label: 'Dog', query: 'Audio: Barking clip', target: 'Txt: Canine vocalization' },
+  { label: 'Cat', query: 'Txt: Siamese kitten', target: 'Img: Tabby cat sleeping' },
+  { label: 'Cat', query: 'Img: Persian cat', target: 'Txt: Feline groom action' },
+  { label: 'Car', query: 'Txt: Electric sedan', target: 'Img: EV highway cruise' }
+];
+
+if (matrixGrid) {
+  // Clear and inject matrix
+  matrixGrid.innerHTML = '';
+  // Top header row
+  matrixGrid.appendChild(createCell('', 'matrix-hdr'));
+  for (let c = 0; c < 4; c++) {
+    matrixGrid.appendChild(createCell('T' + (c+1), 'matrix-hdr'));
+  }
+
+  for (let r = 0; r < 4; r++) {
+    matrixGrid.appendChild(createCell('Q' + (r+1), 'matrix-hdr'));
+    for (let c = 0; c < 4; c++) {
+      let cellClass = 'neg';
+      let cellText = 'Neg';
+      if (r === c) {
+        cellClass = 'pos';
+        cellText = 'Pos';
+      } else if (samples[r].label === samples[c].label) {
+        cellClass = 'masked';
+        cellText = 'Mask';
+      }
+      
+      const cell = createCell(cellText, cellClass);
+      cell.setAttribute('data-r', r);
+      cell.setAttribute('data-c', c);
+      matrixGrid.appendChild(cell);
+    }
+  }
+
+  function createCell(text, className) {
+    const el = document.createElement('div');
+    el.className = 'matrix-cell ' + className;
+    el.textContent = text;
+    return el;
+  }
+
+  matrixGrid.querySelectorAll('.matrix-cell:not(.matrix-hdr)').forEach(cell => {
+    cell.addEventListener('mouseenter', () => {
+      const r = parseInt(cell.getAttribute('data-r'));
+      const c = parseInt(cell.getAttribute('data-c'));
+      const q = samples[r];
+      const t = samples[c];
+
+      let info = '';
+      if (r === c) {
+        info = `<span style="color:var(--green); font-weight:bold;">Query Q${r+1} & Target T${c+1} (${q.label}):</span> Direct ground truth positive pair. Gradient pulls these embeddings together.`;
+      } else if (q.label === t.label) {
+        info = `<span style="color:var(--amber); font-weight:bold;">Query Q${r+1} & Target T${c+1} (Both are "${q.label}"):</span> <strong style="color:var(--amber);">Masked Denominator!</strong> Prevented from pushing apart similar labels.`;
+      } else {
+        info = `<span style="color:var(--muted);">Query Q${r+1} (${q.label}) & Target T${c+1} (${t.label}):</span> Standard negative pair. Gradient pushes these embeddings apart.`;
+      }
+      if (matrixExp) {
+        matrixExp.innerHTML = info;
+      }
+    });
+  });
+}
+
+// ----------------------------------------------------
+// Section 4: MRL Canvas (Dim slider)
+// ----------------------------------------------------
+const canvasMrl = document.getElementById('canvas-mrl');
+const sliderMrl = document.getElementById('slider-mrl');
+const valMrl = document.getElementById('val-mrl');
+
+if (canvasMrl) {
+  const ctx = canvasMrl.getContext('2d');
+  const dims = [128, 768, 3072];
+
+  // Raw data representing 2D t-SNE coordinate trajectories for different dims
+  const concepts = [
+    { text: 'Cat',   label: 'Felines', coords: [[80, 160], [100, 70],  [100, 60]] },
+    { text: 'Kitten',label: 'Felines', coords: [[280, 70],  [110, 85],  [120, 70]] },
+    { text: 'Dog',   label: 'Canines', coords: [[120, 70],  [160, 80],  [200, 160]] },
+    { text: 'Puppy', label: 'Canines', coords: [[380, 190], [175, 95],  [220, 175]] },
+    { text: 'Car',   label: 'Vehicles',coords: [[220, 150], [380, 140], [380, 130]] },
+    { text: 'Truck', label: 'Vehicles',coords: [[85, 80],   [400, 160], [400, 150]] }
+  ];
+
+  function resizeMrl() {
+    const W = canvasMrl.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+    canvasMrl.width = W * DPR;
+    canvasMrl.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resizeMrl();
+  window.addEventListener('resize', resizeMrl);
+
+  function drawMrl(step) {
+    const W = canvasMrl.width / (window.devicePixelRatio || 1);
+    const H = 260;
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw clustered circles or regions at higher dimensions
+    if (step >= 1) {
+      // Draw clusters background
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.03)';
+      ctx.beginPath(); ctx.arc(140, 100, 90, 0, Math.PI * 2); ctx.fill(); // Animals region
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.03)';
+      ctx.beginPath(); ctx.arc(390, 140, 65, 0, Math.PI * 2); ctx.fill(); // Vehicles region
+      ctx.font = '9px var(--ff-mono)';
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.4)';
+      ctx.fillText('ANIMALS CLUSTER', 90, 190);
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+      ctx.fillText('VEHICLES CLUSTER', 340, 215);
+    }
+
+    concepts.forEach(pt => {
+      const coord = pt.coords[step];
+      const x = coord[0];
+      const y = coord[1];
+      
+      let color = '#a78bfa';
+      if (pt.label === 'Canines') color = '#ec4899';
+      if (pt.label === 'Vehicles') color = '#22d3ee';
+
+      // Draw dot
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw label text
+      ctx.font = '10px var(--ff-mono)';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(pt.text, x + 10, y + 4);
+    });
+  }
+
+  drawMrl(2);
+
+  sliderMrl?.addEventListener('input', (e) => {
+    const step = parseInt(e.target.value);
+    if (valMrl) valMrl.textContent = String(dims[step]);
+    drawMrl(step);
+  });
+}
+
+// ----------------------------------------------------
+// Section 5: Model Soup Curve Plotter Canvas
+// ----------------------------------------------------
+const canvasSoup = document.getElementById('canvas-soup');
+const sliderSoup = document.getElementById('slider-soup');
+const valSoup = document.getElementById('val-soup');
+
+if (canvasSoup) {
+  const ctx = canvasSoup.getContext('2d');
+  
+  // Baseline vs Fine-tuned vs Souped values from Table 6
+  // w_ft varies from 0 to 1
+  // We can interpolate performance curves
+  function getScores(w_ft) {
+    // w_ft is slider position [0, 1]
+    // MSR-VTT: 68.2 (0.0) -> FT MV (76.1) or Souped 1:1 (73.7) -> 76.1 (1.0)
+    // YouCook2: 55.9 (0.0) -> FT MV (55.3) or Souped 1:1 (56.8) -> 55.3 (1.0)
+    // Vatex: 69.2 (0.0) -> FT MV (79.5) or Souped 1:1 (76.8) -> 79.5 (1.0)
+    let msr, yck, vtx;
+    if (w_ft <= 0.5) {
+      const p = w_ft / 0.5;
+      msr = 68.2 + (73.7 - 68.2) * p;
+      yck = 55.9 + (56.8 - 55.9) * p; // Peaks at 56.8 at ratio 0.5!
+      vtx = 69.2 + (76.8 - 69.2) * p;
+    } else {
+      const p = (w_ft - 0.5) / 0.5;
+      msr = 73.7 + (76.1 - 73.7) * p;
+      yck = 56.8 - (56.8 - 55.3) * p;
+      vtx = 76.8 + (79.5 - 76.8) * p;
+    }
+    return { msr, yck, vtx };
+  }
+
+  function resizeSoup() {
+    const W = canvasSoup.clientWidth, H = 240, DPR = window.devicePixelRatio || 1;
+    canvasSoup.width = W * DPR;
+    canvasSoup.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resizeSoup();
+  window.addEventListener('resize', resizeSoup);
+
+  function drawSoup(currentRatio) {
+    const W = canvasSoup.width / (window.devicePixelRatio || 1);
+    const H = 240;
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = 40;
+    const plotW = W - pad * 2;
+    const plotH = H - pad * 2;
+
+    // Draw axes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, H - pad);
+    ctx.lineTo(W - pad, H - pad);
+    ctx.stroke();
+
+    // Draw grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      const y = pad + (plotH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    }
+
+    // Min and Max scores to map: 50% to 85%
+    function mapY(score) {
+      const pct = (score - 50) / 35; // map [50, 85] to [0, 1]
+      return H - pad - pct * plotH;
+    }
+
+    // Plot curves
+    const msrPoints = [];
+    const yckPoints = [];
+    const vtxPoints = [];
+
+    for (let r = 0; r <= 1.0; r += 0.05) {
+      const x = pad + r * plotW;
+      const scores = getScores(r);
+      msrPoints.push([x, mapY(scores.msr)]);
+      yckPoints.push([x, mapY(scores.yck)]);
+      vtxPoints.push([x, mapY(scores.vtx)]);
+    }
+
+    function drawLine(pts, color, label) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i][0], pts[i][1]);
+      }
+      ctx.stroke();
+      
+      // Label line at end
+      ctx.fillStyle = color;
+      ctx.font = '9px var(--ff-mono)';
+      ctx.fillText(label, pts[pts.length - 1][0] - 45, pts[pts.length - 1][1] - 8);
+    }
+
+    drawLine(msrPoints, '#c678dd', 'MSR-VTT');
+    drawLine(vtxPoints, '#61afef', 'Vatex');
+    drawLine(yckPoints, '#98c379', 'YouCook2');
+
+    // Draw vertical slider indicator
+    const currentX = pad + currentRatio * plotW;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(currentX, pad);
+    ctx.lineTo(currentX, H - pad);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw values at current position
+    const currentScores = getScores(currentRatio);
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px var(--ff-mono)';
+    ctx.fillText(`MSR-VTT: ${currentScores.msr.toFixed(1)}%`, currentX + 8, mapY(currentScores.msr) - 5);
+    ctx.fillText(`Vatex: ${currentScores.vtx.toFixed(1)}%`, currentX + 8, mapY(currentScores.vtx) - 5);
+    ctx.fillText(`YouCook2: ${currentScores.yck.toFixed(1)}%`, currentX + 8, mapY(currentScores.yck) + 12);
+  }
+
+  drawSoup(0.5);
+
+  sliderSoup?.addEventListener('input', (e) => {
+    const r = parseFloat(e.target.value);
+    if (valSoup) valSoup.textContent = r.toFixed(2);
+    drawSoup(r);
+  });
+}
+
+// ----------------------------------------------------
+// Section 6: Results Bars Intersect Trigger
+// ----------------------------------------------------
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.getAttribute('data-w') + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(barsSection);
+}
+</script>
+</BaseLayout>

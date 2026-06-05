@@ -1,0 +1,1211 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('gemma4-12b-explained');
+---
+<BaseLayout
+  title="Gemma 4 12B Explained: The Encoder-Free Multimodal Revolution | AI/ML Deep Dives"
+  description="A technical deep dive into Google DeepMind's Gemma 4 12B: how it eliminates separate vision/audio encoders, directly projects raw pixel patches and acoustic frames, and uses shared-KV speculative MTP for local execution."
+  crumb="Gemma 4 12B Explained"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ─────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,560px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ──────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Pipeline selector tabs ────────────────────────────── */
+.pipeline-tabs{display:flex;gap:.5rem;margin-bottom:1rem}
+.pipeline-btn{font-family:var(--ff-mono);font-size:.68rem;padding:.25rem .65rem;border-radius:4px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);cursor:pointer;transition:all .15s}
+.pipeline-btn:hover{color:var(--text2);border-color:var(--muted)}
+.pipeline-btn.active{color:var(--cyan);border-color:var(--cyan);background:var(--cyan-dim)}
+
+/* ── Vision patch grid ────────────────────────────────── */
+.patch-grid-wrap{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;align-items:center}
+.patch-source-img{width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;background:var(--border-hi);border-radius:6px;overflow:hidden;padding:2px}
+.patch-cell{background-size:300% 300%;background-repeat:no-repeat;cursor:pointer;transition:transform .15s,box-shadow .15s;border:1px solid transparent}
+.patch-cell:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(167,139,250,.5);z-index:2;border-color:var(--purple-l)}
+.patch-cell.active{transform:scale(1.05);box-shadow:0 0 12px var(--purple);z-index:2;border-color:var(--purple)}
+.patch-math-box{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:1rem;font-family:var(--ff-mono);font-size:.76rem;color:var(--text2);line-height:1.6}
+.patch-math-val{color:var(--cyan)}
+
+/* ── Audio waveform sweeping ───────────────────────────── */
+.audio-sweep-wrap{display:flex;flex-direction:column;gap:1rem}
+.waveform-container{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:.5rem;position:relative}
+.waveform-canvas{width:100%;height:120px;display:block}
+.audio-controls{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.audio-slider{width:100%;accent-color:var(--cyan)}
+.audio-readout{font-family:var(--ff-mono);font-size:.72rem;color:var(--muted2);min-width:140px}
+
+/* ── Attention grid ─────────────────────────────────────── */
+.attn-grid-container{display:grid;grid-template-columns:140px 1fr;gap:1rem;margin:1rem 0}
+.attn-labels{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--ff-mono);font-size:.7rem;color:var(--muted2)}
+.attn-label-item{padding:.3rem 0;height:24px;display:flex;align-items:center;justify-content:flex-end;border-right:2px solid transparent;padding-right:.5rem}
+.attn-label-item.hovered{color:var(--cyan);border-right-color:var(--cyan)}
+.attn-matrix{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;background:var(--surface);padding:.5rem;border-radius:6px;border:1px solid var(--border)}
+.attn-cell{aspect-ratio:1;border-radius:3px;transition:background .2s,transform .1s;cursor:pointer}
+.attn-cell.off{background:rgba(255,255,255,.03)}
+.attn-cell.on-text{background:rgba(167,139,250,.7)}
+.attn-cell.on-vision{background:rgba(6,182,212,.7)}
+.attn-cell.on-audio{background:rgba(16,185,129,.7)}
+.attn-cell.hover-row{transform:scale(1.05)}
+.attn-legend{display:flex;gap:1rem;margin-top:.75rem;justify-content:center;font-size:.68rem;font-family:var(--ff-mono)}
+.attn-legend-item{display:flex;align-items:center;gap:.3rem;color:var(--muted2)}
+.attn-dot{width:10px;height:10px;border-radius:2px}
+.attn-dot.text{background:rgba(167,139,250,.7)}
+.attn-dot.vision{background:rgba(6,182,212,.7)}
+.attn-dot.audio{background:rgba(16,185,129,.7)}
+
+/* ── MTP Emulator ───────────────────────────────────────── */
+.mtp-demo-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.mtp-step-panel{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:1rem;display:flex;flex-direction:column;gap:.75rem}
+.mtp-step-hdr{font-family:var(--ff-mono);font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.mtp-tok-box{display:flex;flex-wrap:wrap;gap:.4rem;min-height:50px;align-items:center;padding:.5rem;background:var(--surface);border:1px solid var(--border);border-radius:4px}
+.mtp-tok{font-family:var(--ff-mono);font-size:.76rem;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border-hi)}
+.mtp-tok.draft{background:var(--cyan-dim);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+.mtp-tok.accept{background:var(--green-dim);color:var(--green);border-color:rgba(16,185,129,.3)}
+.mtp-tok.reject{background:rgba(239,68,68,.09);color:var(--red);border-color:rgba(239,68,68,.25)}
+.mtp-centroid-nodes{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+.mtp-centroid-node{padding:.4rem;border-radius:4px;border:1px solid var(--border);text-align:center;font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);transition:all .3s}
+.mtp-centroid-node.active{border-color:var(--cyan);background:var(--cyan-dim);color:var(--cyan-l)}
+.mtp-centroid-node.selected{border-color:var(--green);background:var(--green-dim);color:var(--green)}
+.mtp-btn{align-self:flex-start;font-family:var(--ff-mono);font-size:.72rem;font-weight:600;padding:.4rem .8rem;border-radius:5px;border:1px solid rgba(6,182,212,.3);background:var(--cyan-dim);color:var(--cyan-l);cursor:pointer;transition:all .15s}
+.mtp-btn:hover{background:rgba(6,182,212,.2)}
+
+/* ── Benchmarks ────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill.purple{background:linear-gradient(90deg,var(--purple-dim),var(--purple))}
+.bar-fill.cyan{background:linear-gradient(90deg,var(--cyan-dim),var(--cyan))}
+.bar-fill.grey{background:linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.2))}
+
+/* ── TOC sidebar ────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Data/comparison table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math / equation block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Gemma 4</span>
+    <span class="tag tag-cyan">Multimodal</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Gemma 4 12B Explained:<br/>The Encoder-Free Multimodal Revolution</h1>
+  <p class="lead">Google DeepMind's Gemma 4 12B drops separate vision and audio encoders entirely, feeding raw image patches and acoustic frames directly into a single transformer decoder. We unpack the math of its 35M vision embedder, its 40ms audio slicer, and its shared-KV speculative MTP assistant.</p>
+  <div class="post-hero-meta">
+    <span>June 4, 2026</span>
+    <span>{readTime}</span>
+    <span>Ecosystem: Apache 2.0 Open Weights</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://blog.google/technology/developers/gemma-4-12b-multimodal-model/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Announcement Blog
+    </a>
+    <a class="hero-btn" href="https://huggingface.co/google/gemma-4-12b" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Hugging Face
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-intro"><a href="#s-intro"><span class="toc-num">01</span> The Encoder Tax</a></li>
+    <li class="toc-item" id="toc-s-barrier"><a href="#toc-s-barrier"><span class="toc-num">02</span> The Deletion Barrier</a></li>
+    <li class="toc-item" id="toc-s-vision"><a href="#toc-s-vision"><span class="toc-num">03</span> Vision Projection</a></li>
+    <li class="toc-item" id="toc-s-audio"><a href="#toc-s-audio"><span class="toc-num">04</span> Audio Frame-Slicing</a></li>
+    <li class="toc-item" id="toc-s-transformer"><a href="#toc-s-transformer"><span class="toc-num">05</span> Unified Attention</a></li>
+    <li class="toc-item" id="toc-s-speculative"><a href="#toc-s-speculative"><span class="toc-num">06</span> Speculative MTP</a></li>
+    <li class="toc-item" id="toc-s-benchmarks"><a href="#toc-s-benchmarks"><span class="toc-num">07</span> Local Performance</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- SECTION 1 -->
+<section id="s-intro" data-code="intro">
+  <div class="section-no">01 — The Encoder Tax</div>
+  <h2>The Multimodal Architecture Mismatch</h2>
+  <p>Traditional multimodal models like LLaVA or Qwen2-VL are built by gluing together pre-existing, frozen sensory encoders (like a Vision Transformer or a Conformer ASR model) to an LLM backbone. While convenient, this approach levies a heavy <strong>"encoder tax"</strong>:</p>
+  <ul>
+    <li><strong>Dual-Stage Latency:</strong> The input image or audio sequence must complete its forward pass through a deep, multi-layer encoder <em>before</em> the LLM decoder can even begin its first projection.</li>
+    <li><strong>Bloated Memory Footprint:</strong> Encoders add hundreds of millions of parameters (often 300M to 600M) that consume GPU memory, which is critical for local inference.</li>
+    <li><strong>Representation Bottleneck:</strong> Freezing the encoder forces a mismatch. A separate projection adapter must learn to compress high-level semantic tokens into the LLM's residual stream, limiting the granularity of raw perception.</li>
+  </ul>
+  
+  <p><strong>Gemma 4 12B solves this by going completely encoder-free.</strong> Raw pixel patches and acoustic frames bypass heavy stacks and are projected straight into the LLM's unified hidden dimension. Use the interactive pipeline below to contrast these two paradigms.</p>
+
+  <!-- Interactive Viz 1: Pipeline Comparison -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Interactive Pipeline Comparison</span>
+      <span class="vp-hint">Toggle tabs to see data flow comparison</span>
+    </div>
+    <div class="vp-body">
+      <div class="pipeline-tabs">
+        <button class="pipeline-btn active" id="btn-pipe-g4">Gemma 4 (Encoder-Free)</button>
+        <button class="pipeline-btn" id="btn-pipe-trad">Traditional (Encoder-Based)</button>
+      </div>
+      
+      <!-- Pipeline SVG -->
+      <svg id="pipeline-svg" viewBox="0 0 600 240" fill="none" style="width: 100%; height: auto;">
+        <!-- Input Group -->
+        <g id="grp-inputs" transform="translate(10, 40)">
+          <rect x="0" y="20" width="80" height="120" rx="6" fill="var(--card2)" stroke="var(--border-hi)" stroke-width="1.5"/>
+          <text x="40" y="60" fill="var(--text2)" font-size="10" font-family="var(--ff-mono)" text-anchor="middle">SENSORY</text>
+          <text x="40" y="75" fill="var(--text2)" font-size="10" font-family="var(--ff-mono)" text-anchor="middle">INPUTS</text>
+          <path d="M 20 100 Q 40 90 60 100" stroke="var(--cyan)" stroke-width="2" fill="none"/>
+          <rect x="25" y="110" width="30" height="20" rx="3" fill="var(--purple-dim)" stroke="var(--purple)"/>
+          <text x="40" y="122" fill="var(--purple-l)" font-size="7" font-family="var(--ff-mono)" text-anchor="middle">Image</text>
+        </g>
+        
+        <!-- Connection Line 1 -->
+        <path id="arrow-1" d="M 90 100 L 150 100" stroke="var(--cyan)" stroke-width="2" marker-end="url(#arrowhead)"/>
+        
+        <!-- Middle Component Group -->
+        <g id="grp-middle" transform="translate(160, 40)">
+          <!-- Encoder Node -->
+          <rect id="node-encoder" x="0" y="10" width="140" height="140" rx="8" fill="var(--surface)" stroke="var(--border-hi)" stroke-dasharray="0" transition="all 0.3s"/>
+          <text id="node-encoder-title" x="70" y="60" fill="var(--muted)" font-size="10" font-family="var(--ff-mono)" text-anchor="middle" font-weight="600">Heavy Encoder</text>
+          <text id="node-encoder-sub" x="70" y="80" fill="var(--muted2)" font-size="8" font-family="var(--ff-mono)" text-anchor="middle">Bypassed (0 parameters)</text>
+          <text id="node-encoder-detail" x="70" y="100" fill="var(--cyan)" font-size="8" font-family="var(--ff-mono)" text-anchor="middle">35M linear proj only</text>
+        </g>
+
+        <!-- Connection Line 2 -->
+        <path id="arrow-2" d="M 300 100 L 360 100" stroke="var(--cyan)" stroke-width="2" marker-end="url(#arrowhead)"/>
+        
+        <!-- LLM Backbone Group -->
+        <g id="grp-backbone" transform="translate(370, 40)">
+          <rect x="0" y="10" width="200" height="140" rx="8" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1.5"/>
+          <text x="100" y="55" fill="var(--purple-l)" font-size="11" font-family="var(--ff-mono)" text-anchor="middle" font-weight="700">UNIFIED LLM BACKBONE</text>
+          <text x="100" y="75" fill="var(--text2)" font-size="9" font-family="var(--ff-mono)" text-anchor="middle">Gemma 4 12B Decoder</text>
+          
+          <rect x="20" y="100" width="40" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
+          <text x="40" y="118" fill="var(--muted)" font-size="8" font-family="var(--ff-mono)" text-anchor="middle">Text</text>
+          
+          <rect x="80" y="100" width="40" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
+          <text x="100" y="118" fill="var(--cyan)" font-size="8" font-family="var(--ff-mono)" text-anchor="middle">Image</text>
+          
+          <rect x="140" y="100" width="40" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
+          <text x="160" y="118" fill="var(--green)" font-size="8" font-family="var(--ff-mono)" text-anchor="middle">Audio</text>
+        </g>
+        
+        <!-- Define arrow marker -->
+        <defs>
+          <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <polygon points="0 0, 6 3, 0 6" fill="var(--cyan)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2 (BARRIER) -->
+<section id="s-barrier" data-code="barrier">
+  <div class="section-no">02 — The Deletion Barrier</div>
+  <h2>Why Deleting the Encoder is the Holy Grail (and Why it Kept Failing)</h2>
+  <p>Every AI hardware and software engineer wants to delete the heavy vision encoder. Pretrained encoders like CLIP or SigLIP add hundreds of millions of parameters, consume valuable VRAM, restrict input resolutions, and add serial latency during inference. Yet, until recently, almost every attempt to build an encoder-free vision-language model resulted in severe degradation of visual reasoning quality. Three major barriers stood in the way:</p>
+  <ul>
+    <li><strong>The Representation Gap:</strong> Pretrained vision encoders are deep neural networks trained on billions of images to extract abstract semantic features. When you remove the encoder and feed raw pixel patches straight into the LLM's early layers, the LLM has to learn low-level visual processing (detecting edges, shapes, textures, lighting) from scratch. Unrefined pixel data acts as continuous high-variance noise, disrupting the pretrained text layers.</li>
+    <li><strong>The Context Window Blowup:</strong> Vision encoders compress large spatial grids into a compact set of tokens. Without this compression, feeding raw image patches directly into the transformer blows up the sequence length. For example, a high-resolution image projected at a $14 \times 14$ patch size produces thousands of tokens, saturating the LLM's $O(N^2)$ self-attention mechanism. Early models (like Fuyu) bypassed this by using larger patches ($30 \times 30$), but this destroyed visual details, making them fail at OCR and text-rich document retrieval.</li>
+    <li><strong>Gradient Interference &amp; Modality Conflict:</strong> During training, backpropagating chaotic visual gradients through the shared weights of a text decoder degrades its established cognitive abilities. The model undergoes a form of "lobotomy"—gaining basic vision at the cost of losing its math, coding, and logical reasoning benchmarks.</li>
+  </ul>
+  
+  <p><strong>Gemma 4 12B resolves these conflicts</strong> by utilizing a shallow 35M patch-projection adapter equipped with a gated activation mechanism (which starts at zero). This acts as a protective shield, buffering the core text-decoder parameters from visual noise during early training phases. Together with multi-token prediction (MTP) co-training, this allows Gemma 4 to achieve high-fidelity visual understanding without degrading text capabilities.</p>
+</section>
+
+<!-- SECTION 3 -->
+<section id="s-vision" data-code="vision">
+  <div class="section-no">03 — Vision Projection</div>
+  <h2>The 35M Parameter Linear Vision Embedder</h2>
+  <p>How do raw pixels enter the transformer without a Vision Transformer (ViT) encoding them? Gemma 4 12B maps them directly using a patch-slicing method:</p>
+  <ul>
+    <li><strong>Patching:</strong> The model divides the input image into <strong>48×48 pixel patches</strong> (in RGB, this flat vector is $48 \times 48 \times 3 = 6,912$ channels).</li>
+    <li><strong>Matrix Multiplication:</strong> This 6,912-element vector undergoes a single linear projection matrix multiplication (W_proj ∈ ℝ^(6,912 × 4,096)) mapping it directly into the LLM's model dimension (d_model = 4,096).</li>
+    <li><strong>Positional Embeddings:</strong> Since no self-attention happens inside the vision embedder, spatial orientation is encoded by adding factorized 2D position embeddings (x_pos + y_pos) to each patch token vector.</li>
+  </ul>
+
+  <p>Click on different patches of the sample image below to see how they are flattened, projected, and labeled with their coordinates.</p>
+
+  <!-- Interactive Viz 2: Vision Patch Slicing -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Interactive Vision Patch Projection</span>
+      <span class="vp-hint">Click on patches to see linear projection math</span>
+    </div>
+    <div class="vp-body">
+      <div class="patch-grid-wrap">
+        <!-- Grid of Image Patches (we use a styled container with background-image representing a cute robot/cat) -->
+        <div class="patch-source-img">
+          <!-- Row 1 -->
+          <div class="patch-cell active" data-x="0" data-y="0" style="background-color: #6366f1; background-image: radial-gradient(circle, #818cf8, #6366f1)"></div>
+          <div class="patch-cell" data-x="1" data-y="0" style="background-color: #4f46e5; background-image: radial-gradient(circle, #6366f1, #4f46e5)"></div>
+          <div class="patch-cell" data-x="2" data-y="0" style="background-color: #3730a3; background-image: radial-gradient(circle, #4f46e5, #3730a3)"></div>
+          <!-- Row 2 -->
+          <div class="patch-cell" data-x="0" data-y="1" style="background-color: #06b6d4; background-image: radial-gradient(circle, #22d3ee, #06b6d4)"></div>
+          <div class="patch-cell" data-x="1" data-y="1" style="background-color: #0891b2; background-image: radial-gradient(circle, #06b6d4, #0891b2)"></div>
+          <div class="patch-cell" data-x="2" data-y="1" style="background-color: #0e7490; background-image: radial-gradient(circle, #0891b2, #0e7490)"></div>
+          <!-- Row 3 -->
+          <div class="patch-cell" data-x="0" data-y="2" style="background-color: #10b981; background-image: radial-gradient(circle, #34d399, #10b981)"></div>
+          <div class="patch-cell" data-x="1" data-y="2" style="background-color: #059669; background-image: radial-gradient(circle, #10b981, #059669)"></div>
+          <div class="patch-cell" data-x="2" data-y="2" style="background-color: #065f46; background-image: radial-gradient(circle, #059669, #065f46)"></div>
+        </div>
+        
+        <!-- Projection Formula -->
+        <div class="patch-math-box" id="patch-formula-output">
+          <div><span class="math-label">Selected Patch (x:0, y:0)</span></div>
+          <div style="margin: 0.5rem 0;">
+            <span class="patch-math-val">Raw Vector:</span> <span class="math-var">x_patch</span> ∈ ℝ⁶⁹¹² (48x48x3 pixels)
+          </div>
+          <div style="margin: 0.5rem 0;">
+            <span class="patch-math-val">Proj:</span> (<span class="math-var">x_patch</span> · <span class="math-var">W_proj</span>) = <span class="math-var">v_proj</span> ∈ ℝ⁴⁰⁹⁶
+          </div>
+          <div style="margin: 0.5rem 0;">
+            <span class="patch-math-val">Spatial Pos:</span> <span class="math-var">v_proj</span> + <span class="math-var">x_embed[0]</span> + <span class="math-var">y_embed[0]</span>
+          </div>
+          <div style="margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.7rem; color: var(--muted2);">
+            Output: Clean 4096-dim token vector sent straight to attention layers.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4 -->
+<section id="s-audio" data-code="audio">
+  <div class="section-no">04 — Audio Frame-Slicing</div>
+  <h2>ASR-Free Acoustic Processing</h2>
+  <p>Historically, audio processing in LLMs required a deep acoustic model (like Whisper's transformer encoder) that downsampled and encoded raw waveforms. Gemma 4 12B processes audio natively, treating speech similar to text. The mathematical pipeline works as follows:</p>
+  
+  <div class="math-block">
+    <div class="math-label">Acoustic Slicing &amp; Projection</div>
+    Waveform at 16 kHz ──> 40ms frame = 640 float samples<br/>
+    Frame vector <span class="math-var">f</span> ∈ ℝ⁶⁴⁰<br/>
+    Token vector <span class="math-var">t_audio</span> = LayerNorm(<span class="math-var">f</span> · <span class="math-var">W_audio</span>) ∈ ℝ⁴⁰⁹⁶
+  </div>
+  
+  <p>By dividing the waveform into non-overlapping 40ms windows, a single linear matrix multiplication (W_audio ∈ ℝ^(640 × 4,096)) is sufficient to map audio signals directly into the model's vocabulary dimension. Slide the swept player window below to inspect how waveforms map directly to specific projected tokens.</p>
+
+  <!-- Interactive Viz 3: Audio Waveform Sweep -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Interactive Waveform Slicing</span>
+      <span class="vp-hint">Drag slider to scan the waveform</span>
+    </div>
+    <div class="vp-body">
+      <div class="audio-sweep-wrap">
+        <div class="waveform-container">
+          <canvas id="audio-waveform" class="waveform-canvas"></canvas>
+        </div>
+        <div class="audio-controls">
+          <span class="audio-readout" id="audio-val-ms">Frame Center: 100 ms</span>
+          <input type="range" class="audio-slider" id="audio-time-slider" min="20" max="180" value="100"/>
+          <span class="audio-readout" id="audio-val-tokens" style="text-align: right;">Token: [Audio_F2]</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 5 -->
+<section id="s-transformer" data-code="transformer">
+  <div class="section-no">05 — Unified Attention</div>
+  <h2>Unified Causal and Bidirectional Attention</h2>
+  <p>Once sensory tokens are mapped to the hidden size of 4,096, they are concatenated together with standard text tokens in the input sequence. However, they cannot all be treated identically during self-attention:</p>
+  <ul>
+    <li><strong>Causal Masking (Text):</strong> Text tokens can only attend to previous tokens to prevent leaks during next-token prediction.</li>
+    <li><strong>Bidirectional Masking (Images &amp; Audio):</strong> Image patches and audio frames represent static physical assets where order does not imply chronological sequence (e.g., all parts of a 48x48 image are present at once). Thus, the vision and audio token blocks are masked bidirectionally—allowing elements in a single patch block or audio frame block to attend to each other in all directions.</li>
+  </ul>
+  
+  <p>Hover over different tokens in the row of the matrix below to see the generated attention mask. Watch how the mask allows bidirectionality within modality blocks while maintaining causal constraints elsewhere.</p>
+
+  <!-- Interactive Viz 4: Attention Grid -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Multimodal Attention Mask Grid</span>
+      <span class="vp-hint">Hover over rows to see active attention targets (colored)</span>
+    </div>
+    <div class="vp-body">
+      <div class="attn-grid-container">
+        <!-- Labels on the left -->
+        <div class="attn-labels" id="attn-row-labels">
+          <!-- Will be filled dynamically by script -->
+        </div>
+        <!-- Matrix on the right -->
+        <div class="attn-matrix" id="attn-grid-matrix">
+          <!-- 10x10 cells generated dynamically -->
+        </div>
+      </div>
+      
+      <div class="attn-legend">
+        <div class="attn-legend-item"><div class="attn-dot text"></div> Text (Causal)</div>
+        <div class="attn-legend-item"><div class="attn-dot vision"></div> Vision Patches (Bidir Block)</div>
+        <div class="attn-legend-item"><div class="attn-dot audio"></div> Audio Frames (Bidir Block)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6 -->
+<section id="s-speculative" data-code="speculative">
+  <div class="section-no">06 — Speculative MTP</div>
+  <h2>Speculative Multi-Token Prediction</h2>
+  <p>Running a 12B model locally on a consumer laptop can be slow because of memory bandwidth limits. To solve this, Gemma 4 is <strong>speculative-ready</strong>. It includes a tiny co-trained draft module that runs speculative decoding.</p>
+  <p>The draft model shares the main backbone's Key-Value (KV) cache. Since the main model's K and V weights are highly aligned, the assistant model only computes queries ($Q$) and reads the shared KV cache—bypassing the prompt evaluation stage entirely. To predict multiple tokens, Gemma 4 uses a **centroid-based classification head** that groups the 262K vocabulary into 2,048 coarse clusters before running fine token selection.</p>
+  
+  <p>Click "Run Speculative Decoding Step" to watch the MTP draft model predict centroids, output three draft tokens, and have them verified in parallel by the target model.</p>
+
+  <!-- Interactive Viz 5: MTP Emulator -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">MTP Centroid Speculative Emulator</span>
+      <span class="vp-hint">Click step to emulate generation and verification</span>
+    </div>
+    <div class="vp-body">
+      <div class="mtp-demo-wrap">
+        <!-- Control panel -->
+        <div class="mtp-step-panel">
+          <div class="mtp-step-hdr">MTP Draft Queue (K=3)</div>
+          <div class="mtp-tok-box" id="mtp-draft-box">
+            <!-- Filled dynamically -->
+            <span style="color: var(--muted); font-size: 0.72rem;">Click button to start drafting...</span>
+          </div>
+          <button class="mtp-btn" id="btn-mtp-step">Run Draft Step</button>
+        </div>
+        
+        <!-- Centroid network visualization -->
+        <div class="mtp-step-panel">
+          <div class="mtp-step-hdr">Vocabulary Centroid Map (2,048 clusters)</div>
+          <div class="mtp-centroid-nodes" id="centroid-nodes-container">
+            <!-- nodes -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7 -->
+<section id="s-benchmarks" data-code="benchmarks">
+  <div class="section-no">07 — Local Performance</div>
+  <h2>Laptop-Class Local Benchmarks</h2>
+  <p>Gemma 4 12B's unified architecture translates directly into major speedups when run locally on devices like Apple Macbooks (unified memory) or consumer GPUs with 16GB VRAM. Because the encoder latency is completely avoided, Time-to-First-Token (TTFT) drops dramatically:</p>
+
+  <!-- Interactive Viz 6: Benchmark bar charts -->
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">Local Hardware Benchmarks (Macbook Pro M3 Max)</span>
+      <span class="vp-hint">Animate charts on scroll</span>
+    </div>
+    <div class="vp-body">
+      <h3 style="margin-top:0;">Time-To-First-Token (TTFT, Lower is Better)</h3>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">Traditional Encoder-based (Qwen2-VL)</div>
+          <div class="bar-track">
+            <div class="bar-fill grey" data-w="100"><span>145 ms</span></div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Gemma 4 12B Dense (Direct Proj)</div>
+          <div class="bar-track">
+            <div class="bar-fill cyan" data-w="26"><span>38 ms</span></div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Gemma 4 12B + MTP (Shared KV)</div>
+          <div class="bar-track">
+            <div class="bar-fill purple" data-w="8"><span>12 ms</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>GPU VRAM Occupancy (Lower is Better)</h3>
+      <div class="results-bars">
+        <div class="bar-row">
+          <div class="bar-label">Traditional (Model + ViT Encoder)</div>
+          <div class="bar-track">
+            <div class="bar-fill grey" data-w="100"><span>28.4 GB</span></div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Gemma 4 12B Encoder-Free (BF16)</div>
+          <div class="bar-track">
+            <div class="bar-fill cyan" data-w="84"><span>24.0 GB</span></div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Gemma 4 12B Encoder-Free (FP4)</div>
+          <div class="bar-track">
+            <div class="bar-fill purple" data-w="24"><span>6.8 GB</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Encoder-based (e.g. Qwen2-VL)</th>
+        <th class="best">Gemma 4 12B</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sensory Encoder Size</td>
+        <td>320M parameters (ViT)</td>
+        <td class="best">0M (ASR/ViT-free)</td>
+      </tr>
+      <tr>
+        <td>Linear Adapter Size</td>
+        <td>15M parameters</td>
+        <td>35M parameters (Flat patch)</td>
+      </tr>
+      <tr>
+        <td>Local Generation Speed</td>
+        <td>18 tok/sec</td>
+        <td class="best">64 tok/sec (with MTP)</td>
+      </tr>
+      <tr class="highlight-row">
+        <td>MM-MU Score</td>
+        <td>54.2%</td>
+        <td class="best">57.9%</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">gemma4/config.py</div>
+      <div class="cs-section-title" id="cs-section-title">Model Specifications</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="barrier">barrier</button>
+    <button class="cs-tab" data-panel="vision">vision</button>
+    <button class="cs-tab" data-panel="audio">audio</button>
+    <button class="cs-tab" data-panel="transformer">transformer</button>
+    <button class="cs-tab" data-panel="speculative">speculative</button>
+    <button class="cs-tab" data-panel="benchmarks">benchmarks</button>
+  </div>
+  <div class="cs-body">
+    <!-- INTRO -->
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Gemma 4 12B Model Configuration</span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">Gemma4Config</span>:</span>
+<span class="cs-line">    vocab_size = <span class="num">262144</span></span>
+<span class="cs-line">    hidden_size = <span class="num">4096</span></span>
+<span class="cs-line">    num_hidden_layers = <span class="num">40</span></span>
+<span class="cs-line">    num_attention_heads = <span class="num">32</span></span>
+<span class="cs-line">    num_key_value_heads = <span class="num">8</span></span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Encoder-free projection parameters</span>
+<span class="cs-line hl-c">    vision_patch_size = <span class="num">48</span></span>
+<span class="cs-line hl-c">    audio_frame_ms = <span class="num">40</span></span>
+<span class="cs-line hl-c">    audio_sample_rate = <span class="num">16000</span></span>
+<span class="cs-line hl-c">    vision_embed_dim = <span class="num">35245824</span>  <span class="cmt"># ~35M parameters</span></span>
+      </pre>
+    </div>
+    
+    <!-- BARRIER -->
+    <div class="cs-panel" id="panel-barrier">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Modality Gradient Conflict Mitigation</span>
+<span class="cs-line cmt"># To prevent direct vision patches from overwriting text weights,</span>
+<span class="cs-line cmt"># Gemma 4 uses a gated projection adapter and auxiliary loss.</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">GatedAdapter</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, d_model=<span class="num">4096</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="self">self</span>.gate = nn.Parameter(torch.zeros(<span class="num">1</span>))</span>
+<span class="cs-line">        <span class="self">self</span>.proj = nn.Linear(<span class="num">6912</span>, d_model)</span>
+<span class="cs-line">        </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, x):</span>
+<span class="cs-line cmt">        # Starts at zero to protect LLM from high-variance gradients</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> torch.tanh(<span class="self">self</span>.gate) * <span class="self">self</span>.proj(x)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt"># Training step optimization</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">step</span>(batch, model, opt):</span>
+<span class="cs-line">    opt.zero_grad()</span>
+<span class="cs-line cmt">    # Joint loss: cross-entropy + auxiliary representation alignment</span>
+<span class="cs-line">    loss_lm = model(batch.text, batch.pixels)</span>
+<span class="cs-line">    loss_aux = compute_representation_alignment(model)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Scale vision gradients to prevent interference with text layers</span>
+<span class="cs-line hl-c">    loss = loss_lm + <span class="num">0.1</span> * loss_aux</span>
+<span class="cs-line">    loss.backward()</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Gradient clipping specifically for visual projector weights</span>
+<span class="cs-line">    torch.nn.utils.clip_grad_norm_(model.projector.parameters(), <span class="num">1.0</span>)</span>
+<span class="cs-line">    opt.step()</span>
+      </pre>
+    </div>
+
+    <!-- VISION -->
+    <div class="cs-panel" id="panel-vision">
+      <pre class="cs-pre">
+<span class="cs-line kw">import</span> torch
+<span class="cs-line kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">VisionEmbedder</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, patch_size=<span class="num">48</span>, in_channels=<span class="num">3</span>, hidden_size=<span class="num">4096</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="self">self</span>.patch_size = patch_size</span>
+<span class="cs-line">        <span class="self">self</span>.flat_dim = patch_size * patch_size * in_channels  <span class="cmt"># 48*48*3 = 6912</span></span>
+<span class="cs-line cmt">        # Single matrix multiplication directly to LLM size</span>
+<span class="cs-line hl-c">        <span class="self">self</span>.proj = nn.Linear(<span class="self">self</span>.flat_dim, hidden_size)</span>
+<span class="cs-line">        <span class="self">self</span>.ln = nn.LayerNorm(hidden_size)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Spatial 2D Coordinate embeddings</span>
+<span class="cs-line">        <span class="self">self</span>.x_embed = nn.Embedding(<span class="num">100</span>, hidden_size)</span>
+<span class="cs-line">        <span class="self">self</span>.y_embed = nn.Embedding(<span class="num">100</span>, hidden_size)</span>
+
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, pixel_values, grid_x, grid_y):</span>
+<span class="cs-line cmt">        # pixel_values shape: (B, C, H, W)</span>
+<span class="cs-line">        B, C, H, W = pixel_values.shape</span>
+<span class="cs-line">        p = <span class="self">self</span>.patch_size</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Fold into patches: shape (B, N, flat_dim)</span>
+<span class="cs-line">        patches = pixel_values.unfold(<span class="num">2</span>, p, p).unfold(<span class="num">3</span>, p, p)</span>
+<span class="cs-line">        patches = patches.permute(<span class="num">0</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">1</span>, <span class="num">4</span>, <span class="num">5</span>).flatten(<span class="num">4</span>)</span>
+<span class="cs-line">        patches = patches.flatten(<span class="num">1</span>, <span class="num">2</span>)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Map directly to transformer size</span>
+<span class="cs-line hl-g">        x = <span class="self">self</span>.proj(patches)</span>
+<span class="cs-line">        x = <span class="self">self</span>.ln(x)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Inject factorized 2D spatial coordinate offsets</span>
+<span class="cs-line hl-g">        pos = <span class="self">self</span>.x_embed(grid_x) + <span class="self">self</span>.y_embed(grid_y)</span>
+<span class="cs-line kw">        return</span> x + pos
+      </pre>
+    </div>
+    
+    <!-- AUDIO -->
+    <div class="cs-panel" id="panel-audio">
+      <pre class="cs-pre">
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">AudioEmbedder</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, sample_rate=<span class="num">16000</span>, frame_ms=<span class="num">40</span>, hidden_size=<span class="num">4096</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line cmt">        # 16000 Hz * 0.040s = 640 float values per frame</span>
+<span class="cs-line">        <span class="self">self</span>.frame_size = int(sample_rate * (frame_ms / <span class="num">1000</span>))</span>
+<span class="cs-line cmt">        # Linear projection maps acoustic frames directly to LLM space</span>
+<span class="cs-line hl-c">        <span class="self">self</span>.proj = nn.Linear(<span class="self">self</span>.frame_size, hidden_size)</span>
+<span class="cs-line">        <span class="self">self</span>.ln = nn.LayerNorm(hidden_size)</span>
+
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, waveforms):</span>
+<span class="cs-line cmt">        # waveforms shape: (B, T) - raw 16kHz audio sample floats</span>
+<span class="cs-line">        B, T = waveforms.shape</span>
+<span class="cs-line cmt">        # Pad to multiple of frame_size</span>
+<span class="cs-line">        pad_len = <span class="self">self</span>.frame_size - (T % <span class="self">self</span>.frame_size)</span>
+<span class="cs-line">        waveforms = nn.functional.pad(waveforms, (<span class="num">0</span>, pad_len))</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Squeeze into frames: (B, num_frames, frame_size)</span>
+<span class="cs-line">        frames = waveforms.view(B, -1, <span class="self">self</span>.frame_size)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Direct projection</span>
+<span class="cs-line hl-g">        x = <span class="self">self</span>.proj(frames)</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> <span class="self">self</span>.ln(x)</span>
+      </pre>
+    </div>
+    
+    <!-- TRANSFORMER -->
+    <div class="cs-panel" id="panel-transformer">
+      <pre class="cs-pre">
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">MultimodalCausalAttention</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, hidden_states, attention_mask=None):</span>
+<span class="cs-line cmt">        # hidden_states: Concatenated [Text, Vision, Audio] embeddings</span>
+<span class="cs-line">        # shape: (B, seq_len, d_model)</span>
+<span class="cs-line">        q = <span class="self">self</span>.q_proj(hidden_states)</span>
+<span class="cs-line">        k = <span class="self">self</span>.k_proj(hidden_states)</span>
+<span class="cs-line">        v = <span class="self">self</span>.v_proj(hidden_states)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Apply standard RoPE (Rotary Embeddings)</span>
+<span class="cs-line">        q, k = <span class="self">self</span>.apply_rope(q, k)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Multimodal causal masking</span>
+<span class="cs-line hl-c">        # Text -> Causal</span>
+<span class="cs-line hl-c">        # Vision block -> Bidirectional block masking</span>
+<span class="cs-line hl-c">        # Audio block -> Bidirectional block masking</span>
+<span class="cs-line">        scores = torch.matmul(q, k.transpose(-<span class="num">1</span>, -<span class="num">2</span>)) / math.sqrt(d_k)</span>
+<span class="cs-line">        <span class="kw">if</span> attention_mask <span class="kw">is</span> <span class="kw">not</span> None:</span>
+<span class="cs-line hl-g">            scores = scores + attention_mask</span>
+            
+<span class="cs-line">        attn_weights = nn.functional.softmax(scores, dim=-<span class="num">1</span>)</span>
+<span class="cs-line">        <span class="kw">return</span> torch.matmul(attn_weights, v)</span>
+      </pre>
+    </div>
+    
+    <!-- SPECULATIVE -->
+    <div class="cs-panel" id="panel-speculative">
+      <pre class="cs-pre">
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">MTPDrafter</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, target_model, num_centroids=<span class="num">2048</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line cmt">        # Reference target model to share the KV cache directly</span>
+<span class="cs-line hl-c">        <span class="self">self</span>.target = target_model</span>
+<span class="cs-line">        <span class="self">self</span>.centroid_proj = nn.Linear(target_model.d_model, num_centroids)</span>
+<span class="cs-line">        <span class="self">self</span>.fine_classifier = nn.Linear(target_model.d_model + num_centroids, target_model.vocab_size)</span>
+
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, shared_kv, prefix_hidden):</span>
+<span class="cs-line cmt">        # Compute query vector from prefix</span>
+<span class="cs-line">        q = <span class="self">self</span>.q_proj(prefix_hidden)</span>
+<span class="cs-line cmt">        # Attention over main model's shared KV cache</span>
+<span class="cs-line hl-g">        attn_out = <span class="self">self</span>.attention(q, shared_kv.k, shared_kv.v)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Coarse vocabulary clustering classification</span>
+<span class="cs-line hl-g">        centroid_logits = <span class="self">self</span>.centroid_proj(attn_out)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Fine vocab refinement</span>
+<span class="cs-line">        features = torch.cat([attn_out, centroid_logits], dim=-<span class="num">1</span>)</span>
+<span class="cs-line kw">        return</span> <span class="self">self</span>.fine_classifier(features)</span>
+      </pre>
+    </div>
+    
+    <!-- BENCHMARKS -->
+    <div class="cs-panel" id="panel-benchmarks">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Macbook Pro M3 Max Local Deployment Configuration</span>
+<span class="cs-line">device = <span class="str">"mps"</span>  <span class="cmt"># Apple Metal Performance Shaders</span></span>
+<span class="cs-line">precision = torch.float16</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">benchmarks = &#123;</span>
+<span class="cs-line">    <span class="str">"latency_to_first_token_ms"</span>: &#123;</span>
+<span class="cs-line">        <span class="str">"qwen2_vl"</span>: <span class="num">145</span>,</span>
+<span class="cs-line">        <span class="str">"gemma4_12b_dense"</span>: <span class="num">38</span>,</span>
+<span class="cs-line">        <span class="str">"gemma4_12b_mtp"</span>: <span class="num">12</span></span>
+<span class="cs-line">    &#125;,</span>
+<span class="cs-line">    <span class="str">"vram_occupancy_gb"</span>: &#123;</span>
+<span class="cs-line">        <span class="str">"encoder_based"</span>: <span class="num">28.4</span>,</span>
+<span class="cs-line">        <span class="str">"gemma4_12b_bf16"</span>: <span class="num">24.0</span>,</span>
+<span class="cs-line">        <span class="str">"gemma4_12b_fp4"</span>: <span class="num">6.8</span></span>
+<span class="cs-line">    &#125;</span>
+<span class="cs-line">&#125;</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// --- TOC + Sidebar Toggles ---
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// --- Tab Switching ---
+const tabMeta = {
+  intro:       { file: 'gemma4/config.py', title: 'Model Specifications' },
+  barrier:     { file: 'gemma4/barrier.py', title: 'Modality Gradient Conflict' },
+  vision:      { file: 'gemma4/vision.py', title: 'Linear Vision Embedder' },
+  audio:       { file: 'gemma4/audio.py',  title: 'Linear Audio Embedder' },
+  transformer: { file: 'gemma4/attn.py',   title: 'Multimodal Attention Mask' },
+  speculative: { file: 'gemma4/mtp.py',    title: 'Shared-KV MTP Drafter' },
+  benchmarks:  { file: 'gemma4/bench.py',  title: 'Hardware Benchmarks' }
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// --- Scroll Sync TOC & Sidebar Tabs ---
+const sectionMap = {
+  's-intro': 'intro',
+  's-barrier': 'barrier',
+  's-vision': 'vision',
+  's-audio': 'audio',
+  's-transformer': 'transformer',
+  's-speculative': 'speculative',
+  's-benchmarks': 'benchmarks'
+};
+
+document.querySelectorAll('.post-body section[id]').forEach(s => {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s);
+});
+
+// --- Interactive 1: Pipeline Switcher ---
+const btnPipeG4 = document.getElementById('btn-pipe-g4');
+const btnPipeTrad = document.getElementById('btn-pipe-trad');
+const nodeEncoder = document.getElementById('node-encoder');
+const nodeEncoderTitle = document.getElementById('node-encoder-title');
+const nodeEncoderSub = document.getElementById('node-encoder-sub');
+const nodeEncoderDetail = document.getElementById('node-encoder-detail');
+
+btnPipeG4?.addEventListener('click', () => {
+  btnPipeG4.classList.add('active');
+  btnPipeTrad.classList.remove('active');
+  
+  nodeEncoder.setAttribute('stroke-dasharray', '0');
+  nodeEncoder.setAttribute('fill', 'var(--surface)');
+  nodeEncoderTitle.style.opacity = '0.35';
+  nodeEncoderSub.textContent = 'Bypassed (0 parameters)';
+  nodeEncoderDetail.textContent = '35M linear proj only';
+});
+
+btnPipeTrad?.addEventListener('click', () => {
+  btnPipeTrad.classList.add('active');
+  btnPipeG4.classList.remove('active');
+  
+  nodeEncoder.setAttribute('stroke-dasharray', '4');
+  nodeEncoder.setAttribute('fill', 'rgba(6,182,212,0.06)');
+  nodeEncoderTitle.style.opacity = '1';
+  nodeEncoderSub.textContent = 'Active (300M+ params)';
+  nodeEncoderDetail.textContent = 'Deep layers (ViT/ASR)';
+});
+
+// --- Interactive 2: Vision Patches ---
+const patchCells = document.querySelectorAll('.patch-cell');
+const patchFormulaOutput = document.getElementById('patch-formula-output');
+
+patchCells.forEach(cell => {
+  cell.addEventListener('click', () => {
+    patchCells.forEach(c => c.classList.remove('active'));
+    cell.classList.add('active');
+    
+    const x = cell.dataset.x;
+    const y = cell.dataset.y;
+    
+    // Update math output
+    patchFormulaOutput.innerHTML = `
+      <div><span class="math-label">Selected Patch (x:${x}, y:${y})</span></div>
+      <div style="margin: 0.5rem 0;">
+        <span class="patch-math-val">Raw Vector:</span> <span class="math-var">x_patch</span> ∈ ℝ⁶⁹¹² (48x48x3 pixels)
+      </div>
+      <div style="margin: 0.5rem 0;">
+        <span class="patch-math-val">Proj:</span> (<span class="math-var">x_patch</span> · <span class="math-var">W_proj</span>) = <span class="math-var">v_proj</span> ∈ ℝ⁴⁰⁹⁶
+      </div>
+      <div style="margin: 0.5rem 0;">
+        <span class="patch-math-val">Spatial Pos:</span> <span class="math-var">v_proj</span> + <span class="math-var">x_embed[${x}]</span> + <span class="math-var">y_embed[${y}]</span>
+      </div>
+      <div style="margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.7rem; color: var(--muted2);">
+        Output: Clean 4096-dim token vector sent straight to attention layers.
+      </div>
+    `;
+  });
+});
+
+// --- Interactive 3: Waveform sweeping ---
+const audioCanvas = document.getElementById('audio-waveform');
+const audioSlider = document.getElementById('audio-time-slider');
+const audioReadoutMs = document.getElementById('audio-val-ms');
+const audioReadoutTok = document.getElementById('audio-val-tokens');
+
+if (audioCanvas) {
+  const ctx = audioCanvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = audioCanvas.clientWidth;
+  const h = 120;
+  audioCanvas.width = w * dpr;
+  audioCanvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  // Simple deterministic wave renderer
+  function drawWave(activeCenterMs) {
+    ctx.clearRect(0, 0, w, h);
+    
+    // Draw background grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 30) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    
+    // Draw raw waveform (simulated speech wave)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, h/2);
+    for (let x = 0; x < w; x++) {
+      const ms = (x / w) * 200; // 0 to 200 ms
+      const wave = Math.sin(ms * 0.1) * Math.sin(ms * 0.3) * Math.cos(ms * 0.02) * (h/3);
+      ctx.lineTo(x, h/2 + wave);
+    }
+    ctx.stroke();
+    
+    // Highlight the 40ms sliding window centered at activeCenterMs
+    const leftMs = activeCenterMs - 20;
+    const rightMs = activeCenterMs + 20;
+    const leftX = (leftMs / 200) * w;
+    const rightX = (rightMs / 200) * w;
+    
+    ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+    ctx.fillRect(leftX, 0, rightX - leftX, h);
+    ctx.strokeStyle = 'var(--cyan)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(leftX, 0, rightX - leftX, h);
+    
+    // Draw active samples inside window
+    ctx.strokeStyle = 'var(--green)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(leftX, h/2);
+    for (let x = Math.floor(leftX); x <= Math.floor(rightX); x++) {
+      const ms = (x / w) * 200;
+      const wave = Math.sin(ms * 0.1) * Math.sin(ms * 0.3) * Math.cos(ms * 0.02) * (h/3);
+      ctx.lineTo(x, h/2 + wave);
+    }
+    ctx.stroke();
+  }
+
+  // Handle slider sweep
+  audioSlider?.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    audioReadoutMs.textContent = `Frame Center: ${val} ms`;
+    
+    // Map frame center to a simulated token index
+    const tokenIdx = Math.floor(val / 40);
+    audioReadoutTok.textContent = `Token: [Audio_F${tokenIdx}]`;
+    
+    drawWave(val);
+  });
+  
+  // Initial draw
+  drawWave(100);
+}
+
+// --- Interactive 4: Attention Matrix Grid ---
+const attnLabelsContainer = document.getElementById('attn-row-labels');
+const attnGridMatrix = document.getElementById('attn-grid-matrix');
+
+// Tokens sequence
+const tokens = [
+  { text: 'User:', type: 'text' },
+  { text: 'what', type: 'text' },
+  { text: 'is', type: 'text' },
+  { text: 'Patch0', type: 'vision' },
+  { text: 'Patch1', type: 'vision' },
+  { text: 'Audio0', type: 'audio' },
+  { text: 'Audio1', type: 'audio' },
+  { text: 'this', type: 'text' },
+  { text: '?', type: 'text' },
+  { text: 'Model:', type: 'text' }
+];
+
+if (attnLabelsContainer && attnGridMatrix) {
+  // Populate row labels
+  tokens.forEach((t, i) => {
+    const label = document.createElement('div');
+    label.className = 'attn-label-item';
+    label.textContent = t.text;
+    label.dataset.row = i;
+    attnLabelsContainer.appendChild(label);
+  });
+
+  // Populate cells
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 10; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'attn-cell off';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      attnGridMatrix.appendChild(cell);
+    }
+  }
+
+  // Attention logic
+  function calculateAttention(rowIdx) {
+    const activeRow = tokens[rowIdx];
+    
+    // Clear all cells
+    document.querySelectorAll('.attn-cell').forEach(c => {
+      c.className = 'attn-cell off';
+    });
+    
+    // Highlight cells in active row according to masking logic
+    for (let c = 0; c < 10; c++) {
+      const targetCol = tokens[c];
+      const cell = document.querySelector(`.attn-cell[data-row="${rowIdx}"][data-col="${c}"]`);
+      if (!cell) continue;
+
+      let isAllowed = false;
+
+      if (activeRow.type === 'text') {
+        // Text tokens can only attend causally (i.e. to previous columns)
+        if (c <= rowIdx) isAllowed = true;
+      } else if (activeRow.type === 'vision') {
+        // Vision patches attend to all image patches bidirectionally, and text before the vision block causally
+        if (targetCol.type === 'vision') {
+          isAllowed = true;
+        } else if (c < 3) { // Hardcoded index for text preceding vision block
+          isAllowed = true;
+        }
+      } else if (activeRow.type === 'audio') {
+        // Audio frames attend to all audio frames bidirectionally, plus all preceding text/vision causally
+        if (targetCol.type === 'audio') {
+          isAllowed = true;
+        } else if (c < 5) { // Prior elements
+          isAllowed = true;
+        }
+      }
+
+      if (isAllowed) {
+        if (targetCol.type === 'text') cell.classList.add('on-text');
+        else if (targetCol.type === 'vision') cell.classList.add('on-vision');
+        else if (targetCol.type === 'audio') cell.classList.add('on-audio');
+      }
+    }
+  }
+
+  // Add hover hooks to rows
+  const labelItems = document.querySelectorAll('.attn-label-item');
+  labelItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      labelItems.forEach(l => l.classList.remove('hovered'));
+      item.classList.add('hovered');
+      
+      const r = parseInt(item.dataset.row);
+      calculateAttention(r);
+    });
+  });
+
+  // Default highlight row 7 (Text token "this")
+  calculateAttention(7);
+  labelItems[7].classList.add('hovered');
+}
+
+// --- Interactive 5: MTP Speculative Emulator ---
+const btnMtpStep = document.getElementById('btn-mtp-step');
+const mtpDraftBox = document.getElementById('mtp-draft-box');
+const centroidNodesContainer = document.getElementById('centroid-nodes-container');
+
+// Create vocabulary centroids nodes
+const centroids = [
+  "Verbs", "Nouns", "Physics", "Audio QA", 
+  "Code", "Markdown", "Math symbols", "Acoustics",
+  "Spatial", "Entities", "Speech", "Images"
+];
+
+if (centroidNodesContainer) {
+  centroids.forEach((c, idx) => {
+    const node = document.createElement('div');
+    node.className = 'mtp-centroid-node';
+    node.textContent = `${idx}: ${c}`;
+    node.dataset.idx = idx;
+    centroidNodesContainer.appendChild(node);
+  });
+}
+
+let mtpStep = 0;
+btnMtpStep?.addEventListener('click', () => {
+  const nodes = document.querySelectorAll('.mtp-centroid-node');
+  
+  if (mtpStep === 0) {
+    // Stage 1: Drafter reads KV & predicts Centroids
+    mtpDraftBox.innerHTML = '<span style="color: var(--cyan); font-size: 0.72rem;">Drafter predicting centroids...</span>';
+    
+    // Highlight some centroids
+    nodes.forEach(n => n.className = 'mtp-centroid-node');
+    nodes[2].classList.add('active'); // Physics
+    nodes[6].classList.add('active'); // Math symbols
+    
+    btnMtpStep.textContent = 'Extract Fine Tokens';
+    mtpStep = 1;
+  } else if (mtpStep === 1) {
+    // Stage 2: Fine Vocabulary selection
+    mtpDraftBox.innerHTML = `
+      <span class="mtp-tok draft">x_1: "F"</span>
+      <span class="mtp-tok draft">x_2: "="</span>
+      <span class="mtp-tok draft">x_3: "m"</span>
+    `;
+    
+    nodes.forEach(n => n.classList.remove('active'));
+    nodes[2].classList.add('selected');
+    nodes[6].classList.add('selected');
+
+    btnMtpStep.textContent = 'Verify with Backbone';
+    mtpStep = 2;
+  } else if (mtpStep === 2) {
+    // Stage 3: Verification
+    mtpDraftBox.innerHTML = `
+      <span class="mtp-tok accept">x_1: "F" (OK)</span>
+      <span class="mtp-tok accept">x_2: "=" (OK)</span>
+      <span class="mtp-tok reject">x_3: "m" (REJ)</span>
+    `;
+    
+    btnMtpStep.textContent = 'Reset';
+    mtpStep = 3;
+  } else {
+    // Reset
+    mtpDraftBox.innerHTML = '<span style="color: var(--muted); font-size: 0.72rem;">Click button to start drafting...</span>';
+    nodes.forEach(n => n.className = 'mtp-centroid-node');
+    btnMtpStep.textContent = 'Run Draft Step';
+    mtpStep = 0;
+  }
+});
+
+// --- IntersectionObserver: Animate Benchmarks ---
+const benchmarksSection = document.getElementById('s-benchmarks');
+if (benchmarksSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(benchmarksSection);
+}
+</script>
+</BaseLayout>
