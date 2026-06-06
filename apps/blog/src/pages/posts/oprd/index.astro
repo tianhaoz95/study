@@ -1,0 +1,1289 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('oprd');
+---
+<BaseLayout
+  title="OPRD: On-Policy Representation Distillation for LLMs | AI/ML Deep Dives"
+  description="On-Policy Distillation (OPD) in output-space suffers from gradient variance collapse and LM-head compression bottlenecks. OPRD bypasses the LM-head, aligning intermediate representations directly for 1.44x speedups and 54% memory cuts."
+  crumb="OPRD Distillation"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Table styling */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Interactive elements */
+.interactive-container{display:grid;grid-template-columns:1fr;gap:1.5rem;margin:1rem 0}
+.chart-controls{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.chart-btn{padding:.3rem .75rem;font-size:.7rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);border-radius:4px;cursor:pointer;transition:all .15s}
+.chart-btn:hover{color:var(--text);border-color:var(--cyan)}
+.chart-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Suffix Inspector styles */
+.token-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+.tok {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--ff-mono);
+  font-size: 0.78rem;
+  color: var(--muted2);
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+.tok.supervised {
+  background: var(--purple-dim);
+  color: var(--purple-l);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+.tok.not-supervised {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.sim-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.sim-slider {
+  flex: 1;
+  accent-color: var(--purple);
+}
+.sim-slider-label {
+  font-family: var(--ff-mono);
+  font-size: 0.75rem;
+  color: var(--muted2);
+  min-width: 120px;
+}
+
+/* 3D coordinate styles */
+.bottleneck-viz-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 1rem;
+}
+.metrics-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  justify-content: center;
+}
+.metric-box {
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.metric-box-title {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-family: var(--ff-mono);
+  margin-bottom: 0.25rem;
+}
+.metric-box-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--ff-mono);
+}
+.metric-box-value.red {
+  color: #ef4444;
+}
+.metric-box-value.green {
+  color: var(--green-l);
+}
+
+/* Layer architecture visual */
+.layer-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 8px;
+}
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.layer-bar-label {
+  font-family: var(--ff-mono);
+  font-size: 0.72rem;
+  color: var(--muted2);
+  width: 90px;
+  flex-shrink: 0;
+}
+.layer-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.layer-bar {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.layer-val {
+  font-family: var(--ff-mono);
+  font-size: 0.72rem;
+  width: 45px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .bottleneck-viz-wrapper { grid-template-columns: 1fr; }
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Representation Distillation</span>
+    <span class="tag tag-cyan">On-Policy Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>OPRD: On-Policy Representation Distillation</h1>
+  <p class="lead">Output-space On-Policy Distillation (OPD) dominates language model post-training but treats the teacher as a black-box logit generator, suffering from high Monte Carlo sampling variance and vocabulary compression bottlenecks. OPRD moves supervision into the hidden-state space, achieving deterministic gradient updates, richer per-layer structural alignment, 1.44× faster training, and 54% peak memory cuts.</p>
+  <div class="post-hero-meta">
+    <span>June 6, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2606.06021</code></span>
+  </div>
+  <!-- Hero link buttons -->
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.06021" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/ShenzhiYang2000/OPRD" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-variance"><a href="#s-variance"><span class="toc-num">01</span> The Variance Trap</a></li>
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">02</span> The LM Head Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-oprd"><a href="#s-oprd"><span class="toc-num">03</span> Hidden Representation Distillation</a></li>
+    <li class="toc-item" id="toc-s-masking"><a href="#s-masking"><span class="toc-num">04</span> Target the Tail</a></li>
+    <li class="toc-item" id="toc-s-efficiency"><a href="#s-efficiency"><span class="toc-num">05</span> Pareto Efficiency</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmark Payoff</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-variance" data-code="variance">
+<div class="section-no">01 — The Variance Trap</div>
+<h2>The Late-Stage Signal Collapse in Output-Space OPD</h2>
+<p>On-policy distillation (OPD) aligns a student language model with a teacher model on trajectories sampled from the student policy. This mitigates the **exposure bias** that plagues supervised fine-tuning. However, because vocabulary sizes |V| are extremely large (e.g. |V| ≈ 150K for the Qwen series), computing the full-vocabulary KL divergence at every token position is computationally prohibitive.</p>
+
+<p>To make training feasible, production systems approximate the loss using the **sampled-token estimator**, computing next-token probability log-ratios only on the student-generated token y<sub>t</sub> ∼ p<sub>t</sub>:</p>
+
+<div class="math-block">
+  <div class="math-label">Sampled-Token OPD Objective & Gradient</div>
+  L<sub>OPD</sub>(θ) = E<sub>ŷ∼π<sub>θ</sub></sub> [ log p<sub>t</sub>(ŷ<sub>t</sub>) - log q<sub>t</sub>(ŷ<sub>t</sub>) ] <br>
+  ∇<sub>θ</sub> L<sub>OPD</sub>(θ) = E<sub>ŷ∼π<sub>θ</sub></sub> [ (log p<sub>t</sub>(ŷ<sub>t</sub>) - log q<sub>t</sub>(ŷ<sub>t</sub>)) ∇<sub>θ</sub> log p<sub>t</sub>(ŷ<sub>t</sub>) ]
+</div>
+
+<p>This formulation has a fatal mathematical flaw: it is a **single-sample Monte Carlo estimator** of the policy gradient (similar to REINFORCE). As the student model policy converges toward the teacher (p<sub>t</sub> → q<sub>t</sub>), the expected gradient signal shrinks to zero. However, the variance of the sampled-token estimator is bounded below by the Fisher information times the log-ratio variance. This variance **does not decay** as training progresses. Consequently, in the late stages of training, the optimization signal-to-noise ratio (SNR) collapses to zero, driving the policy off-course and causing the performance of the student to plateau below the teacher.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gradient-variance-simulator.canvas</span>
+    <span class="vp-hint">click to run training steps and observe SNR and accuracy curves</span>
+  </div>
+  <div class="vp-body">
+    <div class="chart-controls">
+      <button class="chart-btn active" id="sim-opd1-btn">OPD Top-1 (Sampled)</button>
+      <button class="chart-btn" id="sim-op16-btn">OPD Top-16</button>
+      <button class="chart-btn" id="sim-oprd-btn">OPRD (Ours)</button>
+      <button class="chart-btn" id="run-sim-btn" style="border-color: var(--cyan); color: var(--cyan); margin-left: auto;">Play Simulation</button>
+    </div>
+    <canvas id="variance-canvas" style="width: 100%; height: 260px; background: #0b0b0e; border: 1px solid var(--border); border-radius: 6px;"></canvas>
+  </div>
+</div>
+
+<p>As simulated above, under **Sampled-token OPD**, the gradient variance remains high while the true gradient signal shrinks, causing accuracy to plateau early. **OPRD** provides a deterministic MSE objective at the representation level: its gradient contains zero conditional sampling variance, enabling monotonic accuracy gains that steadily close the gap to the teacher.</p>
+</section>
+
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">02 — The LM Head Bottleneck</div>
+<h2>The Spectral Null Space of Output-Space Losses</h2>
+<p>Informational limits also restrict output-space distillation. In any output-space variant, the teacher is treated as a black-box probability oracle. The loss functions match probabilities p<sub>t</sub> and q<sub>t</sub> produced by the language model head W<sub>head</sub> ∈ ℝ<sup>|V| × d</sup> acting on the final hidden state h<sub>t</sub> ∈ ℝ<sup>d</sup>. This ignores the entire stack of intermediate hidden representations that the teacher computed.</p>
+
+<p>Because the vocabulary dimension |V| is much larger than the hidden dimension d, the projection mapping is highly low-rank and ill-conditioned. Additionally, the softmax function is invariant to additive constant shifts. We can formalize this loss-blind region as the **effective null space** of the LM head:</p>
+
+<div class="math-block">
+  <div class="math-label">Effective Null Space of the LM Head</div>
+  N<sub>W</sub> = {"{"} Δh ∈ ℝ<sup>d</sup> : W<sub>head</sub> Δh ∈ span{"{"}1{"}"} {"}"}
+</div>
+
+<p>For any student representation h<sub>θ</sub> and teacher representation h<sub>T</sub>, if their difference lies within this null space (h<sub>θ</sub> - h<sub>T</sub> ∈ N<sub>W</sub>), the resulting next-token probability distribution is *exactly* identical. Thus, any output-space loss is precisely **zero**, leaving large directions of the hidden-state space unconstrained. Near the boundary, deviations along low-singular-value right-singular vectors v<sub>d</sub> can be orders of magnitude larger than along top-singular directions while yielding the same loss. Output-space objectives are blind to these internal representational misalignments.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">lm-head-projection-inspector.canvas</span>
+    <span class="vp-hint">slide the slider to shift student hidden states along the null space direction</span>
+  </div>
+  <div class="vp-body">
+    <div class="bottleneck-viz-wrapper">
+      <canvas id="bottleneck-canvas" style="width: 100%; height: 240px; background: #0b0b0e; border: 1px solid var(--border); border-radius: 6px;"></canvas>
+      <div class="metrics-display">
+        <div class="sim-slider-container" style="flex-direction: column; align-items: stretch; margin: 0;">
+          <div class="sim-slider-label">Null Space Offset (Δh ∈ N<sub>W</sub>)</div>
+          <input type="range" id="bottleneck-slider" class="sim-slider" min="-100" max="100" value="0" />
+        </div>
+        <div class="metric-box">
+          <div class="metric-box-title">Output-Space Logit Shift</div>
+          <div class="metric-box-value green" id="logit-shift-val">0.00</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-box-title">Output Prob Error (KL)</div>
+          <div class="metric-box-value green" id="kl-error-val">0.0000</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-box-title">Hidden State Error (MSE)</div>
+          <div class="metric-box-value" id="mse-error-val">0.0000</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>As you slide the offset, the student hidden state h<sub>θ</sub> deviates significantly from the teacher h<sub>T</sub> along the null-space direction. However, the output probabilities remain identical (zero KL error). Output-space OPD cannot correct this alignment error, whereas OPRD directly penalizes the MSE discrepancy, ensuring representation-level congruence.</p>
+</section>
+
+<section id="s-oprd" data-code="oprd_loss">
+<div class="section-no">03 — Hidden Representation Distillation</div>
+<h2>Moving Supervision from Output to Input</h2>
+<p>To resolve both the variance trap and the information bottleneck, we propose **On-Policy Representation Distillation (OPRD)**. Instead of querying logits after the LM head, OPRD extracts intermediate representations h<sub>t</sub><sup>(l)</sup> across selected layers and positions on the same on-policy rollouts, bypassing the LM head entirely.</p>
+
+<p>Given a set of distilled layers L<sub>layer</sub> ⊆ {"{"}1, ..., L{"}"} and a position mask m<sub>t</sub> ∈ {"{"}0, 1{"}"} identifying response positions P(ŷ) to supervise, OPRD minimizes the masked mean-squared error:</p>
+
+<div class="math-block">
+  <div class="math-label">OPRD Loss Function</div>
+  L<sub>OPRD</sub>(θ) = E<sub>x, ŷ</sub> [ (1 / (∑ m<sub>t</sub>)) ∑<sub>t=1</sub><sup>T</sup> m<sub>t</sub> · (1 / |L<sub>layer</sub>|) ∑<sub>l∈L<sub>layer</sub></sub> (1/d) || h<sub>θ, t</sub><sup>(l)</sup> - sg(h<sub>T, t</sub><sup>(l)</sup>) ||<sub>2</sub><sup>2</sup> ]
+</div>
+
+<p>Here, sg(·) represents the stop-gradient operator applied to the teacher representations. When the student and teacher models have different hidden widths (d<sub>s</sub> ≠ d<sub>T</sub>), we introduce a lightweight linear projector W ∈ ℝ<sup>d<sub>T</sub> × d<sub>s</sub></sup> on the student representations, which is trained jointly with the backbone. This objective provides dense, deterministic supervision: its gradient is a direct function of the intermediate activations, carrying zero additional sampling variance and exposing orders of magnitude more scalar signals than output probabilities.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">oprd-layer-alignment-tracker</span>
+    <span class="vp-hint">slide to inspect student-teacher representation alignment across layers</span>
+  </div>
+  <div class="vp-body">
+    <div class="sim-slider-container">
+      <div class="sim-slider-label" id="layer-slider-label">Distillation Layer: 28</div>
+      <input type="range" id="layer-slider" class="sim-slider" min="1" max="28" value="28" />
+    </div>
+    <div class="layer-grid">
+      <div class="layer-row">
+        <div class="layer-bar-label">Early (1-8)</div>
+        <div class="layer-track"><div class="layer-bar" id="layer-bar-early" style="background: var(--green); width: 99%;"></div></div>
+        <div class="layer-val" id="layer-val-early">99.2%</div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-bar-label">Middle (9-18)</div>
+        <div class="layer-track"><div class="layer-bar" id="layer-bar-mid" style="background: var(--cyan); width: 95.8%;"></div></div>
+        <div class="layer-val" id="layer-val-mid">95.8%</div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-bar-label">Late (19-28)</div>
+        <div class="layer-track"><div class="layer-bar" id="layer-bar-late" style="background: var(--purple); width: 96.5%;"></div></div>
+        <div class="layer-val" id="layer-val-late">96.5%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>By default, OPRD aligns representations uniformly across the network. If we adjust the slider to distill specific layers, we notice that early layers are already highly aligned (>99%), whereas late layers show the largest divergence. This indicates that representation-level alignment is most critical in the late blocks of the model.</p>
+</section>
+
+<section id="s-masking" data-code="suffix_mask">
+<div class="section-no">04 — Target the Tail</div>
+<h2>Divergence Concentrates in the Suffix</h2>
+<p>A natural design question is: *which response positions should be supervised by OPRD?* For reasoning models generating long chain-of-thought (CoT) responses, supervising every single token is memory-intensive. To optimize compute, we analyze the spatial distribution of student-teacher representational divergence on student rollouts.</p>
+
+<p>Measuring the cosine similarity between student and teacher representations reveals a striking pattern: the student's hidden states are highly aligned with the teacher's at the beginning of the response (>97% similarity for the first 1600 tokens). This is because the early prompt-following preamble is straightforward. However, the similarity drops significantly (<92%) at the tail of the response, precisely where the model commits to a final answer.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">suffix-masking-token-inspector</span>
+    <span class="vp-hint">adjust the slider to change the supervised suffix length (k)</span>
+  </div>
+  <div class="vp-body">
+    <div class="sim-slider-container">
+      <div class="sim-slider-label" id="suffix-slider-label">Suffix Length (k): 15 tokens</div>
+      <input type="range" id="suffix-slider" class="sim-slider" min="0" max="25" value="15" />
+    </div>
+    <div class="token-container" id="token-inspector-container"></div>
+    <div style="margin-top: 1rem; font-size: 0.78rem; color: var(--muted); line-height: 1.5; display: flex; justify-content: space-between;">
+      <span>OPRD Masked Loss Status: <strong id="mask-status" style="color: var(--purple-l);">Active</strong></span>
+      <span>Computations Saved: <strong id="saved-comp-val" style="color: var(--cyan);">40%</strong></span>
+    </div>
+  </div>
+</div>
+
+<p>By dragging the slider, you can define a suffix window of length k (highlighted in purple). Supervising only the last k tokens (k = 2000 in mathematical reasoning runs) targets the exact positions where student and teacher representations disagree, saving significant compute on the already-aligned prefix tokens.</p>
+</section>
+
+<section id="s-efficiency" data-code="efficiency">
+<div class="section-no">05 — Pareto Efficiency</div>
+<h2>Bypassing the Vocabulary Dimension</h2>
+<p>In addition to its informational advantages, OPRD-only training is strictly cheaper than output-space variants. Logit-based distillation models require computing and materializing the student next-token probability distribution tensor p<sub>t</sub> ∈ ℝ<sup>B × T × |V|</sup>, invoking a vocabulary-wide log-softmax, and backpropagating through the massive language model head matrix W<sub>head</sub> ∈ ℝ<sup>|V| × d</sup>.</p>
+
+<p>Because OPRD operates entirely before the LM head, it bypasses the vocabulary dimension entirely in the loss path. The memory footprint and computation scale with the hidden dimension d (typically 1536 to 4096) rather than the vocabulary size |V| (typically 150,000). This yields a massive reduction in actor-update peak memory and training wall-clock time.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gpu-memory-allocator.interactive</span>
+    <span class="vp-hint">adjust sequence length to see transient memory profiles</span>
+  </div>
+  <div class="vp-body">
+    <div class="sim-slider-container">
+      <div class="sim-slider-label" id="memory-slider-label">Seq Length (T): 8192</div>
+      <input type="range" id="memory-slider" class="sim-slider" min="2048" max="16384" step="2048" value="8192" />
+    </div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">OPD Top-16 Logits</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-op16-mem" style="background: var(--red); width: 85%;"><span>22.5 GB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">OPD Top-1 Logits</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-op1-mem" style="background: var(--amber); width: 55%;"><span>15.1 GB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">OPRD Hidden-States</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-oprd-mem" style="background: var(--green); width: 35%;"><span>10.2 GB</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>At T = 16384 (common for reasoning traces), standard top-16 OPD requires 45.0 GB of transient memory on actor updates, while OPRD cuts this by **54%** to 20.5 GB. Training wall-clock time also drops from 812 minutes to 563 minutes for 500 optimizer steps, representing a **1.44× speedup** on the same hardware.</p>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmark Payoff</div>
+<h2>Closing the Gap on Mathematics Reasoning</h2>
+<p>We evaluate OPRD on competition-level mathematical reasoning benchmarks using Qwen-1.5B models (distilling a DeepSeek-R1 student from a JustRL teacher). We report accuracy under the Avg@16 protocol (average accuracy of 16 independent rollouts per prompt) on AIME 2024, AIME 2025, and AIMO.</p>
+
+<p>While standard output-space baselines plateau several points below the teacher, OPRD effectively closes the gap on all three benchmarks. Furthermore, OPRD-trained models produce shorter, more concise reasoning chains, converging to ~5,700 tokens compared to ~7,000 tokens for OPD variants. This translates to an additional practical inference-time speedup.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">distillation-accuracy-benchmarks</span>
+    <span class="vp-hint">select benchmark to update scores</span>
+  </div>
+  <div class="vp-body">
+    <div class="chart-controls">
+      <button class="chart-btn active" id="bench-aime24-btn">AIME 2024</button>
+      <button class="chart-btn" id="bench-aime25-btn">AIME 2025</button>
+      <button class="chart-btn" id="bench-aimo-btn">AIMO Validation</button>
+    </div>
+    
+    <div class="results-bars" id="bench-bars-container">
+      <!-- Bars will be inserted dynamically by JS -->
+    </div>
+    
+    <table class="results-table" id="bench-table-el">
+      <!-- Table will be populated dynamically -->
+    </table>
+  </div>
+</div>
+
+<p>The results demonstrate that hidden-state representations are an under-exploited resource in model distillation. By treating the teacher not merely as a logit oracle but as a structured source of layered internal computation, OPRD allows student models to close the gap to their teacher while saving substantial training compute.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">opd_variance.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Variance Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="variance">variance</button>
+    <button class="cs-tab" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="oprd_loss">oprd_loss</button>
+    <button class="cs-tab" data-panel="suffix_mask">suffix_mask</button>
+    <button class="cs-tab" data-panel="efficiency">efficiency</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- Panel Variance -->
+    <div class="cs-panel active" id="panel-variance">
+      <pre class="cs-pre"><span class="cs-line cmt"># Variance analysis of next-token probability log-ratios</span>
+<span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">opd_gradient_variance</span>(p_logits, q_logits, sampled_token):</span>
+<span class="cs-line cmt">    # p: student next-token prob, q: teacher next-token prob</span>
+<span class="cs-line">    p = torch.softmax(p_logits, dim=-1)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # REINFORCE-style token advantage reward</span>
+<span class="cs-line hl-p">    advantage = torch.log(p) - torch.log_softmax(q_logits, dim=-1)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Variance of the sampled-token estimator at position t</span>
+<span class="cs-line hl-c">    expected_val = (p * advantage).sum(dim=-1)</span>
+<span class="cs-line hl-c">    estimator_variance = (p * (advantage - expected_val.unsqueeze(-1))**2).sum(dim=-1)</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-g">    # Variance does NOT decay to zero as p -> q</span>
+<span class="cs-line">    <span class="kw">return</span> estimator_variance</span></pre>
+    </div>
+
+    <!-- Panel Bottleneck -->
+    <div class="cs-panel" id="panel-bottleneck">
+      <pre class="cs-pre"><span class="cs-line cmt"># SVD analysis of language model head projection W_head</span>
+<span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">get_effective_null_space_projection</span>(W_head):</span>
+<span class="cs-line cmt">    # W_head shape: [V, d], typically V >> d</span>
+<span class="cs-line">    U, S, V = torch.linalg.svd(W_head, full_matrices=False)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Smallest singular value determines the null space stretch</span>
+<span class="cs-line hl-c">    sigma_min = S[-1]</span>
+<span class="cs-line hl-c">    sigma_max = S[0]</span>
+<span class="cs-line hl-a">    spectral_ratio = (sigma_max / sigma_min) ** 2</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Aligning along low-singular-value vectors has no output impact</span>
+<span class="cs-line hl-g">    null_vector = V[-1, :] </span>
+<span class="cs-line">    <span class="kw">return</span> null_vector, spectral_ratio</span></pre>
+    </div>
+
+    <!-- Panel OPRD Loss -->
+    <div class="cs-panel" id="panel-oprd_loss">
+      <pre class="cs-pre"><span class="cs-line cmt"># PyTorch implementation of On-Policy Representation Distillation</span>
+<span class="cs-line"><span class="kw">import</span> torch.nn <span class="kw">as</span> nn</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">OPRDLoss</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(self, distilled_layers, student_dim, teacher_dim):</span>
+<span class="cs-line">        super().__init__()</span>
+<span class="cs-line">        self.layers = distilled_layers</span>
+<span class="cs-line">        # Projector for size mismatch (if ds != dT)</span>
+<span class="cs-line hl-p">        self.proj = nn.Linear(student_dim, teacher_dim) if student_dim != teacher_dim else nn.Identity()</span>
+<span class="cs-line">        </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(self, student_hiddens, teacher_hiddens, mask):</span>
+<span class="cs-line cmt">        # hiddens shapes: list of length |L_layer| with [B, T, d] tensors</span>
+<span class="cs-line">        total_mse = 0.0</span>
+<span class="cs-line">        <span class="kw">for</span> l <span class="kw">in</span> self.layers:</span>
+<span class="cs-line">            s_h = self.proj(student_hiddens[l])</span>
+<span class="cs-line hl-c">            t_h = teacher_hiddens[l].detach() # Stop gradient on teacher</span>
+<span class="cs-line">            </span>
+<span class="cs-line cmt">            # Masked Mean Squared Error</span>
+<span class="cs-line hl-g">            sq_err = ((s_h - t_h) ** 2).mean(dim=-1) # [B, T]</span>
+<span class="cs-line hl-g">            total_mse += (sq_err * mask).sum() / mask.sum()</span>
+<span class="cs-line">            </span>
+<span class="cs-line">        <span class="kw">return</span> total_mse / len(self.layers)</span></pre>
+    </div>
+
+    <!-- Panel Suffix Mask -->
+    <div class="cs-panel" id="panel-suffix_mask">
+      <pre class="cs-pre"><span class="cs-line cmt"># Suffix masking construction for chain-of-thought rollouts</span>
+<span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">get_suffix_mask</span>(input_ids, attention_mask, k_suffix):</span>
+<span class="cs-line cmt">    # input_ids: [B, T] student generated tokens</span>
+<span class="cs-line">    B, T = input_ids.shape</span>
+<span class="cs-line">    mask = torch.zeros_like(input_ids, dtype=torch.float32)</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-c">    # Determine true sequence lengths</span>
+<span class="cs-line">    lengths = attention_mask.sum(dim=-1)</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    <span class="kw">for</span> i <span class="kw">in</span> range(B):</span>
+<span class="cs-line">        end = lengths[i]</span>
+<span class="cs-line hl-p">        start = max(0, end - k_suffix)</span>
+<span class="cs-line hl-p">        mask[i, start:end] = 1.0</span>
+<span class="cs-line">        </span>
+<span class="cs-line">    <span class="kw">return</span> mask</span></pre>
+    </div>
+
+    <!-- Panel Efficiency -->
+    <div class="cs-panel" id="panel-efficiency">
+      <pre class="cs-pre"><span class="cs-line cmt"># Bypassing logit computation on student update</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">actor_update_step</span>(student_model, optimizer, batch, mask):</span>
+<span class="cs-line cmt">    # We ONLY forward the backbone to get hidden states</span>
+<span class="cs-line hl-p">    outputs = student_model.backbone(batch['input_ids'])</span>
+<span class="cs-line">    hiddens = outputs.hidden_states # list of [B, T, d]</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # Bypassing: student_model.lm_head(hiddens) is NEVER called!</span>
+<span class="cs-line hl-c">    loss = oprd_loss_fn(hiddens, batch['teacher_hiddens'], mask)</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    loss.backward()</span>
+<span class="cs-line">    optimizer.step()</span>
+<span class="cs-line cmt">    # Saves O(B * T * V) activation memory</span></pre>
+    </div>
+
+    <!-- Panel Results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre"><span class="cs-line cmt"># Main experimental configurations and final metrics</span>
+<span class="cs-line">experimental_config = {</span>
+<span class="cs-line">    <span class="str">"student"</span>: <span class="str">"DeepSeek-R1-Distill-1.5B"</span>,</span>
+<span class="cs-line">    <span class="str">"teacher"</span>: <span class="str">"JustRL-Deepseek-1.5B"</span>,</span>
+<span class="cs-line">    <span class="str">"optimizer"</span>: <span class="str">"AdamW"</span>,</span>
+<span class="cs-line">    <span class="str">"peak_lr"</span>: 1e-5,</span>
+<span class="cs-line hl-c">    <span class="str">"distilled_layers"</span>: <span class="str">"all_28"</span>,</span>
+<span class="cs-line hl-c">    <span class="str">"suffix_k"</span>: 2000,</span>
+<span class="cs-line hl-a">    <span class="str">"aime24_accuracy"</span>: 49.8,</span>
+<span class="cs-line hl-a">    <span class="str">"aimo_accuracy"</span>: 79.1</span>
+<span class="cs-line">}</span></pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// TOC + sidebar toggles
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// Code sidebar tab switching
+const tabMeta = {
+  variance:   { file: 'opd_variance.py',        title: 'The Variance Trap' },
+  bottleneck: { file: 'lm_bottleneck.py',       title: 'The LM Head Bottleneck' },
+  oprd_loss:  { file: 'oprd_loss.py',           title: 'Hidden Representation Distillation' },
+  suffix_mask: { file: 'suffix_mask.py',        title: 'Target the Tail' },
+  efficiency: { file: 'efficiency.py',          title: 'Pareto Efficiency' },
+  results:    { file: 'results.py',             title: 'Benchmark Payoff' },
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// IntersectionObserver - sync TOC + sidebar tab on scroll
+const sectionMap = {
+  's-variance': 'variance',
+  's-bottleneck': 'bottleneck',
+  's-oprd': 'oprd_loss',
+  's-masking': 'suffix_mask',
+  's-efficiency': 'efficiency',
+  's-results': 'results'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ----------------------------------------------------
+// INTERACTIVE 1: Gradient Variance Simulation
+// ----------------------------------------------------
+const varCanvas = document.getElementById('variance-canvas');
+if (varCanvas) {
+  const ctx = varCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let animId = null;
+  let step = 0;
+  let mode = 'opd1'; // opd1, op16, oprd
+  let points = [];
+  
+  function resizeCanvas() {
+    const W = varCanvas.clientWidth;
+    const H = 260;
+    varCanvas.width = W * DPR;
+    varCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawChart();
+  }
+
+  function initSim(m) {
+    mode = m;
+    step = 0;
+    points = [];
+    if (animId) cancelAnimationFrame(animId);
+    points.push({ step: 0, variance: mode === 'oprd' ? 0 : 25, accuracy: 32.9 });
+    drawChart();
+  }
+
+  function simulate() {
+    if (step >= 100) {
+      if (animId) cancelAnimationFrame(animId);
+      return;
+    }
+    step++;
+    const prev = points[points.length - 1];
+    
+    let variance = 0;
+    let accuracy = 32.9;
+    
+    if (mode === 'opd1') {
+      variance = 20 + Math.random() * 15;
+      accuracy = prev.accuracy + (1.2 * (100 - step) / 100) + (Math.random() - 0.5) * 1.5;
+      if (accuracy > 42.3) accuracy = 42.3 + (Math.random() - 0.5) * 0.8;
+    } else if (mode === 'op16') {
+      variance = 12 + Math.random() * 6;
+      accuracy = prev.accuracy + (1.5 * (100 - step) / 100) + (Math.random() - 0.5) * 0.8;
+      if (accuracy > 47.1) accuracy = 47.1 + (Math.random() - 0.5) * 0.5;
+    } else {
+      variance = Math.max(0, 0.5 * (100 - step) / 100);
+      accuracy = prev.accuracy + (1.8 * (100 - step) / 100) + (Math.random() - 0.2) * 0.3;
+      if (accuracy > 49.8) accuracy = 49.8 + (Math.random() - 0.3) * 0.2;
+    }
+    
+    points.push({ step, variance, accuracy });
+    drawChart();
+    animId = requestAnimationFrame(simulate);
+  }
+
+  function drawChart() {
+    const W = varCanvas.width / DPR;
+    const H = varCanvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+    
+    // Grid Lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 5; i++) {
+      let x = (W / 5) * i;
+      ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, H - 30); ctx.stroke();
+      let y = 20 + ((H - 50) / 5) * i;
+      ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 40, y); ctx.stroke();
+    }
+    
+    // Axes labels
+    ctx.fillStyle = 'var(--muted)';
+    ctx.font = '9px var(--ff-mono)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Training Step', W / 2, H - 10);
+    
+    ctx.save();
+    ctx.translate(15, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Accuracy (%)', 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(W - 15, H / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText('Gradient Variance', 0, 0);
+    ctx.restore();
+
+    if (points.length < 2) return;
+    
+    // Map functions
+    const mapX = (s) => 40 + (s / 100) * (W - 80);
+    const mapAcc = (a) => H - 30 - ((a - 30) / 25) * (H - 50);
+    const mapVar = (v) => H - 30 - (v / 40) * (H - 50);
+    
+    // Draw Accuracy Curve
+    ctx.beginPath();
+    ctx.strokeStyle = 'var(--cyan)';
+    ctx.lineWidth = 2.5;
+    points.forEach((p, idx) => {
+      let x = mapX(p.step);
+      let y = mapAcc(p.accuracy);
+      if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Draw Variance Curve
+    ctx.beginPath();
+    ctx.strokeStyle = 'var(--purple)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    points.forEach((p, idx) => {
+      let x = mapX(p.step);
+      let y = mapVar(p.variance);
+      if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw final values
+    const last = points[points.length - 1];
+    ctx.fillStyle = 'var(--cyan-l)';
+    ctx.font = '10px var(--ff-mono)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Acc: ${last.accuracy.toFixed(1)}%`, mapX(last.step) - 70, mapAcc(last.accuracy) - 8);
+    
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.fillText(`Var: ${last.variance.toFixed(1)}`, mapX(last.step) - 70, mapVar(last.variance) + 12);
+  }
+
+  document.getElementById('sim-opd1-btn')?.addEventListener('click', (e) => {
+    document.querySelectorAll('#s-variance .chart-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    initSim('opd1');
+  });
+  document.getElementById('sim-op16-btn')?.addEventListener('click', (e) => {
+    document.querySelectorAll('#s-variance .chart-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    initSim('op16');
+  });
+  document.getElementById('sim-oprd-btn')?.addEventListener('click', (e) => {
+    document.querySelectorAll('#s-variance .chart-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    initSim('oprd');
+  });
+  document.getElementById('run-sim-btn')?.addEventListener('click', () => {
+    initSim(mode);
+    simulate();
+  });
+
+  window.addEventListener('resize', resizeCanvas);
+  initSim('opd1');
+  setTimeout(resizeCanvas, 200);
+}
+
+// ----------------------------------------------------
+// INTERACTIVE 2: LM Head Projection (Null Space)
+// ----------------------------------------------------
+const btnCanvas = document.getElementById('bottleneck-canvas');
+const btnSlider = document.getElementById('bottleneck-slider');
+if (btnCanvas && btnSlider) {
+  const ctx = btnCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  
+  function drawBottleneck() {
+    const W = btnCanvas.clientWidth;
+    const H = 240;
+    btnCanvas.width = W * DPR;
+    btnCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    
+    ctx.clearRect(0, 0, W, H);
+    
+    const offset = parseFloat(btnSlider.value); // -100 to 100
+    
+    // Draw 3D-like coordinate system
+    const ox = 70;
+    const oy = H - 60;
+    
+    // Draw axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + 180, oy); ctx.stroke(); // X
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy - 140); ctx.stroke(); // Y
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox - 40, oy + 40); ctx.stroke(); // Z (3D depth)
+    
+    // Draw Softmax projection plane (a flat horizontal green plane)
+    ctx.fillStyle = 'rgba(6,182,212,0.08)';
+    ctx.strokeStyle = 'rgba(6,182,212,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(ox + 40, oy - 80);
+    ctx.lineTo(ox + 200, oy - 80);
+    ctx.lineTo(ox + 160, oy - 40);
+    ctx.lineTo(ox, oy - 40);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    
+    ctx.fillStyle = 'var(--cyan)';
+    ctx.font = '8px var(--ff-mono)';
+    ctx.fillText('LM Head Softmax Projection Plane', ox + 15, oy - 85);
+    
+    // Teacher Hidden State Vector (h_T)
+    const tx = ox + 100;
+    const ty = oy - 90;
+    ctx.strokeStyle = 'var(--purple)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    // Arrow head
+    drawArrowhead(ox, oy, tx, ty, 'var(--purple)');
+    
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.font = '9px var(--ff-mono)';
+    ctx.fillText('h_T (Teacher)', tx - 10, ty - 10);
+    
+    // Student Hidden State Vector (h_theta)
+    // Shift is along the null space direction (which projects to the exact same spot on the plane)
+    const sx = tx + (offset * 0.4);
+    const sy = ty - (offset * 0.1);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+    drawArrowhead(ox, oy, sx, sy, '#ef4444');
+    
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('h_θ (Student)', sx + 5, sy - 5);
+    
+    // Draw null space line of shift
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(tx - 40, ty + 10);
+    ctx.lineTo(tx + 40, ty - 10);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw projection lines onto the plane
+    ctx.strokeStyle = 'rgba(6,182,212,0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([1, 2]);
+    // Both teacher and student project to the SAME spot on the softmax plane
+    const px = tx;
+    const py = oy - 60;
+    
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(px, py); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(px, py); ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Projected point on plane
+    ctx.fillStyle = 'var(--cyan)';
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    ctx.fillText('p(v) = q(v)', px + 8, py + 3);
+    
+    // Update metrics
+    const klError = 0.0000;
+    const logitShift = Math.abs(offset * 0.05);
+    const mseError = (offset * offset) / 2500;
+    
+    document.getElementById('logit-shift-val').textContent = logitShift.toFixed(2);
+    document.getElementById('kl-error-val').textContent = klError.toFixed(4);
+    const mseEl = document.getElementById('mse-error-val');
+    mseEl.textContent = mseError.toFixed(4);
+    
+    if (mseError > 0.01) {
+      mseEl.className = 'metric-box-value red';
+    } else {
+      mseEl.className = 'metric-box-value green';
+    }
+  }
+  
+  function drawArrowhead(fromx, fromy, tox, toy, color) {
+    const angle = Math.atan2(toy - fromy, tox - fromx);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(tox, toy);
+    ctx.lineTo(tox - 8 * Math.cos(angle - Math.PI / 6), toy - 8 * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(tox - 8 * Math.cos(angle + Math.PI / 6), toy - 8 * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  }
+  
+  btnSlider.addEventListener('input', drawBottleneck);
+  window.addEventListener('resize', drawBottleneck);
+  setTimeout(drawBottleneck, 200);
+}
+
+// ----------------------------------------------------
+// INTERACTIVE 3: Layer Alignment Tracker
+// ----------------------------------------------------
+const layerSlider = document.getElementById('layer-slider');
+const layerSliderLabel = document.getElementById('layer-slider-label');
+if (layerSlider && layerSliderLabel) {
+  function updateLayers() {
+    const l = parseInt(layerSlider.value);
+    layerSliderLabel.textContent = `Distillation Layer: ${l}`;
+    
+    // Dynamic cosine similarity calculations (simulated values based on layer index)
+    let early = 99.2;
+    let mid = 95.8;
+    let late = 96.5;
+    
+    if (l < 9) {
+      early = 98.0 + (l / 8) * 1.5;
+      mid = 91.0 + (l / 8) * 2.0;
+      late = 85.0 + (l / 8) * 4.0;
+    } else if (l < 19) {
+      early = 99.2;
+      mid = 94.0 + ((l - 8) / 10) * 1.8;
+      late = 89.0 + ((l - 8) / 10) * 3.0;
+    } else {
+      early = 99.2;
+      mid = 95.8;
+      late = 92.0 + ((l - 18) / 10) * 4.5;
+    }
+    
+    document.getElementById('layer-bar-early').style.width = `${early}%`;
+    document.getElementById('layer-val-early').textContent = `${early.toFixed(1)}%`;
+    
+    document.getElementById('layer-bar-mid').style.width = `${mid}%`;
+    document.getElementById('layer-val-mid').textContent = `${mid.toFixed(1)}%`;
+    
+    document.getElementById('layer-bar-late').style.width = `${late}%`;
+    document.getElementById('layer-val-late').textContent = `${late.toFixed(1)}%`;
+  }
+  layerSlider.addEventListener('input', updateLayers);
+  updateLayers();
+}
+
+// ----------------------------------------------------
+// INTERACTIVE 4: Suffix Masking Inspector
+// ----------------------------------------------------
+const suffixSlider = document.getElementById('suffix-slider');
+const suffixSliderLabel = document.getElementById('suffix-slider-label');
+const tokenContainer = document.getElementById('token-inspector-container');
+
+const demoTokens = [
+  "<thought>", "Let", "n^2", "+", "19n", "+", "92", "=", "k^2", "for", "some", "integer", "k.", "Then", 
+  "(2n+19)^2", "-", "4k^2", "=", "-7.", "This", "factors", "as", "(2n+19-2k)", "(2n+19+2k)", "=", "-7.", 
+  "The", "factors", "of", "-7", "are", "1,", "-1,", "7,", "-7.", "Solving", "gives", "n", "=", "-6", 
+  "or", "-13.", "</thought>", "Solution:", "-6,", "-13."
+];
+
+if (suffixSlider && suffixSliderLabel && tokenContainer) {
+  function renderTokens() {
+    const k = parseInt(suffixSlider.value);
+    suffixSliderLabel.textContent = `Suffix Length (k): ${k} tokens`;
+    
+    tokenContainer.innerHTML = '';
+    const n = demoTokens.length;
+    const startIndex = n - k;
+    
+    demoTokens.forEach((tok, idx) => {
+      const span = document.createElement('span');
+      span.textContent = tok;
+      span.className = 'tok';
+      
+      if (idx >= startIndex) {
+        span.className = 'tok supervised';
+      } else {
+        span.className = 'tok not-supervised';
+      }
+      tokenContainer.appendChild(span);
+    });
+    
+    // Update labels
+    const maskStatus = document.getElementById('mask-status');
+    const savedComp = document.getElementById('saved-comp-val');
+    
+    if (k === 0) {
+      maskStatus.textContent = 'Inactive';
+      maskStatus.style.color = '#ef4444';
+      savedComp.textContent = '100%';
+    } else {
+      maskStatus.textContent = 'Active';
+      maskStatus.style.color = 'var(--purple-l)';
+      const saved = Math.round((1 - (k / n)) * 100);
+      savedComp.textContent = `${saved}%`;
+    }
+  }
+  suffixSlider.addEventListener('input', renderTokens);
+  renderTokens();
+}
+
+// ----------------------------------------------------
+// INTERACTIVE 5: Peak GPU Memory Profile
+// ----------------------------------------------------
+const memorySlider = document.getElementById('memory-slider');
+const memorySliderLabel = document.getElementById('memory-slider-label');
+if (memorySlider && memorySliderLabel) {
+  function updateMemory() {
+    const t = parseInt(memorySlider.value);
+    memorySliderLabel.textContent = `Seq Length (T): ${t}`;
+    
+    // Scale memory quadratically or linearly
+    const factor = t / 8192;
+    const op16Mem = 22.5 * factor * (1 + (factor - 1) * 0.2);
+    const op1Mem = 15.1 * factor;
+    const oprdMem = 10.2 * factor * 0.7; // Bypasses vocabulary dimension
+    
+    const barOp16 = document.getElementById('bar-op16-mem');
+    const barOp1 = document.getElementById('bar-op1-mem');
+    const barOprd = document.getElementById('bar-oprd-mem');
+    
+    barOp16.style.width = `${Math.min(100, (op16Mem / 45) * 100)}%`;
+    barOp16.querySelector('span').textContent = `${op16Mem.toFixed(1)} GB`;
+    
+    barOp1.style.width = `${Math.min(100, (op1Mem / 45) * 100)}%`;
+    barOp1.querySelector('span').textContent = `${op1Mem.toFixed(1)} GB`;
+    
+    barOprd.style.width = `${Math.min(100, (oprdMem / 45) * 100)}%`;
+    barOprd.querySelector('span').textContent = `${oprdMem.toFixed(1)} GB`;
+  }
+  memorySlider.addEventListener('input', updateMemory);
+  updateMemory();
+}
+
+// ----------------------------------------------------
+// INTERACTIVE 6: Distillation Accuracy Benchmarks
+// ----------------------------------------------------
+const benchmarksData = {
+  aime24: {
+    headers: ["Method", "AIME 24 Avg@16", "Improvement vs. Student"],
+    rows: [
+      { name: "Teacher (JustRL-1.5B)", score: 50.8, fill: false, color: "rgba(6, 182, 212, 0.4)" },
+      { name: "OPRD (Ours)", score: 49.8, fill: true, color: "linear-gradient(90deg, var(--purple), var(--purple-l))", highlight: true, delta: "+16.9" },
+      { name: "OPD Top-16", score: 47.1, fill: true, color: "var(--cyan)", delta: "+14.2" },
+      { name: "OPD Top-1 (Sampled)", score: 42.3, fill: true, color: "rgba(255,255,255,0.15)", delta: "+9.4" },
+      { name: "Student (R1-Distill-1.5B)", score: 32.9, fill: true, color: "var(--border-hi)", delta: "0.0" }
+    ]
+  },
+  aime25: {
+    headers: ["Method", "AIME 25 Avg@16", "Improvement vs. Student"],
+    rows: [
+      { name: "Teacher (JustRL-1.5B)", score: 35.6, fill: false, color: "rgba(6, 182, 212, 0.4)" },
+      { name: "OPRD (Ours)", score: 34.6, fill: true, color: "linear-gradient(90deg, var(--purple), var(--purple-l))", highlight: true, delta: "+12.7" },
+      { name: "OPD Top-16", score: 34.0, fill: true, color: "var(--cyan)", delta: "+12.1" },
+      { name: "OPD Top-1 (Sampled)", score: 33.5, fill: true, color: "rgba(255,255,255,0.15)", delta: "+11.6" },
+      { name: "Student (R1-Distill-1.5B)", score: 21.9, fill: true, color: "var(--border-hi)", delta: "0.0" }
+    ]
+  },
+  aimo: {
+    headers: ["Method", "AIMO Avg@16", "Improvement vs. Student"],
+    rows: [
+      { name: "Teacher (JustRL-1.5B)", score: 79.5, fill: false, color: "rgba(6, 182, 212, 0.4)" },
+      { name: "OPRD (Ours)", score: 79.1, fill: true, color: "linear-gradient(90deg, var(--purple), var(--purple-l))", highlight: true, delta: "+16.9" },
+      { name: "OPD Top-1 (Sampled)", score: 77.0, fill: true, color: "rgba(255,255,255,0.15)", delta: "+14.8" },
+      { name: "OPD Top-16", score: 76.5, fill: true, color: "var(--cyan)", delta: "+14.3" },
+      { name: "Student (R1-Distill-1.5B)", score: 62.2, fill: true, color: "var(--border-hi)", delta: "0.0" }
+    ]
+  }
+};
+
+const benchBars = document.getElementById('bench-bars-container');
+const benchTable = document.getElementById('bench-table-el');
+
+function showBenchmark(key) {
+  if (!benchBars || !benchTable) return;
+  const current = benchmarksData[key];
+  
+  benchBars.innerHTML = '';
+  current.rows.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    label.textContent = r.name;
+    
+    const track = document.createElement('div');
+    track.className = 'bar-track';
+    
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.background = r.color;
+    fill.style.width = '0%';
+    fill.innerHTML = `<span>${r.score.toFixed(1)}%</span>`;
+    
+    track.appendChild(fill);
+    row.appendChild(label);
+    row.appendChild(track);
+    benchBars.appendChild(row);
+    
+    setTimeout(() => {
+      fill.style.width = `${r.score}%`;
+    }, 50);
+  });
+  
+  let tableHTML = `
+    <thead>
+      <tr>
+        ${current.headers.map(h => `<th>${h}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${current.rows.map(r => `
+        <tr class="${r.highlight ? 'highlight-row' : ''}">
+          <td style="${r.highlight ? 'font-weight:700;' : ''}">${r.name}</td>
+          <td class="mn ${r.highlight ? 'best' : ''}">${r.score.toFixed(1)}%</td>
+          <td class="mn" style="color: ${r.delta.startsWith('+') ? 'var(--green-l)' : 'var(--muted)'}">${r.delta}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
+  benchTable.innerHTML = tableHTML;
+}
+
+document.getElementById('bench-aime24-btn')?.addEventListener('click', (e) => {
+  document.querySelectorAll('#s-results .chart-btn').forEach(btn => btn.classList.remove('active'));
+  e.target.classList.add('active');
+  showBenchmark('aime24');
+});
+
+document.getElementById('bench-aime25-btn')?.addEventListener('click', (e) => {
+  document.querySelectorAll('#s-results .chart-btn').forEach(btn => btn.classList.remove('active'));
+  e.target.classList.add('active');
+  showBenchmark('aime25');
+});
+
+document.getElementById('bench-aimo-btn')?.addEventListener('click', (e) => {
+  document.querySelectorAll('#s-results .chart-btn').forEach(btn => btn.classList.remove('active'));
+  e.target.classList.add('active');
+  showBenchmark('aimo');
+});
+
+// Initial load
+setTimeout(() => {
+  showBenchmark('aime24');
+}, 100);
+</script>
+</BaseLayout>
