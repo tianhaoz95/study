@@ -1,0 +1,1017 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime(Astro.url.pathname.split('/').filter(Boolean).at(-1)!);
+---
+<BaseLayout
+  title="The Latent Space: The Continuous Future of LLMs | AI/ML Deep Dives"
+  description="A deep dive into 'The Latent Space' survey paper. Explore how language models are shifting from human-readable token-by-token generation to continuous machine-native vector processing."
+  crumb="The Latent Space"
+>
+
+<style is:global>
+/* ── Post Base Styles ────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ─────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Callout Boxes ──────────────────────────────────────── */
+.callout{background:var(--card2);border:1px solid var(--border);border-left:4px solid var(--purple);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;display:flex;gap:.75rem;align-items:flex-start}
+.callout-icon{font-size:1.2rem;line-height:1;margin-top:.1rem}
+.callout-content{font-size:.875rem;color:var(--muted2);line-height:1.6}
+.callout-insight{border-left-color:var(--cyan)}
+
+/* ── Component CSS Patterns ─────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Custom Post-specific styles ─────────────────────────── */
+.toggle-btn-row{display:flex;gap:.5rem;margin-bottom:1rem}
+.toggle-btn{padding:.4rem .8rem;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);border-radius:5px;font-size:.72rem;cursor:pointer;font-family:var(--ff-mono);transition:all .15s}
+.toggle-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.flow-diagram-container{border:1px solid var(--border-hi);border-radius:8px;background:var(--card2);padding:1rem;min-height:120px;display:flex;flex-direction:column;justify-content:center}
+.flow-step-box{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:.5rem .75rem;font-family:var(--ff-mono);font-size:0.75rem;text-align:center;color:var(--text2);margin:0 auto;max-width:320px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.flow-arrow{text-align:center;color:var(--muted);margin:.3rem 0;font-size:.8rem}
+
+.canvas-controls{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;background:var(--surface);padding:.6rem 1rem;border-radius:6px;border:1px solid var(--border)}
+.canvas-slider{flex:1;accent-color:var(--purple)}
+.canvas-val{font-family:var(--ff-mono);font-size:.72rem;color:var(--cyan);width:45px;text-align:right}
+.canvas-btn{padding:.3rem .6rem;background:var(--purple);border:none;border-radius:4px;color:#fff;font-family:var(--ff-mono);font-size:.72rem;cursor:pointer;font-weight:600;transition:opacity .15s}
+.canvas-btn:hover{opacity:.9}
+
+.tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+@media(max-width:640px){.tech-grid{grid-template-columns:1fr}}
+.tech-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;transition:border-color .25s}
+.tech-card:hover{border-color:var(--border-hi)}
+.tech-card h4{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.tech-card h4::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--purple);display:inline-block}
+.tech-card p{font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:0}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Latent Space</span>
+    <span class="tag tag-cyan">Survey</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>The Latent Space: The Continuous Future of Language-Based Models</h1>
+  <p class="lead">Is explicit text decoding holding AI back? We deep-dive into the structural mechanics, representations, and capabilities of continuous latent-space computation as a machine-native substrate for reasoning, memory, and collaboration.</p>
+  <div class="post-hero-meta">
+    <span>June 6, 2026</span>
+    <span>~{readTime} read</span>
+    <span>Paper: <code>arXiv:2604.02029</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2604.02029" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/YU-deep/Awesome-Latent-Space" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Awesome Repository
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item toc-active" id="toc-s-intro"><a href="#s-intro"><span class="toc-num">01</span> The Token Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-foundation"><a href="#s-foundation"><span class="toc-num">02</span> Foundation: Latent vs. Explicit</a></li>
+    <li class="toc-item" id="toc-s-taxonomy"><a href="#s-taxonomy"><span class="toc-num">03</span> Mechanism Taxonomy</a></li>
+    <li class="toc-item" id="toc-s-computation"><a href="#s-computation"><span class="toc-num">04</span> Looped & Adaptive Refinement</a></li>
+    <li class="toc-item" id="toc-s-abilities"><a href="#s-abilities"><span class="toc-num">05</span> Downstream Abilities</a></li>
+    <li class="toc-item" id="toc-s-benchmarks"><a href="#s-benchmarks"><span class="toc-num">06</span> Benchmarks & Trade-offs</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-intro" data-code="intro">
+<div class="section-no">01 — The Problem</div>
+<h2>The Token Bottleneck</h2>
+<p>Modern Large Language Models (LLMs) are bound to a strictly sequential, token-by-token generation interface. To execute chain-of-thought (CoT) reasoning, the model externalizes its intermediate representations into discrete, human-readable words. However, natural language is a highly redundant and lossy communication channel for neural computation. This sequential decoding paradigm introduces significant inefficiencies:</p>
+<ul>
+  <li><strong>Linguistic Redundancy:</strong> Models spend valuable compute generating articles, punctuation, and structural syntax (e.g., <em>"Therefore, to find the result, we first..."</em>) rather than performing semantic computation.</li>
+  <li><strong>Quantization Bottleneck:</strong> Forcing a continuous 4096-dimensional model representation through a narrow vocabulary channel compresses and discards granular probabilities and soft intermediate thinking traces.</li>
+  <li><strong>Decoding Overhead:</strong> Each reasoning step demands a full auto-regressive model forward pass and a memory-bound key-value (KV) cache write.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Interactive: Explicit vs. Latent Flow</span>
+    <span class="vp-hint">Compare the channels</span>
+  </div>
+  <div class="vp-body">
+    <div class="toggle-btn-row">
+      <button class="toggle-btn active" id="btn-flow-explicit">Explicit Verbal Channel</button>
+      <button class="toggle-btn" id="btn-flow-latent">Continuous Latent Channel</button>
+    </div>
+    <div class="flow-diagram-container" id="flow-diagram">
+      <div class="flow-step-box" style="border-color: var(--amber)">Input: "Next in sequence: 2, 4, 8, 16..."</div>
+      <div class="flow-arrow">↓ [Slow Sequential Output]</div>
+      <div class="flow-step-box" style="color: var(--muted); font-size: 0.7rem;">"The pattern is doubling... So the next token should be..." (15 tokens generated)</div>
+      <div class="flow-arrow">↓ [Vocab Projection]</div>
+      <div class="flow-step-box" style="border-color: var(--green)">Output: "32"</div>
+    </div>
+  </div>
+</div>
+
+<p>The survey paper <em>"The Latent Space: Foundation, Evolution, Mechanism, Ability, and Outlook"</em> consolidates the rapidly expanding literature exploring <strong>Latent Space</strong> as a native substrate for model computation. Rather than projecting activations to discrete tokens, models learn to compute, plan, and communicate directly inside the continuous manifold of model hidden states.</p>
+
+<blockquote class="callout">
+  <div class="callout-icon">💡</div>
+  <div class="callout-content">
+    <strong>Key Insight:</strong> Continuous latent reasoning moves LLM processing away from string-to-string generation and maps it to smooth trajectories in vector space, allowing parallel thought expansion and higher representational fidelity.
+  </div>
+</blockquote>
+</section>
+
+<section id="s-foundation" data-code="foundation">
+<div class="section-no">02 — Foundation</div>
+<h2>Foundation: Latent vs. Explicit</h2>
+<p>To understand the paradigm shift, we must clarify what the latent space of a language-based model actually represents, and contrast it with traditional explicit models as well as the latent spaces of visual generative models (like VAEs or Diffusion Models).</p>
+
+<p>For a standard language-based model, the <strong>explicit space</strong> is defined by a finite vocabulary $V$. In contrast, the <strong>latent space</strong> $H$ is the continuous, learned representational manifold of model hidden activations. The input sequence $x \in V$ is mapped to continuous embeddings, transformed through intermediate states, and projected back into the vocabulary space only when necessary.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Properties Comparison: Explicit vs. Latent Space</span>
+  </div>
+  <div class="vp-body" style="padding:0">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Explicit Space (Verbal)</th>
+          <th>Latent Space (Machine-Native)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Representation Format</strong></td>
+          <td>Discrete symbols / subword tokens</td>
+          <td>Continuous high-dimensional vectors ($R^d$)</td>
+        </tr>
+        <tr>
+          <td><strong>Human Interpretability</strong></td>
+          <td>High (readable text sequences)</td>
+          <td>Low (non-trivial vector coordinates)</td>
+        </tr>
+        <tr>
+          <td><strong>Information Density</strong></td>
+          <td>Low (linguistic redundancy, filler words)</td>
+          <td>High (dense semantic vectors, soft properties)</td>
+        </tr>
+        <tr>
+          <td><strong>Differentiability</strong></td>
+          <td>Non-differentiable (discrete sampling)</td>
+          <td>Fully differentiable (backpropagation ready)</td>
+        </tr>
+        <tr class="highlight-row">
+          <td><strong>Decoding Bottleneck</strong></td>
+          <td>Sequential step-by-step auto-regression</td>
+          <td>Recurrent loops, parallel Jacobi updates</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h3>LMs vs. Visual Generative Models</h3>
+<p>While generative visual models (like Stable Diffusion) also utilize latent spaces, they differ fundamentally from LMs in their construction:</p>
+<ol>
+  <li><strong>Objective:</strong> Visual model latents are trained using a reconstruction loss (anchoring them to local Euclidean properties for image patches), whereas LM hidden states are structured via a predictive next-token objective.</li>
+  <li><strong>Structure:</strong> Visual latents carry spatial-temporal grid topologies. LM latents focus purely on linguistic semantics and abstract concepts, devoid of fixed spatial constraints.</li>
+  <li><strong>Controllability:</strong> Visual models use cross-attention maps for spatial controls. LM latents leverage vector algebraic steering (e.g. concept adding/subtracting) along semantic paths.</li>
+</ol>
+</section>
+
+<section id="s-taxonomy" data-code="taxonomy">
+<div class="section-no">03 — Architecture & Representation</div>
+<h2>Mechanism Taxonomy: Structuring Latents</h2>
+<p>The survey organizes the technical landscape of latent space methods into four distinct mechanistic categories: **Architecture**, **Representation**, **Computation**, and **Optimization**.</p>
+
+<div class="tech-grid">
+  <div class="tech-card">
+    <h4>1. Architecture</h4>
+    <p>Determines where the latent system $H$ is structurally integrated: in the recurrent <strong>backbone</strong> layers, as a plug-in **component** (like memory/adapters), or guided via an **auxiliary model**.</p>
+  </div>
+  <div class="tech-card">
+    <h4>2. Representation</h4>
+    <p>Defines the latent carrier $z$: **Internal** (readout activations), **External** (exogenous frozen features), **Learnable** (virtual concept tokens), or **Hybrid** configurations.</p>
+  </div>
+  <div class="tech-card">
+    <h4>3. Computation</h4>
+    <p>Controls how activations are processed: **Compressed** (pooling states), **Expanded** (width/depth loop iterations), **Adaptive** (dynamic early halting), or **Interleaved**.</p>
+  </div>
+  <div class="tech-card">
+    <h4>4. Optimization</h4>
+    <p>Specifies when the representation is learned: **Pre-training** from scratch, **Post-training** (alignment tuning), or **Inference-time** steering.</p>
+  </div>
+</div>
+
+<p>In the math block below, we define the difference between standard autoregressive decoding and latent-conditioned generation:</p>
+
+<div class="math-block">
+  <div class="math-label">Mathematical Formulation</div>
+  <span class="math-comment"># Standard next-token generation</span>
+  y_t ~ P(y_t | x, y_&lt;t)
+
+  <span class="math-comment"># Latent-conditioned model generation</span>
+  z = \Phi_comp(h, x)      <span class="math-comment"># Latent carrier z derived from states h</span>
+  y ~ \Phi_back(· | x, z)   <span class="math-comment"># Output conditioned on continuous z</span>
+</div>
+</section>
+
+<section id="s-computation" data-code="computation">
+<div class="section-no">04 — Looped & Adaptive Refinement</div>
+<h2>Computation: Looped & Adaptive Refinement</h2>
+<p>A major focus of latent space research is <strong>recurrent looping</strong>. In standard transformers, the computational depth is fixed by the layer stack (e.g., a token passes through 32 distinct layers). In parameter-shared looped backbones (such as <em>Huginn</em> or <em>Ouro</em>), a smaller set of layers is applied repeatedly (e.g. $N$ times) to refine the hidden state trajectory.</p>
+
+<p>This recurrent computation enables <strong>Test-Time Compute Scaling</strong>: by scaling the number of loop iterations $N$ during inference, the model can dedicate more computational steps to complex tasks, allowing states to converge smoothly to target concepts.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Interactive: Latent Trajectory Simulator</span>
+    <span class="vp-hint">Adjust loop iterations N</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="btn-sim-play">Play Animation</button>
+      <input type="range" class="canvas-slider" id="slider-loops" min="1" max="10" value="3" />
+      <span class="canvas-val" id="lbl-loops">N = 3</span>
+    </div>
+    <div style="position: relative; width: 100%; max-width: 600px; margin: 0 auto;">
+      <canvas id="trajectory-canvas" style="display: block; width: 100%; height: 260px; background: #18181c; border-radius: 8px; border: 1px solid var(--border)"></canvas>
+    </div>
+    <p style="font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: 0.5rem;" id="sim-status-text">
+      N = 3: Path halts early. Latent state remains unresolved in ambiguous space.
+    </p>
+  </div>
+</div>
+
+<p>Furthermore, <strong>Adaptive Halting</strong> techniques predict a halt probability at each iteration. If a question is simple (e.g. <em>"What is 2+2?"</em>), the model halts at $N=1$. For complex reasoning (e.g. multi-step deduction), the model dynamically continues looping, optimizing latency while maintaining deep reasoning capacity.</p>
+</section>
+
+<section id="s-abilities" data-code="abilities">
+<div class="section-no">05 — Downstream Abilities</div>
+<h2>Downstream Abilities: Reasoning & Planning</h2>
+<p>Moving representations into continuous manifolds unlocks a broad spectrum of capabilities. A prominent example is <strong>implicit latent reasoning</strong>, popularized by models like <strong>COCONUT</strong> (Continuous Chain of Thought). Instead of generating textual thought steps, COCONUT trains the model to predict next-step activations in latent space, replacing discrete intermediate tokens with continuous thought vectors.</p>
+
+<p>Let's navigate the sequence of a latent reasoning step in models like COCONUT:</p>
+
+<div class="step-list">
+  <div class="step-box active" id="step-card-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Input Embedding Projection</div>
+      <div class="step-desc">The query sequence (e.g., math problem or agent state) is projected into initial token embeddings in the continuous space $H$.</div>
+      <div class="step-code">h_0 = embed(x)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-card-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Continuous Latent Reasoning Loop</div>
+      <div class="step-desc">The model undergoes recursive backbone transformations. Instead of token generation, activations are iteratively refined directly in vector space.</div>
+      <div class="step-code">h_&#123;k+1&#125; = TransformerBlock(h_k)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-card-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Path Search & Vector Refinement</div>
+      <div class="step-desc">The latent thoughts navigate the semantic landscape, bypassing spelling/grammar constraints and focusing solely on logical concept boundaries.</div>
+      <div class="step-code">h_latent = optimize_path(h_loops)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-card-3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Final Answer Decoding</div>
+      <div class="step-desc">The final refined latent state is projected back to vocabulary space to emit the human-readable answer directly, saving 80%+ of explicit tokens.</div>
+      <div class="step-code">answer_tokens = decode_head(h_latent)</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-nav">
+  <button id="step-prev" disabled>‹ Prev Step</button>
+  <button id="step-next">Next Step ›</button>
+  <span style="font-family: var(--ff-mono); font-size: 0.7rem; color: var(--muted);" id="step-prog">Step 1 of 4</span>
+</div>
+
+<blockquote class="callout callout-insight">
+  <div class="callout-icon">🔍</div>
+  <div class="callout-content">
+    <strong>Downstream Scaling:</strong> Aside from reasoning, latent representation supports **Planning** (via latent trajectory foresight), **Memory** (compressing KV caches into continuous memory slots), and **Collaboration** (agents sending continuous vectors rather than explicit tokens).
+  </div>
+</blockquote>
+</section>
+
+<section id="s-benchmarks" data-code="benchmarks">
+<div class="section-no">06 — Payoff & Future</div>
+<h2>Benchmarks: Efficiency and Trade-offs</h2>
+<p>Latent space models demonstrate substantial improvements across multiple benchmarks. By avoiding sequential autoregressive token-generation chains, these models significantly increase generation speed, reduce parameter footprint via recursive parameters, and drastically slash decoded token volumes.</p>
+
+<div class="vp" id="bars-section">
+  <div class="vp-head">
+    <span class="vp-title">Interactive: Latent vs. Explicit Metrics</span>
+    <span class="vp-hint">Performance payoffs</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars">
+      <!-- Speedup -->
+      <div style="font-size: 0.72rem; font-family: var(--ff-mono); color: var(--muted); margin-bottom: 0.25rem;">Inference Decoding Speedup (x Baseline)</div>
+      <div class="bar-row">
+        <div class="bar-label">Huginn (3.5B Backbone Loop)</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--purple)" data-w="100">
+            <span>2.1x</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row" style="margin-bottom: 1rem;">
+        <div class="bar-label">Explicit Baseline (8B)</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--muted)" data-w="48">
+            <span>1.0x</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Token Reduction -->
+      <div style="font-size: 0.72rem; font-family: var(--ff-mono); color: var(--muted); margin-bottom: 0.25rem;">Decoded Token Count (Lower is Better)</div>
+      <div class="bar-row">
+        <div class="bar-label">COCONUT (Latent reasoning)</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--cyan)" data-w="20">
+            <span>20%</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row" style="margin-bottom: 1rem;">
+        <div class="bar-label">Explicit CoT Baseline</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--muted)" data-w="100">
+            <span>100%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parameter footprint -->
+      <div style="font-size: 0.72rem; font-family: var(--ff-mono); color: var(--muted); margin-bottom: 0.25rem;">Unique Layer Parameters (Lower is Better)</div>
+      <div class="bar-row">
+        <div class="bar-label">Huginn Shared Blocks</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--green)" data-w="26">
+            <span>26%</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Standard Stacked Baseline</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background: var(--muted)" data-w="100">
+            <span>100%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Key Challenges Ahead</h3>
+<p>Despite the benefits, the paper outlines critical bottlenecks before latent space becomes the native substrate for next-generation intelligence:</p>
+<ol>
+  <li><strong>Interpretability:</strong> Since computations happen in continuous vector coordinate space, debugging why a model arrived at a conclusion is highly challenging.</li>
+  <li><strong>Controllability:</strong> Direct post-hoc intervention on latent states is more complex than simple text-level prompting or token editing.</li>
+  <li><strong>Evaluation:</strong> Testing intermediate reasoning steps requires projection heads or specialized probe classifiers.</li>
+</ol>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">latent/intro.py</div>
+      <div class="cs-section-title" id="cs-section-title">Introduction</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="foundation">foundation</button>
+    <button class="cs-tab" data-panel="taxonomy">taxonomy</button>
+    <button class="cs-tab" data-panel="computation">computation</button>
+    <button class="cs-tab" data-panel="abilities">abilities</button>
+    <button class="cs-tab" data-panel="benchmarks">benchmarks</button>
+  </div>
+  <div class="cs-body">
+    <!-- Panel 1: Intro -->
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre"><span class="cs-line cmt"># Standard Autoregressive vs Latent Generation</span>
+<span class="cs-line kw">def</span> <span class="fn">explicit_generation</span>(model, x):
+    tokens = [x]
+    <span class="cs-line kw">while</span> not_stop:
+        <span class="cs-line cmt"># Standard sequential token decoding</span>
+        next_token = model(tokens)
+        tokens.append(next_token)
+    <span class="cs-line kw">return</span> tokens
+
+<span class="cs-line kw">def</span> <span class="fn">latent_generation</span>(model, x):
+    <span class="cs-line cmt"># Continuous processing without verbal channel bottleneck</span>
+    z = model.encode_latent(x)
+    <span class="cs-line kw">for</span> _ <span class="cs-line kw">in</span> range(num_latent_steps):
+        z = model.latent_step(z)
+    <span class="cs-line kw">return</span> model.decode(z)</pre>
+    </div>
+
+    <!-- Panel 2: Foundation -->
+    <div class="cs-panel" id="panel-foundation">
+      <pre class="cs-pre"><span class="cs-line cmt"># Mathematical formulation of Latent Space Conditioning</span>
+<span class="cs-line kw">import</span> torch
+<span class="cs-line kw">import</span> torch.nn <span class="cs-line kw">as</span> nn
+
+<span class="cs-line kw">class</span> <span class="cls">LatentConditionedLM</span>(nn.Module):
+    <span class="cs-line kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, vocab_size, d_model):
+        <span class="cs-line kw">super</span>().__init__()
+        <span class="cs-line kw">self</span>.embed = nn.Embedding(vocab_size, d_model)
+        <span class="cs-line kw">self</span>.backbone = nn.TransformerDecoder(...)
+        <span class="cs-line kw">self</span>.head = nn.Linear(d_model, vocab_size)
+        
+    <span class="cs-line kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, x_tokens, z_latent):
+        <span class="cs-line cmt"># z_latent: continuous representation vector in H</span>
+        x_emb = <span class="kw">self</span>.embed(x_tokens)
+        
+        <span class="cs-line cmt"># Inject the latent vector z as a conditioning state</span>
+        h = x_emb + z_latent.unsqueeze(<span class="num">1</span>)
+        h = <span class="kw">self</span>.backbone(h)
+        <span class="cs-line kw">return</span> <span class="kw">self</span>.head(h)</pre>
+    </div>
+
+    <!-- Panel 3: Taxonomy -->
+    <div class="cs-panel" id="panel-taxonomy">
+      <pre class="cs-pre"><span class="cs-line cmt"># Architectural Taxonomy of Latent Space</span>
+<span class="cs-line cmt"># 1. Backbone-driven (Parameter-Shared Loop)</span>
+<span class="cs-line kw">class</span> <span class="cls">LoopedBackbone</span>(nn.Module):
+    <span class="cs-line kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, block, num_loops=<span class="num">6</span>):
+        <span class="cs-line kw">super</span>().__init__()
+        <span class="cs-line kw">self</span>.shared_block = block <span class="cs-line cmt"># Parameter reuse</span>
+        <span class="cs-line kw">self</span>.num_loops = num_loops
+        
+    <span class="cs-line kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h):
+        <span class="cs-line kw">for</span> _ <span class="cs-line kw">in</span> range(<span class="kw">self</span>.num_loops):
+            h = <span class="kw">self</span>.shared_block(h)
+        <span class="cs-line kw">return</span> h
+
+<span class="cs-line cmt"># 2. Component-driven (Memory plug-in)</span>
+<span class="cs-line kw">class</span> <span class="cls">LatentMemoryComponent</span>(nn.Module):
+    <span class="cs-line kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d_model, mem_size):
+        <span class="cs-line kw">super</span>().__init__()
+        <span class="cs-line kw">self</span>.mem_keys = nn.Parameter(torch.randn(mem_size, d_model))
+        <span class="cs-line kw">self</span>.mem_vals = nn.Parameter(torch.randn(mem_size, d_model))
+        
+    <span class="cs-line kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h):
+        <span class="cs-line cmt"># Retrieve memory values for latent conditioning</span>
+        attn = torch.softmax(h @ <span class="kw">self</span>.mem_keys.T / (d_model**<span class="num">0.5</span>), dim=-<span class="num">1</span>)
+        z_mem = attn @ <span class="kw">self</span>.mem_vals
+        <span class="cs-line kw">return</span> h + z_mem</pre>
+    </div>
+
+    <!-- Panel 4: Computation -->
+    <div class="cs-panel" id="panel-computation">
+      <pre class="cs-pre"><span class="cs-line cmt"># Looped Refinement & Adaptive Halting</span>
+<span class="cs-line kw">class</span> <span class="cls">AdaptiveLoopedRefiner</span>(nn.Module):
+    <span class="cs-line kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, block, max_loops=<span class="num">10</span>, threshold=<span class="num">0.95</span>):
+        <span class="cs-line kw">super</span>().__init__()
+        <span class="cs-line kw">self</span>.block = block
+        <span class="cs-line kw">self</span>.max_loops = max_loops
+        <span class="cs-line kw">self</span>.halting_head = nn.Linear(d_model, <span class="num">1</span>)
+        <span class="cs-line kw">self</span>.threshold = threshold
+        
+    <span class="cs-line kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h):
+        accumulated_p = <span class="num">0.0</span>
+        <span class="cs-line kw">for</span> step <span class="cs-line kw">in</span> range(<span class="kw">self</span>.max_loops):
+            h = <span class="kw">self</span>.block(h)
+            halt_logit = <span class="kw">self</span>.halting_head(h)
+            halt_prob = torch.sigmoid(halt_logit)
+            
+            accumulated_p += halt_prob
+            <span class="cs-line kw">if</span> accumulated_p &gt;= <span class="kw">self</span>.threshold:
+                print(f"Halted early at step &#123;step + 1&#125;")
+                <span class="cs-line kw">break</span>
+        <span class="cs-line kw">return</span> h</pre>
+    </div>
+
+    <!-- Panel 5: Abilities -->
+    <div class="cs-panel" id="panel-abilities">
+      <pre class="cs-pre"><span class="cs-line cmt"># Continuous Chain of Thought (COCONUT) Training</span>
+<span class="cs-line kw">class</span> <span class="cls">CoconutTrainer</span>:
+    <span class="cs-line kw">def</span> <span class="fn">training_step</span>(<span class="kw">self</span>, model, x_tokens, thought_tokens, y_tokens):
+        <span class="cs-line cmt"># Embed query sequence</span>
+        h = model.embed(x_tokens)
+        
+        <span class="cs-line cmt"># Extract continuous thoughts (activations)</span>
+        latent_thoughts = []
+        <span class="cs-line kw">for</span> t <span class="cs-line kw">in</span> thought_tokens:
+            h = model.transformer_block(h)
+            latent_thoughts.append(h[:, -<span class="num">1</span>, :])
+            
+        <span class="cs-line cmt"># Optimize next-state prediction loss + token cross-entropy</span>
+        loss_latent = mse_loss(predicted_state, latent_thoughts)
+        loss_token = cross_entropy(logits, y_tokens)
+        
+        <span class="cs-line kw">return</span> loss_latent + loss_token</pre>
+    </div>
+
+    <!-- Panel 6: Benchmarks -->
+    <div class="cs-panel" id="panel-benchmarks">
+      <pre class="cs-pre"><span class="cs-line cmt"># Summary of empirical results from the paper</span>
+BENCHMARK_RESULTS = &#123;
+    <span class="str">"Huginn (3.5B)"</span>: &#123;
+        <span class="str">"efficiency_speedup"</span>: <span class="num">2.1</span>,
+        <span class="str">"parameter_saving"</span>: <span class="num">0.26</span>,
+        <span class="str">"accuracy_score"</span>: <span class="num">91.2</span>
+    &#125;,
+    <span class="str">"COCONUT (3B)"</span>: &#123;
+        <span class="str">"token_reduction"</span>: <span class="num">0.20</span>,
+        <span class="str">"accuracy_score"</span>: <span class="num">88.5</span>
+    &#125;
+&#125;</pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──────────────────────────────
+const tabMeta = {
+  intro:       { file: 'latent/intro.py',       title: 'Introduction' },
+  foundation:  { file: 'latent/foundation.py',  title: 'Concept & Math' },
+  taxonomy:    { file: 'latent/taxonomy.py',    title: 'Architecture & Rep.' },
+  computation: { file: 'latent/computation.py', title: 'Looped Refinement' },
+  abilities:   { file: 'latent/abilities.py',   title: 'Latent Reasoning' },
+  benchmarks:  { file: 'latent/benchmarks.py',  title: 'Benchmarks' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar tab on scroll ─
+const sectionMap = {
+  's-intro':       'intro',
+  's-foundation':  'foundation',
+  's-taxonomy':    'taxonomy',
+  's-computation': 'computation',
+  's-abilities':   'abilities',
+  's-benchmarks':  'benchmarks'
+};
+
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Interactive: Explicit vs. Latent Flow Toggle ────────────
+const btnFlowExplicit = document.getElementById('btn-flow-explicit');
+const btnFlowLatent = document.getElementById('btn-flow-latent');
+const flowDiagram = document.getElementById('flow-diagram');
+
+btnFlowExplicit?.addEventListener('click', () => {
+  btnFlowExplicit.classList.add('active');
+  btnFlowLatent.classList.remove('active');
+  flowDiagram.innerHTML = `
+    <div class="flow-step-box" style="border-color: var(--amber)">Input: "Next in sequence: 2, 4, 8, 16..."</div>
+    <div class="flow-arrow">↓ [Slow Sequential Output]</div>
+    <div class="flow-step-box" style="color: var(--muted); font-size: 0.7rem;">"The pattern is doubling... So the next token should be..." (15 tokens generated)</div>
+    <div class="flow-arrow">↓ [Vocab Projection]</div>
+    <div class="flow-step-box" style="border-color: var(--green)">Output: "32"</div>
+  `;
+});
+
+btnFlowLatent?.addEventListener('click', () => {
+  btnFlowLatent.classList.add('active');
+  btnFlowExplicit.classList.remove('active');
+  flowDiagram.innerHTML = `
+    <div class="flow-step-box" style="border-color: var(--amber)">Input: "Next in sequence: 2, 4, 8, 16..."</div>
+    <div class="flow-arrow">↓ [Parallel Latent Refinement Trajectory]</div>
+    <div class="flow-step-box" style="border-color: var(--purple); font-weight: bold; color: var(--purple-l);">[ z_0 -> z_1 -> z_2 -> z_3 ] (Continuous Vectors)</div>
+    <div class="flow-arrow">↓ [Direct Vocab Projection]</div>
+    <div class="flow-step-box" style="border-color: var(--green)">Output: "32"</div>
+  `;
+});
+
+// ── Interactive: Canvas Trajectory Simulator ────────────────
+const canvas = document.getElementById('trajectory-canvas');
+if (canvas) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const slider = document.getElementById('slider-loops');
+  const lblLoops = document.getElementById('lbl-loops');
+  const statusText = document.getElementById('sim-status-text');
+  const btnPlay = document.getElementById('btn-play') || document.getElementById('btn-sim-play');
+
+  let currentLoops = parseInt(slider.value, 10);
+  let animationFrameId = null;
+  let progress = 0;
+  let isAnimating = false;
+
+  // Simulator anchors
+  const startX = 60, startY = 130;
+  const targetX = 480, targetY = 70; // Resolved basin (Green)
+  const stuckX = 280, stuckY = 180;  // Stuck loop basin (Red)
+
+  function getPointOnTrajectory(tVal, loops) {
+    if (loops < 5) {
+      const segment = tVal;
+      const cpX = 150, cpY = 80;
+      const x = (1-segment)*(1-segment)*startX + 2*(1-segment)*segment*cpX + segment*segment*stuckX;
+      const y = (1-segment)*(1-segment)*startY + 2*(1-segment)*segment*cpY + segment*segment*stuckY;
+      
+      if (segment > 0.9) {
+        const osc = (segment - 0.9) * 10;
+        const angle = osc * Math.PI * 4;
+        const radius = 8 * (loops / 4);
+        return {
+          x: x + Math.cos(angle) * radius,
+          y: y + Math.sin(angle) * radius
+        };
+      }
+      return { x, y };
+    } else {
+      const cp1X = 150, cp1Y = 80;
+      const cp2X = 260, cp2Y = 220;
+      const cp3X = 350, cp3Y = 160;
+      
+      if (tVal < 0.5) {
+        const u = tVal * 2;
+        const x = (1-u)*(1-u)*startX + 2*(1-u)*u*cp1X + u*u*stuckX;
+        const y = (1-u)*(1-u)*startY + 2*(1-u)*u*cp1Y + u*u*stuckY;
+        return { x, y };
+      } else {
+        const u = (tVal - 0.5) * 2;
+        const x = (1-u)*(1-u)*stuckX + 2*(1-u)*u*cp3X + u*u*targetX;
+        const y = (1-u)*(1-u)*stuckY + 2*(1-u)*u*cp3Y + u*u*targetY;
+        return { x, y };
+      }
+    }
+  }
+
+  function drawLandscape() {
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    const redGrad = ctx.createRadialGradient(stuckX, stuckY, 5, stuckX, stuckY, 45);
+    redGrad.addColorStop(0, 'rgba(239, 68, 68, 0.25)');
+    redGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+    ctx.fillStyle = redGrad;
+    ctx.beginPath(); ctx.arc(stuckX, stuckY, 45, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.arc(stuckX, stuckY, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f87171';
+    ctx.font = '10px monospace';
+    ctx.fillText('Stuck Basin (Ambiguous)', stuckX - 60, stuckY + 20);
+
+    const greenGrad = ctx.createRadialGradient(targetX, targetY, 5, targetX, targetY, 45);
+    greenGrad.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+    greenGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    ctx.fillStyle = greenGrad;
+    ctx.beginPath(); ctx.arc(targetX, targetY, 45, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.arc(targetX, targetY, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#34d399';
+    ctx.fillText("Resolved: '32'", targetX - 40, targetY - 12);
+
+    ctx.fillStyle = 'rgba(6, 182, 212, 0.3)';
+    ctx.beginPath(); ctx.arc(startX, startY, 8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#06b6d4';
+    ctx.beginPath(); ctx.arc(startX, startY, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#67e8f9';
+    ctx.fillText('Input x', startX - 20, startY + 20);
+  }
+
+  function drawTrajectory(loops, animateVal) {
+    drawLandscape();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    for (let t = 0; t <= 1.01; t += 0.02) {
+      const p = getPointOnTrajectory(t, loops);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (animateVal > 0) {
+      ctx.strokeStyle = loops < 5 ? '#ef4444' : '#a78bfa';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = loops < 5 ? '#ef4444' : '#8b5cf6';
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      for (let t = 0; t <= animateVal; t += 0.01) {
+        const p = getPointOnTrajectory(t, loops);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const head = getPointOnTrajectory(animateVal, loops);
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = loops < 5 ? '#ef4444' : '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 6, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  function runAnimation() {
+    isAnimating = true;
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    
+    progress = 0;
+    const speed = 0.015;
+    
+    function tick() {
+      progress += speed;
+      if (progress > 1) {
+        progress = 1;
+        drawTrajectory(currentLoops, 1);
+        isAnimating = false;
+        return;
+      }
+      drawTrajectory(currentLoops, progress);
+      animationFrameId = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function updateSimulator(val) {
+    currentLoops = val;
+    lblLoops.textContent = `N = ${currentLoops}`;
+    slider.value = currentLoops;
+
+    if (currentLoops < 5) {
+      statusText.innerHTML = `<span style="color: var(--amber)">N = ${currentLoops}:</span> State visits loops inside local activations but lacks depth parameters to escape. Halts in ambiguous region.`;
+    } else {
+      statusText.innerHTML = `<span style="color: var(--green-l)">N = ${currentLoops}:</span> Refined activations successfully bypass local attractor. Particle escapes towards correct semantic basin.`;
+    }
+
+    if (!isAnimating) {
+      drawTrajectory(currentLoops, 1.0);
+    }
+  }
+
+  slider?.addEventListener('input', (e) => {
+    updateSimulator(parseInt(e.target.value, 10));
+  });
+
+  btnPlay?.addEventListener('click', () => {
+    runAnimation();
+  });
+
+  updateSimulator(currentLoops);
+}
+
+// ── Interactive: Step Navigator (COCONUT Walkthrough) ──────
+let currentStep = 0;
+const stepBoxes = document.querySelectorAll('.step-box');
+const stepPrev = document.getElementById('step-prev');
+const stepNext = document.getElementById('step-next');
+const stepProg = document.getElementById('step-prog');
+
+function updateStepNavigator() {
+  stepBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === currentStep) b.classList.add('active');
+    else if (i < currentStep) b.classList.add('done');
+  });
+
+  if (stepPrev) stepPrev.disabled = currentStep === 0;
+  if (stepNext) stepNext.disabled = currentStep === stepBoxes.length - 1;
+  if (stepProg) stepProg.textContent = `Step ${currentStep + 1} of ${stepBoxes.length}`;
+
+  stepBoxes.forEach((b, i) => {
+    const num = b.querySelector('.step-num');
+    if (num) num.textContent = i < currentStep ? '✓' : String(i + 1);
+  });
+}
+
+stepPrev?.addEventListener('click', () => {
+  if (currentStep > 0) {
+    currentStep--;
+    updateStepNavigator();
+  }
+});
+
+stepNext?.addEventListener('click', () => {
+  if (currentStep < stepBoxes.length - 1) {
+    currentStep++;
+    updateStepNavigator();
+  }
+});
+
+// ── Interactive: Animated Bar Chart Observer ────────────────
+const barsSection = document.getElementById('bars-section');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          const w = b.getAttribute('data-w');
+          if (w) b.style.width = w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(barsSection);
+}
+</script>
+</BaseLayout>
