@@ -1,0 +1,1196 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('draft-opd');
+---
+<BaseLayout
+  title="Draft-OPD: On-Policy Distillation for Speculative Draft Models | AI/ML Deep Dives"
+  description="Supervised fine-tuning of speculative draft models plateaus due to offline-to-inference mismatch. Draft-OPD uses anchored rollouts, error-position replay, and acceptance-aware asymmetric KL to post-train drafters on verification-time errors, yielding 5x+ speedups."
+  crumb="Draft-OPD"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'\2192';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'\25B6';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+/* STYLE RULES for .cs-pre / .cs-line — do NOT change these:
+   1. .cs-pre must use white-space:normal (NOT white-space:pre).
+      Each code line is a <span class="cs-line"> with display:block. Because the Astro
+      template puts a real \n between each </span> and the next <span>, using white-space:pre
+      on the <pre> container renders those newlines as blank lines between every code line.
+      white-space:normal collapses them so lines appear continuous.
+   2. .cs-line must use white-space:pre so that leading spaces (indentation) inside each
+      span are preserved — without it all indentation collapses.
+   3. line-height MUST stay at 1.5 — never use 1.75 (that is the body prose value). */
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Table styling */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Toggles & sliders */
+.viz-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem}
+.viz-btn{padding:.35rem .85rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.viz-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.viz-caption{font-size:.78rem;color:var(--muted2);line-height:1.6;margin-top:.85rem;padding:.7rem .9rem;background:var(--card2);border-left:2px solid var(--purple);border-radius:0 6px 6px 0}
+.viz-caption b{color:var(--text2)}
+.slider-row{display:flex;align-items:center;gap:.85rem;margin:.5rem 0 0}
+.slider-row input[type=range]{flex:1;accent-color:var(--purple)}
+.slider-row label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+.callout{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1.5rem 0}
+.callout .co-t{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);margin-bottom:.35rem;font-family:var(--ff-mono)}
+.callout p{margin:0;font-size:.86rem}
+.callout.amber{border-left-color:var(--amber)}.callout.amber .co-t{color:var(--amber)}
+.callout.green{border-left-color:var(--green)}.callout.green .co-t{color:var(--green)}
+canvas{display:block;width:100%}
+
+/* Rollout compare styled boxes */
+.rollout-flex{display:flex;flex-direction:column;gap:1rem}
+.rollout-box{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.rollout-title{font-size:.72rem;font-family:var(--ff-mono);font-weight:700;margin-bottom:.5rem;color:var(--text2)}
+.rollout-flow{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.token-badge{padding:.3rem .5rem;font-family:var(--ff-mono);font-size:.75rem;border-radius:4px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)}
+.token-badge.correct{border-color:var(--green);color:var(--green-l);background:var(--green-dim)}
+.token-badge.error{border-color:var(--red);color:#ef4444;background:rgba(239,68,68,.1)}
+.token-badge.loop{animation:pulse 1.5s infinite}
+@keyframes pulse{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.bar-label{width:130px}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">On-Policy Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Draft-OPD: On-Policy Distillation for Speculative Draft Models</h1>
+  <p class="lead">Speculative-decoding drafters like EAGLE-3 or DFlash are traditionally trained offline using teacher-forced SFT. However, during generation they experience draft-induced inference states, causing an offline-to-inference mismatch. Draft-OPD bridges this gap using anchored rollouts, verification-time error replay, and asymmetric acceptance-aware distillation losses to achieve over 5× lossless acceleration.</p>
+  <div class="post-hero-meta">
+    <span>June 5, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2605.29343</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.29343v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-plateau"><a href="#s-plateau"><span class="toc-num">01</span> The SFT Plateau</a></li>
+    <li class="toc-item" id="toc-s-dilemma"><a href="#s-dilemma"><span class="toc-num">02</span> The OPD Dilemma</a></li>
+    <li class="toc-item" id="toc-s-mechanism"><a href="#s-mechanism"><span class="toc-num">03</span> Rollout & Replay</a></li>
+    <li class="toc-item" id="toc-s-asymmetric"><a href="#s-asymmetric"><span class="toc-num">04</span> Asymmetric KL</a></li>
+    <li class="toc-item" id="toc-s-decay"><a href="#s-decay"><span class="toc-num">05</span> Exponential Decay</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmark Speedup</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-plateau" data-code="intro">
+<div class="section-no">01 — The Mismatch</div>
+<h2>The Offline Supervised Fine-Tuning Plateau</h2>
+<p>Speculative decoding accelerates Large Language Model (LLM) inference by pairing a large target model with a lightweight draft model. A mainstream way to build these draft models, such as <strong>EAGLE-3</strong> and <strong>DFlash</strong>, is offline Supervised Fine-Tuning (SFT) on trajectories generated by the target model. The drafter learns to predict the next token given a target-generated prefix.</p>
+
+<p>However, offline SFT quickly plateaus. As shown in the training curve below, after an initial warm-up phase, continuing SFT on target trajectories yields no improvements in the draft model's acceptance length on test data. Even training offline on the prompt pool used for distillation can reduce the accepted length.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">plateau_curve.canvas</span>
+    <span class="vp-hint">Hover to inspect epochs</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="plateau-canvas" style="width:100%;height:280px;display:block"></canvas>
+  </div>
+</div>
+
+<p>The root cause is an <strong>offline-to-inference mismatch</strong> (or exposure bias). SFT trains the draft model exclusively on target-generated prefixes. But during speculative decoding at inference time, the draft model proposes token blocks under its own policy, creating draft-induced prefix states. When the drafter deviates from the target distribution, it encounters states it has never observed during offline SFT, leading to cascading verification failures and poor acceptance lengths.</p>
+</section>
+
+<section id="s-dilemma" data-code="dilemma">
+<div class="section-no">02 — The Distillation Dilemma</div>
+<h2>The OPD Dilemma for Speculative Drafters</h2>
+<p>This exposure mismatch suggests using <strong>On-Policy Distillation (OPD)</strong>, where the target model supervises the student on states visited under the student's own policy. However, standard OPD is not directly applicable to draft models due to two critical issues:</p>
+
+<ul>
+  <li><strong>Unstable Student Rollouts:</strong> Autoregressive draft modules (like EAGLE or DFlash) are trained to propose short token blocks under target model assistance rather than act as standalone generators. Forcing the draft model to generate entire sequences independently causes it to quickly produce degenerate, repetitive loops.</li>
+  <li><strong>Target-Assisted Signal Loss:</strong> Utilizing the target model during rollout stabilizes generation because verification corrects incorrect tokens. But this correction forces the generation to follow the target model's distribution. The on-policy signal is lost because draft-model errors are discarded by verification, preventing the student from learning from its own mistakes.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">rollout_comparison.css</span>
+    <span class="vp-hint">Compare rollout behaviors</span>
+  </div>
+  <div class="vp-body">
+    <div class="rollout-flex">
+      <div class="rollout-box">
+        <div class="rollout-title">Traditional OPD (Draft Self-Rollout) — Degenerate Loop</div>
+        <div class="rollout-flow">
+          <span class="token-badge correct">The</span>
+          <span class="token-badge correct">cat</span>
+          <span class="token-badge correct">sat</span>
+          <span class="token-badge correct">on</span>
+          <span class="token-badge error loop">the</span>
+          <span class="token-badge error loop">the</span>
+          <span class="token-badge error loop">the</span>
+          <span class="token-badge error loop">the</span>
+          <span class="token-badge error loop">the</span>
+        </div>
+      </div>
+      <div class="rollout-box">
+        <div class="rollout-title">Naive Target-Assisted Rollout — Losses On-Policy Signal</div>
+        <div class="rollout-flow">
+          <span class="token-badge correct">The</span>
+          <span class="token-badge correct">cat</span>
+          <span class="token-badge correct">sat <small style="color: var(--cyan)">(corrected from "say")</small></span>
+          <span class="token-badge correct">on</span>
+          <span class="token-badge correct">the</span>
+          <span class="token-badge correct">mat <small style="color: var(--cyan)">(corrected from "moon")</small></span>
+          <span class="token-badge correct">slowly</span>
+          <span class="token-badge correct">tonight</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>To succeed, we need a method that maintains target-quality stable rollouts while preserving draft-induced error trajectories during verification. This is the core problem solved by <strong>Draft-OPD</strong>.</p>
+</section>
+
+<section id="s-mechanism" data-code="rollout">
+<div class="section-no">03 — Anchored Rollout & Replay</div>
+<h2>Draft-OPD: Anchored Rollout & Error-Position Replay</h2>
+<p>Draft-OPD resolves this dilemma with a two-step generation and replay mechanism. First, it uses speculative decoding to generate stable target-quality sequences while recording the start of each draft block as an **anchor**. Next, it **replays** drafting from these anchors, forcing both the draft and target models to evaluate the proposed block — even rejected suffixes.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">draft_opd_steps.nav</span>
+    <span class="vp-hint">Step-by-step mechanism</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list">
+      <div class="step-box active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Step 1: Rollout with Speculative Decoding</div>
+          <div class="step-desc">Generate a stable rollout via speculative decoding. Record anchor index <i>a<sub>m</sub></i> before proposing. Suppose draft proposes <code>["sat", "on", "the", "moon"]</code> from anchor 1.</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Step 2: Verification and Anchor Recording</div>
+          <div class="step-desc">Target model verifies draft block in parallel. It accepts <code>["sat", "on", "the"]</code>, rejects <code>"moon"</code>, and corrects it to <code>"mat"</code>. The next anchor index is recorded at the end of the accepted segment.</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Step 3: Error Replay from Anchors</div>
+          <div class="step-desc">Replay drafting from anchor <i>a<sub>m</sub></i>. Re-feed draft-proposed block <code>dm</code> (including rejected <code>"moon"</code>) to compute logits. The target model provides teacher distributions on these exact states.</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Step 4: Distillation Update</div>
+          <div class="step-desc">Partition proposed tokens into accepted and rejected categories. Apply asymmetric KL losses on the computed logits to optimize the draft model's parameters.</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>‹ Previous</button>
+      <button id="step-next">Next ›</button>
+      <span id="step-prog" style="font-family: var(--ff-mono); font-size: 0.72rem; color: var(--muted); margin-left: auto;">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>By replaying from the anchors, Draft-OPD evaluates both accepted proposals and rejected proposals on the target model. This allows the draft model to receive informative error signals from the target model on its own deviations without compromising sequence stability.</p>
+</section>
+
+<section id="s-asymmetric" data-code="loss">
+<div class="section-no">04 — Acceptance-Aware Loss</div>
+<h2>Acceptance-Aware Asymmetric KL Loss</h2>
+<p>Once draft proposals are collected, they are partitioned into <strong>accepted tokens</strong> (I<sub>acc</sub>) and <strong>rejected tokens</strong> (I<sub>rej</sub>). Rather than applying a single divergence to all tokens, Draft-OPD applies different KL directions to match their asymmetric roles:</p>
+
+<ul>
+  <li><strong>Forward KL for Accepted Tokens:</strong> Encourages the draft model to cover the target distribution's modes at states where they already align. This reinforces correct predictions on target paths.</li>
+  <li><strong>Reverse KL for Rejected Tokens:</strong> Penalizes the draft model's high-probability incorrect modes when the target model disagrees. This actively suppresses the draft's error modes on draft-induced states.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">asymmetric_kl.inspector</span>
+    <span class="vp-hint">Toggle tokens to see KL behavior</span>
+  </div>
+  <div class="vp-body">
+    <div class="viz-controls">
+      <button class="viz-btn active" id="btn-acc">Accepted Token ("sat")</button>
+      <button class="viz-btn" id="btn-rej">Rejected Token ("moon")</button>
+    </div>
+    <canvas id="kl-canvas" style="width:100%;height:220px;display:block"></canvas>
+    <div class="viz-caption" id="kl-caption">
+      Loading caption...
+    </div>
+  </div>
+</div>
+
+<p>This asymmetric loss formulation directly targets the draft model's finite capacity: forward KL aligns the base distribution, while reverse KL acts as a zero-forcing penalty that cleanses draft-induced errors.</p>
+</section>
+
+<section id="s-decay" data-code="decay">
+<div class="section-no">05 — Exponential Position Decay</div>
+<h2>Exponential Position Decay</h2>
+<p>In speculative decoding, draft tokens are verified sequentially. If a token fails verification, the remaining tokens in the proposed block are discarded, regardless of whether they match the target distribution. Thus, errors at the beginning of a block have a much larger impact on average accepted length than errors near the end.</p>
+
+<p>Draft-OPD reflects this sequential priority by applying an exponentially decaying weight to rejected tokens based on their position $k$ in the draft block:</p>
+
+<div class="math-block">
+  <div class="math-label">Rejected Token Position Weight</div>
+  w_k = &gamma;<sup>k - 1</sup> <span class="math-comment"># &gamma; is the decay factor (typically 0.8)</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">position_decay.slider</span>
+    <span class="vp-hint">Drag slider to adjust decay rate &gamma;</span>
+  </div>
+  <div class="vp-body">
+    <div class="slider-row">
+      <label for="gamma-slider">&gamma; = <span id="gamma-val">0.80</span></label>
+      <input type="range" id="gamma-slider" min="0.0" max="1.0" step="0.05" value="0.80" />
+    </div>
+    <canvas id="decay-canvas" style="width:100%;height:220px;display:block;margin-top:1rem;"></canvas>
+  </div>
+</div>
+
+<p>As shown above, smaller values of $\gamma$ concentrate the training signal on the earliest errors in the draft block, preventing late-stage noise from diluting the optimization of critical early tokens.</p>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results & PAYOFF</div>
+<h2>lossless acceleration benchmarks</h2>
+<p>We evaluate Draft-OPD on <strong>Qwen3-4B</strong> and <strong>Qwen3-8B</strong> target models, using SFT-trained <strong>DFlash</strong> checkpoints as the base draft models. To ensure a fair comparison, all draft models are trained under a matched FLOPs budget. Speedup ratio is measured relative to autoregressive decoding on a single NVIDIA H200 GPU with thinking mode enabled.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">decoding_speedup.bars</span>
+    <span class="vp-hint">Average speedup ratio vs. Autoregressive baseline</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars">
+      <div class="bars-group-label">GSM8K (Reasoning)</div>
+      <div class="bar-row">
+        <span class="bar-label">EAGLE-3 (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="83" style="background: var(--muted);"><span style="color:#fff">4.41x</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DFlash (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="85" style="background: var(--cyan);"><span style="color:#000">4.51x</span></div></div>
+      </div>
+      <div class="bar-row" style="margin-bottom:0.5rem">
+        <span class="bar-label">Draft-OPD (Online)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background: var(--purple-l);"><span style="color:#fff">5.31x</span></div></div>
+      </div>
+
+      <div class="bars-group-label">MATH-500 (Mathematics)</div>
+      <div class="bar-row">
+        <span class="bar-label">EAGLE-3 (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="75" style="background: var(--muted);"><span style="color:#fff">4.15x</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DFlash (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="88" style="background: var(--cyan);"><span style="color:#000">4.88x</span></div></div>
+      </div>
+      <div class="bar-row" style="margin-bottom:0.5rem">
+        <span class="bar-label">Draft-OPD (Online)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background: var(--purple-l);"><span style="color:#fff">5.55x</span></div></div>
+      </div>
+
+      <div class="bars-group-label">HumanEval (Coding)</div>
+      <div class="bar-row">
+        <span class="bar-label">EAGLE-3 (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="85" style="background: var(--muted);"><span style="color:#fff">4.38x</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DFlash (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="92" style="background: var(--cyan);"><span style="color:#000">4.77x</span></div></div>
+      </div>
+      <div class="bar-row" style="margin-bottom:0.5rem">
+        <span class="bar-label">Draft-OPD (Online)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background: var(--purple-l);"><span style="color:#fff">5.17x</span></div></div>
+      </div>
+
+      <div class="bars-group-label">MT-Bench (General Chat)</div>
+      <div class="bar-row">
+        <span class="bar-label">EAGLE-3 (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="80" style="background: var(--muted);"><span style="color:#fff">3.87x</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">DFlash (SFT)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="89" style="background: var(--cyan);"><span style="color:#000">4.33x</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Draft-OPD (Online)</span>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background: var(--purple-l);"><span style="color:#fff">4.86x</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>Draft-OPD consistently improves acceptance length and decoding speed across all evaluated benchmarks, achieving a <strong>5.31&times; to 5.55&times; speedup</strong>. Under matched FLOPs, it outperforms DFlash by 13% and EAGLE-3 by 23% in thinking-enabled settings.</p>
+
+<p>Furthermore, evaluation in highly optimized serving frameworks like <strong>SGLang</strong> shows throughput increases of up to 17% on Qwen3-30B-A3B-Thinking, proving that the theoretical improvements in accepted length translate directly into practical deployment-time gains.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">post/intro.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Mismatch</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="dilemma">dilemma</button>
+    <button class="cs-tab" data-panel="rollout">rollout</button>
+    <button class="cs-tab" data-panel="loss">loss</button>
+    <button class="cs-tab" data-panel="decay">decay</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- INTRO -->
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre"><span class="cs-line cmt"># Speculative draft model SFT training</span>
+<span class="cs-line"><span class="kw">for</span> epoch <span class="kw">in</span> <span class="fn">range</span>(<span class="num">10</span>):</span>
+<span class="cs-line hl-c">    <span class="cmt"># offline SFT on target trajectories</span></span>
+<span class="cs-line hl-c">    loss = cross_entropy(q_phi(x), y_target)</span>
+<span class="cs-line">    optimizer.step()</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-a">    <span class="cmt"># Evaluation: acceptance length tau plateaus</span></span>
+<span class="cs-line hl-a">    tau = evaluate_acceptance(q_phi, target_model)</span>
+<span class="cs-line">    <span class="fn">print</span>(<span class="str">f"Epoch &#123;epoch&#125;: Acceptance Length = &#123;tau:.2f&#125;"</span>)</span>
+<span class="cs-line cmt">    # Result: plateaus around ~5.3 tokens</span></pre>
+    </div>
+
+    <!-- DILEMMA -->
+    <div class="cs-panel" id="panel-dilemma">
+      <pre class="cs-pre"><span class="cs-line cmt"># Standalone self-generation vs Target-assisted SFT</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">draft_self_rollout</span>(q_phi, prompt):</span>
+<span class="cs-line">    tokens = [prompt]</span>
+<span class="cs-line">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">30</span>):</span>
+<span class="cs-line hl-a">        next_tok = q_phi.sample(tokens)</span>
+<span class="cs-line hl-a">        tokens.append(next_tok) <span class="cmt"># loops: "the the the"</span></span>
+<span class="cs-line">    <span class="kw">return</span> tokens</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">naive_target_rollout</span>(target, q_phi, prompt):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Target model corrects all student errors during verify</span></span>
+<span class="cs-line hl-c">    tokens = speculative_decoding(target, q_phi, prompt)</span>
+<span class="cs-line cmt">    # Only correct paths are saved: loss of error states!</span>
+<span class="cs-line">    <span class="kw">return</span> tokens</span></pre>
+    </div>
+
+    <!-- ROLLOUT -->
+    <div class="cs-panel" id="panel-rollout">
+      <pre class="cs-pre"><span class="cs-line cmt"># Draft-OPD: Anchored Rollout and Replay</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">collect_rollout_with_anchors</span>(target, q_phi, prompt):</span>
+<span class="cs-line">    rollout = []</span>
+<span class="cs-line">    anchors = []</span>
+<span class="cs-line">    pos = <span class="num">0</span></span>
+<span class="cs-line">    <span class="kw">while</span> <span class="kw">not</span> done:</span>
+<span class="cs-line hl-g">        <span class="cmt"># Record anchor before speculative drafting</span></span>
+<span class="cs-line hl-g">        anchors.append(pos)</span>
+<span class="cs-line">        block = q_phi.propose(rollout, K=<span class="num">16</span>)</span>
+<span class="cs-line hl-p">        acc_tokens, next_token = target.verify(block)</span>
+<span class="cs-line">        rollout.extend(acc_tokens + [next_token])</span>
+<span class="cs-line">        pos += <span class="fn">len</span>(acc_tokens) + <span class="num">1</span></span>
+<span class="cs-line">    <span class="kw">return</span> rollout, anchors</span></pre>
+    </div>
+
+    <!-- LOSS -->
+    <div class="cs-panel" id="panel-loss">
+      <pre class="cs-pre"><span class="cs-line cmt"># Acceptance-Aware Asymmetric Loss</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">acceptance_aware_loss</span>(q_logits, p_logits, is_accepted):</span>
+<span class="cs-line cmt">    # q_logits: student (draft), p_logits: teacher (target)</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-g">    # Accepted tokens: Forward KL D_KL(p || q)</span>
+<span class="cs-line hl-g">    loss_acc = forward_kl(p_logits[is_accepted], q_logits[is_accepted])</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-p">    # Rejected tokens: Reverse KL D_KL(q || p)</span>
+<span class="cs-line hl-p">    loss_rej = reverse_kl(q_logits[~is_accepted], p_logits[~is_accepted])</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    <span class="kw">return</span> loss_acc + loss_rej</span></pre>
+    </div>
+
+    <!-- DECAY -->
+    <div class="cs-panel" id="panel-decay">
+      <pre class="cs-pre"><span class="cs-line cmt"># Exponential decay weighting of rejected loss</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">rejected_loss_with_decay</span>(q_logits, p_logits, positions, gamma=<span class="num">0.8</span>):</span>
+<span class="cs-line">    loss = <span class="num">0.0</span></span>
+<span class="cs-line">    total_w = <span class="num">0.0</span></span>
+<span class="cs-line">    <span class="kw">for</span> q_log, p_log, k <span class="kw">in</span> <span class="fn">zip</span>(q_logits, p_logits, positions):</span>
+<span class="cs-line hl-g">        w_k = gamma ** (k - <span class="num">1</span>)</span>
+<span class="cs-line hl-p">        loss += w_k * reverse_kl(q_log, p_log)</span>
+<span class="cs-line">        total_w += w_k</span>
+<span class="cs-line">    <span class="kw">return</span> loss / total_w</span></pre>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre"><span class="cs-line cmt"># Lossless speedups on Qwen3 models</span>
+<span class="cs-line">BENCHMARKS = &#123;</span>
+<span class="cs-line hl-g">    <span class="str">"GSM8K"</span>:    &#123;<span class="str">"EAGLE3"</span>: <span class="num">4.41</span>, <span class="str">"DFlash"</span>: <span class="num">4.51</span>, <span class="str">"Draft-OPD"</span>: <span class="num">5.31</span>&#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"MATH-500"</span>: &#123;<span class="str">"EAGLE3"</span>: <span class="num">4.15</span>, <span class="str">"DFlash"</span>: <span class="num">4.88</span>, <span class="str">"Draft-OPD"</span>: <span class="num">5.55</span>&#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"HumanEval"</span>:&#123;<span class="str">"EAGLE3"</span>: <span class="num">4.38</span>, <span class="str">"DFlash"</span>: <span class="num">4.77</span>, <span class="str">"Draft-OPD"</span>: <span class="num">5.17</span>&#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"MT-Bench"</span>: &#123;<span class="str">"EAGLE3"</span>: <span class="num">3.87</span>, <span class="str">"DFlash"</span>: <span class="num">4.33</span>, <span class="str">"Draft-OPD"</span>: <span class="num">4.86</span>&#125;</span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line cmt"># Mean acceptance length (greedy decoding):</span>
+<span class="cs-line hl-c"># DFlash SFT: 5.35 tokens -> Draft-OPD: 5.85 tokens (+9.3%)</span></pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ──────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────────────────
+const tabMeta = {
+  intro:     { file: 'post/intro.py',     title: 'The Mismatch' },
+  dilemma:   { file: 'post/dilemma.py',   title: 'The OPD Dilemma' },
+  rollout:   { file: 'post/rollout.py',   title: 'Rollout & Replay' },
+  loss:      { file: 'post/loss.py',      title: 'Asymmetric KL' },
+  decay:     { file: 'post/decay.py',     title: 'Exponential Decay' },
+  results:   { file: 'post/results.py',   title: 'Benchmark Speedup' }
+};
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — sync TOC + sidebar tab on scroll ─────────────────
+const sectionMap = {
+  's-plateau':   'intro',
+  's-dilemma':   'dilemma',
+  's-mechanism': 'rollout',
+  's-asymmetric': 'loss',
+  's-decay':     'decay',
+  's-results':   'results'
+};
+
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.35 }).observe(s)
+);
+
+// ─── Step Navigator (§03) ────────────────────────────────────────────────────
+let currentStep = 0;
+const stepBoxes = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+
+function updateSteps() {
+  stepBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === currentStep) b.classList.add('active');
+    else if (i < currentStep) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = currentStep === 0;
+  if (nextBtn) nextBtn.disabled = currentStep === stepBoxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${currentStep + 1} of ${stepBoxes.length}`;
+  stepBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < currentStep ? '✓' : String(i + 1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (currentStep > 0) { currentStep--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (currentStep < stepBoxes.length - 1) { currentStep++; updateSteps(); } });
+updateSteps();
+
+// ─── Canvas 1: SFT Plateau Curve (§01) ──────────────────────────────────────────
+const plateauCanvas = document.getElementById('plateau-canvas');
+if (plateauCanvas) {
+  const ctx = plateauCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  
+  // Data definitions
+  const epochs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+  const warmup = [4.5, 4.72, 4.93, 5.12, 5.25, 5.31, 5.35]; // 0 to 6
+  // Checkpoint paths after epoch 6
+  const continuedSFT = [5.35, 5.37, 5.32, 5.36, 5.33, 5.38, 5.34, 5.36, 5.35]; // epoch 6 to 14
+  const draftOPD     = [5.35, 5.46, 5.58, 5.68, 5.76, 5.81, 5.83, 5.85, 5.85]; // epoch 6 to 14
+  const sftOnOPDData = [5.35, 5.26, 5.18, 5.13, 5.09, 5.06, 5.04, 5.02, 5.01]; // epoch 6 to 14
+
+  let activeIndex = -1;
+
+  function drawPlateauCurve() {
+    const W = plateauCanvas.clientWidth;
+    const H = plateauCanvas.clientHeight;
+    plateauCanvas.width = W * DPR;
+    plateauCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Padding
+    const padL = 50, padR = 150, padT = 30, padB = 40;
+    const graphW = W - padL - padR;
+    const graphH = H - padT - padB;
+
+    const minX = 0, maxX = 14;
+    const minY = 4.0, maxY = 6.2;
+
+    const getX = (x) => padL + ((x - minX) / (maxX - minX)) * graphW;
+    const getY = (y) => padB + graphH - ((y - minY) / (maxY - minY)) * graphH;
+
+    // Gridlines Y
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#8e9297';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+
+    for (let y = 4.0; y <= 6.2; y += 0.5) {
+      const pxY = getY(y);
+      ctx.beginPath();
+      ctx.moveTo(padL, pxY);
+      ctx.lineTo(padL + graphW, pxY);
+      ctx.stroke();
+      ctx.fillText(y.toFixed(1), padL - 10, pxY + 4);
+    }
+
+    // Gridlines X (Epochs)
+    ctx.textAlign = 'center';
+    for (let x = 0; x <= 14; x += 2) {
+      const pxX = getX(x);
+      ctx.beginPath();
+      ctx.moveTo(pxX, padT + graphH);
+      ctx.lineTo(pxX, padT);
+      ctx.stroke();
+      ctx.fillText(x.toString(), pxX, H - padB + 18);
+    }
+
+    // Draw Transition vertical line
+    const transX = getX(6);
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.4)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(transX, padT);
+    ctx.lineTo(transX, padT + graphH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('OPD transition', transX + 6, padT + 12);
+
+    // Draw Warmup path
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.strokeStyle = '#abb2bf';
+    warmup.forEach((val, idx) => {
+      if (idx === 0) ctx.moveTo(getX(idx), getY(val));
+      else ctx.lineTo(getX(idx), getY(val));
+    });
+    ctx.stroke();
+
+    // Draw continued SFT path
+    ctx.beginPath();
+    ctx.strokeStyle = '#8e9297';
+    continuedSFT.forEach((val, idx) => {
+      const ep = 6 + idx;
+      if (idx === 0) ctx.moveTo(getX(ep), getY(val));
+      else ctx.lineTo(getX(ep), getY(val));
+    });
+    ctx.stroke();
+
+    // Draw draft-OPD path
+    ctx.beginPath();
+    ctx.strokeStyle = 'var(--purple-l)';
+    draftOPD.forEach((val, idx) => {
+      const ep = 6 + idx;
+      if (idx === 0) ctx.moveTo(getX(ep), getY(val));
+      else ctx.lineTo(getX(ep), getY(val));
+    });
+    ctx.stroke();
+
+    // Draw SFT on OPD data path
+    ctx.beginPath();
+    ctx.strokeStyle = 'var(--amber)';
+    sftOnOPDData.forEach((val, idx) => {
+      const ep = 6 + idx;
+      if (idx === 0) ctx.moveTo(getX(ep), getY(val));
+      else ctx.lineTo(getX(ep), getY(val));
+    });
+    ctx.stroke();
+
+    // Text labels on curves end
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#8e9297';
+    ctx.fillText('Continued SFT (5.35)', getX(14) + 8, getY(continuedSFT[8]) + 4);
+
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.fillText('Draft-OPD (5.85)', getX(14) + 8, getY(draftOPD[8]) + 4);
+
+    ctx.fillStyle = 'var(--amber)';
+    ctx.fillText('SFT on OPD Data (5.01)', getX(14) + 8, getY(sftOnOPDData[8]) + 4);
+
+    // Hover interactive tooltip
+    if (activeIndex >= 0 && activeIndex <= 14) {
+      const hX = getX(activeIndex);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(hX, padT);
+      ctx.lineTo(hX, padT + graphH);
+      ctx.stroke();
+
+      // Collect values
+      let valSFT, valOPD, valOPDData;
+      if (activeIndex <= 6) {
+        valSFT = warmup[activeIndex];
+        valOPD = warmup[activeIndex];
+        valOPDData = warmup[activeIndex];
+      } else {
+        valSFT = continuedSFT[activeIndex - 6];
+        valOPD = draftOPD[activeIndex - 6];
+        valOPDData = sftOnOPDData[activeIndex - 6];
+      }
+
+      const drawDot = (yVal, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(hX, getY(yVal), 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      };
+
+      if (activeIndex <= 6) {
+        drawDot(valSFT, '#abb2bf');
+      } else {
+        drawDot(valSFT, '#8e9297');
+        drawDot(valOPD, 'var(--purple-l)');
+        drawDot(valOPDData, 'var(--amber)');
+      }
+
+      // Tooltip background
+      const ttW = 120, ttH = 65;
+      const ttX = hX > W - 150 - ttW ? hX - ttW - 10 : hX + 10;
+      const ttY = padT;
+
+      ctx.fillStyle = 'rgba(21, 22, 24, 0.9)';
+      ctx.strokeStyle = 'var(--border)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(ttX, ttY, ttW, ttH, 5);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#8e9297';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Epoch: ${activeIndex}`, ttX + 8, ttY + 12);
+      if (activeIndex <= 6) {
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`SFT Warmup: ${valSFT.toFixed(2)}`, ttX + 8, ttY + 28);
+      } else {
+        ctx.fillStyle = 'var(--purple-l)';
+        ctx.fillText(`Draft-OPD: ${valOPD.toFixed(2)}`, ttX + 8, ttY + 28);
+        ctx.fillStyle = '#8e9297';
+        ctx.fillText(`Cont. SFT: ${valSFT.toFixed(2)}`, ttX + 8, ttY + 40);
+        ctx.fillStyle = 'var(--amber)';
+        ctx.fillText(`SFT on OPD: ${valOPDData.toFixed(2)}`, ttX + 8, ttY + 52);
+      }
+    }
+
+    // Title/Labels
+    ctx.save();
+    ctx.translate(15, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#abb2bf';
+    ctx.font = '10px monospace';
+    ctx.fillText('Accepted Length (Tokens)', 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = '#abb2bf';
+    ctx.textAlign = 'center';
+    ctx.font = '10px monospace';
+    ctx.fillText('Training Epochs', padL + graphW / 2, H - 10);
+  }
+
+  window.addEventListener('resize', drawPlateauCurve);
+  drawPlateauCurve();
+
+  plateauCanvas.addEventListener('mousemove', (e) => {
+    const rect = plateauCanvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const padL = 50, padR = 150;
+    const graphW = rect.width - padL - padR;
+
+    const xRatio = (mouseX - padL) / graphW;
+    const rawEpoch = xRatio * 14;
+    activeIndex = Math.max(0, Math.min(14, Math.round(rawEpoch)));
+    drawPlateauCurve();
+  });
+
+  plateauCanvas.addEventListener('mouseleave', () => {
+    activeIndex = -1;
+    drawPlateauCurve();
+  });
+}
+
+// ─── Canvas 2: Asymmetric KL Loss (§04) ──────────────────────────────────────
+const klCanvas = document.getElementById('kl-canvas');
+if (klCanvas) {
+  const ctx = klCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  let mode = 'acc'; // 'acc' or 'rej'
+
+  const vocabulary = ['sat', 'say', 'moon', 'cat', 'mat'];
+  // Target p, Draft q distributions
+  const data = {
+    acc: {
+      p: [0.80, 0.02, 0.01, 0.12, 0.05],
+      q: [0.74, 0.05, 0.02, 0.10, 0.09],
+      title: 'Accepted State: Forward KL minimizes D_KL(p || q)',
+      formula: 'D_KL(p || q) = \u2211 p(y) log(p(y) / q(y))',
+      caption: '<b>Forward KL</b> weight is placed on modes where the target (p) has high density (like "sat"). Pulls the draft (q) distribution to match the target\'s modes, reinforcing agreement at correct positions.'
+    },
+    rej: {
+      p: [0.05, 0.02, 0.00, 0.03, 0.90],
+      q: [0.10, 0.15, 0.70, 0.02, 0.03],
+      title: 'Rejected State: Reverse KL minimizes D_KL(q || p)',
+      formula: 'D_KL(q || p) = \u2211 q(y) log(q(y) / p(y))',
+      caption: '<b>Reverse KL</b> is weighted by the draft\'s own output probabilities (q). Because the target puts 0% mass on the draft\'s incorrect mode "moon" (0.70), it incurs a severe penalty. This zero-forcing behavior crushes incorrect modes.'
+    }
+  };
+
+  function drawKL() {
+    const W = klCanvas.clientWidth;
+    const H = klCanvas.clientHeight;
+    klCanvas.width = W * DPR;
+    klCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 40, padR = 20, padT = 30, padB = 40;
+    const barW = (W - padL - padR) / vocabulary.length;
+    const graphH = H - padT - padB;
+
+    const activeData = data[mode];
+
+    // Title & Formula
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(activeData.title, padL, 16);
+
+    ctx.fillStyle = 'var(--cyan)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(activeData.formula, W - padR, 16);
+
+    // Y Axis Gridlines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fillStyle = '#8e9297';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    for (let g = 0.0; g <= 1.0; g += 0.25) {
+      const yPos = padT + graphH - g * graphH;
+      ctx.beginPath();
+      ctx.moveTo(padL, yPos);
+      ctx.lineTo(W - padR, yPos);
+      ctx.stroke();
+      ctx.fillText(g.toFixed(2), padL - 8, yPos + 3);
+    }
+
+    // Draw bars
+    vocabulary.forEach((vocab, i) => {
+      const pVal = activeData.p[i];
+      const qVal = activeData.q[i];
+
+      const xPos = padL + i * barW + barW * 0.15;
+      const bW = barW * 0.32;
+
+      // Target bar (p) - Cyan
+      const pHPx = pVal * graphH;
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(xPos, padT + graphH - pHPx, bW, pHPx, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // Draft bar (q) - Purple
+      const qHPx = qVal * graphH;
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(xPos + bW + barW * 0.06, padT + graphH - qHPx, bW, qHPx, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // Values text
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      if (pVal > 0.02) {
+        ctx.fillStyle = 'var(--cyan)';
+        ctx.fillText(pVal.toFixed(2), xPos + bW/2, padT + graphH - pHPx - 5);
+      }
+      if (qVal > 0.02) {
+        ctx.fillStyle = 'var(--purple-l)';
+        ctx.fillText(qVal.toFixed(2), xPos + bW * 1.5 + barW * 0.06, padT + graphH - qHPx - 5);
+      }
+
+      // Vocabulary Labels
+      ctx.fillStyle = '#abb2bf';
+      ctx.fillText(`"${vocab}"`, padL + i * barW + barW / 2, H - padB + 16);
+    });
+
+    // Legend
+    ctx.textAlign = 'right';
+    ctx.font = '9px monospace';
+    
+    ctx.fillStyle = 'var(--cyan)';
+    ctx.beginPath();
+    ctx.arc(W - 120, H - 12, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8e9297';
+    ctx.fillText('Target p(y|s)', W - 50, H - 9);
+
+    ctx.fillStyle = 'var(--purple-l)';
+    ctx.beginPath();
+    ctx.arc(W - 40, H - 12, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8e9297';
+    ctx.fillText('Draft q(y|s)', W - 10, H - 9);
+  }
+
+  // Bind toggles
+  const btnAcc = document.getElementById('btn-acc');
+  const btnRej = document.getElementById('btn-rej');
+  const captionEl = document.getElementById('kl-caption');
+
+  function updateActiveButton(active, inactive) {
+    active?.classList.add('active');
+    inactive?.classList.remove('active');
+    if (captionEl) captionEl.innerHTML = data[mode].caption;
+    drawKL();
+  }
+
+  btnAcc?.addEventListener('click', () => { mode = 'acc'; updateActiveButton(btnAcc, btnRej); });
+  btnRej?.addEventListener('click', () => { mode = 'rej'; updateActiveButton(btnRej, btnAcc); });
+
+  window.addEventListener('resize', drawKL);
+  updateActiveButton(btnAcc, btnRej);
+}
+
+// ─── Canvas 3: Exponential Decay (§05) ───────────────────────────────────────
+const decayCanvas = document.getElementById('decay-canvas');
+if (decayCanvas) {
+  const ctx = decayCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const slider = document.getElementById('gamma-slider');
+  const valDisplay = document.getElementById('gamma-val');
+
+  function getGamma() {
+    return parseFloat(slider?.value || 0.8);
+  }
+
+  function drawDecay() {
+    const W = decayCanvas.clientWidth;
+    const H = decayCanvas.clientHeight;
+    decayCanvas.width = W * DPR;
+    decayCanvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 40, padR = 20, padT = 20, padB = 40;
+    const graphW = W - padL - padR;
+    const graphH = H - padT - padB;
+
+    const gamma = getGamma();
+    const positions = 16;
+    const barW = graphW / positions;
+
+    // Gridlines Y
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#8e9297';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    for (let g = 0.0; g <= 1.0; g += 0.25) {
+      const yPos = padT + graphH - g * graphH;
+      ctx.beginPath();
+      ctx.moveTo(padL, yPos);
+      ctx.lineTo(W - padR, yPos);
+      ctx.stroke();
+      ctx.fillText(g.toFixed(2), padL - 8, yPos + 3);
+    }
+
+    // Draw weights bars
+    ctx.textAlign = 'center';
+    for (let k = 1; k <= positions; k++) {
+      const weight = Math.pow(gamma, k - 1);
+      const xPos = padL + (k - 1) * barW + barW * 0.1;
+      const bW = barW * 0.8;
+      const bH = weight * graphH;
+
+      // Color coding: first few tokens are cyan, decaying to purple/muted
+      let fillStyle = 'rgba(139, 92, 246, 0.7)'; // Default purple
+      if (k === 1) fillStyle = 'rgba(6, 182, 212, 0.9)'; // First token critical cyan
+      else if (k <= 4) fillStyle = 'rgba(139, 92, 246, 0.9)'; // First few tokens dark purple
+      else fillStyle = `rgba(139, 92, 246, ${Math.max(0.15, weight * 0.85)})`; // Decaying transparency
+
+      ctx.fillStyle = fillStyle;
+      ctx.beginPath();
+      ctx.roundRect(xPos, padT + graphH - bH, bW, bH, [2, 2, 0, 0]);
+      ctx.fill();
+
+      // Draw values on top of bars if they fit
+      if (bH > 12 && positions <= 16) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '8px monospace';
+        ctx.fillText(weight.toFixed(2), xPos + bW/2, padT + graphH - bH - 4);
+      }
+
+      // X Label
+      ctx.fillStyle = '#abb2bf';
+      ctx.font = '9px monospace';
+      ctx.fillText(k.toString(), padL + (k - 0.5) * barW, H - padB + 16);
+    }
+
+    // Draw region boundaries / braces
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+    ctx.beginPath();
+    ctx.moveTo(padL + 2, padT + 5);
+    ctx.lineTo(padL + 4 * barW - 2, padT + 5);
+    ctx.stroke();
+    ctx.fillStyle = 'var(--cyan)';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('Critical early error', padL + 5, padT + 14);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.beginPath();
+    ctx.moveTo(padL + 4 * barW + 2, padT + 5);
+    ctx.lineTo(padL + 16 * barW - 2, padT + 5);
+    ctx.stroke();
+    ctx.fillStyle = '#8e9297';
+    ctx.fillText('Decayed suffix', padL + 4 * barW + 5, padT + 14);
+
+    ctx.fillStyle = '#abb2bf';
+    ctx.textAlign = 'center';
+    ctx.font = '10px monospace';
+    ctx.fillText('Token Block Position k', padL + graphW / 2, H - 8);
+  }
+
+  slider?.addEventListener('input', () => {
+    const val = getGamma();
+    if (valDisplay) valDisplay.textContent = val.toFixed(2);
+    drawDecay();
+  });
+
+  window.addEventListener('resize', drawDecay);
+  drawDecay();
+}
+
+// ─── Animated bar chart trigger (§06) ────────────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 100 * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

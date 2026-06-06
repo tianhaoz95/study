@@ -22,11 +22,23 @@ if (typeof window !== "undefined" && (window.location.hostname === "localhost" |
   connectFirestoreEmulator(db, "localhost", 8086);
 }
 
-export const analytics = typeof window !== "undefined" ? getAnalytics(app) : undefined;
+let _analytics = undefined;
+if (typeof window !== "undefined") {
+  try {
+    _analytics = getAnalytics(app);
+  } catch (e) {
+    console.warn("Firebase Analytics is not supported or was blocked:", e);
+  }
+}
+export const analytics = _analytics;
 
 // Analytics is browser-only
 export function initAnalytics() {
   if (typeof window !== "undefined") {
-    return getAnalytics(app);
+    try {
+      return getAnalytics(app);
+    } catch (e) {
+      console.warn("Firebase Analytics initialization failed:", e);
+    }
   }
 }

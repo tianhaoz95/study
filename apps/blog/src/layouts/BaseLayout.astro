@@ -23,7 +23,7 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
   <meta name="apple-mobile-web-app-title" content="AI/ML Deep Dives" />
   <meta name="theme-color" content="#09090f" />
   <script is:inline>
-    (function(){var t=localStorage.getItem('heji-theme')||'dark';document.documentElement.dataset.theme=t;})();
+    (function(){try{var t=localStorage.getItem('heji-theme')||'dark';document.documentElement.dataset.theme=t;}catch(e){}})();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -192,9 +192,16 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
 
         if (saveTimer !== null) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
-          const stored = parseInt(localStorage.getItem(`heji-read-${slug}`) ?? '0', 10);
+          let stored = 0;
+          try {
+            stored = parseInt(localStorage.getItem(`heji-read-${slug}`) ?? '0', 10);
+          } catch (e) {}
           const next = Math.round(pct);
-          if (next > stored) localStorage.setItem(`heji-read-${slug}`, String(next));
+          if (next > stored) {
+            try {
+              localStorage.setItem(`heji-read-${slug}`, String(next));
+            } catch (e) {}
+          }
           saveTimer = null;
         }, 500);
       }
@@ -212,6 +219,20 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
   const THEME_KEY = 'heji-theme';
   const LANG_KEY  = 'heji-lang';
   const HTML = document.documentElement;
+
+  const safeGetItem = (key: string, fallback: string = ''): string => {
+    try {
+      return localStorage.getItem(key) || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  };
+
+  const safeSetItem = (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  };
 
   const i18n: Record<Lang, Record<string, string>> = {
     en: {
@@ -264,7 +285,7 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     const moon = document.getElementById('icon-moon');
     if (sun)  (sun as HTMLElement).style.display  = theme === 'light' ? 'none' : '';
     if (moon) (moon as HTMLElement).style.display = theme === 'dark'  ? 'none' : '';
-    localStorage.setItem(THEME_KEY, theme);
+    safeSetItem(THEME_KEY, theme);
     if (analytics) {
       logEvent(analytics, 'theme_changed', { theme });
     }
@@ -278,14 +299,14 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     });
     const btn = document.getElementById('lang-toggle');
     if (btn) btn.textContent = lang === 'zh' ? 'EN' : '中';
-    localStorage.setItem(LANG_KEY, lang);
+    safeSetItem(LANG_KEY, lang);
     if (analytics) {
       logEvent(analytics, 'language_changed', { language: lang });
     }
   }
 
-  const savedTheme = (localStorage.getItem(THEME_KEY) || 'dark') as Theme;
-  const savedLang  = (localStorage.getItem(LANG_KEY)  || 'en')  as Lang;
+  const savedTheme = safeGetItem(THEME_KEY, 'dark') as Theme;
+  const savedLang  = safeGetItem(LANG_KEY, 'en') as Lang;
   applyTheme(savedTheme);
   applyLang(savedLang);
 
@@ -293,7 +314,7 @@ const subscribeUrl = import.meta.env.PUBLIC_SUBSCRIBE_URL ?? 'https://heji-study
     applyTheme((HTML.dataset.theme as Theme) === 'dark' ? 'light' : 'dark');
   });
   document.getElementById('lang-toggle')?.addEventListener('click', () => {
-    applyLang((localStorage.getItem(LANG_KEY) || 'en') === 'en' ? 'zh' : 'en');
+    applyLang((safeGetItem(LANG_KEY, 'en') === 'en' ? 'zh' : 'en') as Lang);
   });
 
   // ── Mobile hamburger menu ──────────────────────────────────
