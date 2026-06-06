@@ -1,0 +1,1270 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime(Astro.url.pathname.split('/').filter(Boolean).at(-1)!);
+---
+<BaseLayout
+  title="Representation Forcing: Bottleneck-Free Unified Multimodal Models | AI/ML Deep Dives"
+  description="A deep dive into Representation Forcing (RF) — how pixel-space unified multimodal models discard frozen VAEs and predict visual representations online to guide image generation."
+  crumb="Representation Forcing"
+>
+
+<style is:global>
+/* ── Post Base Styles ────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ─────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Callout Boxes ──────────────────────────────────────── */
+.callout{background:var(--card2);border:1px solid var(--border);border-left:4px solid var(--purple);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;display:flex;gap:.75rem;align-items:flex-start}
+.callout-icon{font-size:1.2rem;line-height:1;margin-top:.1rem}
+.callout-content{font-size:.875rem;color:var(--muted2);line-height:1.6}
+.callout-insight{border-left-color:var(--cyan)}
+
+/* ── Results Table ──────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Math Block ────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Custom Viz Elements ────────────────────────────────── */
+#arch-svg{width:100%;height:auto}
+
+/* Token attention sequence style */
+.seq-box{display:flex;flex-wrap:wrap;gap:.4rem;padding:1rem;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin:1.5rem 0}
+.seq-token{padding:.4rem .65rem;border-radius:4px;border:1px solid var(--border-hi);background:var(--surface);font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);cursor:pointer;transition:all .15s}
+.seq-token.token-text{border-color:rgba(139,92,246,.3)}
+.seq-token.token-rep{border-color:rgba(16,185,129,.3)}
+.seq-token.token-pixel{border-color:rgba(6,182,212,.3)}
+.seq-token.active-focus{background:var(--purple);color:#fff;border-color:var(--purple)}
+.seq-token.attended{background:var(--purple-dim);color:var(--purple-l);border-color:var(--purple-l)}
+.seq-token.token-rep.active-focus{background:var(--green);color:#fff;border-color:var(--green)}
+.seq-token.token-rep.attended{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.seq-token.token-pixel.active-focus{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+.seq-token.token-pixel.attended{background:var(--cyan-dim);color:var(--cyan);border-color:var(--cyan)}
+
+/* Quantization Flow Styles */
+.vq-container{display:grid;grid-template-columns:1fr 240px;gap:1.5rem;margin:1.5rem 0}
+@media(max-width:580px){.vq-container{grid-template-columns:1fr}}
+.vq-grid-box{display:flex;flex-direction:column;align-items:center}
+.vq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;max-width:200px;aspect-ratio:1}
+.vq-cell{border-radius:4px;cursor:pointer;border:1px solid rgba(255,255,255,.15);transition:transform .15s;position:relative}
+.vq-cell.selected{border:2px solid #fff;box-shadow:0 0 10px rgba(255,255,255,.5)}
+.vq-codebook{display:flex;flex-direction:column;gap:.5rem;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.875rem}
+.vq-codebook-title{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-family:var(--ff-mono);margin-bottom:.25rem}
+.vq-proto{padding:.4rem .6rem;border-radius:5px;border:1px solid var(--border);font-family:var(--ff-mono);font-size:.7rem;color:var(--muted2);transition:all .2s;display:flex;justify-content:between;align-items:center}
+.vq-proto.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple-l)}
+
+/* Canvas Denoising Styles */
+.denoise-canvas-container{display:flex;flex-direction:column;align-items:center}
+#denoise-canvas{display:block;width:100%;max-width:440px;height:240px;border-radius:8px;background:#0f111a;border:1px solid var(--border)}
+.denoise-controls{display:flex;align-items:center;justify-content:between;width:100%;max-width:440px;margin-top:.875rem;gap:.75rem;flex-wrap:wrap}
+.denoise-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .9rem;border-radius:6px;font-size:.74rem;font-family:var(--ff-mono);cursor:pointer;transition:all .2s;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)}
+.denoise-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.denoise-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.slider-group{display:flex;align-items:center;gap:.5rem;flex:1;min-width:180px}
+.slider-group input[type=range]{flex:1;accent-color:var(--cyan);cursor:pointer}
+.slider-group span{font-family:var(--ff-mono);font-size:.72rem;color:var(--muted);width:45px;text-align:right}
+
+/* Bar chart styles */
+.chart-container{margin:1.5rem 0;display:flex;flex-direction:column;gap:.75rem}
+.chart-bar-row{display:flex;align-items:center;gap:.75rem}
+.chart-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:190px;flex-shrink:0;text-align:right;line-height:1.3}
+.chart-track{flex:1;background:var(--card2);border-radius:4px;height:20px;overflow:hidden;border:1px solid var(--border)}
+.chart-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.chart-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- ════════════════════════════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Multimodal Generation</span>
+    <span class="tag tag-cyan">Pixel Space</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Representation Forcing:<br>Bottleneck-Free Unified Multimodal Models</h1>
+  <p class="lead">
+    Traditional unified models rely on frozen, pretrained VAEs for image generation, introducing a lossy structural bottleneck. Directly generating pixels suffers from heavy structural distortions. <strong>Representation Forcing (RF)</strong> bridges this gap: by training the decoder to autoregressively predict visual representations from its own understanding encoder, UMMs acquire native structural guidance for pixel-space diffusion, matching VAE quality while improving understanding.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 6, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2605.31604</code> — ByteDance Seed</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.31604" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://yuqingwang1029.github.io/RepresentationForcing" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════ GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- ══════════════════════════════════ TOC ══════════════════ -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents" aria-label="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The VAE Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-online-vq"><a href="#s-online-vq"><span class="toc-num">02</span> Online Quantization</a></li>
+    <li class="toc-item" id="toc-s-sequence"><a href="#s-sequence"><span class="toc-num">03</span> Token Sequence & Mask</a></li>
+    <li class="toc-item" id="toc-s-pixel-gen"><a href="#s-pixel-gen"><span class="toc-num">04</span> Guided Pixel Generation</a></li>
+    <li class="toc-item" id="toc-s-ablations"><a href="#s-ablations"><span class="toc-num">05</span> Design Ablations</a></li>
+    <li class="toc-item" id="toc-s-payoff"><a href="#s-payoff"><span class="toc-num">06</span> Experimental Payoff</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════════════════════════ ARTICLE ══════════════════ -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────── §1 The VAE Bottleneck -->
+<section id="s-bottleneck" data-code="intro">
+<div class="section-no">01 — The VAE Bottleneck</div>
+<h2>The structural bottleneck in unified models</h2>
+<p>
+  Unified Multimodal Models (UMMs) aim to perform both understanding (interpreting pixels to output text) and generation (rendering text prompts into pixels) within a single shared transformer. Today, this is done by framing image generation as diffusion over the latent representations of a separately pretrained, frozen Variational Autoencoder (VAE).
+</p>
+<p>
+  However, this reliance on an external, frozen VAE imposes a hard structural bottleneck:
+</p>
+<ul>
+  <li><strong>Lossy Compression Ceiling:</strong> The VAE encoder operates under reconstruction constraints optimized separately from the UMM. Any fine details lost in the VAE's latent bottleneck can never be recovered by the UMM.</li>
+  <li><strong>Disconnected Spaces:</strong> The understanding pathway (using a vision encoder like DINO or CLIP) and the generation pathway (using the VAE) remain mapped to completely separate latent spaces, hindering joint semantic training.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">architecture_comparison.svg</div>
+    <div class="vp-hint">Comparison of UMM Generation Pathways</div>
+  </div>
+  <div class="vp-body" style="background:#0f111a; padding:1.5rem; text-align:center;">
+    <svg id="arch-svg" viewBox="0 0 640 340">
+      <!-- (a) VAE-based -->
+      <g transform="translate(10, 10)">
+        <rect x="0" y="0" width="620" height="90" rx="6" fill="#161b22" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <text x="15" y="20" fill="var(--muted)" font-size="10" font-family="monospace">(a) prevailing VAE-based UMM</text>
+        
+        <text x="30" y="52" fill="var(--text2)" font-size="11">Prompt</text>
+        <line x1="75" y1="48" x2="110" y2="48" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+        
+        <rect x="115" y="30" width="160" height="36" rx="4" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1"/>
+        <text x="195" y="52" fill="var(--purple-l)" font-size="11" text-anchor="middle" font-weight="600">Shared Transformer</text>
+        
+        <line x1="280" y1="48" x2="315" y2="48" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+        
+        <rect x="320" y="30" width="110" height="36" rx="4" fill="rgba(245,158,11,.15)" stroke="var(--amber)" stroke-width="1"/>
+        <text x="375" y="52" fill="var(--amber)" font-size="11" text-anchor="middle">VAE Latents</text>
+        
+        <line x1="435" y1="48" x2="470" y2="48" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+        
+        <rect x="475" y="30" width="120" height="36" rx="4" fill="rgba(255,255,255,.05)" stroke="var(--border)" stroke-width="1"/>
+        <text x="535" y="52" fill="var(--muted2)" font-size="11" text-anchor="middle">Frozen VAE Dec ❄</text>
+        
+        <line x1="570" y1="48" x2="595" y2="48" stroke="var(--muted)" stroke-width="1.5"/>
+      </g>
+      
+      <!-- (b) Naive Pixel-Space -->
+      <g transform="translate(10, 115)">
+        <rect x="0" y="0" width="620" height="90" rx="6" fill="#161b22" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <text x="15" y="20" fill="var(--muted)" font-size="10" font-family="monospace">(b) naive pixel-space generation (No Guidance)</text>
+        
+        <text x="30" y="52" fill="var(--text2)" font-size="11">Prompt</text>
+        <line x1="75" y1="48" x2="110" y2="48" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+        
+        <rect x="115" y="30" width="160" height="36" rx="4" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1"/>
+        <text x="195" y="52" fill="var(--purple-l)" font-size="11" text-anchor="middle" font-weight="600">Shared Transformer</text>
+        
+        <line x1="280" y1="48" x2="330" y2="48" stroke="var(--red)" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+        
+        <rect x="335" y="30" width="260" height="36" rx="4" fill="rgba(239,68,68,.1)" stroke="var(--red)" stroke-width="1"/>
+        <text x="465" y="52" fill="var(--red)" font-size="11" text-anchor="middle">Direct Pixel Output (Distorted & Incoherent)</text>
+      </g>
+
+      <!-- (c) Representation Forcing -->
+      <g transform="translate(10, 220)">
+        <rect x="0" y="0" width="620" height="110" rx="6" fill="#161b22" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <text x="15" y="20" fill="var(--purple-l)" font-size="10" font-family="monospace">(c) representation forcing (Ours, VAE-Free)</text>
+        
+        <text x="30" y="52" fill="var(--text2)" font-size="11">Prompt</text>
+        <line x1="75" y1="48" x2="110" y2="48" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+        
+        <rect x="115" y="28" width="160" height="42" rx="4" fill="var(--purple-dim)" stroke="var(--purple)" stroke-width="1"/>
+        <text x="195" y="46" fill="var(--purple-l)" font-size="11" text-anchor="middle" font-weight="600">Shared Transformer</text>
+        <text x="195" y="60" fill="var(--muted)" font-size="8" text-anchor="middle">Causal Attention Condition</text>
+        
+        <line x1="280" y1="48" x2="315" y2="48" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+        
+        <!-- Rep Tokens -->
+        <rect x="320" y="28" width="120" height="42" rx="4" fill="rgba(16,185,129,.15)" stroke="var(--green)" stroke-width="1"/>
+        <text x="380" y="46" fill="var(--green)" font-size="10" text-anchor="middle" font-weight="600">Predicted Rep Tokens</text>
+        <text x="380" y="58" fill="var(--muted)" font-size="8" text-anchor="middle">In-Context Guidance</text>
+        
+        <!-- Recurrent feedback arrow (in-context) -->
+        <path d="M 380 70 Q 380 90 270 90 Q 160 90 160 74" fill="none" stroke="var(--green)" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arrowGreenSm)"/>
+        <text x="270" y="85" fill="var(--green)" font-size="8" font-family="monospace" text-anchor="middle">in-context attention flow</text>
+        
+        <line x1="445" y1="48" x2="480" y2="48" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#arrowCyan)"/>
+        
+        <!-- Pixel Space Diffusion -->
+        <rect x="485" y="28" width="110" height="42" rx="4" fill="var(--cyan-dim)" stroke="var(--cyan)" stroke-width="1"/>
+        <text x="540" y="46" fill="var(--cyan)" font-size="10" text-anchor="middle" font-weight="600">Pixel Diffusion</text>
+        <text x="540" y="58" fill="var(--cyan)" font-size="8" text-anchor="middle">Clean Pixels</text>
+      </g>
+      
+      <!-- Arrow Defs -->
+      <defs>
+        <marker id="arrowPurple" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="var(--purple)"/>
+        </marker>
+        <marker id="arrowRed" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="var(--red)"/>
+        </marker>
+        <marker id="arrowGreen" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="var(--green)"/>
+        </marker>
+        <marker id="arrowGreenSm" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+          <path d="M0,0 L0,4 L4,2 z" fill="var(--green)"/>
+        </marker>
+        <marker id="arrowCyan" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="var(--cyan)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>
+  A naive alternative is to generate directly in pixel space. However, when we strip the VAE out of a unified model and try to diffuse raw pixels, the generation quality collapses. The model must learn both high-level semantic layout and fine-grained visual details from the same raw signal.
+</p>
+<p>
+  Representation Forcing solves this by utilizing the visual representations from the model's own jointly trained <strong>understanding encoder</strong> as an intermediate structural scaffold.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §2 Online Quantization -->
+<section id="s-online-vq" data-code="online_vq">
+<div class="section-no">02 — Online Quantization</div>
+<h2>Online vector quantization without pretrained tokenizers</h2>
+<p>
+  To let the decoder predict high-level structures, the continuous representations from the understanding encoder are discretized online into a sequence of representation tokens. Discretization naturally factorizes representation from rendering, prompting the predicted tokens to retain structural features while discarding low-level pixel noise.
+</p>
+<p>
+  Since the encoder is jointly trained, its features change online. We use an <strong>Exponential Moving Average (EMA)</strong> copy of the image encoder to extract slow-moving, stable target features.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">online_vq_flow.html</div>
+    <div class="vp-hint">Click patches to see prototype codebook assignment</div>
+  </div>
+  <div class="vp-body">
+    <div class="vq-container">
+      <div class="vq-grid-box">
+        <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.5rem; font-family:var(--ff-mono);">GT Image (Apple on Plate)</div>
+        <div class="vq-grid" id="vq-grid">
+          <!-- Row 1 -->
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <!-- Row 2 -->
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="leaf" style="background:#3a5a40;"></div>
+          <div class="vq-cell" data-type="leaf" style="background:#3a5a40;"></div>
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <!-- Row 3 -->
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="apple" style="background:#a63a50;"></div>
+          <div class="vq-cell" data-type="apple" style="background:#a63a50;"></div>
+          <div class="vq-cell" data-type="plate" style="background:#2b2d42;"></div>
+          <!-- Row 4 -->
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+          <div class="vq-cell" data-type="plate" style="background:#2b2d42;"></div>
+          <div class="vq-cell" data-type="plate" style="background:#2b2d42;"></div>
+          <div class="vq-cell" data-type="bg" style="background:#1e1e24;"></div>
+        </div>
+      </div>
+      
+      <div class="vq-codebook">
+        <div class="vq-codebook-title">Codebook Prototypes (K=16,384)</div>
+        <div class="vq-proto" id="proto-bg" data-type="bg">
+          <span>Proto #1209 (Dark Backdrop)</span>
+        </div>
+        <div class="vq-proto" id="proto-leaf" data-type="leaf">
+          <span>Proto #9281 (Green Edge/Leaf)</span>
+        </div>
+        <div class="vq-proto" id="proto-apple" data-type="apple">
+          <span>Proto #4012 (Red Sphere/Skin)</span>
+        </div>
+        <div class="vq-proto" id="proto-plate" data-type="plate">
+          <span>Proto #7384 (Curved Rim/Plate)</span>
+        </div>
+        
+        <div id="vq-status" style="font-size:0.7rem; color:var(--cyan); margin-top:0.5rem; font-family:monospace; line-height:1.4;">
+          Click a patch to extract its DINOv3 features and trace assignment.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  As described in Algorithm 1, we perform cosine similarity mapping between patch features and the learnable prototypes. A <strong>Sinkhorn-Knopp</strong> clustering balance iteration is applied online to ensure uniform prototype usage and prevent codebook collapse.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §3 Token Sequence & Mask -->
+<section id="s-sequence" data-code="sequence">
+<div class="section-no">03 — Token Sequence & Mask</div>
+<h2>Putting representations in context</h2>
+<p>
+  How do predicted representation tokens guide pixel generation? They are placed directly in the sequence. The model operates on a unified sequence:
+</p>
+<div class="math-block">
+  <div class="math-label">Sequence Layout</div>
+  <span class="math-var">Sequence</span> = [ <span class="math-var">Text Tokens</span> , <span class="math-var">Representation Tokens</span> , <span class="math-var">Pixel Patches</span> ]
+</div>
+<p>
+  During self-attention inside the transformer backbone, a custom causal-to-bidirectional mask controls the attention flow, acting as the structural conditioning channel:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">attention_flow_explorer.html</div>
+    <div class="vp-hint">Hover over tokens to see attention mask routing</div>
+  </div>
+  <div class="vp-body">
+    <div class="seq-box" id="seq-box">
+      <!-- Text -->
+      <div class="seq-token token-text" data-idx="0">"a"</div>
+      <div class="seq-token token-text" data-idx="1">"red"</div>
+      <div class="seq-token token-text" data-idx="2">"apple"</div>
+      <div class="seq-token token-text" data-idx="3">"on"</div>
+      <div class="seq-token token-text" data-idx="4">"a"</div>
+      <div class="seq-token token-text" data-idx="5">"blue"</div>
+      <div class="seq-token token-text" data-idx="6">"plate"</div>
+      <!-- Rep -->
+      <div class="seq-token token-rep" data-idx="7">Rep₀</div>
+      <div class="seq-token token-rep" data-idx="8">Rep₁</div>
+      <div class="seq-token token-rep" data-idx="9">Rep₂</div>
+      <div class="seq-token token-rep" data-idx="10">Rep₃</div>
+      <!-- Pixels -->
+      <div class="seq-token token-pixel" data-idx="11">Pix₀</div>
+      <div class="seq-token token-pixel" data-idx="12">Pix₁</div>
+      <div class="seq-token token-pixel" data-idx="13">Pix₂</div>
+      <div class="seq-token token-pixel" data-idx="14">Pix₃</div>
+    </div>
+    
+    <div id="mask-status" style="font-size:0.75rem; color:var(--muted2); font-family:monospace; line-height:1.4;">
+      Hover over a token to visualize the attention pattern.
+    </div>
+  </div>
+</div>
+
+<p>
+  Hovering over different token positions illustrates the core design:
+</p>
+<ul>
+  <li><strong>Text Tokens</strong> attend causally to preceding text.</li>
+  <li><strong>Representation Tokens</strong> attend causally to preceding text and representations.</li>
+  <li><strong>Pixel Patches</strong> attend bidirectionally to all other pixel patches, and causally to all preceding text and representation tokens, pulling structural layouts into pixel generation.</li>
+</ul>
+</section>
+
+<!-- ─────────────────────────────────── §4 Guided Pixel Generation -->
+<section id="s-pixel-gen" data-code="flow_matching">
+<div class="section-no">04 — Guided Pixel Generation</div>
+<h2>Generating pixels via Flow Matching</h2>
+<p>
+  Once the representation tokens are predicted autoregressively at inference, they serve as the structural framework. The model then performs iterative denoising starting from Gaussian noise z₀ ~ N(0, I) using flow matching.
+</p>
+<p>
+  Let's compare the denoising trajectory between naive pixel-space generation and Representation Forcing.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">denoising_flow_simulation.canvas</div>
+    <div class="vp-hint">Denoising comparison: Naive vs RF</div>
+  </div>
+  <div class="vp-body">
+    <div class="denoise-canvas-container">
+      <canvas id="denoise-canvas"></canvas>
+      
+      <div class="denoise-controls">
+        <button class="denoise-btn" id="btn-play">Play</button>
+        <button class="denoise-btn" id="btn-reset">Reset</button>
+        
+        <div class="slider-group">
+          <label style="font-size:0.7rem; color:var(--muted); font-family:monospace;">Timestep t:</label>
+          <input type="range" id="t-slider" min="0" max="100" value="0">
+          <span id="t-val">0.00</span>
+        </div>
+        
+        <div style="display:flex; gap:0.5rem;">
+          <button class="denoise-btn active" id="btn-rf-toggle" data-rf="true">With RF</button>
+          <button class="denoise-btn" id="btn-naive-toggle" data-rf="false">Naive (No RF)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  Observe what happens when Representation Forcing is disabled: without structural anchors, the red and blue pixels mix chaotically, failing to isolate boundaries. With RF, the predicted representations act as a coordinate map, guiding the velocity vector to render sharp edges and correct geometry.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §5 Design Ablations -->
+<section id="s-ablations" data-code="ablations">
+<div class="section-no">05 — Design Ablations</div>
+<h2>Why prediction & discretization are critical</h2>
+<p>
+  To prove the necessity of predicting representations autoregressively as discrete tokens, the authors conducted controlled ablations on text-to-image generation (evaluated on GenEval overall score at 256 resolution).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">ablation_comparison_chart.html</div>
+    <div class="vp-hint">GenEval Score vs Representation Guidance Strategy</div>
+  </div>
+  <div class="vp-body">
+    <div class="chart-container" id="ablation-chart">
+      <div class="chart-bar-row">
+        <div class="chart-label">Pixel Baseline (No RF)</div>
+        <div class="chart-track">
+          <div class="chart-fill" data-w="25" style="background:var(--red);"><span>25%</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">Continuous Regression RF</div>
+        <div class="chart-track">
+          <div class="chart-fill" data-w="26" style="background:var(--amber);"><span>26%</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">REPA (Auxiliary Alignment)</div>
+        <div class="chart-track">
+          <div class="chart-fill" data-w="43" style="background:var(--border-hi);"><span>43%</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">VAE Baseline (Frozen VAE)</div>
+        <div class="chart-track">
+          <div class="chart-fill" data-w="77" style="background:var(--muted);"><span>77%</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">Discrete RF (Ours)</div>
+        <div class="chart-track">
+          <div class="chart-fill" data-w="76" style="background:var(--green);"><span>76%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The ablations reveal two core insights:
+</p>
+<ul>
+  <li><strong>Discretization Prevents Drift:</strong> Continuous regression (predicting continuous embedding coordinates) collapses to 26% due to error accumulation in causal prediction. Discrete tokens reduce the task to robust categorical classifications.</li>
+  <li><strong>Prediction Beat Alignment:</strong> REPA aligns intermediate features via loss, but fails at inference since the aligned features do not condition the output. RF places predicted representations in-context, allowing direct self-attention conditioning.</li>
+</ul>
+</section>
+
+<!-- ─────────────────────────────────── §6 Experimental Payoff -->
+<section id="s-payoff" data-code="benchmarks">
+<div class="section-no">06 — Experimental Payoff</div>
+<h2>The pay-off: generation & understanding results</h2>
+<p>
+  By training understanding and generation in a unified representation space, RF benefits both directions.
+  First, on text-to-image generation benchmarks at 1024 resolution, RF-Pixel matches state-of-the-art VAE-based unified models (like BAGEL and BLIP3-o) without using any pretrained VAE:
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>GenEval Overall ↑</th>
+      <th>DPG-Bench Overall ↑</th>
+      <th>VAE-Free?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mn">SDXL</td>
+      <td>0.55</td>
+      <td>74.65</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td class="mn">DALL-E 3</td>
+      <td>0.67</td>
+      <td>83.50</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td class="mn">BAGEL (VAE UMM)</td>
+      <td>0.82</td>
+      <td>85.07</td>
+      <td>No</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">RF-Pixel (Ours)</td>
+      <td class="best">0.84</td>
+      <td class="best">84.15</td>
+      <td class="best">Yes</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">RF-Pixel (Ours) + Rewriter</td>
+      <td class="best">0.88</td>
+      <td>-</td>
+      <td class="best">Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Second, RF-Pixel substantially improves multimodal understanding performance. Stripping the VAE allows the model to map comprehension and synthesis to a single visual representation, outperforming VAE-based equivalents:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">understanding_performance.html</div>
+    <div class="vp-hint">Understanding Benchmark Score (Pixel Baseline vs Pixel+RF)</div>
+  </div>
+  <div class="vp-body">
+    <div class="chart-container" id="understanding-chart">
+      <div class="chart-bar-row">
+        <div class="chart-label">MMMU (Expert AGI)</div>
+        <div class="chart-track" style="position:relative;">
+          <div class="chart-fill" data-w="49.9" style="background:var(--border-hi); position:absolute; left:0; top:0;"></div>
+          <div class="chart-fill" data-w="54.2" style="background:var(--purple); position:absolute; left:0; top:0;"><span>54.2% (+4.3)</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">HalluBench (Robustness)</div>
+        <div class="chart-track" style="position:relative;">
+          <div class="chart-fill" data-w="63.7" style="background:var(--border-hi); position:absolute; left:0; top:0;"></div>
+          <div class="chart-fill" data-w="64.8" style="background:var(--purple); position:absolute; left:0; top:0;"><span>64.8% (+1.1)</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">MME (Cognition & Perc.)</div>
+        <div class="chart-track" style="position:relative;">
+          <div class="chart-fill" data-w="76.6" style="background:var(--border-hi); position:absolute; left:0; top:0;"></div>
+          <div class="chart-fill" data-w="80.2" style="background:var(--purple); position:absolute; left:0; top:0;"><span>80.2% (+3.6)</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">BLINK (Visual Perception)</div>
+        <div class="chart-track" style="position:relative;">
+          <div class="chart-fill" data-w="49.4" style="background:var(--border-hi); position:absolute; left:0; top:0;"></div>
+          <div class="chart-fill" data-w="53.0" style="background:var(--purple); position:absolute; left:0; top:0;"><span>53.0% (+3.6)</span></div>
+        </div>
+      </div>
+      <div class="chart-bar-row">
+        <div class="chart-label">AI2D (Diagram Reasoning)</div>
+        <div class="chart-track" style="position:relative;">
+          <div class="chart-fill" data-w="85.8" style="background:var(--border-hi); position:absolute; left:0; top:0;"></div>
+          <div class="chart-fill" data-w="90.3" style="background:var(--purple); position:absolute; left:0; top:0;"><span>90.3% (+4.5)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  Together, these results show that pixel-space generation with representation forcing is not only highly viable but is also more compatible with multimodal understanding than separate, VAE-based pathways.
+</p>
+</section>
+
+</article>
+
+<!-- ══════════════════════════════════ CODE SIDEBAR ══════════════ -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">model/umm_architecture.py</div>
+      <div class="cs-section-title" id="cs-section-title">UMM Architecture</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="online_vq">online_vq</button>
+    <button class="cs-tab" data-panel="sequence">sequence</button>
+    <button class="cs-tab" data-panel="flow_matching">flow_matching</button>
+    <button class="cs-tab" data-panel="ablations">ablations</button>
+    <button class="cs-tab" data-panel="benchmarks">benchmarks</button>
+  </div>
+  <div class="cs-body">
+    <!-- Panel 1: UMM Architecture -->
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/model/umm_architecture.py</span>
+<span class="cs-line kw">import</span> <span class="cls">torch</span>
+<span class="cs-line kw">import</span> <span class="cls">torch.nn</span> <span class="kw">as</span> <span class="cls">nn</span>
+
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">UnifiedMultimodalModel</span>(<span class="cls">nn.Module</span>):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, d_model=<span class="num">4096</span>, vocab_size=<span class="num">151936</span>, codebook_size=<span class="num">16384</span>):</span>
+<span class="cs-line">        <span class="super">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line cmt">        # Shared transformer attention layers</span>
+<span class="cs-line">        <span class="self">self</span>.attn_layers = <span class="cls">nn.ModuleList</span>([</span>
+<span class="cs-line">            <span class="cls">SharedSelfAttentionLayer</span>(d_model) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">32</span>)</span>
+<span class="cs-line">        ])</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Routed Modality-Specific Experts (FFN pools)</span>
+<span class="cs-line hl-c">        <span class="self">self</span>.experts_text = <span class="cls">nn.ModuleList</span>([<span class="cls">FFNExpert</span>(d_model) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">8</span>)])</span>
+<span class="cs-line hl-g">        <span class="self">self</span>.experts_rep  = <span class="cls">nn.ModuleList</span>([<span class="cls">FFNExpert</span>(d_model) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">8</span>)])</span>
+<span class="cs-line hl-a">        <span class="self">self</span>.experts_pixel = <span class="cls">nn.ModuleList</span>([<span class="cls">FFNExpert</span>(d_model) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">8</span>)])</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # Modality Heads</span>
+<span class="cs-line">        <span class="self">self</span>.text_head = <span class="cls">nn.Linear</span>(d_model, vocab_size, bias=<span class="cls">False</span>)</span>
+<span class="cs-line">        <span class="self">self</span>.rep_head = <span class="cls">nn.Linear</span>(d_model, codebook_size, bias=<span class="cls">False</span>)</span>
+<span class="cs-line">        <span class="self">self</span>.pixel_head = <span class="cls">nn.Linear</span>(d_model, <span class="num">16</span> * <span class="num">16</span> * <span class="num">3</span>)</span>
+<span class="cs-line">        </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, tokens, rep_tokens, pixel_patches, routing_mask):</span>
+<span class="cs-line">        x_text = <span class="self">self</span>.<span class="fn">embed_text</span>(tokens)</span>
+<span class="cs-line">        x_rep = <span class="self">self</span>.<span class="fn">embed_rep</span>(rep_tokens) + <span class="self">self</span>.spatial_pos_2d</span>
+<span class="cs-line">        x_pixel = <span class="self">self</span>.<span class="fn">embed_pixel</span>(pixel_patches)</span>
+<span class="cs-line">        </span>
+<span class="cs-line">        x = <span class="cls">torch</span>.<span class="fn">cat</span>([x_text, x_rep, x_pixel], dim=<span class="num">1</span>)</span>
+<span class="cs-line">        mask = <span class="self">self</span>.<span class="fn">get_custom_attention_mask</span>(routing_mask)</span>
+<span class="cs-line">        </span>
+<span class="cs-line kw">        for</span> layer <span class="kw">in</span> <span class="self">self</span>.attn_layers:</span>
+<span class="cs-line">            x = <span class="fn">layer</span>(x, mask=mask)</span>
+<span class="cs-line cmt">            # Route tokens to specific experts based on routing_mask</span>
+<span class="cs-line">            x = <span class="self">self</span>.<span class="fn">route_experts</span>(x, routing_mask)</span>
+<span class="cs-line">            </span>
+<span class="cs-line">        h_text, h_rep, h_pixel = <span class="self">self</span>.<span class="fn">split_hidden_states</span>(x)</span>
+<span class="cs-line kw">        return</span> <span class="self">self</span>.<span class="fn">text_head</span>(h_text), <span class="self">self</span>.<span class="fn">rep_head</span>(h_rep), <span class="self">self</span>.<span class="fn">pixel_head</span>(h_pixel)</pre>
+    </div>
+    
+    <!-- Panel 2: Online VQ -->
+    <div class="cs-panel" id="panel-online_vq">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/model/online_vq.py</span>
+<span class="cs-line kw">import</span> <span class="cls">torch</span>
+<span class="cs-line kw">import</span> <span class="cls">torch.nn.functional</span> <span class="kw">as</span> <span class="cls">F</span>
+
+<span class="cs-line hl-p">@torch.no_grad()</span>
+<span class="cs-line kw">def</span> <span class="fn">online_vector_quantization</span>(z, prototypes, momentum=<span class="num">0.9999</span>, temp=<span class="num">0.5</span>):</span>
+<span class="cs-line cmt">    # 1. Normalize features and learnable codebook prototypes</span>
+<span class="cs-line">    z = <span class="cls">F</span>.<span class="fn">normalize</span>(z, p=<span class="num">2</span>, dim=<span class="num">1</span>)</span>
+<span class="cs-line">    C = <span class="cls">F</span>.<span class="fn">normalize</span>(prototypes, p=<span class="num">2</span>, dim=<span class="num">1</span>)</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # 2. Compute pairwise cosine similarities</span>
+<span class="cs-line hl-c">    scores = <span class="cls">torch</span>.<span class="fn">matmul</span>(z, C.T) / temp  <span class="cmt"># Shape: (B * L, K)</span></span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # 3. Sinkhorn-Knopp balance (1 iteration)</span>
+<span class="cs-line hl-c">    scores = <span class="cls">F</span>.<span class="fn">softmax</span>(scores, dim=<span class="num">1</span>)  <span class="cmt"># Row-normalize</span></span>
+<span class="cs-line hl-c">    scores = <span class="cls">F</span>.<span class="fn">softmax</span>(scores, dim=<span class="num">0</span>)  <span class="cmt"># Col-normalize</span></span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # 4. Discrete assignment</span>
+<span class="cs-line hl-g">    assignments = <span class="cls">torch</span>.<span class="fn">argmax</span>(scores, dim=<span class="num">1</span>)  <span class="cmt"># Shape: (B * L,)</span></span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # 5. Momentum update codebook</span>
+<span class="cs-line">    N_k = <span class="cls">torch</span>.<span class="fn">zeros</span>(C.<span class="fn">size</span>(<span class="num">0</span>), device=z.device)</span>
+<span class="cs-line">    C_new = <span class="cls">torch</span>.<span class="fn">zeros_like</span>(C)</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    ones = <span class="cls">torch</span>.<span class="fn">ones</span>(z.<span class="fn">size</span>(<span class="num">0</span>), device=z.device)</span>
+<span class="cs-line">    N_k.<span class="fn">scatter_add_</span>(<span class="num">0</span>, assignments, ones)</span>
+<span class="cs-line">    C_new.<span class="fn">scatter_add_</span>(<span class="num">0</span>, assignments.<span class="fn">unsqueeze</span>(<span class="num">1</span>).<span class="fn">expand</span>(-<span class="num">1</span>, C.<span class="fn">size</span>(<span class="num">1</span>)), z)</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-a">    mask = N_k &gt; 0</span>
+<span class="cs-line hl-a">    C_new[mask] = <span class="cls">F</span>.<span class="fn">normalize</span>(C_new[mask] / N_k[mask].<span class="fn">unsqueeze</span>(<span class="num">1</span>), p=<span class="num">2</span>, dim=<span class="num">1</span>)</span>
+<span class="cs-line hl-a">    prototypes.<span class="fn">copy_</span>(momentum * prototypes + (<span class="num">1</span> - momentum) * C_new)</span>
+<span class="cs-line">    </span>
+<span class="cs-line kw">    return</span> assignments</pre>
+    </div>
+    
+    <!-- Panel 3: Sequence & Mask -->
+    <div class="cs-panel" id="panel-sequence">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/model/sequence_mask.py</span>
+<span class="cs-line kw">import</span> <span class="cls">torch</span>
+
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">get_umm_attention_mask</span>(seq_len_text, seq_len_rep, seq_len_pixel):</span>
+<span class="cs-line">    tot_len = seq_len_text + seq_len_rep + seq_len_pixel</span>
+<span class="cs-line">    mask = <span class="cls">torch</span>.<span class="fn">full</span>((tot_len, tot_len), <span class="fn">float</span>(<span class="str">'-inf'</span>))</span>
+<span class="cs-line">    </span>
+<span class="cs-line cmt">    # 1. Text causal mask</span>
+<span class="cs-line hl-c">    for i in range(seq_len_text):</span>
+<span class="cs-line hl-c">        mask[i, :i+1] = 0.0</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">    # 2. Rep causal mask</span>
+<span class="cs-line hl-g">    for i in range(seq_len_rep):</span>
+<span class="cs-line hl-g">        idx = seq_len_text + i</span>
+<span class="cs-line hl-g">        mask[idx, :idx+1] = 0.0</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">    # 3. Pixel bidirectional + causal condition mask</span>
+<span class="cs-line hl-a">    pixel_start = seq_len_text + seq_len_rep</span>
+<span class="cs-line hl-a">    mask[pixel_start:, :pixel_start] = 0.0  # attend to preceding</span>
+<span class="cs-line hl-a">    mask[pixel_start:, pixel_start:] = 0.0  # bidirectional self-att</span>
+<span class="cs-line">    </span>
+<span class="cs-line kw">    return</span> mask</pre>
+    </div>
+    
+    <!-- Panel 4: Flow Matching -->
+    <div class="cs-panel" id="panel-flow_matching">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/model/flow_matching.py</span>
+<span class="cs-line kw">import</span> <span class="cls">torch</span>
+<span class="cs-line kw">import</span> <span class="cls">torch.nn</span> <span class="kw">as</span> <span class="cls">nn</span>
+
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">FlowMatchingLoss</span>(<span class="cls">nn.Module</span>):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="self">self</span>, model, x, rep_tokens, text_cond):</span>
+<span class="cs-line">        B, L_pixel, _ = x.shape</span>
+<span class="cs-line">        device = x.device</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 1. Sample timestep t in [0, 1]</span>
+<span class="cs-line">        t = <span class="cls">torch</span>.<span class="fn">rand</span>(B, <span class="num">1</span>, <span class="num">1</span>, device=device)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 2. Sample Gaussian noise</span>
+<span class="cs-line">        epsilon = <span class="cls">torch</span>.<span class="fn">randn_like</span>(x)</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 3. Interpolate noisy patches at timestep t</span>
+<span class="cs-line hl-c">        z_t = t * x + (<span class="num">1.0</span> - t) * epsilon</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 4. Predict clean patch velocity via model</span>
+<span class="cs-line">        x_theta = <span class="fn">model</span>(z_t, rep_tokens, text_cond, t=t)</span>
+<span class="cs-line hl-g">        v_theta = (x_theta - z_t) / (<span class="num">1.0</span> - t + <span class="num">1e-5</span>)</span>
+<span class="cs-line hl-g">        v_target = x - epsilon</span>
+<span class="cs-line">        </span>
+<span class="cs-line cmt">        # 5. MSE Velocity Loss</span>
+<span class="cs-line kw">        return</span> <span class="cls">F</span>.<span class="fn">mse_loss</span>(v_theta, v_target)</pre>
+    </div>
+    
+    <!-- Panel 5: Ablations -->
+    <div class="cs-panel" id="panel-ablations">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/results/ablations.py</span>
+<span class="cs-line hl-p">AblationResults = {</span>
+<span class="cs-line">    <span class="str">"Generation Pathway &amp; RF"</span>: {</span>
+<span class="cs-line">        <span class="str">"Pixel (w/o RF)"</span>: <span class="num">0.25</span>,</span>
+<span class="cs-line hl-c">        <span class="str">"Pixel + RF (Ours)"</span>: <span class="num">0.76</span>,</span>
+<span class="cs-line">        <span class="str">"VAE (w/o RF)"</span>: <span class="num">0.52</span>,</span>
+<span class="cs-line">        <span class="str">"VAE + RF"</span>: <span class="num">0.77</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line">    <span class="str">"Guidance Strategy"</span>: {</span>
+<span class="cs-line">        <span class="str">"Baseline (No Guidance)"</span>: <span class="num">0.25</span>,</span>
+<span class="cs-line">        <span class="str">"REPA"</span>: <span class="num">0.43</span>,</span>
+<span class="cs-line hl-g">        <span class="str">"Representation Forcing"</span>: <span class="num">0.76</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line">    <span class="str">"Representation Format"</span>: {</span>
+<span class="cs-line hl-a">        <span class="str">"Continuous Regression"</span>: <span class="num">0.26</span>,</span>
+<span class="cs-line hl-a">        <span class="str">"Discrete Tokens"</span>: <span class="num">0.76</span></span>
+<span class="cs-line">    }</span>
+<span class="cs-line">}</pre>
+    </div>
+    
+    <!-- Panel 6: Benchmarks -->
+    <div class="cs-panel" id="panel-benchmarks">
+      <pre class="cs-pre"><span class="cs-line cmt"># representation-forcing/results/benchmarks.py</span>
+<span class="cs-line hl-p">T2I_Generation = {</span>
+<span class="cs-line">    <span class="str">"Metric"</span>: <span class="str">"GenEval Overall | DPG-Bench"</span>,</span>
+<span class="cs-line">    <span class="str">"Baselines"</span>: {</span>
+<span class="cs-line">        <span class="str">"SDXL"</span>: <span class="str">"0.55 | 74.65"</span>,</span>
+<span class="cs-line">        <span class="str">"DALL-E 3"</span>: <span class="str">"0.67 | 83.50"</span>,</span>
+<span class="cs-line">        <span class="str">"BAGEL (VAE UMM)"</span>: <span class="str">"0.82 | 85.07"</span></span>
+<span class="cs-line">    },</span>
+<span class="cs-line">    <span class="str">"Ours"</span>: {</span>
+<span class="cs-line hl-g">        <span class="str">"RF-Pixel"</span>: <span class="str">"0.84 | 84.15"</span></span>
+<span class="cs-line">    }</span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">Understanding = {</span>
+<span class="cs-line">    <span class="str">"Pixel Baseline"</span>: <span class="str">"MMMU: 49.9 | MME: 76.6"</span>,</span>
+<span class="cs-line hl-c">    <span class="str">"Pixel + RF (Ours)"</span>: <span class="str">"MMMU: 54.2 | MME: 80.2"</span></span>
+<span class="cs-line">}</pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC & Sidebar Collapsing ─────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Tab Switching ────────────────────────────────────────────
+const tabMeta = {
+  intro:         { file: 'model/umm_architecture.py', title: 'UMM Architecture' },
+  online_vq:     { file: 'model/online_vq.py',         title: 'Online Vector Quantization' },
+  sequence:      { file: 'model/sequence_mask.py',     title: 'Causal-to-Bidirectional Mask' },
+  flow_matching: { file: 'model/flow_matching.py',     title: 'Pixel Flow Matching Loss' },
+  ablations:     { file: 'results/ablations.py',       title: 'Guidance & Format Ablations' },
+  benchmarks:    { file: 'results/benchmarks.py',      title: 'Multimodal Benchmarks' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: TOC sync on scroll ─────────────────
+const sectionMap = {
+  's-bottleneck': 'intro',
+  's-online-vq': 'online_vq',
+  's-sequence':   'sequence',
+  's-pixel-gen':  'flow_matching',
+  's-ablations':  'ablations',
+  's-payoff':     'benchmarks'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+        
+        // Trigger bar animations when scrolled into view
+        if (e.target.id === 's-ablations') {
+          document.querySelectorAll('#ablation-chart .chart-fill').forEach(b => {
+            b.style.width = b.dataset.w + '%';
+          });
+        }
+        if (e.target.id === 's-payoff') {
+          document.querySelectorAll('#understanding-chart .chart-fill').forEach(b => {
+            b.style.width = b.dataset.w + '%';
+          });
+        }
+      }
+    });
+  }, { threshold: 0.2 }).observe(s)
+);
+
+// ── Interactive Quantization Flow ────────────────────────────
+const vqCells = document.querySelectorAll('.vq-cell');
+const vqProtos = document.querySelectorAll('.vq-proto');
+const vqStatus = document.getElementById('vq-status');
+
+vqCells.forEach(cell => {
+  cell.addEventListener('click', () => {
+    // Reset selections
+    vqCells.forEach(c => c.classList.remove('selected'));
+    vqProtos.forEach(p => p.classList.remove('active'));
+    
+    cell.classList.add('selected');
+    const type = cell.dataset.type;
+    const matchingProto = document.getElementById('proto-' + type);
+    if (matchingProto) {
+      matchingProto.classList.add('active');
+    }
+    
+    // Update status text with mock features
+    let text = '';
+    if (type === 'bg') {
+      text = 'Patch matches Background texture. Continuous features z_i mapped to Codebook Prototype #1209 (flat dark backdrop).';
+    } else if (type === 'leaf') {
+      text = 'Patch matches Green Edge/Leaf texture. Continuous features z_i mapped to Codebook Prototype #9281 (green shape).';
+    } else if (type === 'apple') {
+      text = 'Patch matches Red Sphere/Skin texture. Continuous features z_i mapped to Codebook Prototype #4012 (red sphere).';
+    } else if (type === 'plate') {
+      text = 'Patch matches Curved Rim/Plate texture. Continuous features z_i mapped to Codebook Prototype #7384 (curved rim).';
+    }
+    vqStatus.textContent = text;
+  });
+});
+
+// ── Interactive Sequence & Attention Mask Flow ──────────────
+const seqTokens = document.querySelectorAll('.seq-token');
+const maskStatus = document.getElementById('mask-status');
+
+seqTokens.forEach(tok => {
+  tok.addEventListener('mouseenter', () => {
+    const idx = parseInt(tok.dataset.idx);
+    
+    // Reset classes
+    seqTokens.forEach(t => t.classList.remove('active-focus', 'attended'));
+    
+    tok.classList.add('active-focus');
+    
+    if (tok.classList.contains('token-text')) {
+      // Text: causal attention to preceding text only
+      for (let i = 0; i < idx; i++) {
+        seqTokens[i].classList.add('attended');
+      }
+      maskStatus.innerHTML = `<strong>Causal Mask:</strong> Text token at position ${idx} attends exclusively to preceding text tokens.`;
+    } else if (tok.classList.contains('token-rep')) {
+      // Rep: causal attention to preceding text & rep
+      for (let i = 0; i < idx; i++) {
+        seqTokens[i].classList.add('attended');
+      }
+      maskStatus.innerHTML = `<strong>Causal Mask:</strong> Representation token at position ${idx} attends to preceding text and representations.`;
+    } else if (tok.classList.contains('token-pixel')) {
+      // Pixel: bidirectional attention to all pixels + causal to text/reps
+      seqTokens.forEach(t => {
+        const tidx = parseInt(t.dataset.idx);
+        if (t.classList.contains('token-pixel') && tidx !== idx) {
+          t.classList.add('attended');
+        } else if (tidx < 11) {
+          t.classList.add('attended');
+        }
+      });
+      maskStatus.innerHTML = `<strong>Bidirectional Denoising Mask:</strong> Pixel patch at position ${idx} attends bidirectionally to all pixel patches, and is causally conditioned on all preceding text and predicted representation tokens.`;
+    }
+  });
+  
+  tok.addEventListener('mouseleave', () => {
+    seqTokens.forEach(t => t.classList.remove('active-focus', 'attended'));
+    maskStatus.innerHTML = 'Hover over a token to visualize the attention pattern.';
+  });
+});
+
+// ── Canvas Denoising Trajectory Simulation ───────────────────
+const canvas = document.getElementById('denoise-canvas');
+let ctx = null;
+let W = 0, H = 0, DPR = 1;
+let animFrameId = null;
+let isPlaying = false;
+let tVal = 0.0; // 0 to 1
+let useRF = true;
+
+if (canvas) {
+  ctx = canvas.getContext('2d');
+  W = canvas.clientWidth;
+  H = 240;
+  DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+  
+  // Seeded PRNG for reproducibility
+  function makeRandom(seed) {
+    let m = 0x80000000;
+    let a = 1103515245;
+    let c = 12345;
+    let state = seed ? seed : Math.random() * m;
+    return function() {
+      state = (a * state + c) % m;
+      return state / (m - 1);
+    };
+  }
+  
+  const rand = makeRandom(42);
+  const particles = [];
+  const N_PARTICLES = 500;
+  
+  // Initialize particles
+  for (let i = 0; i < N_PARTICLES; i++) {
+    // Target position in standard layout (apple on plate)
+    // Red apple in center circle, blue plate oval around it, dark grey background
+    let targetX, targetY, targetColor;
+    const rVal = rand();
+    
+    if (rVal < 0.25) {
+      // Apple: Red circle
+      const angle = rand() * Math.PI * 2;
+      const radius = rand() * 32;
+      targetX = W / 2 + Math.cos(angle) * radius;
+      targetY = H / 2 - 10 + Math.sin(angle) * radius;
+      targetColor = `hsl(${0 + rand() * 10}, 80%, ${45 + rand() * 15}%)`; // rich red
+    } else if (rVal < 0.6) {
+      // Plate: Blue oval
+      const angle = rand() * Math.PI * 2;
+      const radiusX = 40 + rand() * 50;
+      const radiusY = 20 + rand() * 25;
+      targetX = W / 2 + Math.cos(angle) * radiusX;
+      targetY = H / 2 + 10 + Math.sin(angle) * radiusY;
+      targetColor = `hsl(${220 + rand() * 15}, 60%, ${35 + rand() * 15}%)`; // dark blue/grey plate
+    } else {
+      // Background: dark slate
+      targetX = rand() * W;
+      targetY = rand() * H;
+      targetColor = `hsl(${240 + rand() * 10}, 15%, ${15 + rand() * 10}%)`;
+    }
+    
+    // Initial noise coordinates
+    const noiseX = rand() * W;
+    const noiseY = rand() * H;
+    const noiseColor = `hsl(${rand() * 360}, 75%, 50%)`;
+    
+    particles.push({
+      noiseX, noiseY, noiseColor,
+      targetX, targetY, targetColor,
+      currX: noiseX, currY: noiseY, currColor: noiseColor
+    });
+  }
+  
+  function drawCanvas() {
+    ctx.fillStyle = '#0f111a';
+    ctx.fillRect(0, 0, W, H);
+    
+    particles.forEach(p => {
+      let x, y, color;
+      
+      if (useRF) {
+        // Representation Forcing: clean smooth paths (guided flow matching)
+        x = p.noiseX + (p.targetX - p.noiseX) * tVal;
+        y = p.noiseY + (p.targetY - p.noiseY) * tVal;
+        
+        // Color transition
+        const tLerp = Math.min(1.0, tVal * 1.3); // snap color slightly early
+        color = lerpColor(p.noiseColor, p.targetColor, tLerp);
+      } else {
+        // Naive: chaotic drift, missing key structure
+        // We add noise perturbation, and instead of centering correctly, it smears
+        const perturbation = (1 - tVal) * 15 + Math.sin(tVal * 15 + p.noiseX) * 8;
+        const targetX_perturbed = p.targetX + (p.noiseX - p.targetX) * 0.3 + (rand() - 0.5) * perturbation;
+        const targetY_perturbed = p.targetY + (p.noiseY - p.targetY) * 0.3 + (rand() - 0.5) * perturbation;
+        
+        x = p.noiseX + (targetX_perturbed - p.noiseX) * tVal;
+        y = p.noiseY + (targetY_perturbed - p.noiseY) * tVal;
+        
+        // Color blends into a blurry smudge
+        const blurredColor = `hsl(120, 10%, 30%)`; // default grey blur
+        const targetBlur = lerpColor(p.targetColor, blurredColor, 0.4);
+        color = lerpColor(p.noiseColor, targetBlur, tVal);
+      }
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+    
+    // Draw guide overlay lines (only for RF to show structural boundary)
+    if (useRF && tVal > 0.1) {
+      ctx.strokeStyle = `rgba(16, 185, 129, ${tVal * 0.3})`; // rep boundary lines
+      ctx.lineWidth = 1;
+      
+      // Plate boundary
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H / 2 + 10, 80, 40, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Apple boundary
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2 - 10, 32, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.fillStyle = `rgba(16, 185, 129, ${tVal * 0.8})`;
+      ctx.font = '9px monospace';
+      ctx.fillText('rep_tokens: apple shape guide', W / 2 - 80, H / 2 - 48);
+      ctx.fillText('rep_tokens: plate rim guide', W / 2 - 80, H / 2 + 65);
+    }
+  }
+  
+  function lerpColor(c1, c2, factor) {
+    // Simple helper to lerp HSL colors
+    const getHSL = (str) => {
+      const match = str.match(/hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/);
+      if (match) return [parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3])];
+      return [0, 0, 0];
+    };
+    const [h1, s1, l1] = getHSL(c1);
+    const [h2, s2, l2] = getHSL(c2);
+    
+    // Handle hue wrapping
+    let h;
+    let dh = h2 - h1;
+    if (dh > 180) {
+      h = h1 + (dh - 360) * factor;
+    } else if (dh < -180) {
+      h = h1 + (dh + 360) * factor;
+    } else {
+      h = h1 + dh * factor;
+    }
+    
+    const s = s1 + (s2 - s1) * factor;
+    const l = l1 + (l2 - l1) * factor;
+    return `hsl(${h}, ${s}%, ${l}%)`;
+  }
+  
+  const slider = document.getElementById('t-slider');
+  const tValLabel = document.getElementById('t-val');
+  
+  function setT(val) {
+    tVal = val;
+    slider.value = val * 100;
+    tValLabel.textContent = val.toFixed(2);
+    drawCanvas();
+  }
+  
+  slider.addEventListener('input', (e) => {
+    isPlaying = false;
+    document.getElementById('btn-play').textContent = 'Play';
+    setT(parseFloat(e.target.value) / 100);
+  });
+  
+  document.getElementById('btn-play').addEventListener('click', (e) => {
+    if (isPlaying) {
+      isPlaying = false;
+      e.target.textContent = 'Play';
+    } else {
+      if (tVal >= 1.0) setT(0.0);
+      isPlaying = true;
+      e.target.textContent = 'Pause';
+      tick();
+    }
+  });
+  
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    isPlaying = false;
+    document.getElementById('btn-play').textContent = 'Play';
+    setT(0.0);
+  });
+  
+  const btnRf = document.getElementById('btn-rf-toggle');
+  const btnNaive = document.getElementById('btn-naive-toggle');
+  
+  btnRf.addEventListener('click', () => {
+    useRF = true;
+    btnRf.classList.add('active');
+    btnNaive.classList.remove('active');
+    drawCanvas();
+  });
+  
+  btnNaive.addEventListener('click', () => {
+    useRF = false;
+    btnNaive.classList.add('active');
+    btnRf.classList.remove('active');
+    drawCanvas();
+  });
+  
+  function tick() {
+    if (!isPlaying) return;
+    let nextT = tVal + 0.015;
+    if (nextT >= 1.0) {
+      setT(1.0);
+      isPlaying = false;
+      document.getElementById('btn-play').textContent = 'Play';
+    } else {
+      setT(nextT);
+      animFrameId = requestAnimationFrame(tick);
+    }
+  }
+  
+  // Initial draw
+  setT(0.0);
+}
+</script>
+</BaseLayout>

@@ -9,6 +9,7 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "representation-forcing.pdf":              "https://arxiv.org/pdf/2605.31604",
     "muon-curvature.pdf":                      "https://arxiv.org/pdf/2606.04662",
     "oprd.pdf":                                "https://arxiv.org/pdf/2606.06021",
     "muon.pdf":                                "https://arxiv.org/pdf/2502.16982",
