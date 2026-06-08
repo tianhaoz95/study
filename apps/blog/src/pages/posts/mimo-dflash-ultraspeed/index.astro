@@ -1,0 +1,1327 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="MiMo 2.5 Pro UltraSpeed: 1000 Tokens/Second on a 1T-Parameter Model | AI/ML Deep Dives"
+  description="How Xiaomi's MiMo team combined DFlash block-diffusion speculative decoding, MXFP4 quantization, and TileRT persistent-engine kernels to break 1000 tokens/second on a trillion-parameter MoE model."
+  crumb="MiMo DFlash UltraSpeed"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Accept histogram */
+.accept-chart{display:flex;align-items:flex-end;gap:3px;height:120px;padding:0 4px;margin:1rem 0}
+.accept-bar{flex:1;border-radius:3px 3px 0 0;transition:height .6s ease;min-height:4px;position:relative}
+.accept-bar .bar-val{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:.58rem;font-family:var(--ff-mono);color:var(--muted);white-space:nowrap}
+.accept-labels{display:flex;gap:3px;padding:0 4px}
+.accept-labels span{flex:1;font-size:.58rem;font-family:var(--ff-mono);color:var(--muted);text-align:center}
+
+/* Draft compare */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.25rem 0}
+.compare-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.compare-card.bad{border-color:rgba(239,68,68,.25)}
+.compare-card.good{border-color:rgba(139,92,246,.35)}
+.compare-label{font-size:.63rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.6rem}
+.compare-card.bad .compare-label{color:#ef4444}
+.compare-card.good .compare-label{color:var(--purple-l)}
+.compare-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+
+/* Callout */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0}
+.callout-title{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--purple-l);margin-bottom:.4rem;font-family:var(--ff-mono)}
+.callout p{font-size:.82rem;color:var(--muted2);margin:0;line-height:1.6}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .compare-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Diffusion LMs</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>MiMo 2.5 Pro UltraSpeed: 1000 Tokens/Second on a Trillion-Parameter Model</h1>
+  <p class="lead">How Xiaomi's MiMo team combined DFlash block-diffusion speculative decoding, MXFP4 expert quantization, and TileRT persistent-engine kernels to break the 1000 tokens/second barrier on a 1-trillion-parameter MoE model — using commodity 8-GPU hardware.</p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2602.06036</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2602.06036" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      DFlash Paper
+    </a>
+    <a class="hero-btn" href="https://mimo.xiaomi.com/blog/mimo-tilert-1000tps" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      MiMo Blog Post
+    </a>
+    <a class="hero-btn" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro-FP4-DFlash" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      HuggingFace Model
+    </a>
+    <a class="hero-btn" href="https://github.com/z-lab/dflash" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      DFlash GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-speculative"><a href="#s-speculative"><span class="toc-num">02</span> Speculative Decoding</a></li>
+    <li class="toc-item" id="toc-s-dflash"><a href="#s-dflash"><span class="toc-num">03</span> DFlash Architecture</a></li>
+    <li class="toc-item" id="toc-s-block"><a href="#s-block"><span class="toc-num">04</span> Block Diffusion Drafting</a></li>
+    <li class="toc-item" id="toc-s-training"><a href="#s-training"><span class="toc-num">05</span> Training Innovations</a></li>
+    <li class="toc-item" id="toc-s-mimo"><a href="#s-mimo"><span class="toc-num">06</span> MiMo 2.5 Pro: 1000 TPS</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ── SECTION 01 ── -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Bottleneck</div>
+<h2>Sequential Decoding: The GPU Utilization Crisis</h2>
+<p>Modern autoregressive LLMs generate one token at a time — each step requires a full forward pass through billions of parameters, waits for the result, then starts the next. This seriality kills throughput: the GPU spends most of its time waiting for memory bandwidth, not computing.</p>
+<p>For a 1-trillion-parameter Mixture-of-Experts model like MiMo 2.5 Pro, this is catastrophic. Each token fetch from GPU memory takes microseconds; modern H200s and B200s can execute thousands of FLOPS in that time but sit idle waiting for the next token's KV cache to arrive. The result is less than 5% GPU compute utilization during decode.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">decode-bottleneck.canvas — autoregressive vs parallel</span>
+    <span class="vp-hint">click to toggle</span>
+  </div>
+  <div class="vp-body" style="min-height:200px">
+    <canvas id="bottleneck-canvas" style="width:100%;height:190px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;gap:.75rem;margin-top:.75rem;justify-content:center">
+      <button id="btn-ar" class="step-nav" style="padding:.3rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">Autoregressive</button>
+      <button id="btn-block" class="step-nav" style="padding:.3rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(139,92,246,.5);background:var(--purple-dim);color:var(--purple-l)">Block Parallel</button>
+    </div>
+  </div>
+</div>
+
+<p>The autoregressive bottleneck is the primary motivation behind speculative decoding: can we hide the serial latency behind a smarter algorithm?</p>
+
+<div class="compare-grid">
+  <div class="compare-card bad">
+    <div class="compare-label">❌ Autoregressive — serial</div>
+    <div class="compare-desc">Each token requires a complete forward pass. GPU utilization: &lt;5%. Latency grows linearly with sequence length.</div>
+  </div>
+  <div class="compare-card good">
+    <div class="compare-label">✓ Block Parallel — concurrent</div>
+    <div class="compare-desc">An entire block of 8–16 tokens is denoised in one forward pass. GPU utilization: &gt;60%. Latency is roughly constant per block.</div>
+  </div>
+</div>
+</section>
+
+<!-- ── SECTION 02 ── -->
+<section id="s-speculative" data-code="speculative">
+<div class="section-no">02 — Speculative Decoding</div>
+<h2>Draft-and-Verify: The Key to Lossless Speedup</h2>
+<p>Speculative decoding exploits a key asymmetry: <em>verifying</em> a sequence of tokens is much faster than <em>generating</em> them one by one. A large target model can verify a batch of γ proposed tokens in a single forward pass — the same cost as generating just one token autoregressively.</p>
+
+<div class="math-block">
+  <div class="math-label">Speedup formula</div>
+  L = (T<span class="math-var">draft</span> + T<span class="math-var">verify</span>) / τ
+  <br>
+  <span class="math-comment">// τ = expected accepted tokens per cycle (incl. bonus token)</span>
+  <br>
+  <span class="math-comment">// Speedup = L_target / L = τ × L_target / (T_draft + T_verify)</span>
+</div>
+
+<p>This formula crystallizes the design tension: to maximize speedup, you need a <strong>high acceptance length τ</strong> (the draft model is accurate) and a <strong>low drafting cost T<sub>draft</sub></strong> (the draft model is fast). These goals usually conflict — more capable draft models are slower to run.</p>
+
+<h3>Why EAGLE-3 hits a ceiling</h3>
+<p>State-of-the-art autoregressive drafters like EAGLE-3 use a single transformer layer fed with hidden features from the target model. Even with tree-based speculation (generating a tree of 60 candidate tokens), they face a hard ceiling:</p>
+<ul>
+  <li>Autoregressive drafting is sequential — generating γ=16 tokens requires 16 forward passes through the draft model</li>
+  <li>Drafting cost T<sub>draft</sub> = γ × t<sub>step</sub> grows linearly with budget γ</li>
+  <li>A shallow 1-layer drafter is too weak to predict far ahead; adding layers increases latency proportionally</li>
+  <li>In practice, EAGLE-3 achieves 1.7–2.3× speedup on Qwen3-8B at temperature=0</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">drafting-cost.canvas — latency vs draft budget γ</span>
+    <span class="vp-hint">autoregressive grows linearly; diffusion stays flat</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cost-canvas" style="width:100%;height:220px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>Diffusion drafters break this ceiling. Because they generate all γ tokens in <strong>one parallel forward pass</strong>, T<sub>draft</sub> = t<sub>parallel</sub> is essentially constant regardless of block size. This unlocks a new design space: a deeper, more capable draft model can be built without increasing latency.</p>
+</section>
+
+<!-- ── SECTION 03 ── -->
+<section id="s-dflash" data-code="dflash">
+<div class="section-no">03 — DFlash Architecture</div>
+<h2>The Target Knows Best: KV Injection of Context Features</h2>
+<p>The naive approach — just swap a diffusion model in as the drafter — fails badly. Without access to the target model's internal representations, the drafter must predict future tokens from scratch, yielding only 2–3× speedup.</p>
+<p>DFlash's key insight, borrowed from the EAGLE line of work: <strong>large autoregressive LLMs' hidden features implicitly encode information about multiple future tokens</strong>. Instead of ignoring this signal, DFlash fuses it directly into the diffusion drafter's attention computation.</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dflash-architecture.svg — inference design</span>
+    <span class="vp-hint">hidden features flow from target → draft KV cache</span>
+  </div>
+  <div class="vp-body" style="min-height:280px">
+    <svg id="arch-svg" viewBox="0 0 680 260" style="width:100%;max-width:680px;display:block;margin:0 auto;font-family:var(--ff-mono)">
+      <!-- Target model column -->
+      <rect x="20" y="20" width="130" height="220" rx="8" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)" stroke-width="1.2"/>
+      <text x="85" y="14" text-anchor="middle" font-size="9" fill="#06b6d4" font-weight="600" letter-spacing="1">TARGET MODEL</text>
+
+      <!-- Target layers -->
+      <rect x="30" y="30" width="110" height="28" rx="5" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="85" y="49" text-anchor="middle" font-size="9" fill="#67e8f9">Layer 0</text>
+
+      <rect x="30" y="68" width="110" height="28" rx="5" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="85" y="87" text-anchor="middle" font-size="9" fill="#67e8f9">Layer 14</text>
+
+      <rect x="30" y="106" width="110" height="28" rx="5" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="85" y="125" text-anchor="middle" font-size="9" fill="#67e8f9">Layer 28</text>
+
+      <rect x="30" y="144" width="110" height="28" rx="5" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="85" y="163" text-anchor="middle" font-size="9" fill="#67e8f9">Layer 42</text>
+
+      <rect x="30" y="182" width="110" height="28" rx="5" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+      <text x="85" y="201" text-anchor="middle" font-size="9" fill="#67e8f9">Layer 56</text>
+
+      <text x="85" y="232" text-anchor="middle" font-size="8" fill="#6b7280">5 hidden states</text>
+      <text x="85" y="244" text-anchor="middle" font-size="8" fill="#6b7280">extracted</text>
+
+      <!-- Projection block -->
+      <rect x="195" y="100" width="100" height="50" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.4)" stroke-width="1.2"/>
+      <text x="245" y="120" text-anchor="middle" font-size="9" fill="#fbbf24">Lightweight</text>
+      <text x="245" y="133" text-anchor="middle" font-size="9" fill="#fbbf24">Projection</text>
+      <text x="245" y="146" text-anchor="middle" font-size="8" fill="#6b7280">concat → fuse</text>
+
+      <!-- Arrows from target to projection -->
+      <line x1="140" y1="44" x2="195" y2="115" stroke="rgba(6,182,212,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="82" x2="195" y2="118" stroke="rgba(6,182,212,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="120" x2="195" y2="121" stroke="rgba(6,182,212,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="158" x2="195" y2="130" stroke="rgba(6,182,212,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="140" y1="196" x2="195" y2="140" stroke="rgba(6,182,212,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+
+      <!-- KV cache store -->
+      <rect x="350" y="90" width="110" height="70" rx="6" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.4)" stroke-width="1.2"/>
+      <text x="405" y="112" text-anchor="middle" font-size="9" fill="#a78bfa">Draft KV Cache</text>
+      <text x="405" y="126" text-anchor="middle" font-size="8" fill="#7c3aed">K = Proj(ctx)</text>
+      <text x="405" y="140" text-anchor="middle" font-size="8" fill="#7c3aed">V = Proj(ctx)</text>
+      <text x="405" y="154" text-anchor="middle" font-size="8" fill="#6b7280">injected every layer</text>
+
+      <!-- Arrow projection → KV -->
+      <line x1="295" y1="125" x2="350" y2="125" stroke="rgba(245,158,11,.6)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+      <text x="322" y="118" text-anchor="middle" font-size="8" fill="#f59e0b">ctx</text>
+
+      <!-- Draft model column -->
+      <rect x="515" y="20" width="145" height="220" rx="8" fill="rgba(139,92,246,.06)" stroke="rgba(139,92,246,.3)" stroke-width="1.2"/>
+      <text x="587" y="14" text-anchor="middle" font-size="9" fill="#a78bfa" font-weight="600" letter-spacing="1">DRAFT MODEL (5-L)</text>
+
+      <!-- Draft layers -->
+      <rect x="525" y="30" width="125" height="24" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="587" y="46" text-anchor="middle" font-size="9" fill="#c4b5fd">Bidirectional Attn</text>
+
+      <rect x="525" y="64" width="125" height="24" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="587" y="80" text-anchor="middle" font-size="9" fill="#c4b5fd">Bidirectional Attn</text>
+
+      <rect x="525" y="98" width="125" height="24" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="587" y="114" text-anchor="middle" font-size="9" fill="#c4b5fd">Bidirectional Attn</text>
+
+      <rect x="525" y="132" width="125" height="24" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="587" y="148" text-anchor="middle" font-size="9" fill="#c4b5fd">Bidirectional Attn</text>
+
+      <rect x="525" y="166" width="125" height="24" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+      <text x="587" y="182" text-anchor="middle" font-size="9" fill="#c4b5fd">Bidirectional Attn</text>
+
+      <!-- Draft output -->
+      <rect x="525" y="200" width="125" height="28" rx="5" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+      <text x="587" y="219" text-anchor="middle" font-size="9" fill="#6ee7b7">16 draft tokens</text>
+
+      <!-- Arrow KV → draft layers -->
+      <line x1="460" y1="125" x2="524" y2="110" stroke="rgba(139,92,246,.5)" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowhead-p)"/>
+      <text x="492" y="108" text-anchor="middle" font-size="7.5" fill="#7c3aed">KV inject</text>
+      <text x="492" y="118" text-anchor="middle" font-size="7.5" fill="#7c3aed">all layers</text>
+
+      <!-- Mask input labels -->
+      <text x="555" y="243" text-anchor="middle" font-size="8" fill="#6b7280">Input: for &lt;m&gt; &lt;m&gt; &lt;m&gt;</text>
+      <text x="565" y="254" text-anchor="middle" font-size="7.5" fill="#4b5563">Output: for spec decode &lt;eos&gt;</text>
+
+      <!-- Arrowhead defs -->
+      <defs>
+        <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(245,158,11,.8)"/>
+        </marker>
+        <marker id="arrowhead-p" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(139,92,246,.8)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>The architectural insight: instead of feeding hidden features as <em>input tokens</em> to the draft model (EAGLE's approach, where the signal dilutes as depth increases), DFlash treats them as <strong>persistent Key-Value pairs injected into every draft layer's attention</strong>. The target context is always present throughout the entire draft stack.</p>
+
+<h3>Why KV injection beats input conditioning</h3>
+<p>In EAGLE, hidden features are concatenated with token embeddings at the input. By layer 4 of the draft model, the original target signal has been mixed and diluted — adding more layers yields diminishing returns. In DFlash, the projected target features are stored in the KV cache and accessed at full fidelity by every layer's attention heads. Acceptance length scales consistently with draft model depth.</p>
+</section>
+
+<!-- ── SECTION 04 ── -->
+<section id="s-block" data-code="block">
+<div class="section-no">04 — Block Diffusion Drafting</div>
+<h2>Filling the Mask: Parallel Token Generation in One Pass</h2>
+<p>Standard draft models generate tokens left-to-right: predict token 1, then token 2, then token 3… Each step depends on the previous. DFlash replaces this with <strong>block diffusion</strong>: given an anchor token (the last accepted clean token), simultaneously predict the next γ masked positions in a single forward pass.</p>
+
+<div class="callout">
+  <div class="callout-title">🔑 The key shift</div>
+  <p>Autoregressive drafting: T<sub>draft</sub> = γ × t<sub>step</sub> — grows linearly.<br>
+  Diffusion drafting: T<sub>draft</sub> = t<sub>parallel</sub> — roughly constant regardless of γ.<br>
+  For γ=16 tokens, DFlash's 5-layer drafter is <strong>faster</strong> than EAGLE-3's 1-layer drafter.</p>
+</div>
+
+<!-- Interactive: block acceptance visualization -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">block-accept.canvas — acceptance distribution</span>
+    <span class="vp-hint">click scenario to see acceptance histogram</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="accept-btn" data-scenario="coding" style="padding:.28rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(139,92,246,.5);background:var(--purple-dim);color:var(--purple-l)">Coding (avg 6.30)</button>
+      <button class="accept-btn" data-scenario="math" style="padding:.28rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">Math (avg 5.56)</button>
+      <button class="accept-btn" data-scenario="agent" style="padding:.28rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">Agent (avg 4.29)</button>
+      <button class="accept-btn" data-scenario="chat" style="padding:.28rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">Chat (avg 3.18)</button>
+    </div>
+    <div style="padding:0 8px">
+      <div class="accept-chart" id="accept-chart"></div>
+      <div class="accept-labels" id="accept-labels"></div>
+    </div>
+    <div style="margin-top:.75rem;font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)" id="accept-summary"></div>
+  </div>
+</div>
+
+<p>In the MiMo 2.5 Pro deployment, coding tasks achieve an average acceptance length of <strong>6.30 out of a block size of 8</strong> — meaning roughly 6–7 of every 8 draft tokens are accepted per verification round. This translates directly to the observed speedup: each verification pass "pays for" 6× more tokens than a purely autoregressive step.</p>
+
+<h3>Bidirectional attention enables parallel prediction</h3>
+<p>Within a draft block, the diffusion model uses <strong>bidirectional attention</strong>: every masked position can attend to all other positions in the block. This is impossible in autoregressive generation (you can't attend to tokens you haven't predicted yet), but is natural for diffusion models where the entire block is denoised simultaneously.</p>
+
+<p>Crucially, attention across blocks is <em>disabled</em>. Block b cannot attend to block b+1, preserving causal consistency: the draft model only uses information from the verified prefix and the current block.</p>
+</section>
+
+<!-- ── SECTION 05 ── -->
+<section id="s-training" data-code="training">
+<div class="section-no">05 — Training Innovations</div>
+<h2>Four Training Tricks That Make the Difference</h2>
+<p>Training a diffusion drafter that aligns with a frozen autoregressive target model requires several careful design choices. Standard block diffusion training produces a mediocre drafter; DFlash introduces four modifications that together push acceptance lengths from ~3× to 6×.</p>
+
+<!-- Step navigator -->
+<div class="step-list" id="train-steps">
+  <div class="step-box active" data-step="0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Random Anchor Sampling</div>
+      <div class="step-desc">Instead of uniformly dividing responses into fixed blocks, randomly sample anchor tokens (clean tokens) from the response. Mask the following γ−1 positions as the prediction target. This exposes the draft model to diverse context features and matches inference-time behavior (where the anchor is always a verified clean token).</div>
+      <div class="step-code">anchor = random.choice(response_tokens)
+block = [anchor, &lt;m&gt;, &lt;m&gt;, ..., &lt;m&gt;]  # γ-1 masks</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Exponential Loss Weighting</div>
+      <div class="step-desc">Errors early in a draft block cascade: if token 2 is wrong, tokens 3–8 are automatically rejected. DFlash applies exponentially decaying weights: position k receives weight exp(−(k−1)/γ), strongly penalizing early errors and accelerating convergence to high acceptance lengths.</div>
+      <div class="step-code">w_k = exp(-(k-1) / gamma)  # k in [1, gamma]
+loss = sum(w_k * CE(pred_k, target_k))</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Shared Embedding + LM Head</div>
+      <div class="step-desc">The draft model shares the token embedding layer and language model head with the frozen target model. Only the 5 draft transformer layers are updated. This dramatically reduces trainable parameters and forces the draft model to operate in the target's representation space — acting as a lightweight diffusion adapter rather than an independent model.</div>
+      <div class="step-code">draft.embed = target.embed   # frozen
+draft.lm_head = target.lm_head  # frozen
+# only draft.layers[0..4] are trained</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Efficient Long-Context Training</div>
+      <div class="step-desc">Long-context speculative decoding is expensive for EAGLE-3 (the training-time test tree grows with context). DFlash fixes the number of masked blocks per sequence regardless of length, and randomly samples anchor positions each epoch. This caps training cost while providing effective data augmentation over diverse positions in million-token contexts.</div>
+      <div class="step-code">blocks_per_seq = 4   # fixed — not proportional to length
+for epoch in range(N):
+    anchors = sample_random(response, k=blocks_per_seq)</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="train-prev" disabled>← prev</button>
+  <span id="train-prog" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+  <button id="train-next">next →</button>
+</div>
+
+<p>All four modifications together — random anchors, early-position weighting, shared embeddings, and fixed-block long-context training — are necessary. The paper's ablations show each contributes meaningfully: Table 9 in the paper shows random anchor sampling alone provides a significant boost over uniform block construction.</p>
+</section>
+
+<!-- ── SECTION 06 ── -->
+<section id="s-mimo" data-code="mimo">
+<div class="section-no">06 — MiMo 2.5 Pro: 1000 TPS</div>
+<h2>Stacking the Stack: FP4 + DFlash + TileRT = 1000 TPS</h2>
+<p>MiMo 2.5 Pro is a 1.02-trillion-parameter Mixture-of-Experts model. Getting it past 1000 tokens/second requires not one optimization, but three stacked together: aggressive quantization of the model itself, DFlash speculative decoding, and a new inference kernel that eliminates microsecond-scale execution gaps.</p>
+
+<h3>Layer 1: MXFP4 Expert Quantization</h3>
+<p>MoE models have a peculiar quantization profile: the expert layers hold over 95% of all parameters, but individual expert weights are accessed sparsely (only 2–8 experts activate per token). Xiaomi applies <strong>MXFP4 format</strong> (block size 32) selectively to MoE expert weights, while keeping attention projections and non-expert modules at higher precision. QAT (Quantization-Aware Training) restores capability to near-lossless levels.</p>
+
+<table class="results-table" style="margin:1.25rem 0">
+  <thead>
+    <tr><th>Benchmark</th><th>FP8 baseline</th><th>MXFP4</th><th>Δ</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Claw-Eval pass³</td><td class="mn">63.8</td><td class="mn best">67.8</td><td class="mn" style="color:var(--green)">+6.3%</td></tr>
+    <tr><td>Humanity's Last Exam</td><td class="mn">48.0</td><td class="mn">47.0</td><td class="mn" style="color:rgba(239,68,68,.7)">−2.1%</td></tr>
+    <tr><td>SWE-Bench Pro</td><td class="mn">57.2</td><td class="mn best">58.8</td><td class="mn" style="color:var(--green)">+2.8%</td></tr>
+    <tr class="highlight-row"><td>SWE-bench Verified</td><td class="mn">78.9</td><td class="mn">77.4</td><td class="mn" style="color:rgba(239,68,68,.7)">−1.9%</td></tr>
+  </tbody>
+</table>
+
+<p>The quality degradation is minimal: the MXFP4 model is "essentially on par" with the FP8 baseline, with some benchmarks actually improving due to the regularization effect of QAT.</p>
+
+<h3>Layer 2: DFlash Drafter (MiMo-specific)</h3>
+<p>The MiMo deployment uses DFlash with a 5-layer draft model capturing backbone layers at positions [0, 15, 31, 47, 69] (uniformly sampled across the 70-layer backbone). The draft uses <strong>Sliding Window Attention (SWA)</strong> with a 1024-token window, making per-prediction compute constant regardless of context length — critical for MiMo's 1M-token context support.</p>
+
+<p>The drafter is trained with the <strong>Muon second-order optimizer</strong> and model self-distillation, achieving acceptance lengths of 6.30 for coding tasks (out of a block size of 8). Each verification cycle thus delivers roughly 6× the tokens of a standard autoregressive step.</p>
+
+<h3>Layer 3: TileRT Persistent Engine</h3>
+<p>Even with DFlash delivering long acceptance chains, microsecond-scale gaps between kernel launches can add up. TileRT introduces two kernel-level innovations:</p>
+<ul>
+  <li><strong>Persistent Engine Kernel</strong> — the entire decode pipeline stays resident in GPU registers; prefetching of the next block's weights continuously overlaps with computation, eliminating DRAM idle time</li>
+  <li><strong>Warp Specialization</strong> — communication warps, data-movement warps, and tensor-compute warps are physically separated into distinct warp groups executing in parallel, enabling heterogeneous concurrency within a single kernel launch</li>
+</ul>
+
+<!-- DFlash speedup bar chart -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dflash-speedup.bars — DFlash vs EAGLE-3 on Qwen3-8B (temp=0)</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.75rem">Speedup over autoregressive baseline (×)</div>
+    <div class="results-bars" id="speedup-bars">
+      <div style="font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin:0 0 .3rem 220px;letter-spacing:.05em">AUTOREGRESSIVE BASELINE = 1.0×</div>
+
+      <!-- Grouped by task -->
+      <div style="font-size:.62rem;font-family:var(--ff-mono);color:var(--muted);margin:0 0 .2rem 0;letter-spacing:.08em;text-transform:uppercase">Math</div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-3 (16) · GSM8K</div>
+        <div class="bar-track"><div class="bar-fill" data-w="38.8" style="background:rgba(99,102,241,.5)"><span>1.94×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DFlash (16) · GSM8K</div>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(139,92,246,.7)"><span>5.15×</span></div></div>
+      </div>
+
+      <div style="height:.5rem"></div>
+      <div style="font-size:.62rem;font-family:var(--ff-mono);color:var(--muted);margin:0 0 .2rem 0;letter-spacing:.08em;text-transform:uppercase">Code</div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-3 (16) · HumanEval</div>
+        <div class="bar-track"><div class="bar-fill" data-w="36.9" style="background:rgba(99,102,241,.5)"><span>1.89×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DFlash (16) · HumanEval</div>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(139,92,246,.7)"><span>5.14×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-3 (16) · MBPP</div>
+        <div class="bar-track"><div class="bar-fill" data-w="30.5" style="background:rgba(99,102,241,.5)"><span>1.57×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DFlash (16) · MBPP</div>
+        <div class="bar-track"><div class="bar-fill" data-w="90.3" style="background:rgba(139,92,246,.7)"><span>4.65×</span></div></div>
+      </div>
+
+      <div style="height:.5rem"></div>
+      <div style="font-size:.62rem;font-family:var(--ff-mono);color:var(--muted);margin:0 0 .2rem 0;letter-spacing:.08em;text-transform:uppercase">Chat</div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-3 (16) · MT-Bench</div>
+        <div class="bar-track"><div class="bar-fill" data-w="31.7" style="background:rgba(99,102,241,.5)"><span>1.63×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DFlash (16) · MT-Bench</div>
+        <div class="bar-track"><div class="bar-fill" data-w="53.4" style="background:rgba(139,92,246,.7)"><span>2.75×</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>The 1000 TPS result</h3>
+<p>Stacking all three layers on 8 H200 GPUs, the MiMo + TileRT deployment breaks <strong>1000 tokens/second</strong> decode throughput on a 1-trillion-parameter model under standard inference conditions. For comparison, serving a 1T-parameter model autoregressively on the same hardware achieves roughly 80–100 tokens/second — DFlash + FP4 + TileRT delivers approximately a 10× end-to-end speedup at 3× the cost of standard MiMo pricing.</p>
+
+<div class="callout">
+  <div class="callout-title">Why This Matters</div>
+  <p>Previous paths to &gt;1000 TPS on trillion-parameter models required specialized silicon (like Groq's LPU) or massive multi-node deployments. MiMo 2.5 Pro UltraSpeed achieves this on commodity 8-GPU servers by combining algorithmic acceleration (DFlash), precision reduction (FP4), and kernel engineering (TileRT) — a recipe that scales with available hardware.</p>
+</div>
+
+<!-- Acceptance lengths for MiMo deployment -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">mimo-acceptance.bars — DFlash acceptance lengths in MiMo deployment</span>
+    <span class="vp-hint">block size = 8; max possible = 8</span>
+  </div>
+  <div class="vp-body">
+    <div style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.75rem">Average accepted tokens per verification cycle (block size = 8)</div>
+    <div class="results-bars" id="accept-deploy-bars">
+      <div class="bar-row">
+        <div class="bar-label" style="width:160px">WebDev / Coding</div>
+        <div class="bar-track"><div class="bar-fill" data-w="78.75" style="background:rgba(16,185,129,.6)"><span>6.30</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="width:160px">Math500</div>
+        <div class="bar-track"><div class="bar-fill" data-w="69.5" style="background:rgba(16,185,129,.55)"><span>5.56</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="width:160px">HumanEval</div>
+        <div class="bar-track"><div class="bar-fill" data-w="56.75" style="background:rgba(16,185,129,.5)"><span>4.54</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="width:160px">SWE-Bench</div>
+        <div class="bar-track"><div class="bar-fill" data-w="53.625" style="background:rgba(16,185,129,.45)"><span>4.29</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="width:160px">MT-Bench (chat)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="39.75" style="background:rgba(16,185,129,.4)"><span>3.18</span></div></div>
+      </div>
+      <div style="margin-top:.5rem;display:flex;justify-content:flex-end">
+        <div style="font-size:.65rem;font-family:var(--ff-mono);color:var(--muted)">Block size = 8 ───────── Max possible: 8.00</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The acceptance length variance across task types reflects a fundamental property of the diffusion drafter: the more structured and predictable the token distribution (code has rigid syntax, math has constrained symbols), the more accurately the drafter can fill the mask in one shot. Conversational text has higher entropy, reducing acceptance length to 3–4 — still a significant speedup over pure autoregressive decoding.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dflash/inference.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="speculative">speculative</button>
+    <button class="cs-tab" data-panel="dflash">dflash</button>
+    <button class="cs-tab" data-panel="block">block</button>
+    <button class="cs-tab" data-panel="training">training</button>
+    <button class="cs-tab" data-panel="mimo">mimo</button>
+  </div>
+  <div class="cs-body" id="cs-panels"></div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── Sidebar tab switching ───────────────────────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'dflash/bottleneck.py',  title: 'The AR Bottleneck' },
+  speculative:{ file: 'dflash/speedup.py',     title: 'Speculative Decoding' },
+  dflash:     { file: 'dflash/inference.py',   title: 'DFlash Architecture' },
+  block:      { file: 'dflash/draft.py',       title: 'Block Diffusion Drafting' },
+  training:   { file: 'dflash/train.py',       title: 'Training Innovations' },
+  mimo:       { file: 'mimo/deploy.py',        title: 'MiMo 2.5 Pro Deployment' },
+};
+
+// ─── Panel content definitions ───────────────────────────────────────────────
+const PANELS = {
+  bottleneck: [
+    ['cmt', '# Autoregressive decode: one token per step'],
+    ['', ''],
+    ['hl-p', 'def ar_decode(model, prompt, max_tokens):'],
+    ['', '    tokens = prompt.copy()'],
+    ['hl-a', '    for _ in range(max_tokens):          # serial loop'],
+    ['', '        logits = model.forward(tokens)   # full fwd pass'],
+    ['hl-a', '        next_tok = sample(logits[-1])   # 1 token only'],
+    ['', '        tokens.append(next_tok)'],
+    ['hl-a', '        # GPU utilization: <5% during decode'],
+    ['', '        # Each step ~= memory bandwidth bottleneck'],
+    ['', '    return tokens'],
+    ['', ''],
+    ['cmt', '# For a 1T-param MoE model on 8×H200:'],
+    ['cmt', '#   AR throughput:  ~80-100 tokens/sec'],
+    ['cmt', '#   DFlash target: ~1000 tokens/sec  (+10x)'],
+    ['', ''],
+    ['cmt', '# Why GPU utilization is so low:'],
+    ['hl-c', 'compute_bound = False   # not enough FLOPs per step'],
+    ['hl-c', 'memory_bound  = True    # waiting for KV cache reads'],
+    ['hl-c', 'batch_size    = 1       # no request parallelism'],
+  ],
+  speculative: [
+    ['cmt', '# Speculative decoding: draft-verify speedup formula'],
+    ['', ''],
+    ['cmt', '# Per-token latency:'],
+    ['hl-p', '# L = (T_draft + T_verify) / tau'],
+    ['', '#'],
+    ['', '# tau   = expected accepted tokens per cycle'],
+    ['', '# T_draft  = time to generate gamma draft tokens'],
+    ['', '# T_verify = time for target model to verify them'],
+    ['', ''],
+    ['cmt', '# Autoregressive drafter (EAGLE-3 style):'],
+    ['hl-a', 'T_draft_AR = gamma * t_step     # linear in budget'],
+    ['', '# single-step latency ≈ 0.4ms on H200'],
+    ['', '# gamma=16: T_draft_AR ≈ 6.4ms'],
+    ['', ''],
+    ['cmt', '# Diffusion drafter (DFlash style):'],
+    ['hl-g', 'T_draft_diff = t_parallel       # constant!'],
+    ['', '# parallel block forward ≈ 1.0ms on H200'],
+    ['', '# gamma=16: T_draft_diff ≈ 1.0ms  (vs 6.4ms AR)'],
+    ['', ''],
+    ['cmt', '# Deeper model, same latency:'],
+    ['hl-g', '# 5-layer DFlash drafter: ~1.1ms'],
+    ['hl-a', '# 1-layer EAGLE-3 drafter: ~6.4ms (gamma=16)'],
+    ['', ''],
+    ['cmt', '# Result on Qwen3-8B (temp=0):'],
+    ['', '# EAGLE-3 (tree=60): avg  2.1x speedup'],
+    ['hl-g', '# DFlash (block=16): avg 4.9x speedup'],
+  ],
+  dflash: [
+    ['cmt', '# DFlash inference: KV injection design'],
+    ['', ''],
+    ['hl-p', 'class DFlashDrafter(nn.Module):'],
+    ['', '    def __init__(self, target_model):'],
+    ['hl-c', '        # Share embeddings with frozen target'],
+    ['', '        self.embed   = target_model.embed    # frozen'],
+    ['', '        self.lm_head = target_model.lm_head  # frozen'],
+    ['hl-p', '        self.layers  = nn.ModuleList(['],
+    ['', '            BidirAttnLayer() for _ in range(5)'],
+    ['', '        ])'],
+    ['', '        self.proj = nn.Linear(n_layers * d_model, d_kv)'],
+    ['', ''],
+    ['hl-p', '    def forward(self, mask_block, target_hidden):'],
+    ['hl-c', '        # Fuse hidden states from 5 target layers'],
+    ['hl-c', '        ctx = self.proj(cat(target_hidden, dim=-1))'],
+    ['', '        # ctx shape: [seq_len, d_kv]'],
+    ['', ''],
+    ['hl-g', '        # Inject as persistent KV in every layer'],
+    ['hl-g', '        kv_cache = (ctx, ctx)  # K = V = projected ctx'],
+    ['', ''],
+    ['', '        x = self.embed(mask_block)'],
+    ['', '        for layer in self.layers:'],
+    ['hl-g', '            x = layer(x, kv_extra=kv_cache)'],
+    ['', '        return self.lm_head(x)'],
+    ['', ''],
+    ['cmt', '# MiMo-specific: layers [0,15,31,47,69] of 70-layer'],
+    ['cmt', '# backbone. SWA window=1024 → O(1) compute per token'],
+  ],
+  block: [
+    ['cmt', '# Block diffusion drafting: one pass fills γ tokens'],
+    ['', ''],
+    ['hl-p', 'def dflash_draft(drafter, target, context, gamma=8):'],
+    ['', '    # Step 1: Get target hidden states (prefill pass)'],
+    ['hl-c', '    h = target.extract_hidden(context)   # 5 layers'],
+    ['', ''],
+    ['', '    # Step 2: Create masked block to fill'],
+    ['hl-p', '    anchor = context[-1]    # last verified token'],
+    ['hl-p', '    block  = [anchor] + [MASK] * (gamma - 1)'],
+    ['', ''],
+    ['', '    # Step 3: Single forward pass fills all positions'],
+    ['hl-g', '    logits = drafter(block, h)  # bidirectional attn'],
+    ['hl-g', '    drafts = sample(logits[1:]) # positions 1..gamma-1'],
+    ['', '    # ALL positions decoded in parallel — not one by one'],
+    ['', ''],
+    ['', '    # Step 4: Verify with target (another single pass)'],
+    ['', '    accepted = target.verify(context, drafts)'],
+    ['', '    # Uses rejection sampling → lossless guarantee'],
+    ['', ''],
+    ['cmt', '# Acceptance lengths in MiMo deployment (block=8):'],
+    ['', '# WebDev/coding:  6.30 / 8  (78.75% accept rate)'],
+    ['', '# Math500:        5.56 / 8  (69.5% accept rate)'],
+    ['', '# SWE-Bench:      4.29 / 8  (53.6% accept rate)'],
+    ['', '# MT-Bench chat:  3.18 / 8  (39.75% accept rate)'],
+    ['', ''],
+    ['cmt', '# Bidirectional attention pattern:'],
+    ['hl-p', '# within block:  full bidir (attend left AND right)'],
+    ['hl-a', '# across blocks: DISABLED (causal consistency)'],
+  ],
+  training: [
+    ['cmt', '# DFlash training: 4 key innovations'],
+    ['', ''],
+    ['hl-p', 'def build_training_batch(response, target_hidden, gamma):'],
+    ['', '    blocks = []'],
+    ['', '    # Innovation 1: Random anchor sampling'],
+    ['hl-c', '    anchors = random.sample(range(len(response)),'],
+    ['hl-c', '                            k=4)  # fixed count'],
+    ['', '    for a in anchors:'],
+    ['', '        block = [response[a]] + [MASK]*(gamma-1)'],
+    ['', '        blocks.append(block)'],
+    ['', '    return blocks'],
+    ['', ''],
+    ['hl-p', 'def weighted_loss(pred, target, gamma):'],
+    ['', '    # Innovation 2: Exponential positional weighting'],
+    ['hl-p', '    weights = [exp(-(k-1)/gamma) for k in range(1, gamma+1)]'],
+    ['', '    # w_1=1.0, w_2=0.88, w_3=0.78, ... w_8=0.43'],
+    ['hl-p', '    # Early positions matter most — errors cascade'],
+    ['hl-g', '    return sum(w * CE(p, t) for w, p, t in'],
+    ['hl-g', '               zip(weights, pred, target))'],
+    ['', ''],
+    ['cmt', '# Innovation 3: Shared embedding (frozen)'],
+    ['hl-g', 'draft.embed   = target.embed    # no gradients'],
+    ['hl-g', 'draft.lm_head = target.lm_head  # no gradients'],
+    ['', '# Reduces trainable params by ~30%'],
+    ['', ''],
+    ['cmt', '# Innovation 4: Efficient long-context training'],
+    ['hl-a', 'BLOCKS_PER_SEQ = 4  # constant regardless of ctx length'],
+    ['', '# For 1M-token context: same cost as 4K context'],
+  ],
+  mimo: [
+    ['cmt', '# MiMo 2.5 Pro UltraSpeed: deployment stack'],
+    ['', ''],
+    ['cmt', '# Layer 1: MXFP4 expert quantization'],
+    ['hl-c', 'for layer in model.layers:'],
+    ['hl-c', '    for expert in layer.moe.experts:'],
+    ['hl-c', '        expert.weight = quantize_fp4(expert.weight,'],
+    ['hl-c', '                                     block_size=32)'],
+    ['', '    # NOTE: o_proj kept at full precision'],
+    ['', '    # NOTE: attn modules kept at full precision'],
+    ['', ''],
+    ['cmt', '# Layer 2: DFlash drafter (MiMo-specific)'],
+    ['hl-p', 'drafter = DFlashDrafter('],
+    ['hl-p', '    target=model,'],
+    ['hl-p', '    layers=[0, 15, 31, 47, 69],  # uniform sample'],
+    ['hl-p', '    n_draft_layers=5,'],
+    ['hl-p', '    block_size=8,'],
+    ['hl-p', '    swa_window=1024,   # O(1) per token'],
+    ['hl-p', '    optimizer=Muon(),  # second-order opt'],
+    ['hl-p', ')'],
+    ['', ''],
+    ['cmt', '# Layer 3: TileRT serving kernel'],
+    ['hl-g', 'engine = TileRTPersistentEngine('],
+    ['hl-g', '    prefetch_overlap=True,  # persistent kernel'],
+    ['hl-g', '    warp_specialization={'],
+    ['hl-g', '        "compute": 4,   # tensor core warps'],
+    ['hl-g', '        "memory":  2,   # data movement warps'],
+    ['hl-g', '        "comms":   2,   # NVLink warps'],
+    ['hl-g', '    }'],
+    ['hl-g', ')'],
+    ['', ''],
+    ['cmt', '# Result: >1000 tokens/sec on 8×H200'],
+    ['cmt', '# (vs ~80-100 TPS for baseline AR decode)'],
+    ['hl-g', 'print(f"Throughput: {tps:.0f} tokens/sec")'],
+    ['', '# >> Throughput: 1000+ tokens/sec'],
+  ],
+};
+
+// ─── Syntax highlighter (single-pass tokenizer) ───────────────────────────────
+const LT = '\x3c', GT = '\x3e';
+function span(cls, inner) { return LT + 'span class="' + cls + '"' + GT + inner + LT + '/span' + GT; }
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','range','zip','sum','cat',
+                       'print','sample','enumerate']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor',
+                       'Muon','DFlashDrafter','BidirAttnLayer']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += span('cmt', src.slice(i, end));
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += span('str', src.slice(i, j));
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)            out += span('fn', w);
+      else if (KW.has(w))  out += span('kw', w);
+      else if (CLS.has(w)) out += span('cls', w);
+      else                 out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += span('num', nm[0]);
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+// Render panels
+const csBody = document.getElementById('cs-panels');
+Object.entries(PANELS).forEach(([name, lines]) => {
+  const div = document.createElement('div');
+  div.className = 'cs-panel' + (name === 'bottleneck' ? ' active' : '');
+  div.id = 'panel-' + name;
+  const pre = document.createElement('pre');
+  pre.className = 'cs-pre';
+  pre.innerHTML = lines.map(([cls, code]) => {
+    const hlCode = hl(code);
+    return span('cs-line' + (cls ? ' ' + cls : ''), hlCode);
+  }).join('\n');
+  div.appendChild(pre);
+  csBody.appendChild(div);
+});
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t =>
+  t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── TOC + sidebar toggles ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── IntersectionObserver: sync TOC + sidebar ────────────────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-speculative': 'speculative',
+  's-dflash': 'dflash',
+  's-block': 'block',
+  's-training': 'training',
+  's-mimo': 'mimo',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── Canvas 1: Bottleneck — AR vs Block decode visualization ────────────────
+(function() {
+  const canvas = document.getElementById('bottleneck-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 190;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  let mode = 'ar'; // 'ar' or 'block'
+
+  function drawMode() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,17,21,0.6)';
+    ctx.fillRect(0, 0, W, H);
+
+    const tokens = ['The', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', '.', 'It', 'ran', 'fast', 'away', 'today', 'night'];
+    const cols = tokens.length;
+    const cellW = Math.floor((W - 40) / cols);
+    const startX = 20;
+    const rowY1 = 30, rowY2 = 95, rowY3 = 155;
+
+    // Row labels
+    ctx.font = '9px monospace';
+    ctx.fillStyle = '#4b5563';
+    ctx.textAlign = 'right';
+    ctx.fillText('GPU util', startX - 4, rowY1 + 9);
+    ctx.fillText('tokens', startX - 4, rowY2 + 9);
+    ctx.fillText('time →', startX - 4, rowY3 + 9);
+
+    if (mode === 'ar') {
+      // Show one token at a time
+      for (let i = 0; i < cols; i++) {
+        const x = startX + i * cellW;
+        // GPU util: mostly idle
+        const utilH = i % 3 === 0 ? 22 : 6;
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(245,158,11,.7)' : 'rgba(75,85,99,.4)';
+        ctx.fillRect(x + 2, rowY1 - utilH + 14, cellW - 4, utilH);
+
+        // Token box
+        ctx.fillStyle = i < 3 ? 'rgba(6,182,212,.25)' : 'rgba(75,85,99,.2)';
+        ctx.strokeStyle = i < 3 ? 'rgba(6,182,212,.5)' : 'rgba(75,85,99,.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(x+2, rowY2-2, cellW-4, 22, 3); ctx.fill(); ctx.stroke();
+        ctx.font = '8px monospace';
+        ctx.fillStyle = i < 3 ? '#67e8f9' : '#4b5563';
+        ctx.textAlign = 'center';
+        ctx.fillText(tokens[i], x + cellW/2, rowY2 + 12);
+
+        // Time arrow: one by one
+        if (i < cols - 1) {
+          ctx.fillStyle = 'rgba(239,68,68,.5)';
+          ctx.fillRect(x + cellW - 2, rowY3 + 4, 3, 3);
+        }
+      }
+      // Labels
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#ef4444';
+      ctx.textAlign = 'center';
+      ctx.fillText('1 token/step  —  GPU <5% utilization', W/2, H - 8);
+
+      // Annotate GPU idle stretches
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '8px monospace';
+      ctx.fillText('idle', startX + cellW * 1.5, rowY1 - 2);
+      ctx.fillText('idle', startX + cellW * 4.5, rowY1 - 2);
+    } else {
+      // Block mode: groups of 8
+      const blockCols = [0, 8]; // two blocks shown
+      const bColors = ['rgba(139,92,246,.3)', 'rgba(16,185,129,.25)'];
+      const bStrokes = ['rgba(139,92,246,.7)', 'rgba(16,185,129,.6)'];
+
+      blockCols.forEach((start, bi) => {
+        const end = Math.min(start + 8, cols);
+        const bx = startX + start * cellW;
+        const bw = (end - start) * cellW - 2;
+
+        // GPU util: high during block
+        ctx.fillStyle = bColors[bi].replace('.3', '.7').replace('.25', '.6');
+        ctx.fillRect(bx, rowY1 - 8, bw, 22);
+        ctx.font = '8px monospace';
+        ctx.fillStyle = bi === 0 ? '#a78bfa' : '#6ee7b7';
+        ctx.textAlign = 'center';
+        ctx.fillText(bi === 0 ? 'DRAFT block' : 'VERIFY block', bx + bw/2, rowY1 + 8);
+
+        // Token boxes: all at once
+        for (let i = start; i < end; i++) {
+          const x = startX + i * cellW;
+          ctx.fillStyle = bColors[bi];
+          ctx.strokeStyle = bStrokes[bi];
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.roundRect(x+1, rowY2-2, cellW-2, 22, 3); ctx.fill(); ctx.stroke();
+          ctx.font = '8px monospace';
+          ctx.fillStyle = bi === 0 ? '#c4b5fd' : '#6ee7b7';
+          ctx.textAlign = 'center';
+          ctx.fillText(tokens[i], x + cellW/2, rowY2 + 12);
+        }
+      });
+
+      // Time: two blocks
+      ctx.fillStyle = 'rgba(139,92,246,.4)';
+      ctx.fillRect(startX, rowY3 + 4, 8 * cellW - 4, 4);
+      ctx.fillStyle = 'rgba(16,185,129,.4)';
+      ctx.fillRect(startX + 8 * cellW + 2, rowY3 + 4, (cols - 8) * cellW - 4, 4);
+
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#10b981';
+      ctx.textAlign = 'center';
+      ctx.fillText('8 tokens/step  —  GPU >60% utilization  —  6x faster', W/2, H - 8);
+    }
+  }
+
+  drawMode();
+
+  document.getElementById('btn-ar')?.addEventListener('click', () => {
+    mode = 'ar';
+    document.getElementById('btn-ar').style.borderColor = 'rgba(239,68,68,.5)';
+    document.getElementById('btn-ar').style.color = '#fca5a5';
+    document.getElementById('btn-ar').style.background = 'rgba(239,68,68,.1)';
+    document.getElementById('btn-block').style.borderColor = 'var(--border-hi)';
+    document.getElementById('btn-block').style.color = 'var(--muted2)';
+    document.getElementById('btn-block').style.background = 'var(--surface)';
+    drawMode();
+  });
+  document.getElementById('btn-block')?.addEventListener('click', () => {
+    mode = 'block';
+    document.getElementById('btn-block').style.borderColor = 'rgba(139,92,246,.5)';
+    document.getElementById('btn-block').style.color = 'var(--purple-l)';
+    document.getElementById('btn-block').style.background = 'var(--purple-dim)';
+    document.getElementById('btn-ar').style.borderColor = 'var(--border-hi)';
+    document.getElementById('btn-ar').style.color = 'var(--muted2)';
+    document.getElementById('btn-ar').style.background = 'var(--surface)';
+    drawMode();
+  });
+})();
+
+// ─── Canvas 2: Drafting cost (latency vs γ) ──────────────────────────────────
+(function() {
+  const canvas = document.getElementById('cost-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const PAD = { t: 24, r: 24, b: 40, l: 60 };
+  const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
+  const maxX = 16, maxY = 8; // gamma up to 16, latency up to 8ms
+
+  function px(gamma) { return PAD.l + (gamma / maxX) * cw; }
+  function py(ms) { return PAD.t + (1 - ms / maxY) * ch; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1;
+  [2,4,6,8,10,12,14,16].forEach(g => {
+    ctx.beginPath(); ctx.moveTo(px(g), PAD.t); ctx.lineTo(px(g), PAD.t + ch); ctx.stroke();
+  });
+  [2,4,6,8].forEach(ms => {
+    ctx.beginPath(); ctx.moveTo(PAD.l, py(ms)); ctx.lineTo(PAD.l + cw, py(ms)); ctx.stroke();
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + ch); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + ch); ctx.lineTo(PAD.l + cw, PAD.t + ch); ctx.stroke();
+
+  // Axis labels
+  ctx.font = '9px monospace'; ctx.fillStyle = '#4b5563'; ctx.textAlign = 'center';
+  [0,4,8,12,16].forEach(g => {
+    ctx.fillText(g, px(g), PAD.t + ch + 14);
+  });
+  ctx.textAlign = 'right';
+  [0,2,4,6,8].forEach(ms => {
+    ctx.fillText(ms + 'ms', PAD.l - 6, py(ms) + 3);
+  });
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'center';
+  ctx.fillText('draft budget γ (tokens)', PAD.l + cw/2, H - 4);
+  ctx.save(); ctx.translate(14, PAD.t + ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('drafting latency', 0, 0); ctx.restore();
+
+  // EAGLE-3 line: T = gamma * 0.4ms (linear)
+  ctx.strokeStyle = 'rgba(239,68,68,.7)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(0));
+  for (let g = 0; g <= 16; g += 0.5) {
+    ctx.lineTo(px(g), py(g * 0.4));
+  }
+  ctx.stroke();
+
+  // DFlash 5-layer line: roughly constant ~1.1ms
+  ctx.strokeStyle = 'rgba(139,92,246,.8)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(px(1), py(1.1));
+  ctx.lineTo(px(16), py(1.1));
+  ctx.stroke();
+
+  // DFlash 3-layer line: ~0.85ms
+  ctx.strokeStyle = 'rgba(139,92,246,.4)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(px(1), py(0.85));
+  ctx.lineTo(px(16), py(0.85));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels on curves
+  ctx.font = '9px monospace';
+  ctx.fillStyle = '#fca5a5'; ctx.textAlign = 'left';
+  ctx.fillText('EAGLE-3 (1-layer AR)', px(8.5), py(8 * 0.4) - 6);
+  ctx.fillStyle = '#a78bfa';
+  ctx.fillText('DFlash 5-layer', px(8.5), py(1.1) - 8);
+  ctx.fillStyle = 'rgba(139,92,246,.6)';
+  ctx.fillText('DFlash 3-layer', px(8.5), py(0.85) - 6);
+
+  // Annotation at gamma=16
+  ctx.strokeStyle = 'rgba(255,255,255,.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(px(16), py(0)); ctx.lineTo(px(16), py(16*0.4)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '8px monospace';
+  ctx.fillStyle = '#ef4444'; ctx.textAlign = 'right';
+  ctx.fillText('6.4ms', px(16) - 4, py(16 * 0.4) + 10);
+  ctx.fillStyle = '#a78bfa'; ctx.textAlign = 'left';
+  ctx.fillText('1.1ms', px(16) + 4, py(1.1) - 4);
+})();
+
+// ─── Acceptance histogram ────────────────────────────────────────────────────
+const ACCEPT_DATA = {
+  coding: {
+    // Distribution for avg 6.30, block size 8: many full accepts
+    dist: [2, 3, 5, 7, 9, 14, 25, 35],  // roughly % at accepted=1..8
+    avg: 6.30, label: 'WebDev / Coding', color: 'rgba(139,92,246,.75)'
+  },
+  math: {
+    dist: [3, 5, 8, 10, 12, 16, 22, 24],
+    avg: 5.56, label: 'Math500', color: 'rgba(6,182,212,.7)'
+  },
+  agent: {
+    dist: [5, 8, 12, 14, 16, 18, 15, 12],
+    avg: 4.29, label: 'SWE-Bench Agent', color: 'rgba(245,158,11,.7)'
+  },
+  chat: {
+    dist: [10, 14, 18, 16, 14, 11, 9, 8],
+    avg: 3.18, label: 'MT-Bench Chat', color: 'rgba(99,102,241,.7)'
+  },
+};
+
+function renderAcceptChart(scenario) {
+  const data = ACCEPT_DATA[scenario];
+  const chart = document.getElementById('accept-chart');
+  const labels = document.getElementById('accept-labels');
+  const summary = document.getElementById('accept-summary');
+  if (!chart || !labels) return;
+
+  const maxVal = Math.max(...data.dist);
+  chart.innerHTML = '';
+  labels.innerHTML = '';
+
+  for (let i = 0; i < 8; i++) {
+    const pct = (data.dist[i] / maxVal) * 100;
+    const bar = document.createElement('div');
+    bar.className = 'accept-bar';
+    bar.style.background = data.color;
+    bar.style.height = pct + '%';
+    bar.innerHTML = span('bar-val', String(i+1));
+    chart.appendChild(bar);
+
+    const lbl = document.createElement('span');
+    lbl.textContent = i + 1;
+    labels.appendChild(lbl);
+  }
+
+  if (summary) {
+    summary.textContent = `${data.label} — avg accepted: ${data.avg} / 8 tokens per cycle`;
+  }
+
+  // Update button styles
+  document.querySelectorAll('.accept-btn').forEach(b => {
+    const active = b.dataset.scenario === scenario;
+    b.style.borderColor = active ? 'rgba(139,92,246,.5)' : 'var(--border-hi)';
+    b.style.background  = active ? 'var(--purple-dim)' : 'var(--surface)';
+    b.style.color       = active ? 'var(--purple-l)' : 'var(--muted2)';
+  });
+}
+
+document.querySelectorAll('.accept-btn').forEach(b =>
+  b.addEventListener('click', () => renderAcceptChart(b.dataset.scenario)));
+renderAcceptChart('coding');
+
+// ─── Step navigator (training tricks) ────────────────────────────────────────
+let trainStep = 0;
+const trainBoxes = document.querySelectorAll('#train-steps .step-box');
+const trainPrev  = document.getElementById('train-prev');
+const trainNext  = document.getElementById('train-next');
+const trainProg  = document.getElementById('train-prog');
+
+function updateTrainSteps() {
+  trainBoxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === trainStep) b.classList.add('active');
+    else if (i < trainStep) b.classList.add('done');
+  });
+  if (trainPrev) trainPrev.disabled = trainStep === 0;
+  if (trainNext) trainNext.disabled = trainStep === trainBoxes.length - 1;
+  if (trainProg) trainProg.textContent = `Step ${trainStep + 1} of ${trainBoxes.length}`;
+  trainBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < trainStep ? '✓' : String(i + 1);
+  });
+}
+
+trainPrev?.addEventListener('click', () => { if (trainStep > 0){ trainStep--; updateTrainSteps(); }});
+trainNext?.addEventListener('click', () => { if (trainStep < trainBoxes.length-1){ trainStep++; updateTrainSteps(); }});
+updateTrainSteps();
+
+// ─── Animated bars (IntersectionObserver) ────────────────────────────────────
+function animateBarsIn(containerId) {
+  const section = document.getElementById(containerId);
+  if (!section) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(section);
+}
+animateBarsIn('s-mimo');
+// Also trigger for acceptance deployment bars within mimo section
+</script>
+</BaseLayout>

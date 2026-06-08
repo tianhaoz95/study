@@ -1,0 +1,1231 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Skip a Layer or Loop it? Test-Time Depth Adaptation of LLMs | AI/ML Deep Dives"
+  description="CoLa finds the optimal layer sequence per input—skipping redundant layers, looping key ones—using MCTS. No training required. On LLaMA-3-8B-Instruct, it boosts DART-2 accuracy from 6% to 66% and often needs fewer layers to correct errors than to preserve correct answers."
+  crumb="CoLa Depth Adaptation"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Post-specific: step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:180px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .35rem;font-family:var(--ff-mono)}
+
+/* Mode buttons */
+.mode-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.mode-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.mode-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.mode-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Depth Adaptation</span>
+    <span class="tag tag-cyan">LLM Reasoning</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Skip a Layer or Loop it?<br/>Test-Time Depth Adaptation of LLMs</h1>
+  <p class="lead">Every LLM layer is used in fixed order for every input — but is that optimal? CoLa (Chain-of-Layers) treats transformer layers as Lego bricks: skip the redundant ones, loop the useful ones, and let MCTS find the best composition per input. No training. LLaMA-3-8B-Instruct improves from 6% to 66% on hard math reasoning — often using fewer layers, not more.</p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2507.07996</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2507.07996" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/abs/2507.07996" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      arXiv Abstract
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> Static Depth Problem</a></li>
+    <li class="toc-item" id="toc-s-space"><a href="#s-space"><span class="toc-num">02</span> The CoLa Space</a></li>
+    <li class="toc-item" id="toc-s-mcts"><a href="#s-mcts"><span class="toc-num">03</span> MCTS Search</a></li>
+    <li class="toc-item" id="toc-s-ablation"><a href="#s-ablation"><span class="toc-num">04</span> Skip vs Loop vs Both</a></li>
+    <li class="toc-item" id="toc-s-depth"><a href="#s-depth"><span class="toc-num">05</span> Depth-Accuracy Tradeoff</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Static Depth Problem</div>
+<h2>Every Input Uses All 32 Layers. That's Rarely Optimal.</h2>
+<p>Modern LLMs are designed to run every layer, in fixed order, for every input — whether the question is "What do plants need to grow?" or a multi-step calculus proof. This static architecture is simultaneously wasteful for simple inputs and potentially suboptimal for hard ones: some layers may introduce noise or irrelevant transformations, while others could benefit from being revisited.</p>
+<p>The evidence is stark. On LLaMA-3-8B-Instruct, the default 32-layer forward pass achieves only <strong>6% accuracy on DART-2</strong> (a medium-difficulty math benchmark). Yet a customized layer sequence — skipping 6 layers, looping 4 others — raises this to <strong>66.2%</strong>, a >10× improvement, with no weight updates whatsoever.</p>
+<p>This is the central claim of <em>Chain-of-Layers (CoLa)</em>: pretrained transformer layers are compositionally generalizable modules, and the right composition for each input is rarely the default one.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">layer-path-contrast.canvas</span>
+    <span class="vp-hint">fixed depth vs. CoLa-optimized path</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-problem" style="width:100%;height:200px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>The canvas above shows two execution paths for the same LLaMA-3-8B model answering a DART-4 math question. The <span style="color:var(--muted)">gray path (left)</span> runs all 32 layers — the standard forward pass, 12% accuracy on DART-4. The <span style="color:#8b5cf6">purple path (right)</span> is CoLa's optimized sequence: fewer unique layers, some repeated — 49.4% accuracy.</p>
+
+<h3>Why Does This Happen?</h3>
+<p>Residual connections in transformers create layer similarity — adjacent layers often encode highly correlated representations. For easy inputs, this means many layers are "redoing" work that earlier layers already handled. For hard inputs, a single pass through layer 18 may not be enough; a second pass through the same layer, applied iteratively like an RNN cell, can refine the representation further.</p>
+<p>Existing approaches address half the problem: <em>early-exit</em> networks allow shallow inference but only by removing trailing layers; <em>looped transformers</em> allow recurrence but must be trained from scratch for it. CoLa unifies both at test time, without any retraining.</p>
+</section>
+
+<section id="s-space" data-code="space">
+<div class="section-no">02 — The CoLa Space</div>
+<h2>Two Operations: Skip and Recur</h2>
+<p>Formally, given a pretrained model with layers [L₁, L₂, …, L₃₂], CoLa constructs a per-input execution path P = [Lᵢ, Lⱼ, Lₖ, …] where each Lᵢ is one of the original layers. Two operations define the space:</p>
+<ul>
+  <li><strong>Skip</strong>: omit a layer entirely from the path — useful when a layer adds noise or redundancy for this particular input</li>
+  <li><strong>Recur</strong>: repeat a layer (or block of layers) r times in succession — like unrolling an RNN cell, applying more computation where it helps</li>
+</ul>
+<p>No new weights are introduced. Each layer's parameters are frozen. Only the <em>sequence</em> of which layers to call, and how many times, changes per input.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">cola-space.canvas</span>
+    <span class="vp-hint">click mode to see different execution paths for a 12-layer model</span>
+  </div>
+  <div class="vp-body">
+    <div class="mode-btns" id="space-mode-btns">
+      <button class="mode-btn active" data-mode="original">Original</button>
+      <button class="mode-btn" data-mode="skip">+Skip-only</button>
+      <button class="mode-btn" data-mode="recur">+Recur-only</button>
+      <button class="mode-btn" data-mode="cola">+CoLa</button>
+    </div>
+    <canvas id="canvas-space" style="width:100%;height:220px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>The action space at each MCTS step is compact: skip or repeat a contiguous block of k layers (k ∈ &#123;1,2,3,4&#125;), with a repetition count r ∈ &#123;1,2,3,4&#125;. This keeps the search tractable while covering a rich range of architectures.</p>
+
+<div class="math-block">
+  <div class="math-label">CoLa path definition</div>
+  <span class="math-var">P</span> = [<span class="math-var">L<sub>i₁</sub>, L<sub>i₁</sub>, …, L<sub>i₁</sub></span>, <span class="math-var">L<sub>i₂</sub></span>, <span class="math-var">L<sub>i₃</sub>, L<sub>i₃</sub></span>, …]
+  <span class="math-comment">  ← L<sub>i₁</sub> repeated r=3 times, L<sub>i₂</sub> used once, L<sub>i₃</sub> looped twice</span><br/>
+  where each <span class="math-var">L<sub>iₖ</sub></span> ∈ &#123;L₁, …, L<sub>N</sub>&#125;  <span class="math-comment">← original frozen weights</span>
+</div>
+
+<h3>Why Not Just Train a Routing Controller?</h3>
+<p>You could imagine learning a routing function that decides which layers to skip or repeat. But that requires task-specific training data and introduces distribution shift between training and inference. CoLa's MCTS approach requires only a correctness signal (right or wrong) at test time — making it applicable to any frozen LLM without access to training data or gradients.</p>
+</section>
+
+<section id="s-mcts" data-code="mcts">
+<div class="section-no">03 — MCTS: Navigating the Path Space</div>
+<h2>Monte Carlo Tree Search as Architecture Search</h2>
+<p>The space of possible layer paths is combinatorially enormous. For a 32-layer model with skip-and-repeat operations on blocks of up to 4 layers, the number of distinct paths easily exceeds 10¹⁰. Greedy or beam search get stuck in local optima. CoLa frames path construction as a symbolic game and uses MCTS — the same algorithm behind AlphaGo — to efficiently explore it.</p>
+
+<div class="step-list" id="mcts-steps">
+  <div class="step-box active" data-step="0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Initialize</div>
+      <div class="step-desc">Start from the standard forward path P₀ = [L₁, L₂, …, L₃₂]. This is the root node of the MCTS tree. All layer weights remain frozen.</div>
+      <div class="step-code">P₀ = [L1, L2, L3, …, L32]  # baseline path</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Selection</div>
+      <div class="step-desc">Traverse the tree by selecting child nodes that maximize the UCB score — balancing exploitation (high reward paths) against exploration (rarely-visited paths) while penalizing excessive path length.</div>
+      <div class="step-code">UCB(P) = Q(P)/v(P) − λ·||P||/v(P) + c·√(ln V / v(P))</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Expansion</div>
+      <div class="step-desc">Generate candidate children from the current node by applying one edit: skip k layers or repeat a k-layer block r times (k, r ∈ &#123;1,2,3,4&#125;). Only unexplored children are expanded.</div>
+      <div class="step-code">actions = skip(k) | repeat(k, r)  # k, r in &#123;1,2,3,4&#125;</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Simulation</div>
+      <div class="step-desc">Execute the candidate path on the input. Assign reward=1 if the prediction is correct, minus a path-length penalty λ·‖P‖ to encourage compact solutions. The model answer serves as the feedback signal.</div>
+      <div class="step-code">reward = correct(P, x) − λ · normalize(len(P))</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="4">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Backpropagation &amp; Return</div>
+      <div class="step-desc">Propagate the reward up the tree, updating Q(P) and v(P) for all ancestors. After N simulations, return the Pareto-optimal paths balancing accuracy and depth.</div>
+      <div class="step-code">return pareto_optimal(accuracy, depth)  # all found paths</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="mcts-prev" disabled>← Prev</button>
+  <span id="mcts-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="mcts-next">Next →</button>
+</div>
+
+<div class="math-block">
+  <div class="math-label">UCB score</div>
+  UCB(<span class="math-var">P</span>) = <span class="math-var">Q(P)</span> / <span class="math-var">v(P)</span>
+    &nbsp;−&nbsp; <span class="math-var">λ</span> · ‖<span class="math-var">P</span>‖ / <span class="math-var">v(P)</span>
+    &nbsp;+&nbsp; <span class="math-var">c</span> · √(ln <span class="math-var">V</span> / <span class="math-var">v(P)</span>)
+  <br/>
+  <span class="math-comment">Q(P) = cumulative reward · v(P) = visit count · V = total simulations</span>
+  <br/>
+  <span class="math-comment">λ scales length penalty · c balances exploration</span>
+</div>
+
+<p>The length penalty λ in the UCB score is key: it simultaneously drives MCTS toward <em>shorter, more efficient</em> paths while still rewarding correctness. This is what makes CoLa discover not just accurate paths, but <em>minimally-deep</em> ones.</p>
+</section>
+
+<section id="s-ablation" data-code="ablation">
+<div class="section-no">04 — Skip vs Loop vs Both</div>
+<h2>Combining Both Operations is Critical</h2>
+<p>The paper runs a careful ablation comparing three search spaces: skip-only, recurrence-only, and the full CoLa (both). The results reveal a complementary relationship — each operation excels in different regimes, and neither alone suffices for the hardest tasks.</p>
+<p>Click a benchmark below to see how all three strategies compare on <strong>LLaMA-3-8B-Instruct</strong>. The numbers are the paper's exact accuracy (%) figures from Table 1.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">ablation-comparison.canvas</span>
+    <span class="vp-hint">click a benchmark to update the bars</span>
+  </div>
+  <div class="vp-body">
+    <div class="mode-btns" id="ablation-btns">
+      <button class="mode-btn" data-bench="ARC-E">ARC-E</button>
+      <button class="mode-btn" data-bench="ARC-C">ARC-C</button>
+      <button class="mode-btn" data-bench="DART-1">DART-1</button>
+      <button class="mode-btn active" data-bench="DART-2">DART-2</button>
+      <button class="mode-btn" data-bench="DART-3">DART-3</button>
+      <button class="mode-btn" data-bench="DART-4">DART-4</button>
+      <button class="mode-btn" data-bench="DART-5">DART-5</button>
+    </div>
+    <div id="ablation-bars" class="results-bars" style="max-width:580px"></div>
+    <div id="ablation-insight" style="margin-top:.75rem;font-size:.78rem;color:var(--muted);font-family:var(--ff-mono);font-style:italic"></div>
+  </div>
+</div>
+
+<p>The pattern is remarkably consistent: <strong>skip-only</strong> dominates on easy tasks (ARC-E/C) because many layers are genuinely redundant for simple factual retrieval. <strong>Recurrence-only</strong> starts pulling ahead on DART-3 and above — iterative refinement of reasoning layers helps. But only <strong>CoLa</strong> (both operations together) achieves the largest gains on the hardest tasks — getting to 47.8% on DART-5 when recurrence-only reaches just 21.6%.</p>
+<p>The skip+recurrence combination enables the model to compress redundant layers <em>and</em> expand high-utility ones in the same path — a flexibility neither operation alone can achieve.</p>
+</section>
+
+<section id="s-depth" data-code="depth">
+<div class="section-no">05 — Depth-Accuracy Tradeoff</div>
+<h2>Better Accuracy, Fewer Layers — Even When Correcting Errors</h2>
+<p>A natural concern is that CoLa's accuracy gains come at the cost of depth: maybe MCTS just adds more looping layers, making inference slower. The paper's analysis of actual path lengths reveals the opposite.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">depth-accuracy-scatter.canvas</span>
+    <span class="vp-hint">click to toggle dataset — arrow points to "better"</span>
+  </div>
+  <div class="vp-body">
+    <div class="mode-btns" id="scatter-btns">
+      <button class="mode-btn active" data-ds="DART-4">DART-4</button>
+      <button class="mode-btn" data-ds="DART-5">DART-5</button>
+    </div>
+    <canvas id="canvas-scatter" style="width:100%;height:280px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>Each point represents one of the 4 strategies applied to LLaMA-3-8B (base and instruct variants) on the selected benchmark. The clear story: <strong>CoLa occupies the top-right "Better" region</strong> — higher accuracy than recurrence-only at roughly similar depth, and higher accuracy than skip-only at slightly deeper paths.</p>
+<p>Even more striking is the W→C (wrong→correct) finding. For inputs where CoLa <em>fixes</em> a wrong original prediction, the CoLa paths are often <em>shorter</em> than C→C paths (originally correct, kept correct). Correcting an error doesn't require more computation — it requires <em>reconfiguration</em>, removing the layers that are contributing noise and looping the ones that carry signal.</p>
+<p>This challenges the intuition that "more layers = more reasoning capacity." The original model's fixed path may actively hurt performance by running layers that mislead the computation for a given input type.</p>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>CoLa Dominates Across All Benchmarks</h2>
+<p>The full results across all 7 benchmarks for LLaMA-3-8B-Instruct show CoLa's comprehensive improvements. The animated bars below compare the original model (static 32 layers) against CoLa's optimized paths.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">results-8b-instruct.canvas</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="results-bars-container">
+    <div class="bar-group-label">ARC benchmarks (commonsense reasoning)</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">ARC-E · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="76.0" style="background:var(--muted)"><span>76.0%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">ARC-E · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="95.8" style="background:var(--purple)"><span>95.8%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">ARC-C · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="69.0" style="background:var(--muted)"><span>69.0%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">ARC-C · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="98.2" style="background:var(--purple)"><span>98.2%</span></div></div>
+      </div>
+    </div>
+    <div class="bar-group-label">DART-Math (difficulty levels 1–5)</div>
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">DART-1 · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="10.0" style="background:var(--muted)"><span>10.0%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-1 · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="84.2" style="background:var(--purple)"><span>84.2%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-2 · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="6.0" style="background:var(--muted)"><span>6.0%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-2 · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="66.2" style="background:var(--purple)"><span>66.2%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-3 · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="6.8" style="background:var(--muted)"><span>6.8%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-3 · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="54.6" style="background:var(--purple)"><span>54.6%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-4 · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="12.0" style="background:var(--muted)"><span>12.0%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-4 · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="49.4" style="background:var(--purple)"><span>49.4%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-5 · Original</div>
+        <div class="bar-track"><div class="bar-fill" data-w="12.4" style="background:var(--muted)"><span>12.4%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DART-5 · CoLa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="47.8" style="background:var(--purple)"><span>47.8%</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Layer Engagement Patterns</h3>
+<p>The paper's analysis of which layers get used reveals a consistent V-shape for 3B models — early and late layers dominate while middle layers are frequently pruned — while 8B models show a smoother decay from early to late, engaging middle layers more consistently. Harder tasks produce more uniform layer usage: on DART-5, even mid-depth layers are activated with comparable frequency to shallow ones, suggesting that complex reasoning needs a broader slice of the model's capacity.</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Skip Pattern</th>
+      <th>Recurrence Pattern</th>
+      <th>Layer Entropy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LLaMA-3-3B</td>
+      <td class="mn">V-shape: middle layers skipped most</td>
+      <td class="mn">Concentrated at late layers</td>
+      <td class="mn">3.33</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>LLaMA-3-8B</td>
+      <td class="mn">Smoother; distributed skip rate</td>
+      <td class="mn">Non-monotonic across depth</td>
+      <td class="mn best">3.46</td>
+    </tr>
+    <tr>
+      <td>3B-Instruct</td>
+      <td class="mn">Softer V-shape after tuning</td>
+      <td class="mn">More even; instruction-calibrated</td>
+      <td class="mn">—</td>
+    </tr>
+    <tr>
+      <td>8B-Instruct</td>
+      <td class="mn">Broad; less localized skipping</td>
+      <td class="mn">Context-sensitive, adaptive</td>
+      <td class="mn">—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The key implication: larger models rely less on stereotyped depth patterns. A 3B model tends to always skip the same middle layers regardless of input; an 8B model more intelligently adapts which layers to skip based on what the input actually requires. This distributional flexibility explains the larger CoLa gains on 8B — there's more latent composability to unlock.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">cola/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">Static Depth Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="space">space</button>
+    <button class="cs-tab" data-panel="mcts">mcts</button>
+    <button class="cs-tab" data-panel="ablation">ablation</button>
+    <button class="cs-tab" data-panel="depth">depth</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard LLM forward pass — same depth for every input</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">standard_forward</span>(model, x):</span>
+<span class="cs-line">    h = model.embed(x)</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> layer <span class="kw">in</span> model.layers:  <span class="cmt"># always all 32</span></span>
+<span class="cs-line">        h = layer(h)            <span class="cmt"># same path, every input</span></span>
+<span class="cs-line">    <span class="kw">return</span> model.head(h)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># CoLa — custom path per input</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">cola_forward</span>(model, x, path):</span>
+<span class="cs-line">    h = model.embed(x)</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> layer_idx <span class="kw">in</span> path:  <span class="cmt"># e.g. [0,1,4,4,4,7,11,31]</span></span>
+<span class="cs-line hl-g">        h = model.layers[layer_idx](h)</span>
+<span class="cs-line">    <span class="kw">return</span> model.head(h)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example finding from the paper:</span>
+<span class="cs-line cmt"># LLaMA-3-8B-Instruct, DART-2</span>
+<span class="cs-line cmt">#   standard_forward → 6.0% accuracy</span>
+<span class="cs-line cmt">#   cola_forward     → 66.2% accuracy</span>
+<span class="cs-line cmt">#   (no weight changes, just path choice)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-space">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># CoLa operations — skip and recur on blocks</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">apply_skip</span>(path, pos, k):</span>
+<span class="cs-line">    <span class="str">"""Remove k consecutive layers starting at pos."""</span></span>
+<span class="cs-line">    <span class="kw">return</span> path[:pos] + path[pos + k:]</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">apply_recur</span>(path, pos, k, r):</span>
+<span class="cs-line">    <span class="str">"""Repeat k-layer block at pos, r extra times."""</span></span>
+<span class="cs-line">    block = path[pos:pos + k]</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> path[:pos] + block * (r + <span class="num">1</span>) + path[pos + k:]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example CoLa paths (12-layer model):</span>
+<span class="cs-line cmt"># Original:   [0,1,2,3,4,5,6,7,8,9,10,11]</span>
+<span class="cs-line cmt"># Skip-only:  [0,1,4,5,8,9,11]</span>
+<span class="cs-line cmt"># Recur-only: [0,1,2,2,2,4,5,6,7,7,8,10,11]</span>
+<span class="cs-line cmt"># CoLa:       [0,1,4,4,7,7,7,11]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Action space per MCTS step:</span>
+<span class="cs-line hl-c">k_range = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>]  <span class="cmt"># block size</span></span>
+<span class="cs-line hl-c">r_range = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>]  <span class="cmt"># repetitions</span></span>
+<span class="cs-line cmt"># Total actions per state: 2 × 4 × 4 × N ≈ 128–512</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-mcts">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Algorithm 1: Adaptive MCTS for CoLa</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">mcts_cola</span>(model, x, N_sim, lam, c):</span>
+<span class="cs-line">    root = <span class="fn">Node</span>(path=[<span class="num">0</span>..<span class="num">31</span>])       <span class="cmt"># P0 = all layers</span></span>
+<span class="cs-line">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(N_sim):</span>
+<span class="cs-line hl-c">        node = <span class="fn">select</span>(root)         <span class="cmt"># max UCB</span></span>
+<span class="cs-line hl-c">        children = <span class="fn">expand</span>(node)     <span class="cmt"># skip/repeat edits</span></span>
+<span class="cs-line hl-g">        reward = <span class="fn">simulate</span>(children[<span class="num">0</span>], model, x)</span>
+<span class="cs-line hl-g">        <span class="fn">backprop</span>(children[<span class="num">0</span>], reward)</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">pareto_paths</span>(root)      <span class="cmt"># acc vs depth</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># UCB score includes length penalty</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">ucb</span>(node, V, lam, c):</span>
+<span class="cs-line">    exploit = node.Q / node.v</span>
+<span class="cs-line hl-a">    length_pen = lam * node.depth / node.v   <span class="cmt"># key!</span></span>
+<span class="cs-line">    explore = c * (ln(V) / node.v) ** <span class="num">0.5</span></span>
+<span class="cs-line">    <span class="kw">return</span> exploit - length_pen + explore</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># λ (length penalty) drives toward shorter paths</span>
+<span class="cs-line cmt"># → finds minimally-deep solutions, not just accurate ones</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-ablation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Table 1: LLaMA-3-8B-Instruct accuracy (%)</span>
+<span class="cs-line cmt"># Method     ARC-E  ARC-C  D1    D2    D3    D4    D5</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────────────</span>
+<span class="cs-line">original  = [<span class="num">76.0</span>, <span class="num">69.0</span>, <span class="num">10.0</span>, <span class="num">6.0</span>, <span class="num">6.8</span>, <span class="num">12.0</span>, <span class="num">12.4</span>]</span>
+<span class="cs-line hl-c">skip_only = [<span class="num">92.8</span>, <span class="num">93.2</span>, <span class="num">44.2</span>, <span class="num">25.2</span>, <span class="num">25.0</span>, <span class="num">17.8</span>, <span class="num">13.4</span>]</span>
+<span class="cs-line hl-g">recur_only= [<span class="num">89.2</span>, <span class="num">87.2</span>, <span class="num">30.0</span>, <span class="num">20.8</span>, <span class="num">24.2</span>, <span class="num">24.4</span>, <span class="num">21.6</span>]</span>
+<span class="cs-line hl-p">cola      = [<span class="num">95.8</span>, <span class="num">98.2</span>, <span class="num">84.2</span>, <span class="num">66.2</span>, <span class="num">54.6</span>, <span class="num">49.4</span>, <span class="num">47.8</span>]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key insight: DART-2 CoLa vs best single strategy</span>
+<span class="cs-line cmt"># skip-only:   25.2%  ← good at ARC (easy tasks)</span>
+<span class="cs-line cmt"># recur-only:  20.8%  ← helps hard tasks but not easy</span>
+<span class="cs-line hl-p">cola_dart2 = <span class="num">66.2</span>  <span class="cmt"># +41% over best single — 3× jump!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why: skip removes noise layers, recur adds depth</span>
+<span class="cs-line cmt"># where needed. Only together do they unlock the full</span>
+<span class="cs-line cmt"># generalization capacity of the frozen model.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-depth">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># W→C paths are SHORTER than C→C paths</span>
+<span class="cs-line cmt"># (Fig 2 from paper — DART-4, LLaMA-3-8B)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Full model depth: 32 layers</span>
+<span class="cs-line hl-a">full_depth = <span class="num">32</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Average CoLa path depths (8B-Instruct, DART-4):</span>
+<span class="cs-line hl-c">CC_depth = <span class="num">28.1</span>  <span class="cmt"># correct → still correct</span></span>
+<span class="cs-line hl-g">WC_depth = <span class="num">25.6</span>  <span class="cmt"># wrong → corrected by CoLa!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Correcting errors needs FEWER layers than keeping</span>
+<span class="cs-line cmt"># correct ones. Not more depth — reconfiguration.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Non-recurrent depth (unique layers used):</span>
+<span class="cs-line cmt"># CC: ~24.2 unique layers  (some looped)</span>
+<span class="cs-line cmt"># WC: ~21.8 unique layers  (more aggressively pruned)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Interpretation: the original wrong path had noisy</span>
+<span class="cs-line cmt"># layers actively hurting — removing them suffices.</span>
+<span class="cs-line hl-p">insight = <span class="str">"wrong ≠ needs more computation"</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full results — LLaMA-3-8B-Instruct</span>
+<span class="cs-line cmt"># All numbers: accuracy (%), CoLa vs original</span>
+<span class="cs-line"></span>
+<span class="cs-line">benchmarks = {</span>
+<span class="cs-line hl-c">  <span class="str">"ARC-E"</span>:  (<span class="num">76.0</span>,  <span class="num">95.8</span>),  <span class="cmt"># +19.8</span></span>
+<span class="cs-line hl-c">  <span class="str">"ARC-C"</span>:  (<span class="num">69.0</span>,  <span class="num">98.2</span>),  <span class="cmt"># +29.2 ★</span></span>
+<span class="cs-line hl-g">  <span class="str">"DART-1"</span>: (<span class="num">10.0</span>,  <span class="num">84.2</span>),  <span class="cmt"># +74.2 ★★</span></span>
+<span class="cs-line hl-g">  <span class="str">"DART-2"</span>: (<span class="num">6.0</span>,   <span class="num">66.2</span>),  <span class="cmt"># +60.2 ★★</span></span>
+<span class="cs-line hl-p">  <span class="str">"DART-3"</span>: (<span class="num">6.8</span>,   <span class="num">54.6</span>),  <span class="cmt"># +47.8</span></span>
+<span class="cs-line hl-p">  <span class="str">"DART-4"</span>: (<span class="num">12.0</span>,  <span class="num">49.4</span>),  <span class="cmt"># +37.4</span></span>
+<span class="cs-line hl-p">  <span class="str">"DART-5"</span>: (<span class="num">12.4</span>,  <span class="num">47.8</span>),  <span class="cmt"># +35.4</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Finding: >75% of originally-correct samples</span>
+<span class="cs-line cmt"># can be solved with a SHORTER CoLa path.</span>
+<span class="cs-line cmt"># Finding: >60% of originally-incorrect samples</span>
+<span class="cs-line cmt"># are CORRECTED by CoLa paths.</span>
+<span class="cs-line cmt"># Both improvements happen simultaneously.</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ─────────────────────────────────────────
+const tabMeta = {
+  problem:  { file: 'cola/problem.py',   title: 'Static Depth Problem' },
+  space:    { file: 'cola/space.py',     title: 'CoLa Space' },
+  mcts:     { file: 'cola/mcts.py',      title: 'MCTS Algorithm' },
+  ablation: { file: 'cola/ablation.py',  title: 'Skip vs Loop vs Both' },
+  depth:    { file: 'cola/depth.py',     title: 'Depth Efficiency' },
+  results:  { file: 'cola/results.py',   title: 'Full Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + tab on scroll ───────────────────
+const sectionMap = {
+  's-problem': 'problem', 's-space': 'space', 's-mcts': 'mcts',
+  's-ablation': 'ablation', 's-depth': 'depth', 's-results': 'results'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Canvas §01: Problem — fixed depth vs CoLa path contrast ───────────
+(function() {
+  const canvas = document.getElementById('canvas-problem');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resizeProblem() {
+    const W = canvas.clientWidth, H = 200;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawProblem(ctx, W, H);
+  }
+
+  function drawProblem(ctx, W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const N = 16; // simplified 16-layer representation
+    const bH = 14, bW = 34, gap = 4;
+    const totalH = N * (bH + gap) - gap;
+    const startY = (H - totalH) / 2;
+
+    // Left panel: original (all layers, wrong)
+    const lx = W / 4 - 20;
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.roundRect(lx - bW/2 - 8, startY - 12, bW + 16, totalH + 24, 6); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Original Path', lx, startY - 20);
+    ctx.fillStyle = 'rgba(239,68,68,0.7)';
+    ctx.font = '700 11px var(--ff-mono, monospace)';
+    ctx.fillText('✗ 12% DART-4', lx, startY + totalH + 36);
+
+    for (let i = 0; i < N; i++) {
+      const y = startY + i * (bH + gap);
+      ctx.fillStyle = 'rgba(239,68,68,0.22)';
+      ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(lx - bW/2, y, bW, bH, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(239,68,68,0.7)';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.fillText('L' + (i+1), lx, y + bH/2 + 3);
+    }
+    // Arrow down
+    ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lx, startY - 6);
+    ctx.lineTo(lx, startY + totalH + 6);
+    ctx.stroke();
+
+    // Right panel: CoLa (sparse + looped, correct)
+    const rx = W * 3/4 + 10;
+    // Show a shorter path with some loops
+    const colaPath = [1, 2, 5, 5, 5, 8, 11, 13, 16]; // 9 "steps"
+    const colaH = colaPath.length * (bH + gap) - gap;
+    const colaStartY = (H - colaH) / 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.roundRect(rx - bW/2 - 8, colaStartY - 12, bW + 16, colaH + 24, 6); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('CoLa Path', rx, colaStartY - 20);
+    ctx.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx.font = '700 11px var(--ff-mono, monospace)';
+    ctx.fillText('✓ 49% DART-4', rx, colaStartY + colaH + 36);
+
+    const loopedLayers = new Set([5]);
+    colaPath.forEach((layerNum, i) => {
+      const y = colaStartY + i * (bH + gap);
+      const isLoop = i > 0 && colaPath[i] === colaPath[i-1];
+      ctx.fillStyle = isLoop ? 'rgba(139,92,246,0.28)' : 'rgba(16,185,129,0.18)';
+      ctx.strokeStyle = isLoop ? 'rgba(139,92,246,0.7)' : 'rgba(16,185,129,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(rx - bW/2, y, bW, bH, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isLoop ? 'rgba(139,92,246,0.9)' : 'rgba(16,185,129,0.9)';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.fillText('L' + layerNum + (isLoop ? '↺' : ''), rx, y + bH/2 + 3);
+    });
+    ctx.strokeStyle = 'rgba(16,185,129,0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(rx, colaStartY - 6);
+    ctx.lineTo(rx, colaStartY + colaH + 6);
+    ctx.stroke();
+
+    // Center divider + labels
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(W/2, 10); ctx.lineTo(W/2, H - 10); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Legend
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText('↺ = looped layer', rx + bW/2 + 14, colaStartY + 20);
+  }
+
+  resizeProblem();
+  window.addEventListener('resize', resizeProblem);
+})();
+
+// ── Canvas §02: CoLa Space — interactive mode selector ────────────────
+(function() {
+  const canvas = document.getElementById('canvas-space');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  let currentMode = 'original';
+
+  const modes = {
+    original:  { path: [0,1,2,3,4,5,6,7,8,9,10,11], loops: [] },
+    skip:      { path: [0,1,4,5,8,9,11], loops: [] },
+    recur:     { path: [0,1,2,2,2,4,5,6,7,7,8,10,11], loops: [2,2,7] },
+    cola:      { path: [0,1,4,4,7,7,7,11], loops: [4,7,7] },
+  };
+
+  function resizeSpace() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawSpace(ctx, W, H);
+  }
+
+  function drawSpace(ctx, W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const mode = modes[currentMode];
+    const path = mode.path;
+    const bW = 36, bH = 22, gap = 6;
+    const totalW = path.length * (bW + gap) - gap;
+    const startX = (W - totalW) / 2;
+    const y = H / 2 - bH / 2;
+
+    // Draw full model as ghost
+    const N = 12;
+    const ghostW = N * (bW + gap) - gap;
+    const ghostX = (W - ghostW) / 2;
+
+    if (currentMode !== 'original') {
+      for (let i = 0; i < N; i++) {
+        const x = ghostX + i * (bW + gap);
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(x, y - 28, bW, bH, 3); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '9px var(--ff-mono, monospace)';
+        ctx.textAlign = 'center';
+        ctx.fillText('L' + (i+1), x + bW/2, y - 28 + bH/2 + 3);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'left';
+      ctx.fillText('12-layer original (ghost)', ghostX, y - 38);
+    }
+
+    // Draw the actual path
+    const colorMap = {
+      original: { fill: 'rgba(16,185,129,0.18)', stroke: 'rgba(16,185,129,0.5)', text: 'rgba(16,185,129,0.9)' },
+      skip:     { fill: 'rgba(6,182,212,0.18)',  stroke: 'rgba(6,182,212,0.5)',  text: 'rgba(6,182,212,0.9)' },
+      recur:    { fill: 'rgba(139,92,246,0.18)', stroke: 'rgba(139,92,246,0.5)', text: 'rgba(139,92,246,0.9)' },
+      cola:     { fill: 'rgba(139,92,246,0.22)', stroke: 'rgba(139,92,246,0.7)', text: 'rgba(139,92,246,1)' },
+    };
+    const col = colorMap[currentMode];
+
+    path.forEach((layerIdx, i) => {
+      const x = startX + i * (bW + gap);
+      const isRepeat = i > 0 && path[i] === path[i-1];
+      ctx.fillStyle = isRepeat ? 'rgba(245,158,11,0.2)' : col.fill;
+      ctx.strokeStyle = isRepeat ? 'rgba(245,158,11,0.7)' : col.stroke;
+      ctx.lineWidth = isRepeat ? 2 : 1;
+      ctx.beginPath(); ctx.roundRect(x, y, bW, bH, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isRepeat ? 'rgba(245,158,11,0.95)' : col.text;
+      ctx.font = (isRepeat ? '700' : '600') + ' 10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText('L' + (layerIdx + 1) + (isRepeat ? '↺' : ''), x + bW/2, y + bH/2 + 3);
+    });
+
+    // Draw connecting arrows
+    ctx.strokeStyle = col.stroke;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < path.length - 1; i++) {
+      const x1 = startX + i * (bW + gap) + bW;
+      const x2 = startX + (i+1) * (bW + gap);
+      const midY = y + bH / 2;
+      ctx.beginPath(); ctx.moveTo(x1, midY); ctx.lineTo(x2 - 4, midY); ctx.stroke();
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(x2 - 4, midY - 3);
+      ctx.lineTo(x2, midY);
+      ctx.lineTo(x2 - 4, midY + 3);
+      ctx.stroke();
+    }
+
+    // Label
+    const labels = {
+      original: `Full path: [L1→L2→…→L12]  (${path.length} steps)`,
+      skip:     `Skip-only: [L1,L2,L5,L6,L9,L10,L12]  (${path.length} steps, 5 skipped)`,
+      recur:    `Recur-only: L3 looped ×3, L8 looped ×2  (${path.length} steps)`,
+      cola:     `CoLa: skip L3,L4,L6,L8,L10 · loop L5×2, L8×3  (${path.length} steps)`,
+    };
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[currentMode], W / 2, y + bH + 22);
+
+    // Input / Output labels
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('input', startX + bW/2, y - 10);
+    ctx.fillText('output', startX + (path.length - 1) * (bW + gap) + bW/2, y - 10);
+  }
+
+  resizeSpace();
+  window.addEventListener('resize', resizeSpace);
+
+  document.getElementById('space-mode-btns')?.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#space-mode-btns .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      resizeSpace();
+    });
+  });
+})();
+
+// ── MCTS step navigator ────────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes = document.querySelectorAll('#mcts-steps .step-box');
+  const prevBtn = document.getElementById('mcts-prev');
+  const nextBtn = document.getElementById('mcts-next');
+  const progEl  = document.getElementById('mcts-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i+1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── §04 Ablation bars ─────────────────────────────────────────────────
+(function() {
+  // LLaMA-3-8B-Instruct results from Table 1
+  const DATA = {
+    'ARC-E':  { orig: 76.0, skip: 92.8, recur: 89.2, cola: 95.8, max: 100 },
+    'ARC-C':  { orig: 69.0, skip: 93.2, recur: 87.2, cola: 98.2, max: 100 },
+    'DART-1': { orig: 10.0, skip: 44.2, recur: 30.0, cola: 84.2, max: 100 },
+    'DART-2': { orig:  6.0, skip: 25.2, recur: 20.8, cola: 66.2, max: 100 },
+    'DART-3': { orig:  6.8, skip: 25.0, recur: 24.2, cola: 54.6, max: 100 },
+    'DART-4': { orig: 12.0, skip: 17.8, recur: 24.4, cola: 49.4, max: 100 },
+    'DART-5': { orig: 12.4, skip: 13.4, recur: 21.6, cola: 47.8, max: 100 },
+  };
+  const INSIGHTS = {
+    'ARC-E':  'Easy commonsense: skip-only nearly matches CoLa — many layers are redundant for factual recall.',
+    'ARC-C':  'Hard commonsense: CoLa (+29.2%) shows even here, combining both operations unlocks additional accuracy.',
+    'DART-1': 'Easiest math: CoLa jumps to 84.2% — skip cleans redundancy, recur refines reasoning steps.',
+    'DART-2': 'Medium math: skip-only (25.2%) and recur-only (20.8%) both limited. CoLa: 66.2% — a 3× jump!',
+    'DART-3': 'Hard math: recurrence-only nearly matches skip-only here. CoLa still dominates at 54.6%.',
+    'DART-4': 'Very hard: skip-only falls below recur-only. Both need the other — CoLa: 49.4% vs 24.4%.',
+    'DART-5': 'Hardest: original 12.4%. CoLa 47.8% — nearly 4× improvement with no training.',
+  };
+
+  let currentBench = 'DART-2';
+
+  function renderBars(bench) {
+    const d = DATA[bench];
+    const container = document.getElementById('ablation-bars');
+    const insight = document.getElementById('ablation-insight');
+    if (!container || !d) return;
+
+    const rows = [
+      { label: 'Original',       val: d.orig,  color: 'rgba(100,100,120,0.7)' },
+      { label: '+Skip-only',     val: d.skip,  color: 'var(--cyan)' },
+      { label: '+Recur-only',    val: d.recur, color: 'var(--green)' },
+      { label: '+CoLa (both)',   val: d.cola,  color: 'var(--purple)' },
+    ];
+
+    container.innerHTML = rows.map(r => `
+      <div class="bar-row">
+        <div class="bar-label">${r.label}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="background:${r.color};width:${r.val}%">
+            <span>${r.val}%</span>
+          </div>
+        </div>
+      </div>`).join('');
+
+    if (insight) insight.textContent = INSIGHTS[bench] || '';
+  }
+
+  document.getElementById('ablation-btns')?.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#ablation-btns .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentBench = btn.dataset.bench;
+      renderBars(currentBench);
+    });
+  });
+  renderBars(currentBench);
+})();
+
+// ── §05 Depth-Accuracy scatter plot ───────────────────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-scatter');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  let currentDs = 'DART-4';
+
+  // Approximate scatter data points from Figure 3 in the paper
+  // Each entry: [depth, accuracy, label, variant (base/instruct)]
+  const POINTS = {
+    'DART-4': [
+      { depth: 32, acc: 2.2,  label: 'Original',   variant: '8B-Base',    color: '#6b7280' },
+      { depth: 25, acc: 16.4, label: '+Skip',       variant: '8B-Base',    color: '#06b6d4' },
+      { depth: 37, acc: 8.8,  label: '+Recur',      variant: '8B-Base',    color: '#10b981' },
+      { depth: 30, acc: 31.8, label: '+CoLa',       variant: '8B-Base',    color: '#8b5cf6', star: true },
+      { depth: 32, acc: 12.0, label: 'Original',    variant: '8B-Instruct',color: '#9ca3af' },
+      { depth: 26, acc: 17.8, label: '+Skip',        variant: '8B-Instruct',color: '#22d3ee' },
+      { depth: 36, acc: 24.4, label: '+Recur',       variant: '8B-Instruct',color: '#34d399' },
+      { depth: 30, acc: 49.4, label: '+CoLa',        variant: '8B-Instruct',color: '#a78bfa', star: true },
+    ],
+    'DART-5': [
+      { depth: 32, acc: 0.8,  label: 'Original',    variant: '8B-Base',    color: '#6b7280' },
+      { depth: 25, acc: 12.2, label: '+Skip',        variant: '8B-Base',    color: '#06b6d4' },
+      { depth: 37, acc: 5.6,  label: '+Recur',       variant: '8B-Base',    color: '#10b981' },
+      { depth: 30, acc: 29.2, label: '+CoLa',        variant: '8B-Base',    color: '#8b5cf6', star: true },
+      { depth: 32, acc: 12.4, label: 'Original',     variant: '8B-Instruct',color: '#9ca3af' },
+      { depth: 26, acc: 13.4, label: '+Skip',         variant: '8B-Instruct',color: '#22d3ee' },
+      { depth: 36, acc: 21.6, label: '+Recur',        variant: '8B-Instruct',color: '#34d399' },
+      { depth: 30, acc: 47.8, label: '+CoLa',         variant: '8B-Instruct',color: '#a78bfa', star: true },
+    ],
+  };
+
+  function resizeScatter() {
+    const W = canvas.clientWidth, H = 280;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawScatter(ctx, W, H);
+  }
+
+  function drawScatter(ctx, W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const pts = POINTS[currentDs];
+    const pad = { l: 55, r: 20, t: 30, b: 45 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+
+    // Axes ranges
+    const minD = 22, maxD = 40;
+    const minA = 0, maxA = currentDs === 'DART-4' ? 55 : 55;
+
+    function tx(d) { return pad.l + (d - minD) / (maxD - minD) * plotW; }
+    function ty(a) { return pad.t + (1 - (a - minA) / (maxA - minA)) * plotH; }
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let a = 0; a <= maxA; a += 10) {
+      ctx.beginPath(); ctx.moveTo(pad.l, ty(a)); ctx.lineTo(W - pad.r, ty(a)); ctx.stroke();
+    }
+    for (let d = 24; d <= 38; d += 4) {
+      ctx.beginPath(); ctx.moveTo(tx(d), pad.t); ctx.lineTo(tx(d), H - pad.b); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    for (let a = 0; a <= maxA; a += 10) {
+      ctx.textAlign = 'right';
+      ctx.fillText(a + '%', pad.l - 6, ty(a) + 3);
+    }
+    for (let d = 24; d <= 38; d += 4) {
+      ctx.textAlign = 'center';
+      ctx.fillText(d, tx(d), H - pad.b + 14);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('← depth (# layer invocations) →', W / 2, H - 8);
+    ctx.save();
+    ctx.translate(12, pad.t + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('accuracy (%)', 0, 0);
+    ctx.restore();
+
+    // "Better" arrow
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText('Better ↖', pad.l + 6, pad.t + 14);
+
+    // Full-model depth line
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(tx(32), pad.t); ctx.lineTo(tx(32), H - pad.b); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('full (32)', tx(32), pad.t + 10);
+
+    // Draw points
+    pts.forEach(pt => {
+      const x = tx(pt.depth), y = ty(pt.acc);
+      const r = pt.star ? 8 : 6;
+      ctx.fillStyle = pt.color;
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = pt.star ? 2 : 1;
+      ctx.beginPath();
+      if (pt.star) {
+        // Star shape for CoLa
+        for (let a = 0; a < 5; a++) {
+          const angle = (a * 4 * Math.PI / 5) - Math.PI / 2;
+          const angle2 = ((a * 4 + 2) * Math.PI / 5) - Math.PI / 2;
+          if (a === 0) ctx.moveTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+          else ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+          ctx.lineTo(x + (r/2) * Math.cos(angle2), y + (r/2) * Math.sin(angle2));
+        }
+        ctx.closePath();
+      } else {
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+      }
+      ctx.fill(); ctx.stroke();
+
+      // Labels for CoLa points
+      if (pt.star) {
+        ctx.fillStyle = pt.color;
+        ctx.font = '700 9px var(--ff-mono, monospace)';
+        ctx.textAlign = 'left';
+        ctx.fillText(pt.acc + '% ' + pt.variant, x + 10, y + 3);
+      }
+    });
+
+    // Legend
+    const legendItems = [
+      { color: '#6b7280', label: '● Original' },
+      { color: '#06b6d4', label: '● +Skip' },
+      { color: '#10b981', label: '● +Recur' },
+      { color: '#8b5cf6', label: '★ +CoLa' },
+    ];
+    let lx = pad.l + 10;
+    legendItems.forEach(li => {
+      ctx.fillStyle = li.color;
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'left';
+      ctx.fillText(li.label, lx, H - pad.b - 12);
+      lx += 80;
+    });
+  }
+
+  resizeScatter();
+  window.addEventListener('resize', resizeScatter);
+
+  document.getElementById('scatter-btns')?.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#scatter-btns .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDs = btn.dataset.ds;
+      resizeScatter();
+    });
+  });
+})();
+
+// ── §06 Animated bar chart ─────────────────────────────────────────────
+(function() {
+  const container = document.getElementById('results-bars-container');
+  if (!container) return;
+  let triggered = false;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !triggered) {
+        triggered = true;
+        container.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(container);
+})();
+</script>
+</BaseLayout>

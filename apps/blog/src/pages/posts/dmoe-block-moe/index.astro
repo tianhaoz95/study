@@ -1,0 +1,1144 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="dMoE: Block-Level Expert Routing for Diffusion LLMs | AI/ML Deep Dives"
+  description="Diffusion LLMs decode blocks of tokens in parallel, but MoE layers route experts per token — causing 70+ unique expert loads per forward pass. dMoE aggregates token scores into block-level distributions and selects a coreset via top-p, cutting unique experts from 70 to 14 while retaining 99% of performance."
+  crumb="dMoE Block MoE"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Expert block demo */
+.expert-demo{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0}
+.expert-demo-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.exp-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);width:70px;flex-shrink:0}
+.exp-box{display:inline-flex;align-items:center;justify-content:center;width:38px;height:28px;border-radius:5px;font-size:.65rem;font-family:var(--ff-mono);font-weight:700;border:1px solid var(--border);background:var(--card2);color:var(--muted);transition:all .4s;flex-shrink:0}
+.exp-box.active{background:rgba(139,92,246,.25);border-color:var(--purple);color:var(--purple-l)}
+.exp-box.selected{background:rgba(16,185,129,.2);border-color:var(--green);color:var(--green)}
+.exp-box.coreset{background:rgba(6,182,212,.2);border-color:var(--cyan);color:var(--cyan)}
+
+/* K-buttons */
+.k-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.k-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.k-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.k-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Mixture-of-Experts</span>
+    <span class="tag tag-cyan">Inference Efficiency</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>dMoE: Block-Level Expert Routing for Diffusion LLMs</h1>
+  <p class="lead">Diffusion LLMs decode entire blocks of tokens in parallel — but MoE layers still route experts independently per token, loading 70+ unique expert weights every forward pass. dMoE fixes this by aggregating token scores into a block-level distribution and picking a top-p coreset, cutting unique expert loads from 70 to 14 while retaining 99.11% of performance.</p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.30876</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.30876" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/fscdc/dMoE" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-scores"><a href="#s-scores"><span class="toc-num">02</span> Scores as Signals</a></li>
+    <li class="toc-item" id="toc-s-algorithm"><a href="#s-algorithm"><span class="toc-num">03</span> The dMoE Algorithm</a></li>
+    <li class="toc-item" id="toc-s-topp"><a href="#s-topp"><span class="toc-num">04</span> Adaptive Top-p</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Results</a></li>
+    <li class="toc-item" id="toc-s-tradeoff"><a href="#s-tradeoff"><span class="toc-num">06</span> Tunable Trade-off</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01 THE BOTTLENECK ─────────────────────────────────────────── -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Bottleneck</div>
+<h2>When Parallel Decoding Meets Sparse Experts</h2>
+
+<p>Autoregressive language models generate one token at a time. Mixture-of-Experts (MoE) architectures are a natural fit: each token routes to a small subset of experts (e.g., 2 out of 64), so only those expert weights need to be in memory. The router picks two weights, loads them, computes, done.</p>
+
+<p><strong>Diffusion LLMs work differently.</strong> Instead of generating left-to-right, they start with a fully masked sequence and iteratively unmask tokens over multiple denoising steps. Crucially, each forward pass processes an entire <em>block</em> of tokens simultaneously — a block of 32 masked positions gets resolved in one go. This is the source of the speedup, but it creates a hidden problem when combined with MoE.</p>
+
+<p>Each of those 32 tokens independently routes to its own 2 experts. In the worst case, all 32 tokens pick different pairs — that's 64 unique expert weights to load from memory for a single forward pass, when you only "needed" 2 per token. In practice on LLaDA2.0-mini, the average is around <strong>70 unique experts</strong> per forward pass. Loading all of those expert weights repeatedly is what makes MoE dLLM inference memory-bound.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">block-size vs unique experts loaded</span>
+    <span class="vp-hint">click a block size to see the difference</span>
+  </div>
+  <div class="vp-body">
+    <div class="k-btns" id="block-btns">
+      <button class="k-btn active" data-block="1">Block = 1 token</button>
+      <button class="k-btn" data-block="4">Block = 4 tokens</button>
+      <button class="k-btn" data-block="8">Block = 8 tokens</button>
+      <button class="k-btn" data-block="16">Block = 16 tokens</button>
+    </div>
+    <div style="margin-bottom:.75rem;font-size:.78rem;color:var(--muted)">
+      Expert pool (16 experts, each token picks 2). <span style="color:var(--purple-l)">Purple</span> = loaded this pass.
+    </div>
+    <div id="expert-pool-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+    <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-top:.5rem">
+      <div style="font-size:.8rem;color:var(--muted2)">Unique experts loaded: <strong id="unique-count" style="color:var(--purple-l)">2</strong> / 16</div>
+      <div style="font-size:.8rem;color:var(--muted2)">Memory reads vs token-by-token: <strong id="mem-ratio" style="color:var(--amber)">1×</strong></div>
+    </div>
+  </div>
+</div>
+
+<p>The empirical confirmation is stark: on LLaDA2.0-mini, MoE latency dominates end-to-end inference time (over 50% in both the Transformers and SGLang backends), and MoE kernel latency grows <em>linearly</em> with the number of unique experts activated per forward pass.</p>
+
+<h3>Why existing MoE tricks don't transfer</h3>
+<p>Standard MoE efficiency work — expert pruning, merging, skipping — was designed for autoregressive models where each forward pass processes one token. Some approaches exploit temporal consistency (reusing the same expert assignments across sequential token positions), but in a diffusion LLM the "temporal" dimension is the denoising step, not the sequence position. DES, a recent approach for dLLMs, applies a candidate-constraint strategy at inference time without additional training, achieving moderate compression but suffering severe accuracy collapse under aggressive compression (from 72% to 53.8% on MATH500 at comparable expert budgets).</p>
+</section>
+
+<!-- ─── §02 SCORES AS SIGNALS ──────────────────────────────────────── -->
+<section id="s-scores" data-code="scores">
+<div class="section-no">02 — Scores as Signals</div>
+<h2>Router Weights Reveal Expert Importance</h2>
+
+<p>Before designing a solution, dMoE identifies two key observations from empirical study on LLaDA2.0-mini with GSM8K data.</p>
+
+<p><strong>Observation A:</strong> Token-level expert scores — the softmax logits output by the router — are positively correlated with how much an expert contributes to the output. Specifically, the authors sample 10<sup>8</sup> data points, mask out individual experts, measure the resulting increase in reconstruction loss, and compare against the router weights assigned to those experts.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">router weight vs loss increase (GSM8K, Pearson r = 0.46)</span>
+    <span class="vp-hint">each dot is one expert activation sample</span>
+  </div>
+  <div class="vp-body" style="padding:.75rem">
+    <canvas id="scatter-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>The correlation isn't perfect (r = 0.46) — some low-weight experts still turn out to be important, and some high-weight ones are redundant. But the trend is clear enough to use as a heuristic: if a token's router assigns a high weight to expert E5, E5 is probably doing real work. This motivates aggregating router weights across the block to find the experts that matter most collectively.</p>
+
+<p><strong>Observation B:</strong> Expert concentration varies substantially across denoising steps and transformer layers. Early denoising steps (where most tokens are still masked) tend to spread activations broadly across the expert pool. Later steps (where most tokens are settled) show more concentrated patterns where a handful of experts dominate. Measured as coefficient of variation, unique expert count has CV ≈ 17% across benchmarks — a strong argument against using a fixed-size coreset.</p>
+
+<div class="math-block">
+  <div class="math-label">Key insight</div>
+  Block-level expert scores = <span class="math-var">Σ</span>(token-level expert scores)<br>
+  <span class="math-comment">→ experts with high aggregate weight are important for the whole block</span><br><br>
+  Coreset size = <span class="math-var">top-p</span>(block scores) — adapts dynamically<br>
+  <span class="math-comment">→ concentrated blocks get small coresets; dispersed blocks get larger ones</span>
+</div>
+</section>
+
+<!-- ─── §03 THE dMoE ALGORITHM ─────────────────────────────────────── -->
+<section id="s-algorithm" data-code="algorithm">
+<div class="section-no">03 — The dMoE Algorithm</div>
+<h2>Aggregate → Normalize → Select Coreset → Restrict Routing</h2>
+
+<p>The dMoE algorithm processes one block of tokens through four stages. Use the navigator below to walk through each step with a concrete 4-token example (block of tokens "dLLMs", "have", "memory", "bounds" in a MoE layer with 8 experts, each token picking top-2).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dMoE routing — step-by-step</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="algo-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Token-Level Routing (standard MoE)</div>
+          <div class="step-desc">Each of the 4 tokens computes its router scores over all 8 experts. Each token picks its top-2.
+            <br>"dLLMs" → &#123;E2, E5&#125; &nbsp; "have" → &#123;E5, E7&#125; &nbsp; "memory" → &#123;E1, E5&#125; &nbsp; "bounds" → &#123;E3, E8&#125;
+            <br>Unique experts loaded: <strong style="color:var(--amber)">7 of 8</strong> — almost the whole pool!</div>
+          <div class="step-code">si = Router(ti)  # shape [|E|]</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Aggregate to Block-Level Scores</div>
+          <div class="step-desc">Sum the token-level expert scores (after zeroing out non-top-k entries) across all tokens in the block. Experts that are important for many tokens get high aggregate weight.
+            <br>S_block = Σ masked_top2(si) for each token i
+            <br>E5 appeared in 3 tokens → high aggregate score; E3, E8 each appeared once → lower.</div>
+          <div class="step-code">Sblock += TopKMask(si, k=2)  # accumulate</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Top-p Coreset Selection</div>
+          <div class="step-desc">Normalize block scores to sum to 1. Apply top-p: greedily select experts by descending score until the cumulative probability exceeds p.
+            <br>At p=0.6: select &#123;E5, E2, E1&#125; — 3 experts cover 60%+ of the block's weight.
+            <br>Unique experts loaded: <strong style="color:var(--green)">3 of 8</strong> (was 7!).</div>
+          <div class="step-code">C = TopP(normalize(Sblock), p=0.6)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Coreset-Restricted Token Routing</div>
+          <div class="step-desc">Each token re-routes within the coreset only. Token-level expert count stays the same (still top-2 per token), but all tokens now draw from the shared coreset.
+            <br>"dLLMs" → &#123;E2, E5&#125; &nbsp; "have" → &#123;E5, E1&#125; &nbsp; "memory" → &#123;E1, E5&#125; &nbsp; "bounds" → &#123;E5, E2&#125;
+            <br>All tokens satisfied; only 3 unique experts ever loaded.</div>
+          <div class="step-code">Ri = TopK(mask_outside(si, C), k=2)</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="algo-prev" disabled>← Prev</button>
+      <span id="algo-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+      <button id="algo-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<p>Notice what doesn't change: each token still picks its top-k experts (k=2 in LLaDA2.0-mini's 8-expert setting). The key insight is that by restricting the pool to the coreset, you force all tokens to draw from the same small set — which is already the set of globally important experts for that block, so most tokens would have chosen from it anyway.</p>
+
+<h3>Training: self-distillation with CSE loss</h3>
+<p>To recover accuracy after restricting routing, dMoE is fine-tuned using self-distillation. The same routing procedure used at inference is applied during the forward pass. The loss is a Coreset Selection Evidence (CSE) loss that encourages the model to maintain its original output quality under the coreset constraint. Training uses ~700K samples generated by LLaDA2.0-mini itself from GSM8K, PRM12K, Numina-Math, and OpenThoughts — entirely self-supervised, no external curated data needed.</p>
+</section>
+
+<!-- ─── §04 ADAPTIVE TOP-P ─────────────────────────────────────────── -->
+<section id="s-topp" data-code="topp">
+<div class="section-no">04 — Adaptive Top-p</div>
+<h2>One Threshold, Different Coreset Sizes</h2>
+
+<p>The elegant part of dMoE is that top-p selection is <em>adaptive</em>. A fixed coreset size (top-k experts) would be too aggressive when the block is diverse and too loose when the block is concentrated. Top-p naturally adapts: if the block's expert distribution is peaked (one or two experts dominate), those experts alone reach the probability threshold and the coreset is tiny. If the distribution is flat (many experts contribute equally), you need more of them to reach the threshold.</p>
+
+<p>This matters because expert concentration varies substantially across denoising steps. In early steps, all tokens are still masked and the model hasn't committed to any structure — it spreads weight broadly. In later steps, most tokens have been unmasked and routing converges to a concentrated set. Top-p naturally handles both regimes with a single threshold p.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">top-p coreset selection — two different block distributions</span>
+    <span class="vp-hint">switch p to see how coreset size adapts</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.875rem">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">SCENARIO A — concentrated (late denoising step)</div>
+        <canvas id="dist-canvas-a" style="width:100%;height:110px;display:block"></canvas>
+        <div style="font-size:.72rem;color:var(--muted2);margin-top:.4rem">Coreset: <span id="coreset-a" style="color:var(--cyan);font-weight:700">—</span> experts</div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">SCENARIO B — dispersed (early denoising step)</div>
+        <canvas id="dist-canvas-b" style="width:100%;height:110px;display:block"></canvas>
+        <div style="font-size:.72rem;color:var(--muted2);margin-top:.4rem">Coreset: <span id="coreset-b" style="color:var(--cyan);font-weight:700">—</span> experts</div>
+      </div>
+    </div>
+    <div class="k-btns" id="p-btns">
+      <button class="k-btn" data-p="0.4">p = 0.4</button>
+      <button class="k-btn active" data-p="0.6">p = 0.6</button>
+      <button class="k-btn" data-p="0.7">p = 0.7</button>
+      <button class="k-btn" data-p="0.8">p = 0.8</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);font-style:italic">With p=0.6 the concentrated block needs only 2 experts while the dispersed block needs 8 — the same threshold adapts automatically.</div>
+  </div>
+</div>
+
+<p>At inference, the same <code>p</code> value used during training (p<sub>train</sub>) is the default, but it can be overridden. This makes dMoE <strong>tunable at runtime</strong> — operators can lower p to reduce expert loads and latency at the cost of a small accuracy dip, or raise p to recover more performance on hardware with available memory bandwidth. No re-training required.</p>
+</section>
+
+<!-- ─── §05 RESULTS ────────────────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Results</div>
+<h2>80% Fewer Expert Loads, 99.1% of Performance</h2>
+
+<p>All experiments use LLaDA2.0-mini as the base model (state-of-the-art open-source MoE dLLM). Evaluation covers four benchmarks: MATH500, GSM8K, ARC-C, and MMLU. Block size = 32 throughout, matching the official inference configuration.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">MATH500 accuracy — compressed vs. original</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="results-bars">
+      <div style="font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem;font-family:var(--ff-mono)">Accuracy on MATH500 &nbsp;|&nbsp; unique expert count in parentheses</div>
+      <div class="bar-row">
+        <div class="bar-label">LLaDA2.0-mini (original)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="72" style="background:rgba(99,110,175,.55)"><span>72.0% (70 exp)</span></div></div>
+      </div>
+      <div style="font-size:.64rem;font-family:var(--ff-mono);color:var(--muted);padding:.1rem 0 .3rem 222px;letter-spacing:.04em">─ BASELINES ─</div>
+      <div class="bar-row">
+        <div class="bar-label">Top-4 (reduce k: 8→4)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="52.6" style="background:rgba(99,110,175,.35)"><span>52.6% (43.5 exp)</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DES-S (seq-level routing)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="70.8" style="background:rgba(6,182,212,.3)"><span>70.8% (41 exp)</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DES-V (vote routing)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="71.8" style="background:rgba(6,182,212,.3)"><span>71.8% (37 exp)</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DES-S* (aggressive: 13 exp)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="53.8" style="background:rgba(245,158,11,.3)"><span>53.8% (12.9 exp)</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DES-V* (aggressive: 13 exp)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="53" style="background:rgba(245,158,11,.3)"><span>53.0% (13 exp)</span></div></div>
+      </div>
+      <div style="font-size:.64rem;font-family:var(--ff-mono);color:var(--muted);padding:.1rem 0 .3rem 222px;letter-spacing:.04em">─ dMoE (ours) ─</div>
+      <div class="bar-row">
+        <div class="bar-label">dMoE p=0.6 (14.1 exp)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="71" style="background:rgba(139,92,246,.55)"><span>71.0% (14.1 exp)</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">dMoE p=0.5 (11.4 exp)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="69.8" style="background:rgba(139,92,246,.45)"><span>69.8% (11.4 exp)</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The key comparison: at <em>aggressive</em> compression (DES-S*/DES-V* have only ~13 unique experts, similar to dMoE's 14.1), the baselines collapse from 72% to ~53% on MATH500. dMoE holds at 71% — essentially matching the original while loading 80% fewer experts per forward pass.</p>
+
+<h3>Across all four benchmarks</h3>
+<table class="results-table">
+  <tr><th>Method</th><th>Avg Experts</th><th>MATH500</th><th>GSM8K</th><th>ARC-C</th><th>MMLU</th></tr>
+  <tr><td>LLaDA2.0-mini</td><td class="mn">70.0</td><td class="mn">72.0%</td><td class="mn">90.8%</td><td class="mn">84.4%</td><td class="mn">88.6%</td></tr>
+  <tr><td>DES-S* (~13 exp)</td><td class="mn">13.0</td><td class="mn">53.8%</td><td class="mn">74.0%</td><td class="mn">62.9%</td><td class="mn">70.7%</td></tr>
+  <tr><td>DES-V* (~13 exp)</td><td class="mn">13.0</td><td class="mn">53.0%</td><td class="mn">73.5%</td><td class="mn">49.1%</td><td class="mn">72.6%</td></tr>
+  <tr class="highlight-row"><td><strong>dMoE p=0.6</strong></td><td class="mn best">14.1</td><td class="mn best">71.0%</td><td class="mn best">88.6%</td><td class="mn best">85.8%</td><td class="mn best">87.4%</td></tr>
+</table>
+
+<p>Memory footprint of loaded expert parameters drops by <strong>76.64% to 79.84%</strong> compared to the original model. End-to-end latency improves by <strong>1.14× to 1.66×</strong> across the four benchmarks, with the gain concentrated almost entirely in MoE kernel time.</p>
+</section>
+
+<!-- ─── §06 TUNABLE TRADE-OFF ─────────────────────────────────────── -->
+<section id="s-tradeoff" data-code="tradeoff">
+<div class="section-no">06 — Tunable Trade-off</div>
+<h2>Dial p at Runtime — No Retraining</h2>
+
+<p>Unlike pruning or distillation approaches that bake a fixed compression ratio into the model, dMoE's coreset size is adjustable at inference time via the p threshold. Two model checkpoints were trained (p<sub>train</sub> = 0.6 and p<sub>train</sub> = 0.5); each can be evaluated at any p<sub>test</sub> ∈ &#123;0.4, 0.5, 0.6, 0.7, 0.8&#125;.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">unique expert count vs MATH500 accuracy — varying p_test</span>
+    <span class="vp-hint">two trained checkpoints shown as separate curves</span>
+  </div>
+  <div class="vp-body" style="padding:.75rem">
+    <canvas id="tradeoff-canvas" style="width:100%;height:240px;display:block"></canvas>
+    <div style="display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)"><div style="width:18px;height:3px;background:var(--purple);border-radius:2px"></div>p_train = 0.6</div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)"><div style="width:18px;height:3px;background:var(--cyan);border-radius:2px;border-top:2px dashed var(--cyan)"></div>p_train = 0.5</div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">◇ p_test = 0.4 &nbsp; ◈ p_test = 0.5 &nbsp; ● p_test = 0.6 &nbsp; ◆ p_test = 0.7 &nbsp; ■ p_test = 0.8</div>
+    </div>
+  </div>
+</div>
+
+<p>Both checkpoints sweep a smooth Pareto frontier from high compression (p=0.4 → ~10 experts, ~70% MATH500) to moderate compression (p=0.8 → ~27 experts, ~74% MATH500). The original model uses 70 experts for 72% — dMoE at p=0.7 hits 72.6% with only 19 experts, strictly dominating the original on the efficiency frontier.</p>
+
+<h3>Block size generalization</h3>
+<p>A model trained with block size 32 generalizes to smaller blocks (8, 16, 24) without retraining. As the block size shrinks, there are fewer tokens to aggregate, so fewer unique experts were activated in the first place — and dMoE's coreset compression still reduces them further. Accuracy is maintained or slightly improved at smaller block sizes (e.g., MATH500 73.6% → 74.4% at block size 16), suggesting the technique is robust to the exact block size used during inference.</p>
+
+<h3>Summary</h3>
+<ul>
+  <li><strong>4.77× reduction</strong> in unique activated experts (70 → 14.6 average)</li>
+  <li><strong>99.11% performance retained</strong> at p=0.6 across MATH500, GSM8K, ARC-C, MMLU</li>
+  <li><strong>76–80% memory</strong> reduction in MoE parameter footprint</li>
+  <li><strong>1.14–1.66× end-to-end speedup</strong> measured on hardware (4× H100)</li>
+  <li><strong>Tunable at runtime</strong> — p can be adjusted without retraining to match available memory budget</li>
+</ul>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dmoe/routing.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="scores">scores</button>
+    <button class="cs-tab" data-panel="algorithm">algorithm</button>
+    <button class="cs-tab" data-panel="topp">top-p</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="tradeoff">trade-off</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard MoE forward (autoregressive)</span>
+<span class="cs-line cmt"># one token → one expert selection</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">moe_forward_ar</span>(token, experts):</span>
+<span class="cs-line">    scores = router(token)  <span class="cmt"># [n_experts]</span></span>
+<span class="cs-line hl-c">    top_k = topk(scores, k=<span class="num">2</span>)   <span class="cmt"># pick 2</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">load_and_run</span>(top_k)</span>
+<span class="cs-line">    <span class="cmt"># 2 unique experts loaded ✓</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># dLLM MoE forward (block decoding)</span>
+<span class="cs-line cmt"># N tokens → N independent selections</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">moe_forward_dlm</span>(block, experts):</span>
+<span class="cs-line">    unique = set()</span>
+<span class="cs-line">    <span class="kw">for</span> token <span class="kw">in</span> block:   <span class="cmt"># N=32 tokens</span></span>
+<span class="cs-line">        scores = router(token)</span>
+<span class="cs-line hl-a">        top_k = topk(scores, k=<span class="num">2</span>)</span>
+<span class="cs-line hl-a">        unique.update(top_k)  <span class="cmt"># grows!</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">load_and_run</span>(unique)</span>
+<span class="cs-line">    <span class="cmt"># up to 64 unique experts in worst case</span></span>
+<span class="cs-line">    <span class="cmt"># average: ~70 on LLaDA2.0-mini</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># MoE latency ≈ linear in unique experts:</span>
+<span class="cs-line cmt"># 70 experts → 70x memory-bound reads</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-scores">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Observation A: router weights correlate</span>
+<span class="cs-line cmt"># with expert importance (r = 0.46)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">measure_importance</span>(model, data):</span>
+<span class="cs-line">    <span class="kw">for</span> expert_e <span class="kw">in</span> experts:</span>
+<span class="cs-line hl-c">        weight = router_score(token, expert_e)</span>
+<span class="cs-line hl-g">        delta_loss = loss_with_expert_e_masked()</span>
+<span class="cs-line">        record(weight, delta_loss)</span>
+<span class="cs-line">    <span class="cmt"># Pearson r = 0.46 across 10^8 samples</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Observation B: CV of unique expert count</span>
+<span class="cs-line cmt"># GSM8K:  mean=70.01, CV=17.09%</span>
+<span class="cs-line cmt"># MATH500: mean=71.09, CV=15.95%</span>
+<span class="cs-line cmt"># ARC-C:  mean=62.85, CV=15.93%</span>
+<span class="cs-line cmt"># MMLU:   mean=66.57, CV=17.80%</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># High CV → fixed-k coreset is wrong</span>
+<span class="cs-line cmt"># Some blocks need 20 experts,</span>
+<span class="cs-line cmt"># some only 5 — top-p adapts naturally</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-algorithm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Algorithm 1: Block-Level Expert Routing</span>
+<span class="cs-line cmt"># Input: token-level expert scores &#123;s_i&#125;</span>
+<span class="cs-line cmt"># Output: coreset C, routed experts &#123;R_i&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">dmoe_routing</span>(block_tokens, p=<span class="num">0.6</span>, k=<span class="num">2</span>):</span>
+<span class="cs-line">    <span class="cmt"># Step 1: token-level routing scores</span></span>
+<span class="cs-line">    scores = [router(t) <span class="kw">for</span> t <span class="kw">in</span> block_tokens]</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># Step 2: aggregate to block-level</span></span>
+<span class="cs-line hl-c">    Sblock = zeros(n_experts)</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> s <span class="kw">in</span> scores:</span>
+<span class="cs-line hl-c">        Sblock += topk_mask(s, k)  <span class="cmt"># zero non-top-k</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># Step 3: top-p coreset selection</span></span>
+<span class="cs-line hl-p">    S_norm = softmax(Sblock)</span>
+<span class="cs-line hl-p">    C = top_p_select(S_norm, p)</span>
+<span class="cs-line">    <span class="cmt"># C is small when distribution is peaked</span></span>
+<span class="cs-line">    <span class="cmt"># C is larger when distribution is flat</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># Step 4: coreset-restricted per-token route</span></span>
+<span class="cs-line hl-g">    R = []</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> s <span class="kw">in</span> scores:</span>
+<span class="cs-line hl-g">        s_masked = mask_outside(s, C)</span>
+<span class="cs-line hl-g">        R.append(topk(s_masked, k))</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">return</span> C, R</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-topp">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Top-p selection (nucleus sampling style)</span>
+<span class="cs-line cmt"># Greedily pick experts until cumsum ≥ p</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">top_p_select</span>(norm_scores, p):</span>
+<span class="cs-line">    order = argsort(norm_scores, descending=<span class="cls">True</span>)</span>
+<span class="cs-line hl-c">    cumsum = <span class="num">0.0</span></span>
+<span class="cs-line hl-c">    coreset = []</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> idx <span class="kw">in</span> order:</span>
+<span class="cs-line hl-c">        coreset.append(idx)</span>
+<span class="cs-line hl-c">        cumsum += norm_scores[idx]</span>
+<span class="cs-line hl-c">        <span class="kw">if</span> cumsum &gt;= p: <span class="kw">break</span></span>
+<span class="cs-line">    <span class="kw">return</span> coreset</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Concentrated distribution example:</span>
+<span class="cs-line cmt"># E5=0.40, E2=0.25, E1=0.15, rest≤0.05</span>
+<span class="cs-line cmt"># p=0.6 → &#123;E5, E2&#125; (cumsum=0.65 ≥ 0.6)</span>
+<span class="cs-line cmt"># only 2 experts needed!</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Dispersed distribution example:</span>
+<span class="cs-line cmt"># all experts roughly equal weight ~0.08</span>
+<span class="cs-line cmt"># p=0.6 → need 8 experts to reach 0.64</span>
+<span class="cs-line cmt"># adapts automatically to step/layer</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Results on LLaDA2.0-mini (block_size=32)</span>
+<span class="cs-line cmt"># p_train=0.6, p_test=0.6</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── MATH500 ──────────────────────────────</span>
+<span class="cs-line">original   = &#123;<span class="str">"experts"</span>: <span class="num">70.0</span>, <span class="str">"acc"</span>: <span class="num">72.0</span>&#125;</span>
+<span class="cs-line">des_s_star = &#123;<span class="str">"experts"</span>: <span class="num">12.9</span>, <span class="str">"acc"</span>: <span class="num">53.8</span>&#125;</span>
+<span class="cs-line">des_v_star = &#123;<span class="str">"experts"</span>: <span class="num">13.0</span>, <span class="str">"acc"</span>: <span class="num">53.0</span>&#125;</span>
+<span class="cs-line hl-g">dmoe       = &#123;<span class="str">"experts"</span>: <span class="num">14.1</span>, <span class="str">"acc"</span>: <span class="num">71.0</span>&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── GSM8K ────────────────────────────────</span>
+<span class="cs-line">original   = &#123;<span class="str">"experts"</span>: <span class="num">71.5</span>, <span class="str">"acc"</span>: <span class="num">90.8</span>&#125;</span>
+<span class="cs-line">des_s_star = &#123;<span class="str">"experts"</span>: <span class="num">13.2</span>, <span class="str">"acc"</span>: <span class="num">74.0</span>&#125;</span>
+<span class="cs-line hl-g">dmoe       = &#123;<span class="str">"experts"</span>: <span class="num">14.7</span>, <span class="str">"acc"</span>: <span class="num">88.6</span>&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── Memory &amp; Latency ─────────────────────</span>
+<span class="cs-line hl-p">memory_reduction = <span class="str">"76.64% to 79.84%"</span></span>
+<span class="cs-line hl-p">speedup = <span class="str">"1.14x to 1.66x end-to-end"</span></span>
+<span class="cs-line hl-p">perf_retained = <span class="str">"99.11% of original"</span></span>
+<span class="cs-line hl-p">expert_reduction = <span class="str">"4.77x (70 → 14.6)"</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-tradeoff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Ablation: varying p_test on MATH500</span>
+<span class="cs-line cmt"># Model trained with p_train=0.6</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># p_test → (unique_experts, accuracy)</span>
+<span class="cs-line hl-c">p_test_06_results = [</span>
+<span class="cs-line hl-c">    (<span class="num">0.4</span>, <span class="num">10.3</span>, <span class="num">69.8</span>),  <span class="cmt"># aggressive</span></span>
+<span class="cs-line hl-c">    (<span class="num">0.5</span>, <span class="num">11.5</span>, <span class="num">70.0</span>),</span>
+<span class="cs-line hl-c">    (<span class="num">0.6</span>, <span class="num">14.1</span>, <span class="num">71.0</span>),  <span class="cmt"># default</span></span>
+<span class="cs-line hl-c">    (<span class="num">0.7</span>, <span class="num">19.0</span>, <span class="num">72.6</span>),</span>
+<span class="cs-line hl-c">    (<span class="num">0.8</span>, <span class="num">27.1</span>, <span class="num">74.2</span>),  <span class="cmt"># conservative</span></span>
+<span class="cs-line hl-c">]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Original: (70, 72.0) — dominated!</span>
+<span class="cs-line cmt"># dMoE p=0.7: (19, 72.6) beats original</span>
+<span class="cs-line cmt"># on BOTH accuracy AND expert count</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Block size generalization (p_test=0.6):</span>
+<span class="cs-line hl-g">block_size_results = [</span>
+<span class="cs-line hl-g">    (<span class="num">32</span>, <span class="num">70.0</span>, <span class="num">72.0</span>, <span class="num">14.1</span>, <span class="num">71.0</span>),</span>
+<span class="cs-line hl-g">    (<span class="num">24</span>, <span class="num">60.7</span>, <span class="num">73.6</span>, <span class="num">15.4</span>, <span class="num">74.4</span>),</span>
+<span class="cs-line hl-g">    (<span class="num">16</span>, <span class="num">48.6</span>, <span class="num">71.2</span>, <span class="num">15.9</span>, <span class="num">69.8</span>),</span>
+<span class="cs-line hl-g">]</span>
+<span class="cs-line cmt"># trained on block_size=32, generalizes!</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ───────────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'dmoe/routing.py',   title: 'The Bottleneck' },
+  scores:     { file: 'dmoe/analysis.py',  title: 'Scores as Signals' },
+  algorithm:  { file: 'dmoe/routing.py',   title: 'The dMoE Algorithm' },
+  topp:       { file: 'dmoe/routing.py',   title: 'Adaptive Top-p' },
+  results:    { file: 'dmoe/results.py',   title: 'Results' },
+  tradeoff:   { file: 'dmoe/ablation.py',  title: 'Tunable Trade-off' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — TOC + sidebar sync ────────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-scores':     'scores',
+  's-algorithm':  'algorithm',
+  's-topp':       'topp',
+  's-results':    'results',
+  's-tradeoff':   'tradeoff',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §01 Expert pool demo ─────────────────────────────────────────────
+(function() {
+  const N_EXPERTS = 16;
+  // Seeded PRNG for reproducible expert selections
+  function mulberry32(seed) {
+    return function() {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function updateBlockDemo(blockSize) {
+    const grid = document.getElementById('expert-pool-grid');
+    if (!grid) return;
+
+    const rng = mulberry32(42);
+    // Simulate expert selections: each token picks 2 different experts
+    const tokenSelections = [];
+    for (let t = 0; t < blockSize; t++) {
+      const sel = new Set();
+      while (sel.size < 2) sel.add(Math.floor(rng() * N_EXPERTS));
+      tokenSelections.push(sel);
+    }
+    const uniqueExperts = new Set();
+    tokenSelections.forEach(s => s.forEach(e => uniqueExperts.add(e)));
+
+    grid.innerHTML = '';
+    for (let e = 0; e < N_EXPERTS; e++) {
+      const box = document.createElement('div');
+      box.className = 'exp-box' + (uniqueExperts.has(e) ? ' active' : '');
+      box.textContent = 'E' + (e + 1);
+      grid.appendChild(box);
+    }
+
+    document.getElementById('unique-count').textContent = uniqueExperts.size;
+    const ratio = (uniqueExperts.size / 2).toFixed(1);
+    document.getElementById('mem-ratio').textContent = ratio + '×';
+  }
+
+  document.querySelectorAll('#block-btns .k-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#block-btns .k-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateBlockDemo(parseInt(btn.dataset.block));
+    });
+  });
+
+  updateBlockDemo(1);
+})();
+
+// ── §02 Scatter plot canvas ──────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('scatter-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // Seeded PRNG
+  function rng(s) {
+    let seed = s;
+    return () => {
+      seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+      return (seed >>> 0) / 4294967296;
+    };
+  }
+  const rand = rng(7);
+
+  // Generate synthetic data following y = 0.25x - 0.02 + noise, r=0.46
+  const pts = [];
+  for (let i = 0; i < 120; i++) {
+    const x = 0.1 + rand() * 0.45;  // router weight 0.1-0.55
+    const y_hat = 0.25 * x - 0.02;
+    const noise = (rand() - 0.5) * 0.18;
+    const y = Math.max(0, y_hat + noise);
+    pts.push({ x, y });
+  }
+
+  // Axis bounds
+  const margin = { l: 45, r: 20, t: 15, b: 35 };
+  const pw = W - margin.l - margin.r;
+  const ph = H - margin.t - margin.b;
+  const xMin = 0.1, xMax = 0.58, yMin = 0, yMax = 0.32;
+
+  function tx(v) { return margin.l + (v - xMin) / (xMax - xMin) * pw; }
+  function ty(v) { return H - margin.b - (v - yMin) / (yMax - yMin) * ph; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [0, 0.1, 0.2, 0.3].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(margin.l, ty(v)); ctx.lineTo(W - margin.r, ty(v)); ctx.stroke();
+  });
+  [0.1, 0.2, 0.3, 0.4, 0.5].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(tx(v), margin.t); ctx.lineTo(tx(v), H - margin.b); ctx.stroke();
+  });
+
+  // Regression line
+  ctx.strokeStyle = 'rgba(139,92,246,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(tx(xMin), ty(0.25 * xMin - 0.02));
+  ctx.lineTo(tx(xMax), ty(0.25 * xMax - 0.02));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dots
+  pts.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(tx(p.x), ty(p.y), 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(6,182,212,0.55)';
+    ctx.fill();
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, H - margin.b);
+  ctx.lineTo(W - margin.r, H - margin.b);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#5c6370';
+  ctx.font = `${10 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Router Weight (token-level expert score)', W / 2, H - 5);
+  ctx.save();
+  ctx.translate(11, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Loss Increase', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = `${9 * DPR / DPR}px monospace`;
+  ctx.fillStyle = '#5c6370';
+  [0.2, 0.3, 0.4, 0.5].forEach(v => {
+    ctx.textAlign = 'center';
+    ctx.fillText(v.toFixed(1), tx(v), H - margin.b + 14);
+  });
+  [0.1, 0.2, 0.3].forEach(v => {
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(1), margin.l - 5, ty(v) + 4);
+  });
+
+  // Annotation
+  ctx.fillStyle = 'rgba(139,92,246,0.9)';
+  ctx.font = `bold ${11 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText('y = 0.25x − 0.02  (r = 0.46)', tx(0.13), ty(0.285));
+})();
+
+// ── §03 Step navigator ───────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#algo-steps .step-box');
+  const prevBtn = document.getElementById('algo-prev');
+  const nextBtn = document.getElementById('algo-next');
+  const progEl  = document.getElementById('algo-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── §04 Top-p distribution canvases ─────────────────────────────────
+(function() {
+  // Concentrated distribution (late denoising step — mostly unmasked)
+  const distA = [0.32, 0.22, 0.14, 0.09, 0.07, 0.05, 0.04, 0.03, 0.02, 0.01, 0.01, 0.00, 0.00, 0.00, 0.00, 0.00];
+  // Dispersed distribution (early denoising step — mostly masked)
+  const distB = [0.12, 0.11, 0.10, 0.09, 0.09, 0.08, 0.08, 0.07, 0.07, 0.06, 0.05, 0.04, 0.02, 0.01, 0.01, 0.00];
+  const N = 16;
+
+  function topPSelect(dist, p) {
+    const indexed = dist.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+    let cum = 0;
+    const selected = new Set();
+    for (const { v, i } of indexed) {
+      selected.add(i);
+      cum += v;
+      if (cum >= p) break;
+    }
+    return selected;
+  }
+
+  function drawDist(canvasId, dist, p, coresetId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = 110;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const selected = topPSelect(dist, p);
+    const barW = (W - 20) / N;
+    const maxV = Math.max(...dist);
+
+    dist.forEach((v, i) => {
+      const bh = (v / maxV) * (H - 30);
+      const x = 10 + i * barW + 1;
+      const y = H - 20 - bh;
+      ctx.fillStyle = selected.has(i) ? 'rgba(6,182,212,0.7)' : 'rgba(99,110,175,0.25)';
+      ctx.fillRect(x, y, barW - 2, bh);
+      ctx.fillStyle = selected.has(i) ? 'rgba(6,182,212,0.9)' : 'rgba(99,110,175,0.4)';
+      ctx.fillRect(x, H - 20, barW - 2, 2);
+      // Expert label
+      ctx.fillStyle = selected.has(i) ? '#06b6d4' : '#4a5568';
+      ctx.font = `${8 * DPR / DPR}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('E' + (i + 1), x + (barW - 2) / 2, H - 6);
+    });
+
+    // p-line annotation
+    ctx.strokeStyle = 'rgba(139,92,246,0.5)';
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    let cum = 0;
+    let cutX = W;
+    const sorted = [...dist.map((v,i)=>({v,i}))].sort((a,b)=>b.v-a.v);
+    for (const {i} of sorted) {
+      cum += dist[i];
+      if (cum >= p) {
+        cutX = 10 + (i + 1) * barW;
+        break;
+      }
+    }
+    ctx.setLineDash([]);
+
+    // Update coreset count
+    const coresetEl = document.getElementById(coresetId);
+    if (coresetEl) coresetEl.textContent = selected.size;
+  }
+
+  let currentP = 0.6;
+
+  function redrawDists() {
+    drawDist('dist-canvas-a', distA, currentP, 'coreset-a');
+    drawDist('dist-canvas-b', distB, currentP, 'coreset-b');
+  }
+
+  document.querySelectorAll('#p-btns .k-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#p-btns .k-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentP = parseFloat(btn.dataset.p);
+      redrawDists();
+    });
+  });
+
+  // Draw after layout is ready
+  requestAnimationFrame(redrawDists);
+  window.addEventListener('resize', redrawDists);
+})();
+
+// ── §05 Animated bar chart ───────────────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w)) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+}
+
+// ── §06 Trade-off line chart ─────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('tradeoff-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // Data from Table 3 (MATH500)
+  // ptrain=0.6: ptest 0.4, 0.5, 0.6, 0.7, 0.8 → (experts, acc)
+  const curve06 = [[10.3, 69.8], [11.5, 70.0], [14.1, 71.0], [19.0, 72.6], [27.1, 74.2]];
+  // ptrain=0.5
+  const curve05 = [[10.2, 69.6], [11.4, 69.8], [14.3, 70.0], [19.2, 73.4], [27.2, 73.2]];
+  // Original
+  const original = [70.0, 72.0];
+
+  const margin = { l: 52, r: 30, t: 20, b: 42 };
+  const pw = W - margin.l - margin.r;
+  const ph = H - margin.t - margin.b;
+  const xMin = 8, xMax = 75, yMin = 68, yMax = 76;
+
+  function tx(v) { return margin.l + (v - xMin) / (xMax - xMin) * pw; }
+  function ty(v) { return H - margin.b - (v - yMin) / (yMax - yMin) * ph; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [69, 70, 71, 72, 73, 74, 75].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(margin.l, ty(v)); ctx.lineTo(W - margin.r, ty(v)); ctx.stroke();
+  });
+  [10, 20, 30, 40, 50, 60, 70].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(tx(v), margin.t); ctx.lineTo(tx(v), H - margin.b); ctx.stroke();
+  });
+
+  // Original model dot
+  ctx.beginPath();
+  ctx.arc(tx(original[0]), ty(original[1]), 6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(245,158,11,0.7)';
+  ctx.fill();
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = `bold ${10 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText('original', tx(original[0]) + 9, ty(original[1]) + 4);
+
+  function drawCurve(pts, color, dashed) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dashed) ctx.setLineDash([5, 3]); else ctx.setLineDash([]);
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => {
+      if (i === 0) ctx.moveTo(tx(x), ty(y));
+      else ctx.lineTo(tx(x), ty(y));
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Dots with p_test labels
+    const labels = ['p=0.4', 'p=0.5', 'p=0.6', 'p=0.7', 'p=0.8'];
+    pts.forEach(([x, y], i) => {
+      ctx.beginPath();
+      ctx.arc(tx(x), ty(y), 4, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+    // Label last point
+    ctx.fillStyle = color;
+    ctx.font = `${9 * DPR / DPR}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(labels[4], tx(pts[4][0]) + 7, ty(pts[4][1]) - 4);
+    ctx.textAlign = 'right';
+    ctx.fillText(labels[0], tx(pts[0][0]) - 6, ty(pts[0][1]) - 4);
+  }
+
+  drawCurve(curve06, 'rgba(139,92,246,0.85)', false);
+  drawCurve(curve05, 'rgba(6,182,212,0.75)', true);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, H - margin.b);
+  ctx.lineTo(W - margin.r, H - margin.b);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#5c6370';
+  ctx.font = `${10 * DPR / DPR}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Unique Experts per Forward Pass', W / 2, H - 6);
+  ctx.save();
+  ctx.translate(13, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('MATH500 Accuracy (%)', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = `${9 * DPR / DPR}px monospace`;
+  ctx.fillStyle = '#5c6370';
+  [10, 20, 30, 40, 50, 60, 70].forEach(v => {
+    ctx.textAlign = 'center';
+    ctx.fillText(v, tx(v), H - margin.b + 14);
+  });
+  [69, 70, 71, 72, 73, 74, 75].forEach(v => {
+    ctx.textAlign = 'right';
+    ctx.fillText(v + '%', margin.l - 5, ty(v) + 4);
+  });
+})();
+</script>
+</BaseLayout>
