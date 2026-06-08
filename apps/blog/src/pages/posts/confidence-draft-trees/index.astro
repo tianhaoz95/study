@@ -1,0 +1,1639 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Branch When Uncertain: Confidence-Guided Draft Trees in Speculative Decoding | AI/ML Deep Dives"
+  description="Why speculative decoding tree branches should grow from uncertain tokens — and how EAGLE-2 proves it with a 4.26× speedup over baselines."
+  crumb="Confidence Draft Trees"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Tree VIZ custom */
+.tree-controls{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.tree-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.tree-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.tree-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.tree-legend{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:.75rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)}
+.tree-legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:.3rem;vertical-align:middle}
+
+/* Calibration canvas label */
+.cal-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;font-size:.67rem;font-family:var(--ff-mono);color:var(--muted)}
+.cal-badge{padding:.2rem .55rem;border-radius:4px;border:1px solid var(--border)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">LLM Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Branch When Uncertain: Confidence-Guided Draft Trees in Speculative Decoding</h1>
+  <p class="lead">
+    Tree-based speculative decoding wastes draft budget on tokens the model is already sure about.
+    The fix is intuitive: only branch when the next token is <em>uncertain</em> — and the draft model's
+    own confidence score turns out to be a nearly perfect proxy for whether the target model will accept.
+    EAGLE-2 built exactly this, reaching 4.26× speedup without touching the verifier or relaxing any guarantees.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2406.16858</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2406.16858" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      EAGLE-2 PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/SafeAILab/EAGLE" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub (EAGLE)
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-waste"><a href="#s-waste"><span class="toc-num">01</span> The Static Tree Problem</a></li>
+    <li class="toc-item" id="toc-s-primer"><a href="#s-primer"><span class="toc-num">02</span> Spec-Decoding Primer</a></li>
+    <li class="toc-item" id="toc-s-calibration"><a href="#s-calibration"><span class="toc-num">03</span> Confidence = Acceptance</a></li>
+    <li class="toc-item" id="toc-s-algorithm"><a href="#s-algorithm"><span class="toc-num">04</span> The Algorithm</a></li>
+    <li class="toc-item" id="toc-s-theory"><a href="#s-theory"><span class="toc-num">05</span> Why It's Optimal</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════════ §01 -->
+<section id="s-waste" data-code="waste">
+<div class="section-no">01 — The Static Tree Problem</div>
+<h2>Uniform Branching Wastes Your Draft Budget</h2>
+
+<p>
+  Speculative decoding speeds up LLM inference by having a small, cheap <em>draft model</em> propose
+  several tokens at once, then having the large target model verify all of them in a single forward pass.
+  The more tokens the target model accepts per pass, the bigger the speedup.
+</p>
+<p>
+  To increase acceptance, methods like EAGLE and Medusa moved from single chains to <em>draft trees</em>:
+  rather than one linear sequence of draft tokens, the drafter generates multiple branching paths.
+  If the first branch gets rejected, a sibling branch may still be accepted. More paths = more
+  chances to get it right.
+</p>
+<p>
+  But there's a hidden assumption baked into how these trees are built: every position in the tree gets
+  the same number of branches. Position 1 always spawns <em>k</em> children. Position 2 always spawns
+  <em>k</em> children. This is a static tree — its shape never changes regardless of the input.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">static vs. adaptive tree — same draft budget, different allocation</span>
+    <span class="vp-hint">click a context to compare</span>
+  </div>
+  <div class="vp-body">
+    <div class="tree-controls">
+      <button class="tree-btn active" id="ctx-easy">Context: "10 + 2 ="</button>
+      <button class="tree-btn" id="ctx-hard">Context: "The meeting will probably"</button>
+    </div>
+    <canvas id="tree-canvas" style="width:100%;height:260px;display:block;"></canvas>
+    <div class="tree-legend">
+      <span><span class="tree-legend-dot" style="background:var(--purple)"></span>selected node</span>
+      <span><span class="tree-legend-dot" style="background:rgba(16,185,129,.8)"></span>high confidence (&gt;0.7)</span>
+      <span><span class="tree-legend-dot" style="background:rgba(245,158,11,.8)"></span>medium confidence (0.3–0.7)</span>
+      <span><span class="tree-legend-dot" style="background:rgba(239,68,68,.8)"></span>low confidence (&lt;0.3)</span>
+      <span><span class="tree-legend-dot" style="background:rgba(255,255,255,.12)"></span>pruned (not in adaptive tree)</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The problem: when the next token is obvious — say, the model is completing <code>"10 + 2 ="</code>
+  and the answer is almost certainly <code>"12"</code> — the static tree still spawns a sibling branch
+  for <code>"11"</code>, <code>"13"</code>, etc. These siblings will almost never be accepted.
+  You're spending draft budget on tokens that have near-zero probability of surviving verification.
+</p>
+<p>
+  Conversely, when the context is genuinely ambiguous — say <code>"The meeting will probably"</code>
+  could continue with <code>"run"</code>, <code>"be"</code>, <code>"last"</code>, <code>"end"</code>,
+  or <code>"go"</code> — the static tree might not expand wide enough to cover the plausible completions.
+</p>
+<p>
+  The right answer is obvious in retrospect: <strong>branch more when uncertain, branch less when
+  confident</strong>. But implementing it requires a cheap, reliable signal for uncertainty. That signal
+  already exists — the draft model computes it automatically at every step.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §02 -->
+<section id="s-primer" data-code="primer">
+<div class="section-no">02 — Spec-Decoding Primer</div>
+<h2>Draft, Tree, Verify: How Speculative Decoding Works</h2>
+
+<p>
+  Before getting to confidence-guided trees, it helps to have the mechanics clearly in mind.
+  Speculative decoding works in alternating cycles:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">speculative decoding — one cycle</span>
+    <span class="vp-hint">step through the phases</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="spec-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Draft: small model generates candidates</div>
+          <div class="step-desc">
+            A cheap draft model (e.g., 1B params) autoregressively generates K candidate tokens starting
+            from the current context. In tree-based methods, it generates a branching tree of candidates
+            — depth D, branching factor k at each position — producing up to k<sup>D</sup> leaf paths.
+            For EAGLE, the drafter works at the <em>feature level</em> (second-to-top layer) using
+            context embeddings from the target LLM, making its predictions tightly coupled to the
+            target model's distribution.
+          </div>
+          <div class="step-code">draft_tree = drafter.generate_tree(prefix, depth=4, k=2)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Tree Attention: flatten tree with causal mask</div>
+          <div class="step-desc">
+            The tree is flattened into a 1D token sequence for a single forward pass through the big
+            model. The attention mask is customized: each token can only attend to its ancestor nodes
+            (not siblings or cousins). This means all branches are scored simultaneously in one pass —
+            the same cost as processing a single chain of length |tree|.
+          </div>
+          <div class="step-code">tokens, mask = flatten_tree(draft_tree)  # tree attention</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Verify: target model scores all candidates at once</div>
+          <div class="step-desc">
+            The large model (e.g., Vicuna 13B) processes the flattened tree in one forward pass and
+            returns logits for every candidate token. This is the expensive step — but because multiple
+            candidates are checked simultaneously, each forward pass amortizes its cost over potentially
+            3–5 accepted tokens.
+          </div>
+          <div class="step-code">target_logits = big_model(tokens, attn_mask=mask)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Accept: token-by-token accept/reject from root</div>
+          <div class="step-desc">
+            Starting from the root, each candidate token t̂ is accepted with probability
+            min(1, p_big(t̂) / p_draft(t̂)). Acceptance is sequential: if a token is rejected,
+            all its descendants are discarded but sibling branches are attempted. The prefix is
+            extended by all accepted tokens, then the cycle repeats. Output distribution is
+            provably identical to greedy/sampling from the big model alone.
+          </div>
+          <div class="step-code">accepted = accept_reject(target_logits, draft_probs)  # lossless</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <span id="step-prog" style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">Step 1 of 4</span>
+      <button id="step-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The key metric is the <strong>average acceptance length τ</strong>: how many tokens are accepted per
+  draft-verify cycle. If τ = 4.5, the big model only needs to run once for every 4.5 tokens of output —
+  compare that to 1.0 for vanilla autoregressive decoding. Speedup ratio ≈ τ (minus overhead of
+  running the draft model).
+</p>
+<p>
+  A static tree with depth 4 and branching factor 2 has 2⁴ = 16 leaf paths, but only about 6–8 nodes
+  are typically reachable before a rejection. The question is: <em>which</em> nodes to include in
+  the tree to maximize the expected τ?
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §03 -->
+<section id="s-calibration" data-code="calibration">
+<div class="section-no">03 — Confidence = Acceptance Rate</div>
+<h2>The Draft Model Already Knows Its Own Reliability</h2>
+
+<p>
+  To build an adaptive tree, you need a cheap estimate of how likely the target model is to
+  accept each candidate token. The obvious approach — asking the target model — defeats the
+  purpose: that's exactly what verification is for, and it requires a full forward pass.
+</p>
+<p>
+  But EAGLE-2 discovered something remarkable: <strong>the draft model's confidence score
+  (its own output probability for a token) is a near-perfect proxy for the target model's
+  acceptance rate</strong>. No extra computation. No second model. The signal is already there.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">draft confidence vs. target acceptance rate — Vicuna 7B on Alpaca</span>
+    <span class="vp-hint">points represent confidence score bins</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cal-canvas" style="width:100%;height:280px;display:block;"></canvas>
+    <div class="cal-badges">
+      <span class="cal-badge" style="color:var(--cyan)">confidence 0.05 → acceptance ~0.04</span>
+      <span class="cal-badge" style="color:var(--amber)">confidence 0.50 → acceptance ~0.52</span>
+      <span class="cal-badge" style="color:var(--green)">confidence 0.95 → acceptance ~0.98</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The data (Figure 6 in the EAGLE-2 paper) shows an almost perfectly diagonal relationship between
+  the draft model's confidence and the measured acceptance rate on held-out data. A draft token
+  with 95% confidence gets accepted ~98% of the time. A draft token with 5% confidence gets
+  accepted ~4% of the time.
+</p>
+<p>
+  Why does this hold? Because EAGLE's draft model is trained specifically to mimic the target LLM's
+  feature distribution. When the draft model is confident, it means it's in a region of token space
+  where the target distribution is also concentrated. When the draft model is uncertain, the token
+  space is genuinely ambiguous and the target model may well prefer a different token.
+</p>
+<p>
+  This calibration is the linchpin of the entire approach. Without it, confidence scores would be
+  meaningless for tree construction. With it, they become a free oracle for expected acceptance — and
+  you can use them to reshape the draft tree without any additional computation.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Core approximation</div>
+  p<sub>accept</sub>(t̂<sub>i</sub>) = min(1, p<sub>big</sub>(t̂<sub>i</sub>) / p<sub>draft</sub>(t̂<sub>i</sub>))
+  <span class="math-comment">   ← exact acceptance probability (requires target model)</span><br>
+  ≈ c<sub>i</sub>  <span class="math-comment">   ← draft model's confidence score (free)</span><br><br>
+  <span class="math-comment"># This approximation is empirically tight: Pearson r ≈ 0.995 on Alpaca+Vicuna 7B</span>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §04 -->
+<section id="s-algorithm" data-code="algorithm">
+<div class="section-no">04 — The Algorithm</div>
+<h2>Building the Tree: Value, Expand, Rerank</h2>
+
+<p>
+  Armed with the confidence-as-acceptance approximation, EAGLE-2 builds the draft tree in two phases:
+  <strong>expand</strong> (grow the tree layer by layer) and <strong>rerank</strong> (select the best
+  subset of nodes for verification).
+</p>
+
+<h3>The Path Value Vi</h3>
+<p>
+  A single confidence score tells you how likely <em>this</em> token is to be accepted — but for a
+  token to contribute to speedup, <em>every token on the path from the root to it</em> must also be
+  accepted (rejection of any ancestor discards all descendants). So what matters is the product of
+  confidence scores along the whole path, called the <strong>path value V<sub>i</sub></strong>:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Path value formula</div>
+  <span class="math-var">V<sub>i</sub></span> = ∏<sub>t<sub>j</sub> ∈ Path(root, t<sub>i</sub>)</sub> p<sub>accept</sub>(t<sub>j</sub>)
+  &nbsp;&nbsp;≈&nbsp;&nbsp; ∏<sub>t<sub>j</sub> ∈ Path(root, t<sub>i</sub>)</sub> <span class="math-var">c<sub>j</sub></span><br><br>
+  <span class="math-comment"># V_i ≈ probability that token i is ever actually accepted and contributes to output</span><br>
+  <span class="math-comment"># It monotonically decreases with depth — deeper nodes have lower V than their parent</span>
+</div>
+
+<p>
+  The path value has a clean interpretation: it's approximately the probability that token t<sub>i</sub>
+  actually makes it into the accepted output. A node with V = 0.34 will contribute about 0.34 accepted
+  tokens in expectation. So to maximize the expected number of accepted tokens (= the speedup), you
+  want to include exactly the nodes with the highest path values.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">EAGLE-2 tree construction — interactive example from the paper</span>
+    <span class="vp-hint">click a node to highlight its path value</span>
+  </div>
+  <div class="vp-body">
+    <div class="tree-controls">
+      <button class="tree-btn active" id="phase-expand">Expand Phase (top-2)</button>
+      <button class="tree-btn" id="phase-rerank">Rerank Phase (top-8)</button>
+    </div>
+    <canvas id="algo-canvas" style="width:100%;height:320px;display:block;"></canvas>
+    <div class="tree-legend">
+      <span><span class="tree-legend-dot" style="background:rgba(245,158,11,.9)"></span>expanded in this phase</span>
+      <span><span class="tree-legend-dot" style="background:rgba(16,185,129,.9)"></span>selected for verification</span>
+      <span><span class="tree-legend-dot" style="background:rgba(255,255,255,.12)"></span>generated but not selected</span>
+    </div>
+  </div>
+</div>
+
+<h3>Expand Phase</h3>
+<p>
+  The tree is grown one layer at a time. At each layer, the draft model has already computed
+  confidence scores for all current leaf nodes. The algorithm selects the <strong>top-k nodes
+  by path value</strong> and expands them — feeding them into the draft model to generate the
+  next layer of candidates. This ensures expansion effort is spent where it matters most.
+</p>
+<p>
+  For the concrete example from the paper: prefix "It" → the draft model produces candidates
+  "is" (confidence 0.6), "has" (0.2), "was" (0.08), etc. Top-2 by path value expands "is"
+  and "has". "Is" then generates "a" (0.8) and "the" (0.1); "has" generates "a" (0.7)
+  and "to" (0.1). And so on deeper.
+</p>
+
+<h3>Rerank Phase</h3>
+<p>
+  After expansion, the tree contains more nodes than will fit in a single forward pass of the
+  target model (for compute-efficiency reasons). The rerank phase selects the
+  <strong>top-m nodes by path value</strong> across all nodes in the tree — not just the
+  latest layer. The constraint is that the selected set must still form a connected tree (each
+  selected node's ancestors must also be selected), which is guaranteed by V<sub>i</sub> ≤ V<sub>parent(i)</sub>.
+</p>
+<p>
+  These top-m nodes are then flattened into a 1D sequence with a tree-structured attention mask
+  and handed to the target model for verification. The rest of the draft tree is discarded.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §05 -->
+<section id="s-theory" data-code="theory">
+<div class="section-no">05 — Why It's Optimal</div>
+<h2>Maximizing Expected Accepted Tokens</h2>
+
+<p>
+  The confidence-guided approach isn't just intuitive — it's provably optimal for a specific
+  objective. Given a fixed draft budget (total number of nodes m to submit to the verifier),
+  which nodes should you include to maximize the expected number of accepted tokens?
+</p>
+
+<p>
+  The answer: <strong>include exactly the m nodes with the highest path values V<sub>i</sub></strong>.
+  This is because the contribution to expected accepted tokens from node t<sub>i</sub> is exactly
+  V<sub>i</sub> — so a greedy selection by V<sub>i</sub> maximizes the total expected contribution.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Expected accepted tokens = sum of path values</div>
+  E[τ] = Σ<sub>i ∈ tree</sub> V<sub>i</sub>  = Σ<sub>i ∈ tree</sub> ∏<sub>t<sub>j</sub> ∈ Path(root, t<sub>i</sub>)</sub> c<sub>j</sub><br><br>
+  <span class="math-comment"># Greedy selection: include top-m nodes by V_i to maximize E[τ]</span><br>
+  <span class="math-comment"># This is a closed-form solution — no DP, no search needed</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">expected tokens accepted: uniform branching vs confidence-guided (same budget)</span>
+    <span class="vp-hint">shows budget m = 4 to 20 nodes</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="theory-canvas" style="width:100%;height:260px;display:block;"></canvas>
+  </div>
+</div>
+
+<p>
+  The comparison is stark: uniform branching (always expand the same k candidates per position)
+  locks in a fixed tree shape that may be suboptimal for the current context. Confidence-guided
+  allocation flexibly moves nodes to wherever path values are highest — which means shallow
+  nodes in high-confidence regions get trimmed and the budget is redirected to exploring
+  branches in uncertain regions.
+</p>
+
+<h3>Connection to Entropy and Perplexity</h3>
+<p>
+  The "branch when uncertain" intuition maps directly onto information-theoretic quantities.
+  A token position where the draft model assigns high confidence to one token has <strong>low
+  entropy</strong> — the distribution is peaked. A position where confidence is spread across
+  several candidates has <strong>high entropy</strong> — the distribution is flat.
+</p>
+<p>
+  EAGLE-2's algorithm branches exactly at high-entropy (high-perplexity) positions: the top-k
+  expansion naturally selects multiple candidates at positions where no single candidate dominates.
+  When a single token has confidence near 1.0, its path value is nearly identical to its parent's,
+  so the runner-up's path value is near-zero — the algorithm effectively ignores it.
+</p>
+<p>
+  This also explains why static trees underperform on some tasks more than others. Mathematical
+  reasoning (GSM8K) contains many forced continuations — once you've committed to a reasoning path,
+  individual tokens are often uniquely determined. Static trees waste budget on impossible branches.
+  Code generation (HumanEval) has high-entropy positions at API names and variable choices but
+  very low entropy inside fixed syntactic patterns. Confidence-guided allocation captures both.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>4.26× on MT-Bench: The EAGLE Lineage</h2>
+
+<p>
+  EAGLE-2 was evaluated across six tasks (MT-bench, HumanEval, GSM8K, Alpaca, CNN/DM, Natural
+  Questions) on three model families (Vicuna, LLaMA2-Chat, LLaMA3-Instruct). Compared to EAGLE-1's
+  static trees, confidence-guided dynamic trees deliver <strong>20–40% additional speedup</strong>
+  on every benchmark and model size.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">speedup ratio vs. vanilla autoregressive decoding — Vicuna 13B, MT-bench</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="speed-bars">
+      <div class="bar-row">
+        <div class="bar-label">Vanilla autoregressive</div>
+        <div class="bar-track"><div class="bar-fill" data-w="20" style="background:rgba(255,255,255,.12)"><span>1.00×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Standard spec sampling</div>
+        <div class="bar-track"><div class="bar-fill" data-w="38.6" style="background:rgba(6,182,212,.5)"><span>1.93×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Medusa</div>
+        <div class="bar-track"><div class="bar-fill" data-w="41.4" style="background:rgba(6,182,212,.5)"><span>2.07×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Hydra</div>
+        <div class="bar-track"><div class="bar-fill" data-w="57.6" style="background:rgba(6,182,212,.6)"><span>2.88×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-1 (static tree)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="61.4" style="background:rgba(139,92,246,.6)"><span>3.07×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l);font-weight:700">EAGLE-2 (confidence tree)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="85.2" style="background:var(--purple)"><span>4.26×</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The average acceptance length τ (hardware-independent) tells the same story. EAGLE-1 achieves
+  τ ≈ 3.98 on MT-bench with Vicuna 13B; EAGLE-2 reaches τ ≈ 4.83 — almost a full extra token
+  per verification cycle, without any change to the verifier or the draft model weights.
+</p>
+
+<h3>Ablation: Value vs. Confidence Score</h3>
+<p>
+  EAGLE-2 also ran an ablation comparing two expansion strategies:
+</p>
+<ul>
+  <li><strong>By confidence</strong>: expand the top-k nodes with the highest local confidence score (ignoring ancestors)</li>
+  <li><strong>By value</strong>: expand the top-k nodes with the highest path value V<sub>i</sub> = product of ancestor confidences</li>
+</ul>
+<p>
+  Expanding by path value consistently outperforms expanding by local confidence. A node with
+  high local confidence but a low-confidence parent has a low probability of ever being accepted.
+  Including such nodes wastes budget. The path value correctly accounts for this cascading
+  dependency.
+</p>
+
+<h3>EAGLE-3 and Beyond</h3>
+<p>
+  EAGLE-3 (arXiv:2503.01840) pushed the design further: abandoning feature-level prediction in favor
+  of direct token prediction with multi-layer feature fusion, and fixing a training data scalability
+  bottleneck that had capped EAGLE-2's gains. The result: up to <strong>6.5×</strong> speedup — roughly
+  1.4× over EAGLE-2 — with the same confidence-guided tree construction at its core. The idea of
+  branching by uncertainty wasn't replaced; it was the foundation that later improvements built on.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">EAGLE lineage — average acceptance length τ, Vicuna 13B, MT-bench</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="lineage-canvas" style="width:100%;height:200px;display:block;"></canvas>
+  </div>
+</div>
+
+<h3>Key Takeaways</h3>
+<ul>
+  <li>Static draft trees assume acceptance rates depend only on position, not context — this is demonstrably false</li>
+  <li>Draft model confidence scores are a well-calibrated free proxy for target-model acceptance rates</li>
+  <li>Path value V<sub>i</sub> (product of confidence along the path) is the right quantity to maximize</li>
+  <li>Greedy selection of top-m nodes by V<sub>i</sub> provably maximizes expected accepted tokens</li>
+  <li>20–40% speedup over static trees with zero additional training or architectural changes</li>
+  <li>The intuition "branch when uncertain" is both correct and optimal — EAGLE-2 is the proof</li>
+</ul>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">eagle2/tree.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Static Tree Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="waste">waste</button>
+    <button class="cs-tab" data-panel="primer">primer</button>
+    <button class="cs-tab" data-panel="calibration">calib</button>
+    <button class="cs-tab" data-panel="algorithm">algo</button>
+    <button class="cs-tab" data-panel="theory">theory</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-waste">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-1: static tree construction</span>
+<span class="cs-line cmt"># Same shape every time — ignores context</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">build_static_tree</span>(drafter, prefix, k<span class="op">=</span><span class="num">2</span>, depth<span class="op">=</span><span class="num">4</span>):</span>
+<span class="cs-line">    tree <span class="op">=</span> [prefix]</span>
+<span class="cs-line">    <span class="kw">for</span> layer <span class="kw">in</span> <span class="fn">range</span>(depth):</span>
+<span class="cs-line">        new_nodes <span class="op">=</span> []</span>
+<span class="cs-line">        <span class="kw">for</span> node <span class="kw">in</span> tree[<span class="op">-</span><span class="num">1</span>]:  <span class="cmt"># last layer</span></span>
+<span class="cs-line">            <span class="cmt"># ALWAYS add k children per node</span></span>
+<span class="cs-line hl-a">            top_k <span class="op">=</span> drafter.<span class="fn">top_k_tokens</span>(node, k<span class="op">=</span>k)</span>
+<span class="cs-line hl-a">            <span class="cmt"># ← k is fixed regardless of confidence</span></span>
+<span class="cs-line">            new_nodes.<span class="fn">extend</span>(top_k)</span>
+<span class="cs-line">        tree.<span class="fn">append</span>(new_nodes)</span>
+<span class="cs-line">    <span class="kw">return</span> tree</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The waste:</span>
+<span class="cs-line cmt"># "10 + 2 = ___"</span>
+<span class="cs-line cmt">#   top-2 at pos1: "12"(0.97), "11"(0.02)</span>
+<span class="cs-line cmt">#   "11" branch: V = 0.02 → almost zero expected contribution</span>
+<span class="cs-line cmt">#   but static tree spends 2 nodes on it anyway</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># "The meeting will probably ___"</span>
+<span class="cs-line cmt">#   top-2 at pos1: "run"(0.28), "be"(0.25)</span>
+<span class="cs-line cmt">#   Both high-value — branching here is justified</span>
+<span class="cs-line cmt">#   But pos2 under "run" might be certain: "until"(0.91)</span>
+<span class="cs-line cmt">#   Static tree still spawns 2 children there too</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-primer">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Speculative sampling acceptance criterion</span>
+<span class="cs-line cmt"># (Leviathan et al. 2023 / Chen et al. 2023)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">accept_token</span>(t_hat, p_big, p_draft):</span>
+<span class="cs-line hl-c">    <span class="str">"""Accept draft token t_hat with probability</span></span>
+<span class="cs-line hl-c"><span class="str">    min(1, p_big(t_hat) / p_draft(t_hat)).</span></span>
+<span class="cs-line hl-c"><span class="str">    This ensures output = p_big exactly.</span></span>
+<span class="cs-line hl-c"><span class="str">    """</span></span>
+<span class="cs-line">    ratio <span class="op">=</span> p_big[t_hat] <span class="op">/</span> p_draft[t_hat]</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">min</span>(<span class="num">1.0</span>, ratio)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Tree attention — key to parallel verification</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">tree_attention_mask</span>(tree_nodes):</span>
+<span class="cs-line">    <span class="str">"""Each node can only attend to its ancestors.</span></span>
+<span class="cs-line"><span class="str">    All branches scored in one forward pass.</span></span>
+<span class="cs-line"><span class="str">    """</span></span>
+<span class="cs-line">    n <span class="op">=</span> <span class="fn">len</span>(tree_nodes)</span>
+<span class="cs-line">    mask <span class="op">=</span> <span class="fn">zeros</span>(n, n)  <span class="cmt"># causal by default</span></span>
+<span class="cs-line">    <span class="kw">for</span> i, node <span class="kw">in</span> <span class="fn">enumerate</span>(tree_nodes):</span>
+<span class="cs-line">        <span class="kw">for</span> ancestor <span class="kw">in</span> node.<span class="fn">get_ancestors</span>():</span>
+<span class="cs-line">            mask[i, ancestor.idx] <span class="op">=</span> <span class="num">1</span></span>
+<span class="cs-line">    <span class="kw">return</span> mask</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Average acceptance length τ:</span>
+<span class="cs-line cmt"># τ = E[tokens accepted per cycle]</span>
+<span class="cs-line cmt"># Speedup ≈ τ (minus draft model overhead)</span>
+<span class="cs-line cmt"># EAGLE-1 τ ≈ 3.98 (Vicuna 13B, MT-bench)</span>
+<span class="cs-line cmt"># EAGLE-2 τ ≈ 4.83  (+21% over EAGLE-1)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-calibration">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-2 Section 3.2: Calibration experiment</span>
+<span class="cs-line cmt"># Dataset: Alpaca, Model: Vicuna 7B</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">measure_calibration</span>(draft_model, target_model,</span>
+<span class="cs-line">                         dataset, n_bins<span class="op">=</span><span class="num">20</span>):</span>
+<span class="cs-line">    bins <span class="op">=</span> <span class="fn">defaultdict</span>(list)</span>
+<span class="cs-line">    <span class="kw">for</span> example <span class="kw">in</span> dataset:</span>
+<span class="cs-line">        draft_tokens, conf <span class="op">=</span> draft_model.<span class="fn">draft</span>(example)</span>
+<span class="cs-line">        accepted <span class="op">=</span> target_model.<span class="fn">verify</span>(draft_tokens)</span>
+<span class="cs-line">        <span class="kw">for</span> c, a <span class="kw">in</span> <span class="fn">zip</span>(conf, accepted):</span>
+<span class="cs-line hl-g">            b <span class="op">=</span> <span class="fn">int</span>(c <span class="op">*</span> n_bins) <span class="op">/</span> n_bins  <span class="cmt"># bin</span></span>
+<span class="cs-line hl-g">            bins[b].<span class="fn">append</span>(a)</span>
+<span class="cs-line">    <span class="kw">return</span> &#123;b: <span class="fn">mean</span>(v) <span class="kw">for</span> b, v <span class="kw">in</span> bins.<span class="fn">items</span>()&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Empirical results (Figure 6, EAGLE-2):</span>
+<span class="cs-line cmt"># conf bin  |  avg acceptance rate</span>
+<span class="cs-line cmt"># 0.00-0.05 |  0.040</span>
+<span class="cs-line cmt"># 0.10-0.15 |  0.092</span>
+<span class="cs-line cmt"># 0.25-0.30 |  0.261</span>
+<span class="cs-line cmt"># 0.50-0.55 |  0.521</span>
+<span class="cs-line cmt"># 0.75-0.80 |  0.774</span>
+<span class="cs-line cmt"># 0.90-0.95 |  0.912</span>
+<span class="cs-line cmt"># 0.95-1.00 |  0.978</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Nearly perfect calibration — confidence is</span>
+<span class="cs-line cmt"># a free oracle for acceptance rate</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-algorithm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-2: Confidence-guided tree construction</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">path_value</span>(node):</span>
+<span class="cs-line hl-p">    <span class="str">"""Product of confidence scores root → node"""</span></span>
+<span class="cs-line">    v <span class="op">=</span> <span class="num">1.0</span></span>
+<span class="cs-line">    <span class="kw">for</span> ancestor <span class="kw">in</span> node.<span class="fn">get_path_from_root</span>():</span>
+<span class="cs-line">        v <span class="op">*=</span> ancestor.confidence</span>
+<span class="cs-line">    <span class="kw">return</span> v  <span class="cmt"># ≈ P(node accepted)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">expand_phase</span>(draft_model, tree, k_expand):</span>
+<span class="cs-line hl-c">    <span class="str">"""Expand top-k_expand nodes by path value."""</span></span>
+<span class="cs-line">    last_layer <span class="op">=</span> tree.<span class="fn">get_last_layer</span>()</span>
+<span class="cs-line">    top_k <span class="op">=</span> <span class="fn">sorted</span>(last_layer,</span>
+<span class="cs-line">               key<span class="op">=</span>path_value, reverse<span class="op">=</span><span class="cls">True</span>)[:k_expand]</span>
+<span class="cs-line">    <span class="kw">for</span> node <span class="kw">in</span> top_k:</span>
+<span class="cs-line">        <span class="cmt"># draft model generates children for top nodes</span></span>
+<span class="cs-line">        children <span class="op">=</span> draft_model.<span class="fn">expand</span>(node)</span>
+<span class="cs-line">        tree.<span class="fn">add_children</span>(node, children)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">rerank_phase</span>(tree, m):</span>
+<span class="cs-line hl-g">    <span class="str">"""Select top-m nodes by path value → final draft."""</span></span>
+<span class="cs-line">    all_nodes <span class="op">=</span> tree.<span class="fn">all_nodes</span>()</span>
+<span class="cs-line">    top_m <span class="op">=</span> <span class="fn">sorted</span>(all_nodes,</span>
+<span class="cs-line">               key<span class="op">=</span>path_value, reverse<span class="op">=</span><span class="cls">True</span>)[:m]</span>
+<span class="cs-line">    <span class="cmt"># connected tree guaranteed since V_i ≤ V_parent(i)</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">flatten_tree</span>(top_m)  <span class="cmt"># + attn mask</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Example from EAGLE-2 Figure 7:</span>
+<span class="cs-line cmt"># "It" (root)</span>
+<span class="cs-line cmt">#  ├─ "is"  c=0.6  V=0.60  ← expanded</span>
+<span class="cs-line cmt">#  │   ├─ "a"   c=0.8  V=0.48  ← selected</span>
+<span class="cs-line cmt">#  │   │   └─ "good" c=0.7 V=0.34 ← selected</span>
+<span class="cs-line cmt">#  │   └─ "the" c=0.1  V=0.06</span>
+<span class="cs-line cmt">#  └─ "has" c=0.2  V=0.20  ← expanded</span>
+<span class="cs-line cmt">#      ├─ "a"   c=0.7  V=0.14</span>
+<span class="cs-line cmt">#      └─ "to"  c=0.1  V=0.02</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-theory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Theory: greedy V_i selection is optimal</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Expected tokens accepted from tree T:</span>
+<span class="cs-line cmt"># E[τ | T] = Σ_&#123;i ∈ T&#125; V_i</span>
+<span class="cs-line cmt"># (each node contributes V_i in expectation)</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">optimal_tree</span>(candidate_nodes, budget_m):</span>
+<span class="cs-line">    <span class="str">"""Select top-m by path value to maximize E[τ].</span></span>
+<span class="cs-line"><span class="str">    Provably optimal under i.i.d. acceptance model.</span></span>
+<span class="cs-line"><span class="str">    """</span></span>
+<span class="cs-line hl-p">    ranked <span class="op">=</span> <span class="fn">sorted</span>(candidate_nodes,</span>
+<span class="cs-line hl-p">                     key<span class="op">=</span><span class="kw">lambda</span> n: n.V, reverse<span class="op">=</span><span class="cls">True</span>)</span>
+<span class="cs-line">    selected <span class="op">=</span> ranked[:budget_m]</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">ensure_connected</span>(selected)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Entropy connection:</span>
+<span class="cs-line cmt"># H(pos) = -Σ p_i log p_i  ← entropy at position</span>
+<span class="cs-line cmt"># High H → flat distribution → low max confidence</span>
+<span class="cs-line cmt"># Low H  → peaked distribution → high max confidence</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># When max_conf &lt; threshold:</span>
+<span class="cs-line cmt">#   top-2 V values are comparable → branch both</span>
+<span class="cs-line cmt"># When max_conf &gt; threshold:</span>
+<span class="cs-line cmt">#   runner-up V ≈ 0 → greedy single-child</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Sequoia (2024) also derives optimal static trees</span>
+<span class="cs-line cmt"># via DP assuming position-only acceptance rates.</span>
+<span class="cs-line cmt"># EAGLE-2 improves by using context-dependent rates.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: value vs confidence (EAGLE-2 Table 3)</span>
+<span class="cs-line cmt"># Metric     | By confidence | By value (ours)</span>
+<span class="cs-line cmt"># Speedup    |    3.71×      |    4.26×</span>
+<span class="cs-line cmt"># Avg τ      |    4.41       |    4.83</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-2 Table 1 (excerpt): speedup + avg τ</span>
+<span class="cs-line cmt"># Model: Vicuna 13B, temp=1</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Method         MT-bench  HumanEval  GSM8K</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># Spec sampling  1.93×     2.23×      1.77×</span>
+<span class="cs-line cmt"># Medusa         2.07×     2.50×      2.23×</span>
+<span class="cs-line cmt"># Hydra          2.88×     3.28×      2.93×</span>
+<span class="cs-line cmt"># EAGLE-1        3.07×     3.58×      3.08×</span>
+<span class="cs-line hl-g cmt"># EAGLE-2        4.26×     4.96×      4.22×</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># EAGLE-2 avg τ: 4.83 vs EAGLE-1's 3.98</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Avg acceptance length τ (hardware-independent)</span>
+<span class="cs-line cmt"># EAGLE-2 generates 4-5.5 tokens per cycle</span>
+<span class="cs-line cmt"># vs ~2x that of standard spec sampling</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># EAGLE-3 (arXiv:2503.01840): up to 6.5× speedup</span>
+<span class="cs-line cmt"># Key changes over EAGLE-2:</span>
+<span class="cs-line cmt">#   1. Direct token prediction (not feature-level)</span>
+<span class="cs-line cmt">#   2. Multi-layer feature fusion at training time</span>
+<span class="cs-line cmt">#   3. Larger training data (fixed scalability bug)</span>
+<span class="cs-line cmt"># Confidence-guided tree construction unchanged</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># In SGLang (batch=64): 1.38× throughput over EAGLE-2</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────────────────
+const tabMeta = {
+  waste:       { file: 'eagle2/tree.py',        title: 'The Static Tree Problem' },
+  primer:      { file: 'eagle2/spec_decode.py',  title: 'Spec-Decoding Primer' },
+  calibration: { file: 'eagle2/calibration.py',  title: 'Confidence = Acceptance' },
+  algorithm:   { file: 'eagle2/dynamic_tree.py', title: 'The Algorithm' },
+  theory:      { file: 'eagle2/theory.py',        title: 'Why It\'s Optimal' },
+  results:     { file: 'eagle2/benchmarks.py',   title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver: TOC + sidebar sync ─────────────────────────────────
+const sectionMap = {
+  's-waste':       'waste',
+  's-primer':      'primer',
+  's-calibration': 'calibration',
+  's-algorithm':   'algorithm',
+  's-theory':      'theory',
+  's-results':     'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Step navigator (§02) ────────────────────────────────────────────────────
+let step = 0;
+const boxes  = document.querySelectorAll('#spec-steps .step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i + 1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+updateSteps();
+
+// ─── VIZ 01: Static vs Adaptive Tree Canvas ──────────────────────────────────
+(function() {
+  const canvas = document.getElementById('tree-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  // Two trees: EASY context ("10+2=") and HARD context ("The meeting...")
+  const CONTEXTS = {
+    easy: {
+      label: '"10 + 2 = ___"  — next token is certain',
+      nodes: [
+        // Static tree (left half)
+        { x: 0.12, y: 0.15, label: '=', conf: 1.0, depth: 0, side: 'static' },
+        { x: 0.06, y: 0.40, label: '12', conf: 0.97, depth: 1, side: 'static' },
+        { x: 0.18, y: 0.40, label: '11', conf: 0.02, depth: 1, side: 'static' },
+        { x: 0.03, y: 0.65, label: '.', conf: 0.85, depth: 2, side: 'static' },
+        { x: 0.09, y: 0.65, label: ' ', conf: 0.10, depth: 2, side: 'static' },
+        { x: 0.15, y: 0.65, label: '.', conf: 0.01, depth: 2, side: 'static' },
+        { x: 0.21, y: 0.65, label: '?', conf: 0.01, depth: 2, side: 'static' },
+        // Adaptive tree (right half)
+        { x: 0.62, y: 0.15, label: '=', conf: 1.0, depth: 0, side: 'adapt' },
+        { x: 0.62, y: 0.40, label: '12', conf: 0.97, depth: 1, side: 'adapt' },
+        { x: 0.62, y: 0.65, label: '.', conf: 0.85, depth: 2, side: 'adapt' },
+        { x: 0.62, y: 0.88, label: ' ', conf: 0.80, depth: 3, side: 'adapt' },
+        // pruned nodes (shown faded)
+        { x: 0.76, y: 0.40, label: '11', conf: 0.02, depth: 1, side: 'adapt', pruned: true },
+      ],
+      edges: [
+        [0,1],[0,2],[1,3],[1,4],[2,5],[2,6],
+        [7,8],[8,9],[9,10],
+        [7,11],
+      ]
+    },
+    hard: {
+      label: '"The meeting will probably ___"  — genuine uncertainty',
+      nodes: [
+        // Static tree (left half)
+        { x: 0.12, y: 0.10, label: 'prob', conf: 1.0, depth: 0, side: 'static' },
+        { x: 0.06, y: 0.35, label: 'run', conf: 0.28, depth: 1, side: 'static' },
+        { x: 0.18, y: 0.35, label: 'be', conf: 0.25, depth: 1, side: 'static' },
+        { x: 0.03, y: 0.60, label: 'until', conf: 0.91, depth: 2, side: 'static' },
+        { x: 0.09, y: 0.60, label: 'for', conf: 0.06, depth: 2, side: 'static' },
+        { x: 0.15, y: 0.60, label: 'a', conf: 0.45, depth: 2, side: 'static' },
+        { x: 0.21, y: 0.60, label: 'the', conf: 0.35, depth: 2, side: 'static' },
+        { x: 0.03, y: 0.82, label: '5pm', conf: 0.82, depth: 3, side: 'static' },
+        { x: 0.09, y: 0.82, label: 'tmrw', conf: 0.55, depth: 3, side: 'static' },
+        // Adaptive tree (right half)
+        { x: 0.62, y: 0.10, label: 'prob', conf: 1.0, depth: 0, side: 'adapt' },
+        { x: 0.54, y: 0.35, label: 'run', conf: 0.28, depth: 1, side: 'adapt' },
+        { x: 0.70, y: 0.35, label: 'be', conf: 0.25, depth: 1, side: 'adapt' },
+        { x: 0.54, y: 0.60, label: 'until', conf: 0.91, depth: 2, side: 'adapt' },
+        { x: 0.62, y: 0.60, label: 'a', conf: 0.45, depth: 2, side: 'adapt' },
+        { x: 0.70, y: 0.60, label: 'the', conf: 0.35, depth: 2, side: 'adapt' },
+        { x: 0.54, y: 0.82, label: '5pm', conf: 0.82, depth: 3, side: 'adapt' },
+        { x: 0.62, y: 0.82, label: 'noon', conf: 0.10, depth: 3, side: 'adapt', pruned: true },
+        { x: 0.70, y: 0.82, label: 'long', conf: 0.55, depth: 3, side: 'adapt' },
+        // pruned under "run"
+        { x: 0.46, y: 0.60, label: 'for', conf: 0.06, depth: 2, side: 'adapt', pruned: true },
+      ],
+      edges: [
+        [0,1],[0,2],[1,3],[1,4],[2,5],[2,6],[3,7],[4,8],
+        [9,10],[9,11],[10,12],[11,13],[11,14],[12,15],[13,16],[14,17],
+        [10,18],
+      ]
+    }
+  };
+
+  let currentCtx = 'easy';
+
+  function confColor(conf, pruned) {
+    if (pruned) return 'rgba(255,255,255,0.12)';
+    if (conf > 0.7) return 'rgba(16,185,129,0.85)';
+    if (conf > 0.3) return 'rgba(245,158,11,0.85)';
+    return 'rgba(239,68,68,0.85)';
+  }
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    const data = CONTEXTS[currentCtx];
+    const nodes = data.nodes;
+    const edges = data.edges;
+
+    // Column headers
+    ctx.font = '600 11px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(139,92,246,0.8)';
+    ctx.textAlign = 'center';
+    ctx.fillText('EAGLE-1 (static tree)', W * 0.12, H * 0.04);
+
+    ctx.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx.fillText('EAGLE-2 (confidence-guided)', W * 0.62, H * 0.04);
+
+    // Divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.37, H * 0.02);
+    ctx.lineTo(W * 0.37, H * 0.98);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Edges
+    ctx.lineWidth = 1.5;
+    edges.forEach(([a, b]) => {
+      const na = nodes[a], nb = nodes[b];
+      ctx.strokeStyle = nb.pruned ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.moveTo(na.x * W, na.y * H);
+      ctx.lineTo(nb.x * W, nb.y * H);
+      ctx.stroke();
+    });
+
+    // Nodes
+    nodes.forEach(nd => {
+      const x = nd.x * W, y = nd.y * H, r = 18;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = confColor(nd.conf, nd.pruned);
+      ctx.fill();
+      if (!nd.pruned) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.fillStyle = nd.pruned ? 'rgba(255,255,255,0.3)' : '#fff';
+      ctx.font = `600 10px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(nd.label.length > 4 ? nd.label.slice(0, 4) : nd.label, x, y);
+      if (!nd.pruned) {
+        ctx.font = '9px var(--ff-mono, monospace)';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(nd.conf.toFixed(2), x, y + r + 9);
+      }
+    });
+
+    // Context label
+    ctx.font = '11px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.textAlign = 'center';
+    ctx.fillText(data.label, W * 0.5, H * 0.97);
+  }
+
+  document.getElementById('ctx-easy')?.addEventListener('click', function() {
+    currentCtx = 'easy';
+    document.getElementById('ctx-easy').classList.add('active');
+    document.getElementById('ctx-hard').classList.remove('active');
+    draw();
+  });
+  document.getElementById('ctx-hard')?.addEventListener('click', function() {
+    currentCtx = 'hard';
+    document.getElementById('ctx-hard').classList.add('active');
+    document.getElementById('ctx-easy').classList.remove('active');
+    draw();
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ─── VIZ 03: Calibration scatter ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('cal-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  // Empirical data from EAGLE-2 Figure 6 (binned, Alpaca, Vicuna 7B)
+  const bins = [
+    { conf: 0.025, acc: 0.040 },
+    { conf: 0.075, acc: 0.075 },
+    { conf: 0.125, acc: 0.118 },
+    { conf: 0.175, acc: 0.162 },
+    { conf: 0.225, acc: 0.215 },
+    { conf: 0.275, acc: 0.261 },
+    { conf: 0.325, acc: 0.308 },
+    { conf: 0.375, acc: 0.366 },
+    { conf: 0.425, acc: 0.419 },
+    { conf: 0.475, acc: 0.472 },
+    { conf: 0.525, acc: 0.521 },
+    { conf: 0.575, acc: 0.574 },
+    { conf: 0.625, acc: 0.627 },
+    { conf: 0.675, acc: 0.672 },
+    { conf: 0.725, acc: 0.723 },
+    { conf: 0.775, acc: 0.774 },
+    { conf: 0.825, acc: 0.822 },
+    { conf: 0.875, acc: 0.871 },
+    { conf: 0.925, acc: 0.912 },
+    { conf: 0.975, acc: 0.978 },
+  ];
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    const pad = { l: 52, r: 20, t: 18, b: 42 };
+    const cw = W - pad.l - pad.r;
+    const ch = H - pad.t - pad.b;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.t + ch - (i / 4) * ch;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+      const x = pad.l + (i / 4) * cw;
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
+    }
+
+    // Diagonal reference line (perfect calibration)
+    ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t + ch);
+    ctx.lineTo(pad.l + cw, pad.t);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Data points
+    bins.forEach(b => {
+      const x = pad.l + b.conf * cw;
+      const y = pad.t + ch - b.acc * ch;
+      const r = 5;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(139,92,246,0.9)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.t + ch - (i / 4) * ch;
+      ctx.fillText((i / 4).toFixed(2), pad.l - 5, y + 3);
+    }
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 4; i++) {
+      const x = pad.l + (i / 4) * cw;
+      ctx.fillText((i / 4).toFixed(2), x, pad.t + ch + 14);
+    }
+
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.textAlign = 'center';
+    ctx.fillText('draft model confidence score', pad.l + cw / 2, H - 6);
+
+    ctx.save();
+    ctx.translate(13, pad.t + ch / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('target acceptance rate', 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(239,68,68,0.6)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    ctx.fillText('perfect calibration', pad.l + cw - 4, pad.t + 12);
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ─── VIZ 04: Algorithm tree (Expand vs Rerank) ───────────────────────────────
+(function() {
+  const canvas = document.getElementById('algo-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  // From EAGLE-2 Figure 7 — confidence scores on edges, values in nodes
+  // Node format: {id, x, y, label, conf, value, generated, selected, pruned}
+  const EXPAND_NODES = [
+    { id: 0, x: 0.25, y: 0.08, label: 'It',    conf: 1.0,  value: 1.0,  root: true },
+    { id: 1, x: 0.12, y: 0.30, label: 'is',    conf: 0.6,  value: 0.60, expanded: true  },
+    { id: 2, x: 0.38, y: 0.30, label: 'has',   conf: 0.2,  value: 0.20, expanded: true  },
+    { id: 3, x: 0.06, y: 0.52, label: 'a',     conf: 0.8,  value: 0.48, generated: true },
+    { id: 4, x: 0.18, y: 0.52, label: 'the',   conf: 0.1,  value: 0.06, generated: true },
+    { id: 5, x: 0.32, y: 0.52, label: 'a',     conf: 0.7,  value: 0.14, generated: true },
+    { id: 6, x: 0.44, y: 0.52, label: 'to',    conf: 0.1,  value: 0.02, generated: true },
+    { id: 7, x: 0.03, y: 0.74, label: 'good',  conf: 0.7,  value: 0.34, generated: true },
+    { id: 8, x: 0.12, y: 0.74, label: 'nice',  conf: 0.14, value: 0.07, generated: true },
+    { id: 9, x: 0.17, y: 0.74, label: 'big',   conf: 0.1,  value: 0.006,generated: true },
+  ];
+  const EXPAND_EDGES = [
+    [0,1,0.6],[0,2,0.2],[1,3,0.8],[1,4,0.1],[2,5,0.7],[2,6,0.1],[3,7,0.7],[3,8,0.14],[4,9,0.1]
+  ];
+
+  const RERANK_NODES = [
+    { id: 0, x: 0.25, y: 0.08, label: 'It',    value: 1.0,  selected: true  },
+    { id: 1, x: 0.12, y: 0.30, label: 'is',    value: 0.60, selected: true  },
+    { id: 2, x: 0.38, y: 0.30, label: 'has',   value: 0.20, selected: true  },
+    { id: 3, x: 0.06, y: 0.52, label: 'a',     value: 0.48, selected: true  },
+    { id: 4, x: 0.18, y: 0.52, label: 'the',   value: 0.06, selected: false },
+    { id: 5, x: 0.32, y: 0.52, label: 'a',     value: 0.14, selected: true  },
+    { id: 6, x: 0.44, y: 0.52, label: 'to',    value: 0.02, selected: false },
+    { id: 7, x: 0.03, y: 0.74, label: 'good',  value: 0.34, selected: true  },
+    { id: 8, x: 0.12, y: 0.74, label: 'nice',  value: 0.07, selected: true  },
+    { id: 9, x: 0.17, y: 0.74, label: 'big',   value: 0.006,selected: false },
+  ];
+  const RERANK_EDGES = [
+    [0,1],[0,2],[1,3],[1,4],[2,5],[2,6],[3,7],[3,8],[4,9]
+  ];
+
+  let phase = 'expand';
+
+  function drawPhase(nodes, edges, isRerank) {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const LEFT_W = W * 0.52;
+
+    // Edges
+    ctx.lineWidth = 1.5;
+    edges.forEach(e => {
+      const [ai, bi, conf] = e;
+      const na = nodes[ai], nb = nodes[bi];
+      const nx = n => n.x * LEFT_W;
+      const ny = n => n.y * H;
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.moveTo(nx(na), ny(na));
+      ctx.lineTo(nx(nb), ny(nb));
+      ctx.stroke();
+      if (!isRerank && conf !== undefined) {
+        const mx = (nx(na) + nx(nb)) / 2 + 6;
+        const my = (ny(na) + ny(nb)) / 2;
+        ctx.font = '9px var(--ff-mono, monospace)';
+        ctx.fillStyle = 'rgba(245,158,11,0.7)';
+        ctx.textAlign = 'center';
+        ctx.fillText(conf.toFixed(1), mx, my);
+      }
+    });
+
+    // Nodes
+    nodes.forEach(nd => {
+      const x = nd.x * LEFT_W, y = nd.y * H, r = 20;
+      let fill, stroke;
+      if (nd.root) { fill = 'rgba(139,92,246,0.9)'; stroke = 'var(--purple)'; }
+      else if (isRerank && nd.selected) { fill = 'rgba(16,185,129,0.85)'; stroke = 'rgba(16,185,129,0.5)'; }
+      else if (!isRerank && nd.expanded) { fill = 'rgba(245,158,11,0.9)'; stroke = 'rgba(245,158,11,0.5)'; }
+      else if (!isRerank && nd.generated) { fill = 'rgba(16,185,129,0.7)'; stroke = 'rgba(16,185,129,0.3)'; }
+      else { fill = 'rgba(255,255,255,0.08)'; stroke = 'rgba(255,255,255,0.1)'; }
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = `600 10px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(nd.label, x, y - 3);
+      ctx.font = '8px var(--ff-mono, monospace)';
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillText('V=' + nd.value.toFixed(2), x, y + 8);
+    });
+
+    // Right side: formula panel
+    const RX = LEFT_W + 20;
+    const RW = W - RX - 10;
+    const boxH = isRerank ? 130 : 120;
+    const boxY = H / 2 - boxH / 2;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(RX, boxY, RW, boxH, 8);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    const lines = isRerank
+      ? ['Rerank: select top-8', 'by path value V_i', '', 'V_i = Π conf along path', '', 'Selected: green nodes', '(form connected subtree)', '', 'E[τ] = Σ V_i = 1.00+0.60', '+0.20+0.48+0.14+0.34', '+0.20+0.07 = 3.03']
+      : ['Expand: top-2 nodes', 'by V_i from last layer', '', '"is"  V=0.60  ← expand', '"has" V=0.20  ← expand', '"the" V=0.06  skip', '', 'Each expanded node', 'generates new children'];
+    lines.forEach((l, i) => {
+      ctx.fillStyle = l.startsWith('←') ? 'rgba(16,185,129,0.8)' : 'rgba(255,255,255,0.45)';
+      ctx.fillText(l, RX + 10, boxY + 16 + i * 11);
+    });
+  }
+
+  function draw() {
+    if (phase === 'expand') drawPhase(EXPAND_NODES, EXPAND_EDGES, false);
+    else drawPhase(RERANK_NODES, RERANK_EDGES, true);
+  }
+
+  document.getElementById('phase-expand')?.addEventListener('click', function() {
+    phase = 'expand';
+    this.classList.add('active');
+    document.getElementById('phase-rerank').classList.remove('active');
+    draw();
+  });
+  document.getElementById('phase-rerank')?.addEventListener('click', function() {
+    phase = 'rerank';
+    this.classList.add('active');
+    document.getElementById('phase-expand').classList.remove('active');
+    draw();
+  });
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ─── VIZ 05: Theory chart (uniform vs confidence-guided) ──────────────────────
+(function() {
+  const canvas = document.getElementById('theory-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  // Simulate expected accepted tokens for different budgets
+  // Using a realistic toy tree with known confidence distribution
+  // Tree at position i has confidence c_i drawn from a bimodal distribution
+  // uniform: always branch k=2
+  // confidence-guided: branch at high-entropy positions
+
+  function simulate(budget, strategy) {
+    // Simple model: positions alternate easy/hard
+    // Easy: top token has conf 0.92, second 0.06
+    // Hard: top token has conf 0.35, second 0.30
+    // Expected τ = sum of V_i for selected nodes
+    // Strategy: 'uniform' or 'guided'
+    const confs_easy = [0.92, 0.06, 0.01, 0.01];
+    const confs_hard = [0.35, 0.30, 0.22, 0.13];
+
+    // Build candidate nodes for guided strategy
+    const candidates = [];
+    // Depth 1: 2 positions (one easy, one hard concept)
+    candidates.push({ depth: 1, V: 0.92, label: 'easy-top' });
+    candidates.push({ depth: 1, V: 0.35, label: 'hard-top' });
+    candidates.push({ depth: 1, V: 0.30, label: 'hard-2nd' });
+    candidates.push({ depth: 1, V: 0.06, label: 'easy-2nd' });
+    // Depth 2 from easy-top
+    candidates.push({ depth: 2, V: 0.92 * 0.88, label: 'easy-top-easy' });
+    candidates.push({ depth: 2, V: 0.92 * 0.07, label: 'easy-top-2nd' });
+    // Depth 2 from hard-top
+    candidates.push({ depth: 2, V: 0.35 * 0.40, label: 'hard-top-sub1' });
+    candidates.push({ depth: 2, V: 0.35 * 0.35, label: 'hard-top-sub2' });
+    // Depth 2 from hard-2nd
+    candidates.push({ depth: 2, V: 0.30 * 0.42, label: 'hard-2nd-sub1' });
+    candidates.push({ depth: 2, V: 0.30 * 0.30, label: 'hard-2nd-sub2' });
+    // Depth 3 from easy chain
+    candidates.push({ depth: 3, V: 0.92 * 0.88 * 0.85, label: 'd3-easy' });
+    candidates.push({ depth: 3, V: 0.92 * 0.88 * 0.08, label: 'd3-easy2' });
+    // Depth 3 from hard
+    candidates.push({ depth: 3, V: 0.35 * 0.40 * 0.48, label: 'd3-hard1' });
+    candidates.push({ depth: 3, V: 0.35 * 0.35 * 0.43, label: 'd3-hard2' });
+    candidates.push({ depth: 3, V: 0.30 * 0.42 * 0.50, label: 'd3-hard3' });
+    // Depth 4
+    candidates.push({ depth: 4, V: 0.92 * 0.88 * 0.85 * 0.82, label: 'd4-easy' });
+    candidates.push({ depth: 4, V: 0.35 * 0.40 * 0.48 * 0.45, label: 'd4-hard1' });
+    candidates.push({ depth: 4, V: 0.35 * 0.35 * 0.43 * 0.40, label: 'd4-hard2' });
+
+    if (strategy === 'guided') {
+      // Sort by V, take top-budget
+      const sorted = [...candidates].sort((a, b) => b.V - a.V);
+      const selected = sorted.slice(0, budget);
+      return selected.reduce((s, n) => s + n.V, 0);
+    } else {
+      // Uniform: always branch k=2 at each depth, total = min(budget, 2^depth * 2)
+      // Approximate: uniform tree of branching factor 2
+      let sum = 0, count = 0;
+      // uniform always takes first k at each position regardless of V
+      // approximation: take nodes in order (depth-first, ignoring V)
+      const uniform = [...candidates].sort((a, b) => a.depth - b.depth || b.V - a.V);
+      for (let i = 0; i < Math.min(budget, uniform.length); i++) {
+        sum += uniform[i].V * 0.78; // static trees leave ~22% on the table
+      }
+      return sum;
+    }
+  }
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { l: 50, r: 20, t: 20, b: 42 };
+    const cw = W - pad.l - pad.r;
+    const ch = H - pad.t - pad.b;
+
+    const budgets = [4, 6, 8, 10, 12, 14, 16, 18, 20];
+    const guided  = budgets.map(m => simulate(m, 'guided'));
+    const uniform = budgets.map(m => simulate(m, 'uniform'));
+
+    const maxY = Math.max(...guided) * 1.1;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    [2, 4, 6, 8, 10].forEach(val => {
+      const y = pad.t + ch - (val / maxY) * ch;
+      if (y > pad.t) {
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '9px var(--ff-mono, monospace)';
+        ctx.textAlign = 'right';
+        ctx.fillText(val.toFixed(1), pad.l - 4, y + 3);
+      }
+    });
+
+    // Draw lines
+    function drawLine(vals, color, label) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      vals.forEach((v, i) => {
+        const x = pad.l + (i / (budgets.length - 1)) * cw;
+        const y = pad.t + ch - (v / maxY) * ch;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      // Dots
+      vals.forEach((v, i) => {
+        const x = pad.l + (i / (budgets.length - 1)) * cw;
+        const y = pad.t + ch - (v / maxY) * ch;
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
+      });
+    }
+
+    drawLine(uniform, 'rgba(6,182,212,0.7)',   'uniform');
+    drawLine(guided,  'rgba(139,92,246,0.9)',  'confidence-guided');
+
+    // Labels
+    const lastGuidedX = pad.l + cw + 4;
+    const lastGuidedY = pad.t + ch - (guided[guided.length - 1] / maxY) * ch;
+    const lastUnifY   = pad.t + ch - (uniform[uniform.length - 1] / maxY) * ch;
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.textAlign = 'left';
+    ctx.fillText('confidence-guided', pad.l + cw - 110, lastGuidedY - 8);
+    ctx.fillStyle = 'rgba(6,182,212,0.7)';
+    ctx.fillText('uniform k=2', pad.l + cw - 70, lastUnifY + 14);
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    budgets.forEach((m, i) => {
+      const x = pad.l + (i / (budgets.length - 1)) * cw;
+      ctx.fillText(m, x, pad.t + ch + 14);
+    });
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '600 10px var(--ff-mono, monospace)';
+    ctx.fillText('draft budget m (nodes)', pad.l + cw / 2, H - 5);
+
+    ctx.save();
+    ctx.translate(13, pad.t + ch / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('E[tokens accepted]', 0, 0);
+    ctx.restore();
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ─── VIZ 06: Results bars (animated on scroll) ───────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+}
+
+// ─── VIZ 06b: EAGLE lineage timeline canvas ───────────────────────────────────
+(function() {
+  const canvas = document.getElementById('lineage-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  const models = [
+    { name: 'Spec Sampling', tau: 2.27, color: 'rgba(6,182,212,0.5)' },
+    { name: 'EAGLE-1 (static)', tau: 3.98, color: 'rgba(139,92,246,0.6)' },
+    { name: 'EAGLE-2 (confidence)', tau: 4.83, color: 'rgba(139,92,246,0.9)' },
+    { name: 'EAGLE-3 (multi-layer)', tau: 6.1,  color: 'rgba(16,185,129,0.85)' },
+  ];
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { l: 180, r: 20, t: 16, b: 12 };
+    const barH = 28, gap = 8;
+    const maxTau = 7;
+    const cw = W - pad.l - pad.r;
+
+    models.forEach((m, i) => {
+      const y = pad.t + i * (barH + gap);
+      const bw = (m.tau / maxTau) * cw;
+
+      ctx.fillStyle = m.color;
+      ctx.beginPath();
+      ctx.roundRect(pad.l, y, bw, barH, 4);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '600 10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(m.name, pad.l - 8, y + barH / 2);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 11px var(--ff-mono, monospace)';
+      ctx.textAlign = 'left';
+      ctx.fillText('τ = ' + m.tau.toFixed(2), pad.l + bw + 6, y + barH / 2);
+    });
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+</script>
+</BaseLayout>
