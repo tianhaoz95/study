@@ -1,0 +1,1261 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="DFT: One-Line Fix That Turns SFT Into RL | AI/ML Deep Dives"
+  description="Dynamic Fine-Tuning shows that standard SFT implicitly applies a 1/p reward weight that explodes for rare tokens. Multiplying the loss by p(y*) — a single-line change — cancels the distortion, turning SFT into a near-RL-quality optimizer that beats GRPO on math benchmarks."
+  crumb="DFT Reward Rectification"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Token gradient weight cards */
+.token-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin:1.5rem 0}
+.token-card{border:1px solid var(--border);border-radius:8px;padding:.875rem;background:var(--card);text-align:center;transition:all .25s}
+.token-card.card-safe{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04)}
+.token-card.card-warn{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.04)}
+.token-card.card-danger{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)}
+.token-card.card-critical{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.tc-token{font-family:var(--ff-mono);font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:.4rem}
+.tc-prob{font-size:.68rem;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.tc-weight-row{display:flex;justify-content:space-between;gap:.5rem;font-size:.7rem;font-family:var(--ff-mono)}
+.tc-sft{color:var(--amber)}
+.tc-dft{color:var(--green)}
+.tc-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-top:.15rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* Loss diff box */
+.loss-diff{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;margin:1.5rem 0}
+.loss-box{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.loss-box-head{padding:.45rem .875rem;font-size:.68rem;font-family:var(--ff-mono);font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.loss-box.sft .loss-box-head{background:rgba(245,158,11,.1);color:var(--amber);border-bottom-color:rgba(245,158,11,.2)}
+.loss-box.dft .loss-box-head{background:rgba(139,92,246,.1);color:var(--purple-l);border-bottom-color:rgba(139,92,246,.2)}
+.loss-box-body{padding:.875rem;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2.1}
+.loss-eq-del{background:rgba(239,68,68,.15);color:#f87171;padding:.1rem .3rem;border-radius:3px;text-decoration:line-through}
+.loss-eq-add{background:rgba(16,185,129,.15);color:#34d399;padding:.1rem .3rem;border-radius:3px}
+@media(max-width:680px){.loss-diff{grid-template-columns:1fr}}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-header{font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem 0 .25rem;font-family:var(--ff-mono)}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .bad{color:rgba(248,113,113,.8)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Fine-Tuning</span>
+    <span class="tag tag-cyan">Reinforcement Learning</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>DFT: One-Line Fix That Turns SFT Into RL</h1>
+  <p class="lead">Standard supervised fine-tuning silently applies a 1/p reward multiplier: tokens the model rarely predicts get gradient weights 10×, 50×, even 500× larger than common tokens. This distortion causes memorization instead of generalization. Dynamic Fine-Tuning cancels it with a single-line change — multiplying each token's loss by its own probability — and beats GRPO on math benchmarks without any reward model or sampling.</p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2508.05629</code></span>
+    <span>ICLR 2026</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2508.05629" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/yongliang-wu/DFT" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-theory"><a href="#s-theory"><span class="toc-num">02</span> SFT as RL</a></li>
+    <li class="toc-item" id="toc-s-dft"><a href="#s-dft"><span class="toc-num">03</span> DFT: One Line</a></li>
+    <li class="toc-item" id="toc-s-curves"><a href="#s-curves"><span class="toc-num">04</span> Convergence</a></li>
+    <li class="toc-item" id="toc-s-polarity"><a href="#s-polarity"><span class="toc-num">05</span> Token Polarity</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════ §01 THE PROBLEM -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>SFT's Hidden Gradient Distortion</h2>
+<p>Fine-tuning on expert demonstrations seems simple: minimize cross-entropy on the correct tokens. But lurking inside this routine is a distortion that punishes exactly the wrong thing.</p>
+<p>Consider training on a math proof that contains the token <strong>"hypotenuse"</strong>. If your model is uncertain about it — say, p = 0.08 — the cross-entropy loss's gradient pushes that token with a multiplier of 1/0.08 = <strong>12.5×</strong>. A rare symbol like "∑" at p = 0.02 gets pushed 50×. Meanwhile, common tokens like "the" at p = 0.92 barely move.</p>
+<p>The result: training is dominated by rare, low-probability tokens. The model memorizes them at the expense of learning the reasoning pattern behind them. SFT memorizes; RL generalizes. The question is: can we fix SFT itself?</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gradient weight vs. token probability — SFT vs. DFT</span>
+    <span class="vp-hint">click a token to highlight</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="weight-canvas" style="width:100%;height:240px;display:block"></canvas>
+    <div class="token-cards" id="token-cards" style="margin-top:1rem">
+      <div class="token-card card-safe" data-p="0.92" data-token="&quot;the&quot;">
+        <div class="tc-token">"the"</div>
+        <div class="tc-prob">p = 0.92</div>
+        <div class="tc-weight-row">
+          <div><span class="tc-sft">1.09×</span><span class="tc-label">SFT</span></div>
+          <div><span class="tc-dft">1.00×</span><span class="tc-label">DFT</span></div>
+        </div>
+      </div>
+      <div class="token-card card-warn" data-p="0.35" data-token="&quot;because&quot;">
+        <div class="tc-token">"because"</div>
+        <div class="tc-prob">p = 0.35</div>
+        <div class="tc-weight-row">
+          <div><span class="tc-sft">2.86×</span><span class="tc-label">SFT</span></div>
+          <div><span class="tc-dft">1.00×</span><span class="tc-label">DFT</span></div>
+        </div>
+      </div>
+      <div class="token-card card-danger" data-p="0.08" data-token="&quot;hypotenuse&quot;">
+        <div class="tc-token">"hypotenuse"</div>
+        <div class="tc-prob">p = 0.08</div>
+        <div class="tc-weight-row">
+          <div><span class="tc-sft">12.5×</span><span class="tc-label">SFT</span></div>
+          <div><span class="tc-dft">1.00×</span><span class="tc-label">DFT</span></div>
+        </div>
+      </div>
+      <div class="token-card card-critical" data-p="0.02" data-token="&quot;∑_&#123;k=1&#125;&quot;">
+        <div class="tc-token">"∑_&#123;k=1&#125;"</div>
+        <div class="tc-prob">p = 0.02</div>
+        <div class="tc-weight-row">
+          <div><span class="tc-sft">50×</span><span class="tc-label">SFT</span></div>
+          <div><span class="tc-dft">1.00×</span><span class="tc-label">DFT</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The chart above shows the core problem in one glance. The red SFT curve (gradient weight = 1/p) explodes toward infinity for rare tokens, while DFT's green line stays flat at 1. Every token, regardless of how rare, contributes equally.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §02 THEORY -->
+<section id="s-theory" data-code="theory">
+<div class="section-no">02 — SFT as RL</div>
+<h2>The Importance Sampling Proof</h2>
+<p>The paper derives this analytically. The SFT gradient looks like an expectation over the training data, but with one algebraic rewrite it becomes an on-policy gradient — the same form as REINFORCE — with an implicit reward structure:</p>
+
+<div class="math-block">
+  <div class="math-label">SFT gradient (standard form)</div>
+  ∇<sub>θ</sub> L<sub>SFT</sub> = -𝔼<sub>(x,y*)</sub> [ ∇<sub>θ</sub> log π<sub>θ</sub>(y* | x) ]
+</div>
+
+<div class="math-block">
+  <div class="math-label">After importance sampling rewrite</div>
+  = -𝔼<sub>x</sub> 𝔼<sub>y~π</sub> [ <span class="math-var">w(y|x)</span> · ∇<sub>θ</sub> log π<sub>θ</sub>(y|x) · <span class="math-var">r(x,y)</span> ]
+  <br>
+  where <span class="math-var">w(y|x) = 1 / π<sub>θ</sub>(y|x)</span>,  <span class="math-var">r(x,y) = 𝟙[y = y*]</span>
+  <br>
+  <span class="math-comment">← this is exactly the REINFORCE policy gradient with reward w·r</span>
+</div>
+
+<p>The reward the model is implicitly optimizing is <strong>1/π(y*|x)</strong> — inversely proportional to how confident the model already is. When the model is unsure (p is small), the reward explodes. When the model is confident (p is large), the reward is near 1. This creates two problems:</p>
+
+<div class="step-list" id="theory-steps">
+  <div class="step-box active" id="tstep-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Sparse reward signal</div>
+      <div class="step-desc">The indicator r(x,y) = 𝟙[y = y*] is non-zero only for exact matches to the expert trajectory. There's no partial credit. The model gets one signal: "match this token perfectly."</div>
+    </div>
+  </div>
+  <div class="step-box" id="tstep-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Explosive 1/p weighting</div>
+      <div class="step-desc">The importance weight 1/π amplifies gradients for low-probability tokens. The rarer the token, the louder its gradient shouts over the rest of training. Optimization becomes unstable and biased toward memorizing rare patterns.</div>
+      <div class="step-code">token "∑_&#123;k=1&#125;" at p=0.02 → gradient ×50 vs. "the" at p=0.92 → gradient ×1.09</div>
+    </div>
+  </div>
+  <div class="step-box" id="tstep-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Why RL doesn't suffer this</div>
+      <div class="step-desc">RL samples from the current policy, computes rewards, and applies gradients uniformly weighted by those rewards — no 1/p distortion. The reward is dense (applies to all sampled responses) and does not invert model confidence.</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="theory-prev" disabled>← Prev</button>
+  <button id="theory-next">Next →</button>
+  <span class="step-prog" id="theory-prog">Step 1 of 3</span>
+</div>
+
+<p>This analysis isn't just theoretical framing — it directly points to the fix. The distortion comes from the 1/π weight. Cancel it.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §03 DFT -->
+<section id="s-dft" data-code="dft">
+<div class="section-no">03 — DFT: One Line</div>
+<h2>Reward Rectification: Multiply by p</h2>
+<p>The fix is elegant: multiply the loss by π<sub>θ</sub>(y*|x) at each token position, with a stop-gradient so the weight doesn't backpropagate through itself. This cancels the 1/p distortion, making the effective reward uniformly 1 for all tokens.</p>
+
+<div class="loss-diff">
+  <div class="loss-box sft">
+    <div class="loss-box-head">Standard SFT</div>
+    <div class="loss-box-body">
+      L = -Σ<sub>t</sub> <span class="loss-eq-del">1 ·</span> log π(y*<sub>t</sub> | y*<sub>&lt;t</sub>, x)
+      <br>
+      <span style="font-size:.75rem;color:var(--muted)">implicit weight: 1/π → ∞ as p → 0</span>
+    </div>
+  </div>
+  <div class="loss-box dft">
+    <div class="loss-box-head">Dynamic Fine-Tuning (DFT)</div>
+    <div class="loss-box-body">
+      L = -Σ<sub>t</sub> <span class="loss-eq-add">sg(π(y*<sub>t</sub>)) ·</span> log π(y*<sub>t</sub> | y*<sub>&lt;t</sub>, x)
+      <br>
+      <span style="font-size:.75rem;color:var(--muted)">effective weight: p · (1/p) = 1 always</span>
+    </div>
+  </div>
+</div>
+
+<p>In PyTorch, this is literally one line of difference:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dft/train.py — the actual code change</span>
+  </div>
+  <div class="vp-body">
+    <pre style="font-family:var(--ff-mono);font-size:.8rem;color:#abb2bf;line-height:1.7;background:transparent;padding:0;margin:0;white-space:pre">
+<span style="color:#5c6370;font-style:italic"># Standard SFT loss</span>
+loss = <span style="color:#61afef">-log_probs</span>.<span style="color:#61afef">mean</span>()
+
+<span style="color:#5c6370;font-style:italic"># DFT: one line change  ↓</span>
+loss = <span style="color:#98c379">-(log_probs.exp().detach() * log_probs)</span>.<span style="color:#61afef">mean</span>()
+<span style="color:#5c6370;font-style:italic">#       └── sg(p) ──────┘   └── log p ──┘</span>
+<span style="color:#5c6370;font-style:italic">#       This is: -p * log p  (entropy-shaped, but p is stopped)</span></pre>
+  </div>
+</div>
+
+<p>The result is -p·log(p) per token with a stop-gradient on p. Because sg prevents gradients from flowing through the weight, the optimization signal is the same as standard cross-entropy — just rebalanced. The rectified reward is now uniformly 1 for all correct tokens, mirroring RLVR (DeepSeek-R1's "give 1 to all correct samples") without any sampling or reward model.</p>
+
+<h3>What about sentence-level weighting?</h3>
+<p>A natural question: why not scale the whole sentence by its probability? The paper tries this and finds it fails: full sequence probabilities are so tiny they make the loss nearly zero. A geometric-mean variant (inspired by GSPO) is more stable but still weak. Token-level weighting is what works — raising average accuracy on Qwen2.5-Math-1.5B from 15.92 → 31.58 vs. the sentence-level variants which barely move the needle.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §04 CONVERGENCE -->
+<section id="s-curves" data-code="curves">
+<div class="section-no">04 — Convergence</div>
+<h2>DFT Converges Faster and Flies Higher</h2>
+<p>Looking at training dynamics on Qwen2.5-Math-1.5B, DFT shows three distinct advantages over SFT: faster convergence (peaks within the first 120 steps), better early performance (beats SFT's final best by step 10–20), and higher sample efficiency overall.</p>
+<p>The effect is most dramatic on hard benchmarks. On OlympiadBench, SFT actually <em>degrades</em> performance — dropping from 15.88% to 12.63% — while DFT climbs to 27.08%. The model under SFT is memorizing training patterns; when it encounters harder olympiad problems it fails. DFT, with its balanced gradient signal, learns the underlying reasoning strategy.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Qwen2.5-Math-1.5B — accuracy vs. training steps</span>
+    <span class="vp-hint">hover to read values</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.75rem;margin-bottom:.75rem">
+      <button class="cs-tab active" id="curve-olympiad" style="padding:.3rem .7rem;font-size:.7rem">OlympiadBench</button>
+      <button class="cs-tab" id="curve-avg" style="padding:.3rem .7rem;font-size:.7rem">Average</button>
+      <button class="cs-tab" id="curve-amc" style="padding:.3rem .7rem;font-size:.7rem">AMC 2023</button>
+    </div>
+    <canvas id="curves-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>Notice the green DFT line crosses SFT's best performance (dashed) in the very first handful of steps. SFT sometimes never recovers from the early gradient distortion, oscillating or declining on harder benchmarks throughout training.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §05 TOKEN POLARITY -->
+<section id="s-polarity" data-code="polarity">
+<div class="section-no">05 — Token Polarity</div>
+<h2>SFT Shifts Right; DFT Polarizes</h2>
+<p>Training with DFT doesn't just improve numbers — it changes what the model <em>does</em> with probability mass. Examining the distribution of token probabilities across the training set after training reveals a striking contrast:</p>
+<ul>
+  <li><strong>SFT</strong>: uniformly shifts probabilities toward higher confidence — the whole distribution slides right</li>
+  <li><strong>DFT</strong>: creates a bimodal distribution — it increases some probabilities and <em>actively decreases others</em></li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">token probability distribution — before and after training</span>
+    <span class="vp-hint">click method to compare</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.75rem;margin-bottom:.875rem">
+      <button class="cs-tab active" id="dist-base">Base model</button>
+      <button class="cs-tab" id="dist-sft">After SFT</button>
+      <button class="cs-tab" id="dist-dft">After DFT</button>
+    </div>
+    <canvas id="dist-canvas" style="width:100%;height:200px;display:block"></canvas>
+    <div id="dist-caption" style="margin-top:.75rem;font-size:.75rem;color:var(--muted);font-family:var(--ff-mono)">
+      Base model: roughly uniform distribution of token confidences
+    </div>
+  </div>
+</div>
+
+<p>The tokens being suppressed by DFT are revealing: inspecting the lowest-probability bin shows words like "the", "let", "," and "." — conjunctions and punctuation. DFT is learning to deprioritize grammatical scaffolding tokens and focus weight on semantically meaningful ones. This is exactly the "don't try to fit everything with equal confidence" principle that RL methods naturally discover through reward signals.</p>
+<p>Other RL methods (DPO, GRPO, PPO) show the same polarization trend as DFT, though at smaller scale. Standard SFT is the outlier — it's the only method that treats every token as equally important.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §06 RESULTS -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Beating RL Methods Without RL</h2>
+<p>The punchline: DFT in the SFT setting (no reward model, no sampling, no reference model) averages <strong>31.58</strong> on math benchmarks for Qwen2.5-Math-1.5B. That's higher than GRPO (32.00 — though with offline DFT pushing to 35.43 it beats everything). Across all five model families tested, DFT's improvement is 1.4×–5.9× larger than standard SFT's gain.</p>
+
+<div class="results-bars" id="results-bars">
+  <div class="bar-group-header" style="padding-left:225px">Average accuracy on 5 math benchmarks · Qwen2.5-Math-1.5B</div>
+
+  <div class="bar-row">
+    <div class="bar-label">Base model</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(100,116,139,.5)" data-w="40.5"><span>15.92</span></div></div>
+  </div>
+
+  <div class="bar-group-header" style="padding-left:225px;color:var(--amber)">Standard SFT</div>
+  <div class="bar-row">
+    <div class="bar-label">SFT</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(245,158,11,.5)" data-w="45.8"><span>18.01</span></div></div>
+  </div>
+
+  <div class="bar-group-header" style="padding-left:225px;color:var(--cyan)">Offline RL baselines</div>
+  <div class="bar-row">
+    <div class="bar-label">DPO (offline)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.4)" data-w="59.1"><span>23.20</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">RFT (offline)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="61.0"><span>23.97</span></div></div>
+  </div>
+
+  <div class="bar-group-header" style="padding-left:225px;color:var(--cyan)">Online RL baselines</div>
+  <div class="bar-row">
+    <div class="bar-label">PPO (online)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(56,189,248,.45)" data-w="73.0"><span>28.66</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GRPO (online)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(56,189,248,.6)" data-w="81.5"><span>32.00</span></div></div>
+  </div>
+
+  <div class="bar-group-header" style="padding-left:225px;color:var(--purple-l)">DFT (this work)</div>
+  <div class="bar-row">
+    <div class="bar-label">DFT (SFT setting, no rewards)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(139,92,246,.7)" data-w="80.5"><span>31.58</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">DFT (offline RL setting)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(139,92,246,.9)" data-w="90.2"><span>35.43</span></div></div>
+  </div>
+</div>
+
+<p>DFT in the pure SFT setting (no rewards) essentially matches GRPO while requiring no reference model, no batch sampling, and no reward verification. The offline RL variant (using rejected-sampling labels) beats everything by +3.43 over GRPO. The gains generalize: code generation (Qwen2.5-Coder-7B reaches 67.7 on HumanEval vs. SFT's 54.9), multimodal reasoning (MathVerse +3.71 vs. SFT's +1.83), and across model families from LLaMA-3.2-3B to Qwen2.5-Math-7B.</p>
+
+<h3>Where DFT doesn't help</h3>
+<p>One honest limitation: on factual knowledge tasks (Natural Questions), DFT actually <em>hurts</em> — SFT improves from 31.24% to 36.62% while DFT drops to 30.14%. The mechanism is revealing: DFT reinforces the model's existing beliefs. When the model lacks the knowledge being trained (new facts vs. new reasoning), its low-confidence predictions don't need to be suppressed — they need to be learned. DFT is most powerful when the task aligns with the model's prior competence, like logical reasoning and structured computation.</p>
+
+<table class="results-table">
+  <thead><tr>
+    <th>Model</th><th>Setting</th><th>Avg Gain (Δ)</th><th>Gain vs SFT</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>Qwen2.5-Math-1.5B</td><td class="mn">DFT</td><td class="mn best">+15.66</td><td class="mn">5.9× SFT</td></tr>
+    <tr><td>Qwen2.5-Math-7B</td><td class="mn">DFT</td><td class="mn best">+15.90</td><td class="mn">3.8× SFT</td></tr>
+    <tr><td>DeepSeekMath-7B</td><td class="mn">DFT</td><td class="mn">+15.51</td><td class="mn">1.6× SFT</td></tr>
+    <tr><td>LLaMA-3.1-8B</td><td class="mn">DFT</td><td class="mn">+10.02</td><td class="mn">1.9× SFT</td></tr>
+    <tr><td>LLaMA-3.2-3B</td><td class="mn">DFT</td><td class="mn">+3.46</td><td class="mn">1.4× SFT</td></tr>
+    <tr class="highlight-row"><td>OlympiadBench (1.5B)</td><td class="mn">SFT vs DFT</td><td class="mn bad">SFT: −3.25</td><td class="mn best">DFT: +11.20</td></tr>
+  </tbody>
+</table>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dft/loss.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="theory">theory</button>
+    <button class="cs-tab" data-panel="dft">dft</button>
+    <button class="cs-tab" data-panel="curves">curves</button>
+    <button class="cs-tab" data-panel="polarity">polarity</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># SFT cross-entropy loss</span>
+<span class="cs-line cmt"># —————————————————————</span>
+<span class="cs-line cmt"># The gradient for token t is:</span>
+<span class="cs-line cmt">#   -∇ log π(y*_t | context)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># When viewed via importance sampling:</span>
+<span class="cs-line cmt">#   gradient ∝ (1/π) · ∇ log π · 𝟙[y=y*]</span>
+<span class="cs-line cmt">#               ↑</span>
+<span class="cs-line cmt">#           implicit weight = 1/p</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Examples of gradient amplification:</span>
+<span class="cs-line ">token = <span class="str">"the"</span>      <span class="cmt"># p=0.92  → ×1.09</span></span>
+<span class="cs-line ">token = <span class="str">"because"</span>  <span class="cmt"># p=0.35  → ×2.86</span></span>
+<span class="cs-line hl-a">token = <span class="str">"hypotenuse"</span> <span class="cmt"># p=0.08 → ×12.5</span></span>
+<span class="cs-line hl-a">token = <span class="str">"∑_&#123;k=1&#125;"</span>  <span class="cmt"># p=0.02  → ×50</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Rare tokens dominate training.</span>
+<span class="cs-line cmt"># Model memorizes them instead of</span>
+<span class="cs-line cmt"># learning the reasoning strategy.</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># "SFT memorizes; RL generalizes"</span>
+<span class="cs-line cmt"># — Chu et al. (2024)</span>
+      </pre>
+    </div>
+    <!-- panel: theory -->
+    <div class="cs-panel" id="panel-theory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Rewriting SFT gradient as policy gradient</span>
+<span class="cs-line cmt"># via importance sampling:</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># ∇ L_SFT = -𝔼_&#123;(x,y*)&#125; [∇ log π(y*|x)]</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Insert importance weight w(y|x)=1/π(y|x):</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line hl-p">  <span class="cmt"># = -𝔼_x 𝔼_&#123;y~π&#125; [w(y|x) · ∇ log π · r]</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># where:</span>
+<span class="cs-line cmt">#   w(y|x) = 1 / π_θ(y|x)   ← distortion</span>
+<span class="cs-line cmt">#   r(x,y) = 𝟙[y = y*]       ← sparse reward</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># This is EXACTLY the REINFORCE gradient</span>
+<span class="cs-line cmt"># with reward = w·r = 1/(π·𝟙)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Problem 1: r is sparse (only exact match)</span>
+<span class="cs-line cmt"># Problem 2: w = 1/p → ∞ for rare tokens</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># RL uses dense rewards + does NOT apply</span>
+<span class="cs-line cmt"># the 1/p weighting → no gradient explosion</span>
+      </pre>
+    </div>
+    <!-- panel: dft -->
+    <div class="cs-panel" id="panel-dft">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DFT: cancel the 1/p distortion</span>
+<span class="cs-line cmt"># Multiply by π to get w · π = 1</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Token-level DFT loss:</span>
+<span class="cs-line cmt">#   L = -Σ_t sg(π(y*_t)) · log π(y*_t)</span>
+<span class="cs-line cmt">#   (sg = stop gradient)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># In PyTorch:</span>
+<span class="cs-line "></span>
+<span class="cs-line cmt"># Standard SFT</span>
+<span class="cs-line ">loss = <span class="op">-</span>log_probs.<span class="fn">mean</span>()</span>
+<span class="cs-line "></span>
+<span class="cs-line cmt"># DFT (one line change)</span>
+<span class="cs-line hl-g">loss = <span class="op">-</span>(log_probs.<span class="fn">exp</span>().<span class="fn">detach</span>()</span>
+<span class="cs-line hl-g">        <span class="op">*</span> log_probs).<span class="fn">mean</span>()</span>
+<span class="cs-line "></span>
+<span class="cs-line cmt"># Note: log_probs.exp() = p</span>
+<span class="cs-line cmt"># .detach() = stop gradient</span>
+<span class="cs-line cmt"># Result: -p * log(p) per token</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Effective reward is now 1 for all tokens.</span>
+<span class="cs-line cmt"># No reference model. No sampling.</span>
+<span class="cs-line cmt"># No reward function. Just -p log p.</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Contrast with Focal Loss:</span>
+<span class="cs-line cmt">#   Focal: -(1-p)^γ log p  (upweight hard)</span>
+<span class="cs-line cmt">#   DFT:   -p log p        (upweight easy)</span>
+<span class="cs-line cmt"># In the LLM era, overfitting is the</span>
+<span class="cs-line cmt"># problem — not underfitting.</span>
+      </pre>
+    </div>
+    <!-- panel: curves -->
+    <div class="cs-panel" id="panel-curves">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Training setup (Qwen2.5-Math-1.5B)</span>
+<span class="cs-line cmt"># ————————————————————————————————</span>
+<span class="cs-line cmt"># Dataset: NuminaMath-CoT (100k samples)</span>
+<span class="cs-line cmt"># Optimizer: AdamW, lr=5e-5</span>
+<span class="cs-line cmt"># Batch: 256, cosine decay, warmup=0.1</span>
+<span class="cs-line cmt"># Max length: 2048 tokens</span>
+<span class="cs-line cmt"># Eval: Average@16 (temp=1.0)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Key dynamics from Figure 1:</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># DFT peaks within first 120 steps</span>
+<span class="cs-line cmt"># DFT beats SFT's best by step 10–20</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># OlympiadBench results:</span>
+<span class="cs-line cmt">#   Base:  15.88</span>
+<span class="cs-line hl-a">  SFT_peak = <span class="num">12.63</span>  <span class="cmt"># DROPS (memorizes)</span></span>
+<span class="cs-line hl-g">  DFT_peak = <span class="num">27.08</span>  <span class="cmt"># +11.2 over base</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># AMC 2023:</span>
+<span class="cs-line cmt">#   Base:  19.38</span>
+<span class="cs-line hl-a">  SFT_peak = <span class="num">18.75</span>  <span class="cmt"># DROPS</span></span>
+<span class="cs-line hl-g">  DFT_peak = <span class="num">38.13</span>  <span class="cmt"># +18.75 over base</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Average across 5 benchmarks:</span>
+<span class="cs-line hl-a">  SFT_avg = <span class="num">18.01</span>   <span class="cmt"># +2.09</span></span>
+<span class="cs-line hl-g">  DFT_avg = <span class="num">31.58</span>   <span class="cmt"># +15.66  (5.9× more)</span></span>
+      </pre>
+    </div>
+    <!-- panel: polarity -->
+    <div class="cs-panel" id="panel-polarity">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Token probability distribution analysis</span>
+<span class="cs-line cmt"># (from Figure 2 of the paper)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># SFT behavior:</span>
+<span class="cs-line cmt">#   Uniformly pushes probabilities up</span>
+<span class="cs-line cmt">#   Mainly targets low-prob tokens</span>
+<span class="cs-line cmt">#   Distribution shifts RIGHT</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># DFT behavior:</span>
+<span class="cs-line cmt">#   POLARIZES the distribution</span>
+<span class="cs-line cmt">#   Boosts some tokens significantly</span>
+<span class="cs-line cmt">#   Suppresses others (incl. function words)</span>
+<span class="cs-line cmt">#   Creates BIMODAL distribution</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Tokens suppressed by DFT:</span>
+<span class="cs-line hl-c">suppressed = [<span class="str">"the"</span>, <span class="str">"let"</span>, <span class="str">","</span>, <span class="str">"."</span>]</span>
+<span class="cs-line hl-c">  <span class="cmt"># conjunctions, punctuation</span></span>
+<span class="cs-line hl-c">  <span class="cmt"># grammatical scaffolding only</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># DPO, GRPO, PPO also polarize</span>
+<span class="cs-line cmt"># (same direction as DFT, weaker scale)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Insight: robust models should NOT</span>
+<span class="cs-line cmt"># try to fit all tokens equally.</span>
+<span class="cs-line cmt"># Deprioritize grammatical tokens;</span>
+<span class="cs-line cmt"># focus on semantically meaningful ones.</span>
+      </pre>
+    </div>
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Qwen2.5-Math-1.5B · Avg@16 · 5 benchmarks</span>
+<span class="cs-line cmt"># ——————————————————————————————————————————</span>
+<span class="cs-line cmt"># Method           Avg    ΔBase</span>
+<span class="cs-line ">Base             <span class="num">15.92</span>   <span class="cmt">—</span></span>
+<span class="cs-line ">SFT              <span class="num">18.01</span>  <span class="cmt">+2.09</span></span>
+<span class="cs-line ">DPO (offline)    <span class="num">23.20</span>  <span class="cmt">+7.28</span></span>
+<span class="cs-line ">RFT (offline)    <span class="num">23.97</span>  <span class="cmt">+8.05</span></span>
+<span class="cs-line ">PPO (online)     <span class="num">28.66</span>  <span class="cmt">+12.74</span></span>
+<span class="cs-line ">GRPO (online)    <span class="num">32.00</span>  <span class="cmt">+16.08</span></span>
+<span class="cs-line hl-g">DFT (SFT mode)   <span class="num">31.58</span>  <span class="cmt">+15.66  ← no rewards!</span></span>
+<span class="cs-line hl-g">DFT (offline RL) <span class="num">35.43</span>  <span class="cmt">+19.51  ← best overall</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Gains across all 5 model families:</span>
+<span class="cs-line cmt">#   1.5B Qwen: 5.9× SFT gain</span>
+<span class="cs-line cmt">#   7B Qwen:   3.8× SFT gain</span>
+<span class="cs-line cmt">#   7B DeepSeek: 1.6× SFT gain</span>
+<span class="cs-line cmt">#   8B LLaMA:  1.9× SFT gain</span>
+<span class="cs-line cmt">#   3B LLaMA:  1.4× SFT gain</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Code (HumanEval) Qwen2.5-Coder-7B:</span>
+<span class="cs-line hl-a">  SFT = <span class="num">54.9</span>   <span class="cmt"># worse than base (62.2)!</span></span>
+<span class="cs-line hl-g">  DFT = <span class="num">67.7</span>   <span class="cmt"># +5.5 over base</span></span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Limitation — factual QA (NaturalQ):</span>
+<span class="cs-line hl-a">  SFT = <span class="num">36.62</span>  <span class="cmt"># good (+5.38)</span></span>
+<span class="cs-line hl-a">  DFT = <span class="num">30.14</span>  <span class="cmt"># HURTS (-1.1)</span></span>
+<span class="cs-line cmt"># DFT is best for reasoning tasks,</span>
+<span class="cs-line cmt"># not for absorbing new factual knowledge.</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─────────────────────────────────────────────
+// TOC + sidebar toggles
+// ─────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─────────────────────────────────────────────
+// Code sidebar tab switching
+// ─────────────────────────────────────────────
+const tabMeta = {
+  problem:  { file: 'dft/loss.py',      title: 'The Problem' },
+  theory:   { file: 'dft/theory.py',    title: 'SFT as RL' },
+  dft:      { file: 'dft/loss_dft.py',  title: 'DFT Implementation' },
+  curves:   { file: 'dft/train.py',     title: 'Convergence' },
+  polarity: { file: 'dft/analysis.py',  title: 'Token Polarity' },
+  results:  { file: 'dft/results.py',   title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─────────────────────────────────────────────
+// IntersectionObserver — TOC + sidebar sync
+// ─────────────────────────────────────────────
+const sectionMap = {
+  's-problem': 'problem',
+  's-theory':  'theory',
+  's-dft':     'dft',
+  's-curves':  'curves',
+  's-polarity':'polarity',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─────────────────────────────────────────────
+// §01 — Gradient weight canvas
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('weight-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 240, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const PAD = { l: 52, r: 20, t: 22, b: 40 };
+  const PW = W - PAD.l - PAD.r;
+  const PH = H - PAD.t - PAD.b;
+  const MAX_W = 14; // max y-axis weight shown
+
+  function pToX(p) { return PAD.l + p * PW; }
+  function wToY(w) { return PAD.t + PH - Math.min(w, MAX_W) / MAX_W * PH; }
+
+  let highlightP = null;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = PAD.t + PH * (g / 4);
+      ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + PW, y); ctx.stroke();
+    }
+    for (let g = 0; g <= 5; g++) {
+      const x = PAD.l + PW * (g / 5);
+      ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + PH); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + PH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + PH); ctx.lineTo(PAD.l + PW, PAD.t + PH); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(148,163,184,.6)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    [0, 0.2, 0.4, 0.6, 0.8, 1.0].forEach(p => {
+      ctx.fillText(p.toFixed(1), PAD.l - 5, PAD.t + PH + 13);
+      ctx.textAlign = 'right';
+    });
+    ctx.textAlign = 'right';
+    [0, 4, 8, 12].forEach(w => {
+      const y = wToY(w);
+      ctx.fillText(w === 0 ? '0' : w + '×', PAD.l - 6, y + 4);
+    });
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(148,163,184,.5)';
+    ctx.textAlign = 'center';
+    ctx.fillText('token probability p', PAD.l + PW / 2, H - 3);
+    ctx.save();
+    ctx.translate(12, PAD.t + PH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('gradient weight', 0, 0);
+    ctx.restore();
+
+    // DFT line (flat at 1) — green
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(PAD.l, wToY(1));
+    ctx.lineTo(PAD.l + PW, wToY(1));
+    ctx.stroke();
+    ctx.fillStyle = '#10b981';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('DFT (weight = 1)', PAD.l + PW * 0.55, wToY(1) - 6);
+
+    // SFT curve (1/p) — amber/red
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 1; i <= 300; i++) {
+      const p = i / 300;
+      const w = 1 / p;
+      const x = pToX(p);
+      const y = wToY(w);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#f59e0b';
+    ctx.textAlign = 'left';
+    ctx.fillText('SFT (weight = 1/p)', PAD.l + 6, wToY(7.5) - 6);
+
+    // Token dots
+    const TOKENS = [
+      { label: '"the"',       p: 0.92, color: '#10b981' },
+      { label: '"because"',   p: 0.35, color: '#f59e0b' },
+      { label: '"hypotenuse"',p: 0.08, color: '#f87171' },
+      { label: '"∑_{k=1}"',  p: 0.02, color: '#ef4444' },
+    ];
+    TOKENS.forEach(tok => {
+      const x = pToX(tok.p);
+      const ySFT = wToY(1 / tok.p);
+      const yDFT = wToY(1);
+      const isHL = highlightP !== null && Math.abs(tok.p - highlightP) < 0.01;
+
+      // Vertical dashed line at p
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = isHL ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, PAD.t + PH); ctx.lineTo(x, Math.min(ySFT, PAD.t + PH)); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // SFT dot
+      ctx.beginPath();
+      ctx.arc(x, Math.max(ySFT, PAD.t + 4), isHL ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = tok.color;
+      ctx.fill();
+
+      // DFT dot (always at y=1)
+      ctx.beginPath();
+      ctx.arc(x, yDFT, isHL ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#10b981';
+      ctx.fill();
+
+      // Label
+      if (isHL) {
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = tok.p > 0.5 ? 'right' : 'left';
+        const lx = tok.p > 0.5 ? x - 8 : x + 8;
+        const ly = Math.max(ySFT, PAD.t + 4);
+        ctx.fillText(tok.label + ' (' + Math.round(1/tok.p * 10)/10 + '×)', lx, ly - 6);
+      }
+    });
+  }
+
+  draw();
+
+  // Token card interaction
+  document.querySelectorAll('.token-card').forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      const p = parseFloat(card.dataset.p);
+      highlightP = p;
+      draw();
+    });
+    card.addEventListener('mouseleave', () => {
+      highlightP = null;
+      draw();
+    });
+    card.addEventListener('click', () => {
+      const p = parseFloat(card.dataset.p);
+      highlightP = highlightP === p ? null : p;
+      draw();
+    });
+  });
+})();
+
+// ─────────────────────────────────────────────
+// §02 — Theory step navigator
+// ─────────────────────────────────────────────
+(function() {
+  let step = 0;
+  const boxes  = [
+    document.getElementById('tstep-0'),
+    document.getElementById('tstep-1'),
+    document.getElementById('tstep-2'),
+  ].filter(Boolean);
+  const prevBtn = document.getElementById('theory-prev');
+  const nextBtn = document.getElementById('theory-next');
+  const progEl  = document.getElementById('theory-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active','done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─────────────────────────────────────────────
+// §04 — Training curves canvas
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('curves-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Dataset by benchmark
+  const DATASETS = {
+    olympiad: {
+      label: 'OlympiadBench',
+      base: 15.88,
+      // Approximated from Figure 1 — DFT rises fast, SFT drops and recovers slowly
+      sft: [15.88,12.0,11.5,11.8,12.0,12.2,12.3,12.5,12.5,12.6,12.6,12.6,12.63,12.63],
+      dft: [15.88,20.0,24.0,26.5,27.0,27.1,27.1,27.0,27.05,27.08,27.08,27.08,27.08,27.08],
+    },
+    avg: {
+      label: 'Average (5 benchmarks)',
+      base: 15.92,
+      sft: [15.92,16.0,16.5,17.0,17.5,17.8,18.0,18.0,18.01,18.01,18.01,18.01,18.01,18.01],
+      dft: [15.92,22.0,27.0,30.0,31.0,31.4,31.5,31.6,31.58,31.58,31.58,31.58,31.58,31.58],
+    },
+    amc: {
+      label: 'AMC 2023',
+      base: 19.38,
+      sft: [19.38,18.0,17.5,18.0,18.5,18.6,18.7,18.75,18.75,18.75,18.75,18.75,18.75,18.75],
+      dft: [19.38,28.0,34.0,37.0,38.0,38.1,38.1,38.13,38.13,38.13,38.13,38.13,38.13,38.13],
+    },
+  };
+  const STEPS = [0, 20, 40, 60, 80, 100, 120, 140, 160, 200, 250, 300, 350, 400];
+
+  let currentKey = 'olympiad';
+
+  function drawCurves() {
+    const data = DATASETS[currentKey];
+    const W = canvas.clientWidth, H = 220, DPR = window.devicePixelRatio || 1;
+    canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+    const PAD = { l: 48, r: 20, t: 18, b: 38 };
+    const PW = W - PAD.l - PAD.r;
+    const PH = H - PAD.t - PAD.b;
+    const maxSteps = STEPS[STEPS.length - 1];
+    const allVals = [...data.sft, ...data.dft];
+    const minV = Math.floor(Math.min(...allVals) / 5) * 5;
+    const maxV = Math.ceil(Math.max(...allVals) / 5) * 5 + 5;
+
+    function sToX(s) { return PAD.l + (s / maxSteps) * PW; }
+    function vToY(v) { return PAD.t + PH - ((v - minV) / (maxV - minV)) * PH; }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = PAD.t + PH * (g / 4);
+      ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + PW, y); ctx.stroke();
+    }
+    [0, 100, 200, 300, 400].forEach(s => {
+      const x = sToX(s);
+      ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + PH); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + PH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + PH); ctx.lineTo(PAD.l + PW, PAD.t + PH); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(148,163,184,.55)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    [0, 100, 200, 300, 400].forEach(s => {
+      ctx.fillText(s === 0 ? '0' : s, sToX(s), PAD.t + PH + 14);
+    });
+    ctx.textAlign = 'right';
+    for (let v = minV; v <= maxV; v += (maxV - minV) >= 30 ? 10 : 5) {
+      ctx.fillText(v, PAD.l - 5, vToY(v) + 4);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillText('training steps', PAD.l + PW / 2, H - 4);
+
+    // SFT best dashed line
+    const sftBest = Math.max(...data.sft);
+    ctx.strokeStyle = 'rgba(245,158,11,.3)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.l, vToY(sftBest)); ctx.lineTo(PAD.l + PW, vToY(sftBest)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,.5)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('SFT best', PAD.l + PW - 2, vToY(sftBest) - 3);
+
+    // SFT line
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.sft.forEach((v, i) => {
+      const x = sToX(STEPS[i]), y = vToY(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // DFT line
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    data.dft.forEach((v, i) => {
+      const x = sToX(STEPS[i]), y = vToY(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Final value labels
+    const lastSFT = data.sft[data.sft.length - 1];
+    const lastDFT = data.dft[data.dft.length - 1];
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('SFT ' + lastSFT.toFixed(2), PAD.l + PW - 2, vToY(lastSFT) - 4);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fillText('DFT ' + lastDFT.toFixed(2), PAD.l + PW - 2, vToY(lastDFT) - 4);
+
+    // Title
+    ctx.fillStyle = 'rgba(203,213,225,.7)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(data.label, PAD.l + 6, PAD.t + 12);
+  }
+
+  drawCurves();
+
+  const btnIds = ['curve-olympiad', 'curve-avg', 'curve-amc'];
+  const btnKeys = ['olympiad', 'avg', 'amc'];
+  btnIds.forEach((id, i) => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      currentKey = btnKeys[i];
+      btnIds.forEach((bid, j) => {
+        document.getElementById(bid)?.classList.toggle('active', j === i);
+      });
+      drawCurves();
+    });
+  });
+})();
+
+// ─────────────────────────────────────────────
+// §05 — Token probability distribution canvas
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('dist-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Approximate histogram data (% of tokens in each 0.1-wide bin)
+  // Based on Figure 2 description and paper text
+  const DISTS = {
+    base: {
+      label: 'Base model — roughly uniform, slight right skew',
+      data: [8.5, 8.2, 8.8, 9.0, 9.5, 10.2, 11.0, 12.0, 11.8, 11.0],
+      color: 'rgba(148,163,184,.6)',
+    },
+    sft: {
+      label: 'After SFT — uniformly shifts right (more high-confidence tokens)',
+      data: [5.0, 5.5, 6.0, 7.0, 8.5, 10.0, 12.0, 15.0, 16.0, 15.0],
+      color: 'rgba(245,158,11,.6)',
+    },
+    dft: {
+      label: 'After DFT — bimodal: tokens polarize to very high OR very low confidence',
+      data: [14.0, 6.0, 5.0, 5.5, 6.5, 7.5, 8.5, 9.5, 12.0, 25.5],
+      color: 'rgba(139,92,246,.65)',
+    },
+  };
+  const BINS = ['0.0','0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.8','0.9'];
+
+  let currentDist = 'base';
+
+  function drawDist(targetDist, animating) {
+    const distData = DISTS[targetDist];
+    const W = canvas.clientWidth, H = 200, DPR = window.devicePixelRatio || 1;
+    canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+    const PAD = { l: 42, r: 10, t: 22, b: 44 };
+    const PW = W - PAD.l - PAD.r;
+    const PH = H - PAD.t - PAD.b;
+    const n = distData.data.length;
+    const maxV = 30;
+
+    function vToY(v) { return PAD.t + PH - (v / maxV) * PH; }
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    [0, 10, 20, 30].forEach(v => {
+      const y = vToY(v);
+      ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + PW, y); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + PH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + PH); ctx.lineTo(PAD.l + PW, PAD.t + PH); ctx.stroke();
+
+    // Y axis labels
+    ctx.fillStyle = 'rgba(148,163,184,.55)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    [0, 10, 20, 30].forEach(v => {
+      ctx.fillText(v + '%', PAD.l - 5, vToY(v) + 4);
+    });
+
+    // Bars
+    const barW = (PW / n) * 0.75;
+    const gap   = (PW / n) * 0.25;
+    distData.data.forEach((v, i) => {
+      const x = PAD.l + (PW / n) * i + gap / 2;
+      const barH = (v / maxV) * PH;
+      const y = PAD.t + PH - barH;
+      ctx.fillStyle = distData.color;
+      ctx.fillRect(x, y, barW, barH);
+      // Bin label
+      ctx.fillStyle = 'rgba(148,163,184,.5)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(BINS[i], x + barW / 2, PAD.t + PH + 12);
+      // value on bar
+      if (v >= 8) {
+        ctx.fillStyle = 'rgba(255,255,255,.7)';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText(v.toFixed(0), x + barW / 2, y - 3);
+      }
+    });
+
+    // X axis label
+    ctx.fillStyle = 'rgba(148,163,184,.5)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('token probability bin', PAD.l + PW / 2, H - 4);
+
+    // Title label
+    ctx.fillStyle = distData.color.replace('.6', '1').replace('.65', '1');
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(targetDist === 'base' ? 'Base model' : targetDist === 'sft' ? 'After SFT' : 'After DFT', PAD.l + 6, PAD.t + 12);
+  }
+
+  drawDist(currentDist, false);
+
+  const btns = ['dist-base','dist-sft','dist-dft'];
+  const keys = ['base','sft','dft'];
+  const captions = {
+    base: 'Base model: roughly uniform distribution of token confidences',
+    sft:  'After SFT: distribution shifts right — model becomes more uniformly confident about everything',
+    dft:  'After DFT: bimodal polarization — tokens cluster at very high OR very low confidence, not in the middle',
+  };
+  btns.forEach((id, i) => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      currentDist = keys[i];
+      btns.forEach((bid, j) => document.getElementById(bid)?.classList.toggle('active', j === i));
+      drawDist(currentDist, false);
+      const cap = document.getElementById('dist-caption');
+      if (cap) cap.textContent = captions[currentDist];
+    });
+  });
+})();
+
+// ─────────────────────────────────────────────
+// §06 — Animated bar chart
+// ─────────────────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

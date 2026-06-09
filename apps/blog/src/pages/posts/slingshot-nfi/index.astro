@@ -1,0 +1,1508 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Grokking or Glitching? How Floating-Point Precision Drives Training Loss Spikes | AI/ML Deep Dives"
+  description="Slingshot loss spikes during long neural network training are not an optimizer quirk — they are a floating-point artifact. This post explains the Numerical Feature Inflation feedback loop and why casting only the loss computation to float64 makes the spikes vanish entirely."
+  crumb="Slingshot NFI"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Callout box */
+.callout{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.65}
+.callout.cyan{border-left-color:var(--cyan)}
+.callout.amber{border-left-color:var(--amber)}
+.callout.green{border-left-color:var(--green)}
+.callout strong{color:var(--text2)}
+
+/* Precision badge */
+.precision-badge{display:inline-block;font-family:var(--ff-mono);font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:4px;margin:0 .2rem}
+.precision-badge.f32{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.precision-badge.f64{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+
+/* Viz controls */
+.vp-controls{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.vp-btn{padding:.3rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.vp-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.vp-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Training Stability</span>
+    <span class="tag tag-cyan">Floating-Point</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Grokking or Glitching? How Floating-Point Precision Drives Slingshot Loss Spikes</h1>
+  <p class="lead">Periodic loss spikes during long neural-network training — the "Slingshot Mechanism" — have puzzled researchers for years, blamed on optimizer dynamics or grokking. This paper proves they are floating-point artifacts: casting only the loss computation to float64 makes every spike vanish. The culprit is <em>Numerical Feature Inflation</em>, a precision-induced feedback loop that exponentially inflates the global means of classifier weights and features until the loss explodes.</p>
+  <div class="post-hero-meta">
+    <span>June 8, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2605.06152</code></span>
+    <span>ICML 2026 Workshop — Spotlight</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.06152" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-sc"><a href="#s-sc"><span class="toc-num">02</span> Softmax Collapse</a></li>
+    <li class="toc-item" id="toc-s-zerosum"><a href="#s-zerosum"><span class="toc-num">03</span> Zero-Sum Breaks</a></li>
+    <li class="toc-item" id="toc-s-nfi"><a href="#s-nfi"><span class="toc-num">04</span> NFI Feedback Loop</a></li>
+    <li class="toc-item" id="toc-s-spike"><a href="#s-spike"><span class="toc-num">05</span> The Spike Trigger</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Mitigation &amp; Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ============================== §01 ============================== -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>Loss Spikes That Disappear with a Single Precision Cast</h2>
+<p>Train a small transformer or MLP with cross-entropy loss and no weight decay — long enough to watch the training loss reach zero. You'll see something unexpected: the loss abruptly spikes back toward random-guessing level, then recovers, then spikes again. Periodically. This is the <strong>Slingshot Mechanism</strong>, first documented in grokking experiments and widely assumed to be a property of adaptive optimizers like Adam interacting with the loss landscape.</p>
+
+<p>The paper's key result is stark: <span class="precision-badge f32">float32</span> shows periodic spikes. Switch to <span class="precision-badge f64">float64</span> — or just cast the logits to float64 <em>only inside the loss computation</em> while keeping all model parameters in float32 — and the spikes disappear entirely. The model parameters themselves never change precision.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">training-loss-curves.canvas</span>
+    <span class="vp-hint">toggle precision to compare</span>
+  </div>
+  <div class="vp-body">
+    <div class="vp-controls">
+      <button class="vp-btn active" id="curve-btn-f32">float32 (spikes)</button>
+      <button class="vp-btn" id="curve-btn-f64">float64 (stable)</button>
+      <button class="vp-btn" id="curve-btn-both">Compare both</button>
+    </div>
+    <canvas id="loss-canvas" style="width:100%;height:240px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono)">Modular division task (prime p=97), 2-layer Transformer, Adam, zero weight decay. Loss on log scale.</div>
+  </div>
+</div>
+
+<p>The spikes are not a quirk of a specific optimizer or architecture. They appear across MLPs, VGG11, and ViT on CIFAR-10, and across Transformer models on modular arithmetic. They vanish identically when the only change is floating-point precision in the log-softmax computation. This paper proves why.</p>
+
+<div class="callout">
+  <strong>Key finding:</strong> Casting only the output logits to float64 during loss computation — while all model weights remain in float32 — is sufficient to eliminate all Slingshot loss spikes. The cause is in the loss computation, not in the optimizer or the weight space.
+</div>
+</section>
+
+<!-- ============================== §02 ============================== -->
+<section id="s-sc" data-code="sc">
+<div class="section-no">02 — Softmax Collapse</div>
+<h2>When the Correct-Class Gradient Rounds to Exactly Zero</h2>
+<p>The cross-entropy loss uses the Log-Sum-Exp trick for numerical stability. PyTorch computes the denominator as:</p>
+
+<div class="math-block">
+  <div class="math-label">Log-Sum-Exp denominator</div>
+  <span class="math-var">Z</span> = log(Σ exp(<span class="math-var">z</span><sub>k</sub>)) = <span class="math-var">z</span><sub>m</sub> + log(Σ exp(<span class="math-var">z</span><sub>k</sub> − <span class="math-var">z</span><sub>m</sub>))<br>
+  <span class="math-comment">where z_m = max_k z_k (the maximum logit, usually the correct class late in training)</span>
+</div>
+
+<p>In IEEE 754 float32, mantissa precision is 24 bits. When you add two numbers a and b where |b|/|a| &lt; 2⁻²³ ≈ 1.19×10⁻⁷, the smaller value simply disappears — it gets absorbed. This is called an <strong>absorption error</strong>. Applied to the log-sum-exp: when the correct-class logit z<sub>m</sub> exceeds all other logits by more than <strong>23 × ln(2) ≈ 15.94</strong>, every exp(z<sub>k</sub> − z<sub>m</sub>) for k ≠ m underflows to zero, so Z = z<sub>m</sub>.</p>
+
+<p>Now look at the gradient of the correct-class logit z<sub>r</sub>:</p>
+<div class="math-block">
+  <div class="math-label">Gradient under Softmax Collapse</div>
+  <span class="math-var">g</span><sub>r</sub> = ŷ<sub>r</sub> − y<sub>r</sub> = e<sup>z<sub>r</sub>−Z</sup> − 1 = e<sup>z<sub>r</sub>−z<sub>r</sub></sup> − 1 = e⁰ − 1 = <strong>0</strong><br>
+  <span class="math-comment">But for incorrect classes k≠r: g_k = exp(z_k − z_r) ≠ 0 (small, but not zero)</span>
+</div>
+
+<p>This is <strong>Softmax Collapse (SC)</strong> — the training loss computes to zero, the correct class gradient is identically zero, but the incorrect classes still have nonzero gradients. Prior work (Prieto et al. 2025) identified SC and hypothesized it merely halts generalization. This paper shows SC has a second, more dangerous effect.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">softmax-collapse.canvas</span>
+    <span class="vp-hint">adjust confidence to see gradient vanish</span>
+  </div>
+  <div class="vp-body">
+    <div class="vp-controls">
+      <button class="vp-btn active" id="sc-btn-low">Low confidence (gap=5)</button>
+      <button class="vp-btn" id="sc-btn-high">High confidence (gap=17)</button>
+      <button class="vp-btn" id="sc-btn-ultra">Ultra (gap=25)</button>
+    </div>
+    <canvas id="sc-canvas" style="width:100%;height:260px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono)">float32 threshold: gap &gt; 23 × ln(2) ≈ 15.94 → correct-class gradient rounds to exactly 0</div>
+  </div>
+</div>
+
+<p>For float64, the threshold is 52 × ln(2) ≈ 36.04 — achievable only with absurdly large logits that standard training never reaches. This is why switching to float64 is a complete cure.</p>
+</section>
+
+<!-- ============================== §03 ============================== -->
+<section id="s-zerosum" data-code="zerosum">
+<div class="section-no">03 — Zero-Sum Breaks</div>
+<h2>The Constraint That Softmax Collapse Violates</h2>
+<p>In exact arithmetic, the gradients across all K classes satisfy a strict zero-sum constraint. For any input x with feature h:</p>
+
+<div class="math-block">
+  <div class="math-label">Zero-sum constraint (exact arithmetic)</div>
+  Σ<sub>k=1..K</sub> ∇<sub>W_k</sub> L = Σ<sub>k</sub> (ŷ<sub>k</sub> − y<sub>k</sub>) · <span class="math-var">h</span> = (Σ<sub>k</sub> ŷ<sub>k</sub> − Σ<sub>k</sub> y<sub>k</sub>) · <span class="math-var">h</span> = <strong>0</strong><br>
+  <span class="math-comment">Because Σ softmax probs = 1 = Σ one-hot labels</span>
+</div>
+
+<p>This means the <strong>global classifier mean</strong> W<sub>G</sub> = (1/K) Σ<sub>k</sub> W<sub>k</sub> never changes under gradient descent — it's an exact invariant of training under CE loss in exact arithmetic.</p>
+
+<p>Softmax Collapse kills this invariant. Under SC, the correct-class gradient is zero, so the sum becomes only the incorrect-class contributions: Σ<sub>k≠r</sub> ŷ<sub>k</sub> · h = ε · h, where ε = Σ<sub>k≠r</sub> ŷ<sub>k</sub> is the residual probability on incorrect classes (small but nonzero). The gradient update now imparts a drift on W<sub>G</sub>:</p>
+
+<div class="math-block">
+  <div class="math-label">Theorem 3.4 — Drift of global classifier mean</div>
+  E[ΔW<sub>G</sub>] = − (η · ε / K) · <span class="math-var">μ</span><sub>G</sub><br>
+  <span class="math-comment">η = learning rate, ε = residual probability, μ_G = global feature mean</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">zero-sum-constraint.svg</span>
+    <span class="vp-hint">compare normal vs SC gradient contributions</span>
+  </div>
+  <div class="vp-body">
+    <div class="vp-controls">
+      <button class="vp-btn active" id="zs-btn-normal">Normal (exact arithmetic)</button>
+      <button class="vp-btn" id="zs-btn-sc">After Softmax Collapse</button>
+    </div>
+    <canvas id="zs-canvas" style="width:100%;height:240px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono)">K=3 classes (cat / dog / bird). Arrows show gradient update direction on each weight row W_k. W_G = mean of all W_k.</div>
+  </div>
+</div>
+
+<p>The drift direction is −μ<sub>G</sub>, pointing opposite the global feature mean. This is the seed of the problem. But W<sub>G</sub> becoming nonzero doesn't immediately cause a spike — it triggers something worse: a feedback loop.</p>
+</section>
+
+<!-- ============================== §04 ============================== -->
+<section id="s-nfi" data-code="nfi">
+<div class="section-no">04 — Numerical Feature Inflation</div>
+<h2>The Feedback Loop That Grows Exponentially</h2>
+<p>Once W<sub>G</sub> starts drifting toward −μ<sub>G</sub>, the geometry of the classifier changes. The weight vectors W<sub>k</sub> now have a global mean component W<sub>G</sub> that points in the −μ<sub>G</sub> direction. This creates a secondary effect on the feature gradients (Proposition 3.6):</p>
+
+<div class="math-block">
+  <div class="math-label">Proposition 3.6 — Feature gradient has a W_G component</div>
+  Proj<sub>W_G</sub>(∇<sub>h</sub> L) = ε · W<sub>G</sub><br>
+  <span class="math-comment">The feature update drifts in the direction of W_G → features pushed toward −W_G → toward +μ_G</span>
+</div>
+
+<p>Now we have a coupled feedback system:</p>
+<ul>
+  <li>W<sub>G</sub> drifts toward −μ<sub>G</sub></li>
+  <li>μ<sub>G</sub> drifts toward −W<sub>G</sub></li>
+  <li>They become anti-parallel (cos → −1)</li>
+  <li>Each reinforces the other → <strong>exponential growth</strong></li>
+</ul>
+
+<div class="math-block">
+  <div class="math-label">Theorem 3.7 — NFI exponential growth</div>
+  ‖W<sub>G</sub><sup>(t)</sup>‖ ∝ (1 + η·ε / √K)^t<br>
+  ‖μ<sub>G</sub><sup>(t)</sup>‖ ∝ (1 + η·ε / √K)^t<br>
+  cos(W<sub>G</sub><sup>(t)</sup>, μ<sub>G</sub><sup>(t)</sup>) → −1 &nbsp;&nbsp;<span style="color:var(--muted);font-size:.75rem">(anti-parallel)</span>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">nfi-feedback-loop.canvas</span>
+    <span class="vp-hint">advance epochs to see exponential growth</span>
+  </div>
+  <div class="vp-body">
+    <div class="vp-controls">
+      <button class="vp-btn active" id="nfi-btn-0">epoch 0</button>
+      <button class="vp-btn" id="nfi-btn-300">epoch 300</button>
+      <button class="vp-btn" id="nfi-btn-700">epoch 700</button>
+      <button class="vp-btn" id="nfi-btn-1200">epoch 1200 ⚡</button>
+    </div>
+    <canvas id="nfi-canvas" style="width:100%;height:280px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono)">W_G (purple) and μ_G (cyan) vectors in 2D. As NFI develops, they become anti-parallel and grow exponentially. At epoch 1200, some training samples lose their SC margin → spike imminent.</div>
+  </div>
+</div>
+
+<p>Critically, NFI requires ε to stay small but nonzero. If ε decays too fast (like ResNet18, where the model quickly pushes all samples deep into SC), the feedback factor (1 + ηε/√K)<sup>t</sup> stays near 1 and NFI can't develop. This is why ResNet18 is immune: it learns fast enough to escape before the feedback loop takes hold.</p>
+
+<div class="callout cyan">
+  <strong>The NFI condition:</strong> NFI can only develop when ε is small but approximately constant — the model is very confident (so SC applies) but not learning quickly (so ε doesn't decay). This is precisely the regime after the model memorizes training data but before it generalizes.
+</div>
+</section>
+
+<!-- ============================== §05 ============================== -->
+<section id="s-spike" data-code="spike">
+<div class="section-no">05 — The Spike Trigger</div>
+<h2>How Adam Turns a Precision Error into a Loss Explosion</h2>
+<p>NFI doesn't immediately cause a loss spike — it creates the conditions for one. Here is the precise sequence that triggers a Slingshot spike:</p>
+
+<div class="step-list" id="spike-steps">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Model enters Softmax Collapse regime</div>
+      <div class="step-desc">After long training, all samples have correct-class logit margin &gt; 15.94 (float32 threshold). Correct-class gradient rounds to zero. Loss computes to zero. But ε = Σ<sub>k≠r</sub> ŷ<sub>k</sub> ≈ 3×10⁻⁹ remains nonzero.</div>
+      <div class="step-code">margin = z_correct - max(z_other) &gt; 23 * ln(2) ≈ 15.94</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">NFI feedback loop starts</div>
+      <div class="step-desc">W<sub>G</sub> begins drifting toward −μ<sub>G</sub>. The feature mean μ<sub>G</sub> responds by drifting toward −W<sub>G</sub>. Both norms grow. The cosine similarity between them approaches −1.</div>
+      <div class="step-code">‖W_G‖ grows as (1 + η·ε/√K)^t — each epoch multiplies by ~1.003</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Adam's effective learning rate inflates</div>
+      <div class="step-desc">With correct-class gradient ≈ 0, Adam's second moment v<sub>t</sub> ≈ 9×10⁻¹⁸ decays toward zero. The effective step size η/√(v<sub>t</sub>+ε<sub>Adam</sub>) grows toward its maximum η/ε<sub>Adam</sub> = 0.001/10⁻⁸ = 10⁵.</div>
+      <div class="step-code">effective_lr = η / sqrt(v_t + ε_Adam) → η / ε_Adam = 10^5</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Sample margins collapse — gradient re-emerges</div>
+      <div class="step-desc">As W<sub>G</sub> and μ<sub>G</sub> grow anti-parallel, some outlier samples near the decision boundary lose their SC margin. Their correct-class gradient suddenly jumps from 0 to ~1.19×10⁻⁷ (just above the float32 floor). Adam's moment estimates lag this sudden change.</div>
+      <div class="step-code">margin of outlier &lt; 15.94 → gradient: 0 → 1.19e-7</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Adam fires at 40× magnitude → loss spike</div>
+      <div class="step-desc">First moment: m = 0.9 × 3×10⁻⁹ + 0.1 × 1.19×10⁻⁷ = 1.46×10⁻⁸. Second moment: v = 0.95 × 9×10⁻¹⁸ + 0.05 × (1.19×10⁻⁷)² = 2.7×10⁻⁸. Update = η·m/√v = <strong>4×10⁻⁴</strong>, vs normal 1×10⁻⁵. The model parameters are displaced by 40×, predictions become random, loss spikes to ~2.3.</div>
+      <div class="step-code">update = η × m / sqrt(v) = 4e-4 ≈ 40× normal magnitude</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span id="step-prog" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="step-next">Next →</button>
+</div>
+
+<h3>Why Vanilla GD Also Spikes</h3>
+<p>The paper verifies that the spike is not Adam-specific. After training loss hits zero, switching to vanilla Gradient Descent with a manually-inflated learning rate η = 10⁵ (to emulate Adam's large effective step size) triggers a Slingshot spike at approximately the same epoch. The difference: Adam recovers from the spike (forming the periodic pattern), while GD diverges permanently.</p>
+</section>
+
+<!-- ============================== §06 ============================== -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Mitigation &amp; Results</div>
+<h2>What Works, What Doesn't, and the LLM Connection</h2>
+
+<h3>Architectural Dependence</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Dataset</th>
+      <th>Slingshot Spikes?</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2-layer Transformer</td>
+      <td>Modular div (p=97)</td>
+      <td class="best">✓ Yes</td>
+      <td>ε stays near-constant — NFI develops</td>
+    </tr>
+    <tr>
+      <td>6-layer MLP</td>
+      <td>Modular div / CIFAR-10</td>
+      <td class="best">✓ Yes</td>
+      <td>Same — ε stagnates before spike</td>
+    </tr>
+    <tr>
+      <td>VGG11</td>
+      <td>CIFAR-10</td>
+      <td class="best">✓ Yes</td>
+      <td>ε decreases slowly — threshold met</td>
+    </tr>
+    <tr>
+      <td>ViT (12-layer)</td>
+      <td>CIFAR-10</td>
+      <td class="best">✓ Yes</td>
+      <td>ε decreases slowly — threshold met</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>ResNet18</td>
+      <td>CIFAR-10</td>
+      <td class="mn">✗ No</td>
+      <td>ε decays fast (∝ 1/t) — NFI can't develop</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Mitigation Effectiveness</h3>
+<div class="results-bars" id="mitigation-bars">
+  <div class="bar-row">
+    <div class="bar-label">Baseline float32</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.7)" data-w="100"><span>spikes every ~250 epochs</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">float64 loss only</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(16,185,129,.8)" data-w="100"><span>✓ complete elimination</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Zero-sum projection</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(16,185,129,.8)" data-w="100"><span>✓ complete elimination</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">BN before classifier</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(16,185,129,.8)" data-w="100"><span>✓ complete elimination</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Adam ε = 1e-5</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(16,185,129,.8)" data-w="100"><span>✓ complete elimination</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Adam ε = 1e-6</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(245,158,11,.7)" data-w="60"><span>⚠ reduced frequency</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Layer Norm (before CLS)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.5)" data-w="100"><span>✗ worsens (accelerates onset)</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Label Smoothing</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(245,158,11,.7)" data-w="70"><span>⚠ replaces NFI with EOS spikes</span></div></div>
+  </div>
+</div>
+
+<div class="callout amber">
+  <strong>Layer Normalization warning:</strong> Applying LN directly before the classifier <em>accelerates</em> Slingshot onset. LN constrains feature norms, so even small angular misalignment crosses the SC threshold faster. It also induces stepwise norm growth rather than gradual growth. Avoid using LN as a stability fix without BatchNorm.
+</div>
+
+<h3>NFI in Large Language Models</h3>
+<p>Softmax Collapse also appears during GPT pre-training on FineWeb. In each training step with ~130,000 tokens, roughly 4,000 tokens have exactly zero loss under float32. These are highly predictable tokens — not just the most frequent, but those appearing in templates: <code>"example"</code>, <code>"org"</code>, <code>"last"</code> (as in "last name"), <code>"."</code>.</p>
+
+<p>Long LLM training shows abnormal logit growth — mean token logits growing from ~5 to ~183 after 100k steps under float32. Interestingly, switching to float64 <em>increases</em> this to 498. Unlike classification tasks with balanced classes, language modeling has Zipf-distributed token frequencies. The resulting imbalance in output embeddings creates a large W<sub>G</sub> even without NFI — and NFI's anti-parallel suppression actually slows logit divergence. This makes the LLM setting more nuanced than the classification case, but the core finding holds: <strong>removing the last-layer mean W<sub>G</sub> stabilizes logit growth</strong> in both settings.</p>
+
+<div class="callout green">
+  <strong>Practical recommendation:</strong> For unregularized training that reaches high confidence (classification without weight decay, grokking experiments), the most robust fixes are: (1) apply BatchNorm immediately before the final linear layer, or (2) enforce the zero-sum gradient constraint by subtracting (1/K)Σg<sub>k</sub> from each class logit gradient. For LLM pre-training, centering the output embedding weight matrix (removing W<sub>G</sub>) reduces late-stage logit growth.
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">slingshot/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="sc">softmax</button>
+    <button class="cs-tab" data-panel="zerosum">zerosum</button>
+    <button class="cs-tab" data-panel="nfi">nfi</button>
+    <button class="cs-tab" data-panel="spike">spike</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The float32 vs float64 experiment</span>
+<span class="cs-line cmt"># Casting only the loss to float64 is</span>
+<span class="cs-line cmt"># sufficient to eliminate all spikes.</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">import</span> torch
+<span class="cs-line kw">import</span> torch.nn <span class="kw">as</span> nn
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Standard training (float32)</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">loss_f32</span>(logits, targets):</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> nn.<span class="fn">CrossEntropyLoss</span>()(logits, targets)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Mixed precision — logits cast to f64</span>
+<span class="cs-line cmt"># but model stays in f32. Eliminates spikes.</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">loss_mixed</span>(logits, targets):</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> nn.<span class="fn">CrossEntropyLoss</span>()(</span>
+<span class="cs-line hl-g">        logits.<span class="fn">double</span>(), targets)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: the instability lives in the</span>
+<span class="cs-line cmt"># loss computation, not in the weight space.</span>
+<span class="cs-line cmt"># Float32 threshold: gap &gt; 23*ln(2) ≈ 15.94</span>
+<span class="cs-line cmt"># Float64 threshold: gap &gt; 52*ln(2) ≈ 36.04</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Architectures that exhibit Slingshot</span>
+<span class="cs-line cmt"># (zero weight decay, Adam, CE loss):</span>
+<span class="cs-line cmt"># ✓ 2-layer Transformer (modular div)</span>
+<span class="cs-line cmt"># ✓ 6-layer MLP (CIFAR-10)</span>
+<span class="cs-line cmt"># ✓ VGG11 (CIFAR-10)</span>
+<span class="cs-line cmt"># ✓ ViT/12-layer (CIFAR-10)</span>
+<span class="cs-line cmt"># ✗ ResNet18 — ε decays too fast</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Also: LLM training shows ~4000 tokens/step</span>
+<span class="cs-line cmt"># with exactly zero loss in float32.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-sc">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Softmax Collapse: the float32 absorption</span>
+<span class="cs-line cmt"># error in cross-entropy computation.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># IEEE 754 float32: 24-bit mantissa</span>
+<span class="cs-line cmt"># absorption threshold: |b|/|a| &lt; 2^-23</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Log-Sum-Exp (PyTorch CE loss):</span>
+<span class="cs-line cmt">#   Z = z_m + log(Σ exp(z_k - z_m))</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># When z_m - max(z_&#123;k≠m&#125;) &gt; (p-1)*ln2:</span>
+<span class="cs-line cmt">#   every exp(z_k - z_m) → 0 (absorbed)</span>
+<span class="cs-line cmt">#   Z = z_m  (the correct-class logit)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># For float32:  threshold ≈ 15.94</span>
+<span class="cs-line cmt"># For float64:  threshold ≈ 36.04</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Gradient of correct class r:</span>
+<span class="cs-line hl-p">g_r = exp(z_r - Z) - 1</span>
+<span class="cs-line hl-p">    = exp(z_r - z_r) - 1</span>
+<span class="cs-line hl-p">    = 1 - 1 = 0  # exactly zero!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Gradient of incorrect classes k≠r:</span>
+<span class="cs-line hl-c">g_k = exp(z_k - z_r)  # small, not zero</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># This is Softmax Collapse (SC).</span>
+<span class="cs-line cmt"># The loss shows zero, but the model is</span>
+<span class="cs-line cmt"># still receiving incorrect-class gradients</span>
+<span class="cs-line cmt"># that violate the zero-sum constraint.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ε = Σ_&#123;k≠r&#125; ŷ_k ≈ 3e-9 (late training)</span>
+<span class="cs-line cmt"># Very small, but critical: NFI only needs</span>
+<span class="cs-line cmt"># ε to remain nonzero for long enough.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-zerosum">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Zero-sum constraint and its violation</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Exact arithmetic: gradient sum = 0</span>
+<span class="cs-line cmt"># Σ_k ∇_&#123;W_k&#125; L = Σ_k (ŷ_k - y_k) h</span>
+<span class="cs-line cmt">#   = (Σ_k ŷ_k - Σ_k y_k) h</span>
+<span class="cs-line cmt">#   = (1 - 1) h = 0</span>
+<span class="cs-line cmt"># → W_G never changes (exact invariant)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Under SC: correct class gradient = 0</span>
+<span class="cs-line hl-p">Σ_k ∇_&#123;W_k&#125; L → Σ_&#123;k≠r&#125; ŷ_k · h = ε · h</span>
+<span class="cs-line cmt"># Net drift on W_G per update step:</span>
+<span class="cs-line hl-p">E[ΔW_G] = -(η · ε / K) · μ_G</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Theorem 3.4: W_G drifts toward -μ_G</span>
+<span class="cs-line cmt"># (direction of global feature mean)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Fix: enforce zero-sum projection</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">zero_sum_project</span>(logit_grads):</span>
+<span class="cs-line hl-g">    <span class="cmt"># logit_grads: (batch, K)</span></span>
+<span class="cs-line hl-g">    mean = logit_grads.<span class="fn">mean</span>(dim=-1, keepdim=True)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> logit_grads - mean</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Registering a gradient hook:</span>
+<span class="cs-line cmt"># logits.register_hook(zero_sum_project)</span>
+<span class="cs-line cmt"># → eliminates NFI entirely</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-nfi">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Numerical Feature Inflation (NFI)</span>
+<span class="cs-line cmt"># The feedback loop between W_G and μ_G</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 1: SC breaks zero-sum →</span>
+<span class="cs-line cmt">#   W_G drifts toward -μ_G  (Theorem 3.4)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 2: W_G ≠ 0 alters feature gradient</span>
+<span class="cs-line cmt"># Under NC3' (WG ⊥ span&#123;W_k*&#125;):</span>
+<span class="cs-line hl-p">Proj_&#123;W_G&#125;(∇_h L) = ε · W_G</span>
+<span class="cs-line cmt"># → features drift toward -W_G → toward μ_G</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Theorem 3.7: coupled exponential growth</span>
+<span class="cs-line hl-c">‖W_G(t)‖ ∝ (1 + η·ε / √K)^t</span>
+<span class="cs-line hl-c">‖μ_G(t)‖ ∝ (1 + η·ε / √K)^t</span>
+<span class="cs-line hl-c">cos(W_G, μ_G) → -1  (anti-parallel)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Example growth rates (η=1e-3, ε=3e-9, K=10):</span>
+<span class="cs-line cmt"># factor per step: 1 + 1e-3*3e-9/√10 ≈ 1.00000095</span>
+<span class="cs-line cmt"># after 250 epochs (250*N steps): diverges</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ResNet18 is immune because ε(t) ∝ 1/t:</span>
+<span class="cs-line cmt"># Σ (1 + η·ε(t)/√K) converges →</span>
+<span class="cs-line cmt"># growth stays polynomial/logarithmic</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Fix: remove last-layer mean (BatchNorm</span>
+<span class="cs-line cmt"># before classifier centers features)</span>
+<span class="cs-line hl-g">model = nn.<span class="fn">Sequential</span>(backbone,</span>
+<span class="cs-line hl-g">    nn.<span class="fn">BatchNorm1d</span>(d_feat),  <span class="cmt"># key fix</span></span>
+<span class="cs-line hl-g">    nn.<span class="fn">Linear</span>(d_feat, K))</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-spike">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The Adam amplification calculation</span>
+<span class="cs-line cmt"># (β1=0.9, β2=0.95, η=1e-3, ε_Adam=1e-8)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Before spike: gradient ≈ 3e-9</span>
+<span class="cs-line cmt"># v_t ≈ 9e-18 (decayed almost to zero)</span>
+<span class="cs-line cmt"># effective_lr = η / sqrt(v_t + ε) ≈ 10^5</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># At spike: gradient re-emerges as 1.19e-7</span>
+<span class="cs-line cmt"># (the float32 floor above absorption)</span>
+<span class="cs-line hl-p">m = 0.9 * 3e-9 + 0.1 * 1.19e-7 = 1.46e-8</span>
+<span class="cs-line hl-p">v = 0.95 * 9e-18 + 0.05 * (1.19e-7)**2</span>
+<span class="cs-line hl-p">  = 2.7e-8</span>
+<span class="cs-line hl-p">update = η * m / sqrt(v) = 4e-4</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Normal update magnitude: ~1e-5</span>
+<span class="cs-line cmt"># Spike update magnitude: 4e-4</span>
+<span class="cs-line cmt"># Ratio: 40× — confirmed empirically</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Fixes to prevent Adam amplification:</span>
+<span class="cs-line hl-g">optimizer = Adam(params,</span>
+<span class="cs-line hl-g">    eps=1e-5)  <span class="cmt"># caps effective_lr at 10^2</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Or equivalently: Adafactor-style</span>
+<span class="cs-line cmt"># update clipping prevents the explosive</span>
+<span class="cs-line cmt"># ratio from causing divergence.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Note: GD with η=1e5 (emulating Adam's</span>
+<span class="cs-line cmt"># inflated step) also triggers spike at</span>
+<span class="cs-line cmt"># the same epoch — confirms the trigger</span>
+<span class="cs-line cmt"># is precision-based, not optimizer-specific.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Mitigation summary</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ✓ Complete elimination:</span>
+<span class="cs-line hl-g"><span class="cmt"># 1. float64 loss</span></span>
+<span class="cs-line hl-g">loss = CE(logits.double(), targets)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># 2. Zero-sum gradient projection</span></span>
+<span class="cs-line hl-g">g = g - g.mean(dim=-1, keepdim=True)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># 3. BatchNorm before classifier</span></span>
+<span class="cs-line hl-g">nn.BatchNorm1d(d)  <span class="cmt"># centers features</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># 4. Adam ε = 1e-5 (caps effective LR)</span></span>
+<span class="cs-line hl-g">Adam(params, eps=1e-5)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ⚠ Partial / counterproductive:</span>
+<span class="cs-line hl-a"><span class="cmt"># Adam ε=1e-6: reduces spike frequency</span></span>
+<span class="cs-line hl-a"><span class="cmt"># Label Smoothing: replaces NFI spikes</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   with EOS (sharpness) spikes</span></span>
+<span class="cs-line hl-a"><span class="cmt"># LayerNorm: accelerates NFI onset!</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   (norm constraint makes margins fragile)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># LLM setting (FineWeb, GPT 110M):</span>
+<span class="cs-line cmt"># ~4000 tokens/step have exactly zero loss</span>
+<span class="cs-line cmt"># Top collapsed tokens: ".", "org",</span>
+<span class="cs-line cmt">#   "example", ",", "last", " you"</span>
+<span class="cs-line cmt"># Fix: center output embeddings (remove WG)</span>
+<span class="cs-line hl-g"><span class="cmt"># See: arXiv:2601.02031 (output centering)</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ===== TOC + SIDEBAR TOGGLES =====
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ===== CODE SIDEBAR TABS =====
+const tabMeta = {
+  problem: { file: 'slingshot/problem.py',  title: 'The Problem' },
+  sc:      { file: 'slingshot/softmax.py',  title: 'Softmax Collapse' },
+  zerosum: { file: 'slingshot/zerosum.py',  title: 'Zero-Sum Constraint' },
+  nfi:     { file: 'slingshot/nfi.py',      title: 'NFI Feedback Loop' },
+  spike:   { file: 'slingshot/spike.py',    title: 'The Spike Trigger' },
+  results: { file: 'slingshot/results.py',  title: 'Mitigation & Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ===== INTERSECTION OBSERVER =====
+const sectionMap = {
+  's-problem': 'problem',
+  's-sc':      'sc',
+  's-zerosum': 'zerosum',
+  's-nfi':     'nfi',
+  's-spike':   'spike',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ===== §01: TRAINING LOSS CURVES =====
+(function() {
+  const canvas = document.getElementById('loss-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // Synthetic training curves (log loss, scaled to canvas)
+  // float32: drops then periodic spikes at ~250, ~500, ~750
+  // float64: drops and stays low
+  const N = 1000; // total epochs
+
+  // seeded RNG for reproducibility
+  let seed = 42;
+  function rand() { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 4294967296; }
+
+  function f32Curve(ep) {
+    // drops from 2.3 to -9, then periodic spikes
+    const base = ep < 60 ? 2.3 - (2.3 + 9) * (ep / 60) : -9;
+    // spikes: sharp rise then quick recovery
+    const spikeFn = (center, width, height) => {
+      const d = ep - center;
+      if (Math.abs(d) > width) return 0;
+      return height * Math.exp(-d*d / (2*width*width/9));
+    };
+    const spikes = spikeFn(248, 12, 11.3) + spikeFn(497, 12, 11.3) + spikeFn(746, 12, 11.3);
+    // add slight noise
+    const noise = (rand() - 0.5) * 0.15;
+    return Math.min(2.5, base + spikes + noise);
+  }
+
+  function f64Curve(ep) {
+    const base = ep < 65 ? 2.3 - (2.3 + 9.5) * (ep / 65) : -9.5;
+    const noise = (rand() - 0.5) * 0.08;
+    return Math.min(2.5, base + noise);
+  }
+
+  let pts32 = [], pts64 = [];
+  for (let ep = 0; ep <= N; ep++) {
+    pts32.push(f32Curve(ep));
+    pts64.push(f64Curve(ep));
+  }
+
+  // canvas coordinate helpers
+  const PAD = { l: 52, r: 16, t: 20, b: 36 };
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+  const YMIN = -10, YMAX = 3;
+
+  function toX(ep) { return PAD.l + (ep / N) * plotW; }
+  function toY(v)  { return PAD.t + plotH - ((v - YMIN) / (YMAX - YMIN)) * plotH; }
+
+  function drawAxes() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,15,25,1)';
+    ctx.fillRect(0, 0, W, H);
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let v = -9; v <= 3; v += 3) {
+      ctx.beginPath(); ctx.moveTo(PAD.l, toY(v)); ctx.lineTo(W - PAD.r, toY(v)); ctx.stroke();
+    }
+    for (let ep = 0; ep <= N; ep += 200) {
+      ctx.beginPath(); ctx.moveTo(toX(ep), PAD.t); ctx.lineTo(toX(ep), H - PAD.b); ctx.stroke();
+    }
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, H - PAD.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l, H - PAD.b); ctx.lineTo(W - PAD.r, H - PAD.b); ctx.stroke();
+
+    // y labels
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = `${11}px monospace`;
+    ctx.textAlign = 'right';
+    for (let v = -9; v <= 3; v += 3) {
+      ctx.fillText(v, PAD.l - 6, toY(v) + 4);
+    }
+
+    // x labels
+    ctx.textAlign = 'center';
+    for (let ep = 0; ep <= N; ep += 200) {
+      ctx.fillText(ep, toX(ep), H - PAD.b + 16);
+    }
+
+    // axis labels
+    ctx.save();
+    ctx.translate(12, H/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign = 'center';
+    ctx.fillText('log loss', 0, 0);
+    ctx.restore();
+    ctx.textAlign = 'center';
+    ctx.fillText('epoch', PAD.l + plotW/2, H - 4);
+  }
+
+  function drawLine(pts, color, dashed) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dashed) ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const x = toX(i), y = toY(pts[i]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawLabels(showF32, showF64) {
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    if (showF32) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('float32 — spikes', PAD.l + 8, PAD.t + 16);
+    }
+    if (showF64) {
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('float64 — stable', PAD.l + 8, showF32 ? PAD.t + 32 : PAD.t + 16);
+    }
+    // mark spike positions
+    if (showF32) {
+      ctx.fillStyle = 'rgba(239,68,68,0.5)';
+      for (const ep of [248, 497, 746]) {
+        const x = toX(ep);
+        ctx.fillRect(x - 1, PAD.t, 2, plotH);
+      }
+    }
+  }
+
+  let mode = 'f32';
+
+  function render() {
+    drawAxes();
+    if (mode === 'f32' || mode === 'both') drawLine(pts32, '#ef4444', false);
+    if (mode === 'f64' || mode === 'both') drawLine(pts64, '#10b981', false);
+    drawLabels(mode === 'f32' || mode === 'both', mode === 'f64' || mode === 'both');
+  }
+
+  document.getElementById('curve-btn-f32')?.addEventListener('click', () => {
+    mode = 'f32';
+    document.querySelectorAll('[id^="curve-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('curve-btn-f32').classList.add('active');
+    render();
+  });
+  document.getElementById('curve-btn-f64')?.addEventListener('click', () => {
+    mode = 'f64';
+    document.querySelectorAll('[id^="curve-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('curve-btn-f64').classList.add('active');
+    render();
+  });
+  document.getElementById('curve-btn-both')?.addEventListener('click', () => {
+    mode = 'both';
+    document.querySelectorAll('[id^="curve-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('curve-btn-both').classList.add('active');
+    render();
+  });
+
+  render();
+})();
+
+// ===== §02: SOFTMAX COLLAPSE CANVAS =====
+(function() {
+  const canvas = document.getElementById('sc-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 260;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const CLASSES = ['cat', 'dog', 'bird', 'fish'];
+  const COLORS = ['#8b5cf6', '#6b7280', '#6b7280', '#6b7280'];
+  const THRESHOLD = 23 * Math.LN2; // ≈ 15.94
+
+  // Three states: gaps from correct class to others
+  const STATES = {
+    low:   { correct: 8,  others: [3, 3, 3],   label: 'Low confidence — gap = 5' },
+    high:  { correct: 19, others: [2, 1, 0.5], label: 'High confidence — gap = 17 > threshold 15.94' },
+    ultra: { correct: 26, others: [1, 0.5, 0.1], label: 'Ultra-high — gap = 25 >> threshold' },
+  };
+
+  let curState = 'low';
+
+  function softmax(logits) {
+    const m = Math.max(...logits);
+    const exps = logits.map(z => Math.exp(z - m));
+    const s = exps.reduce((a, b) => a + b, 0);
+    return exps.map(e => e / s);
+  }
+
+  function computeGrads(logits, correctIdx) {
+    const probs = softmax(logits);
+    const grads = probs.map((p, i) => p - (i === correctIdx ? 1 : 0));
+
+    // Apply float32 absorption: if gap > threshold, correct grad → 0
+    const gap = logits[correctIdx] - Math.max(...logits.filter((_, i) => i !== correctIdx));
+    if (gap > THRESHOLD) {
+      grads[correctIdx] = 0;
+    }
+
+    return { grads, probs, gap, collapsed: gap > THRESHOLD };
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,15,25,1)';
+    ctx.fillRect(0, 0, W, H);
+
+    const st = STATES[curState];
+    const logits = [st.correct, ...st.others];
+    const { grads, probs, gap, collapsed } = computeGrads(logits, 0);
+
+    const barH = 24, barGap = 10, startY = 30;
+    const labelW = 50, barStartX = labelW + 10;
+    const maxLogit = Math.max(...logits);
+    const gradMax = 0.9; // for gradient bar scaling
+
+    // Title
+    ctx.fillStyle = collapsed ? '#ef4444' : '#10b981';
+    ctx.font = `bold 11px monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(st.label, 10, 18);
+
+    // Two columns: logits (left) and gradients (right)
+    const col2X = W / 2 + 20;
+
+    function drawBars(x, maxWidth, values, maxVal, label, getColor, getLabel) {
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + maxWidth / 2, startY - 6);
+
+      for (let i = 0; i < CLASSES.length; i++) {
+        const y = startY + i * (barH + barGap);
+        const v = values[i];
+        const bw = Math.abs(v / maxVal) * maxWidth;
+
+        // class label
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(CLASSES[i], x - 6, y + barH/2 + 4);
+
+        // bar background
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(x, y, maxWidth, barH);
+
+        // bar fill
+        const color = getColor(i, v);
+        ctx.fillStyle = color;
+        const actualBw = Math.min(bw, maxWidth);
+        ctx.fillRect(x, y, actualBw, barH);
+
+        // value label
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.textAlign = 'left';
+        ctx.font = '10px monospace';
+        ctx.fillText(getLabel(v, i), x + actualBw + 4, y + barH/2 + 4);
+      }
+    }
+
+    // Logit bars
+    const logitColors = (i) => i === 0 ? '#8b5cf6' : 'rgba(107,114,128,0.6)';
+    drawBars(barStartX, W/2 - barStartX - 20, logits, maxLogit, 'Logits (z_k)',
+      (i) => logitColors(i), (v) => v.toFixed(1));
+
+    // Gradient bars
+    const gradColors = (i, v) => {
+      if (i === 0 && collapsed) return 'rgba(239,68,68,0.5)';
+      return v < 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.6)';
+    };
+    const gradLabels = (v, i) => {
+      if (i === 0 && collapsed) return '= 0.0 (ABSORBED!)';
+      return v.toExponential(1);
+    };
+    drawBars(col2X + 52, W - col2X - 52 - 10, grads, gradMax, 'Gradients (∂L/∂z_k)',
+      gradColors, gradLabels);
+
+    // Gap indicator
+    const gapY = H - 28;
+    ctx.fillStyle = collapsed ? 'rgba(239,68,68,0.8)' : 'rgba(16,185,129,0.8)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`gap = z_cat - z_max_other = ${gap.toFixed(1)}`, 10, gapY);
+    ctx.fillText(`threshold = 23 × ln 2 ≈ 15.94`, 10, gapY + 14);
+    if (collapsed) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('► SOFTMAX COLLAPSE — correct-class gradient = 0', W/2 + 10, gapY);
+    } else {
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('► Normal — all gradients nonzero', W/2 + 10, gapY);
+    }
+  }
+
+  document.getElementById('sc-btn-low')?.addEventListener('click', () => {
+    curState = 'low';
+    document.querySelectorAll('[id^="sc-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('sc-btn-low').classList.add('active');
+    render();
+  });
+  document.getElementById('sc-btn-high')?.addEventListener('click', () => {
+    curState = 'high';
+    document.querySelectorAll('[id^="sc-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('sc-btn-high').classList.add('active');
+    render();
+  });
+  document.getElementById('sc-btn-ultra')?.addEventListener('click', () => {
+    curState = 'ultra';
+    document.querySelectorAll('[id^="sc-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('sc-btn-ultra').classList.add('active');
+    render();
+  });
+
+  render();
+})();
+
+// ===== §03: ZERO-SUM CANVAS =====
+(function() {
+  const canvas = document.getElementById('zs-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  let mode = 'normal';
+
+  // Arrow drawing helper
+  function drawArrow(fromX, fromY, toX, toY, color, width, label) {
+    const dx = toX - fromX, dy = toY - fromY;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 1) return;
+    const nx = dx/len, ny = dy/len;
+    const headLen = 10, headAngle = 0.35;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen*(nx*Math.cos(headAngle)+ny*Math.sin(headAngle)),
+               toY - headLen*(ny*Math.cos(headAngle)-nx*Math.sin(headAngle)));
+    ctx.lineTo(toX - headLen*(nx*Math.cos(-headAngle)+ny*Math.sin(-headAngle)),
+               toY - headLen*(ny*Math.cos(-headAngle)-nx*Math.sin(-headAngle)));
+    ctx.closePath();
+    ctx.fill();
+
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, toX + 18, toY);
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,15,25,1)';
+    ctx.fillRect(0, 0, W, H);
+
+    const cx = W/2, cy = H/2 + 10;
+    const R = 65; // radius for class positions
+
+    // Class positions (K=3, equilateral triangle-ish)
+    const angles = [-Math.PI/2, -Math.PI/2 + 2*Math.PI/3, -Math.PI/2 + 4*Math.PI/3];
+    const classes = ['cat ✓', 'dog', 'bird'];
+    const classColors = ['#8b5cf6', '#6b7280', '#6b7280'];
+    const classPos = angles.map(a => ({ x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }));
+
+    // Feature center µG
+    const muGx = cx, muGy = cy - 15;
+
+    // Draw µG marker
+    ctx.fillStyle = '#06b6d4';
+    ctx.beginPath();
+    ctx.arc(muGx, muGy, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('μ_G', muGx + 8, muGy + 4);
+
+    // Gradient vectors from each class toward µG (scaled)
+    // In normal mode: cat gradient is -0.75, dog/bird are 0.375 each
+    // In SC mode: cat gradient = 0, dog/bird get redistributed
+    const gradNormal = [-0.75, 0.375, 0.375]; // zero-sum: sum = 0
+    const gradSC     = [0, 0.5, 0.5];          // SC: zero-sum broken
+
+    const grads = mode === 'normal' ? gradNormal : gradSC;
+    const scale = 50;
+
+    // WG center of mass arrow
+    let wgDx = 0, wgDy = 0;
+    for (let i = 0; i < 3; i++) {
+      const gx = classPos[i].x + grads[i] * scale * (muGx - classPos[i].x) / R;
+      const gy = classPos[i].y + grads[i] * scale * (muGy - classPos[i].y) / R;
+      wgDx += gx - classPos[i].x;
+      wgDy += gy - classPos[i].y;
+    }
+
+    // Draw class weight vectors and their gradient arrows
+    for (let i = 0; i < 3; i++) {
+      const p = classPos[i];
+      // class label circle
+      ctx.fillStyle = classColors[i];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 14, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(classes[i].split(' ')[0], p.x, p.y + 3);
+
+      // gradient arrow: direction toward feature center, scaled by grad
+      if (Math.abs(grads[i]) > 0.01) {
+        const dirX = (muGx - p.x) / R, dirY = (muGy - p.y) / R;
+        const gEndX = p.x + grads[i] * scale * dirX;
+        const gEndY = p.y + grads[i] * scale * dirY;
+        const col = grads[i] < 0 ? '#10b981' : '#ef4444';
+        drawArrow(p.x, p.y, gEndX, gEndY, col, 2, null);
+      } else if (mode === 'sc' && i === 0) {
+        // Show ∅ for zero gradient on correct class
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('∅', p.x + 20, p.y - 10);
+        ctx.font = '9px monospace';
+        ctx.fillText('grad=0', p.x + 20, p.y + 2);
+      }
+    }
+
+    // Net WG drift arrow
+    const driftMag = Math.sqrt(wgDx*wgDx + wgDy*wgDy);
+    if (driftMag > 1) {
+      const scale2 = 0.5;
+      drawArrow(cx, H - 30, cx + wgDx*scale2, H - 30 + wgDy*scale2,
+        driftMag < 1.5 ? 'rgba(255,255,255,0.3)' : '#f59e0b', 3, null);
+      ctx.fillStyle = driftMag < 1.5 ? 'rgba(255,255,255,0.4)' : '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(mode === 'normal' ? 'W_G drift = 0  (zero-sum holds)' : '▲ W_G drifts toward −μ_G  (zero-sum BROKEN)', cx, H - 12);
+    }
+
+    // Mode label
+    ctx.fillStyle = mode === 'normal' ? '#10b981' : '#ef4444';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(mode === 'normal' ? 'Exact arithmetic — zero-sum constraint holds' : 'Softmax Collapse — cat gradient = 0, sum ≠ 0', cx, 18);
+  }
+
+  document.getElementById('zs-btn-normal')?.addEventListener('click', () => {
+    mode = 'normal';
+    document.querySelectorAll('[id^="zs-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('zs-btn-normal').classList.add('active');
+    render();
+  });
+  document.getElementById('zs-btn-sc')?.addEventListener('click', () => {
+    mode = 'sc';
+    document.querySelectorAll('[id^="zs-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('zs-btn-sc').classList.add('active');
+    render();
+  });
+
+  render();
+})();
+
+// ===== §04: NFI FEEDBACK LOOP CANVAS =====
+(function() {
+  const canvas = document.getElementById('nfi-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 280;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // NFI state at different epochs
+  // Norms grow as (1 + η·ε/√K)^t ≈ (1 + 9.5e-4)^t
+  const EPOCH_STATES = {
+    0:    { wgNorm: 0.01, muNorm: 0.01, cos: 0.0,  label: 'Training begins — W_G ≈ 0, μ_G ≈ 0' },
+    300:  { wgNorm: 0.3,  muNorm: 0.25, cos: -0.3, label: 'NFI starting — W_G and μ_G beginning to drift' },
+    700:  { wgNorm: 2.1,  muNorm: 1.8,  cos: -0.75, label: 'NFI accelerating — anti-parallel alignment grows' },
+    1200: { wgNorm: 11.0, muNorm: 9.5,  cos: -0.97, label: '⚡ Spike imminent — margins collapsing for outliers' },
+  };
+
+  let curEpoch = 0;
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,15,25,1)';
+    ctx.fillRect(0, 0, W, H);
+
+    const st = EPOCH_STATES[curEpoch];
+    const cx = W * 0.38, cy = H * 0.52;
+
+    // --- Draw 2D vector space ---
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    // grid
+    for (let d = 20; d <= Math.max(W, H); d += 20) {
+      ctx.beginPath(); ctx.arc(cx, cy, d, 0, Math.PI*2); ctx.stroke();
+    }
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.moveTo(PAD_L, cy); ctx.lineTo(W*0.7, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, PAD_T); ctx.lineTo(cx, H - PAD_B); ctx.stroke();
+
+    const PAD_L = 10, PAD_T = 30, PAD_B = 50;
+    const scale = 12; // pixels per unit norm
+
+    // WG direction: fixed at 210° (pointing lower-left = toward -µG)
+    const wgAngle = 210 * Math.PI / 180;
+    // µG direction: anti-parallel to WG → at 30° (opposing)
+    const muAngle = wgAngle - Math.PI - st.cos * 0.3; // approaches anti-parallel with cos
+
+    const wgEndX = cx + st.wgNorm * scale * Math.cos(wgAngle);
+    const wgEndY = cy + st.wgNorm * scale * Math.sin(wgAngle);
+    const muEndX = cx + st.muNorm * scale * Math.cos(muAngle);
+    const muEndY = cy + st.muNorm * scale * Math.sin(muAngle);
+
+    // Draw arrows
+    function arrow(fx, fy, tx, ty, color, lw, label) {
+      const dx = tx-fx, dy = ty-fy;
+      const len = Math.sqrt(dx*dx+dy*dy);
+      if (len < 2) return;
+      const nx = dx/len, ny = dy/len;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke();
+      const hl = 10, ha = 0.4;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - hl*(nx*Math.cos(ha)+ny*Math.sin(ha)), ty - hl*(ny*Math.cos(ha)-nx*Math.sin(ha)));
+      ctx.lineTo(tx - hl*(nx*Math.cos(-ha)+ny*Math.sin(-ha)), ty - hl*(ny*Math.cos(-ha)-nx*Math.sin(-ha)));
+      ctx.closePath(); ctx.fill();
+      if (label) {
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, tx + 20, ty);
+      }
+      ctx.restore();
+    }
+
+    // Origin dot
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+
+    arrow(cx, cy, wgEndX, wgEndY, '#8b5cf6', 2.5, null);
+    arrow(cx, cy, muEndX, muEndY, '#06b6d4', 2.5, null);
+
+    // Labels at tips
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#8b5cf6';
+    ctx.textAlign = 'center';
+    ctx.fillText(`W_G  ‖=${st.wgNorm.toFixed(1)}`, wgEndX - 8, wgEndY + 14);
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillText(`μ_G  ‖=${st.muNorm.toFixed(1)}`, muEndX + 10, muEndY - 8);
+
+    // Cosine similarity indicator
+    const cosX = W * 0.72, cosY = H * 0.35;
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillRect(cosX, cosY - 20, W - cosX - 10, 120);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('cos(W_G, μ_G)', cosX + 8, cosY - 6);
+
+    // cosine bar
+    const barW = W - cosX - 26;
+    const cosVal = st.cos; // -1 to 0
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(cosX + 8, cosY + 2, barW, 18);
+    ctx.fillStyle = cosVal < -0.7 ? '#ef4444' : '#8b5cf6';
+    ctx.fillRect(cosX + 8 + barW * (1 + cosVal), cosY + 2, barW * (-cosVal), 18);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(cosVal.toFixed(2), cosX + barW/2, cosY + 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '9px monospace';
+    ctx.fillText('-1', cosX + 10, cosY + 30);
+    ctx.fillText('(anti-parallel)', cosX + 20, cosY + 42);
+    ctx.fillText('0', cosX + barW + 2, cosY + 30);
+
+    // Norm growth chart
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px monospace';
+    ctx.fillText('‖W_G‖ norm growth:', cosX + 8, cosY + 62);
+
+    // mini bar for norm
+    const normMax = 12;
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(cosX + 8, cosY + 68, barW, 14);
+    ctx.fillStyle = curEpoch >= 1200 ? '#ef4444' : '#8b5cf6';
+    ctx.fillRect(cosX + 8, cosY + 68, barW * Math.min(st.wgNorm / normMax, 1), 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(st.wgNorm.toFixed(1), cosX + barW/2, cosY + 79);
+
+    // Status label
+    const labelColor = curEpoch >= 1200 ? '#ef4444' : curEpoch >= 700 ? '#f59e0b' : '#10b981';
+    ctx.fillStyle = labelColor;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`epoch ${curEpoch}: ${st.label}`, 10, H - 10);
+  }
+
+  document.getElementById('nfi-btn-0')?.addEventListener('click', () => {
+    curEpoch = 0;
+    document.querySelectorAll('[id^="nfi-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('nfi-btn-0').classList.add('active');
+    render();
+  });
+  document.getElementById('nfi-btn-300')?.addEventListener('click', () => {
+    curEpoch = 300;
+    document.querySelectorAll('[id^="nfi-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('nfi-btn-300').classList.add('active');
+    render();
+  });
+  document.getElementById('nfi-btn-700')?.addEventListener('click', () => {
+    curEpoch = 700;
+    document.querySelectorAll('[id^="nfi-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('nfi-btn-700').classList.add('active');
+    render();
+  });
+  document.getElementById('nfi-btn-1200')?.addEventListener('click', () => {
+    curEpoch = 1200;
+    document.querySelectorAll('[id^="nfi-btn"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('nfi-btn-1200').classList.add('active');
+    render();
+  });
+
+  render();
+})();
+
+// ===== §05: STEP NAVIGATOR =====
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#spike-steps .step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i+1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ===== §06: ANIMATED BAR CHART =====
+(function() {
+  const barsSection = document.getElementById('s-results');
+  if (!barsSection) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#mitigation-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w)) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+})();
+</script>
+</BaseLayout>

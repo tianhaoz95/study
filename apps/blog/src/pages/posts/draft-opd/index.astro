@@ -360,6 +360,23 @@ canvas{display:block;width:100%}
   <li><strong>Reverse KL for Rejected Tokens:</strong> Penalizes the draft model's high-probability incorrect modes when the target model disagrees. This actively suppresses the draft's error modes on draft-induced states.</li>
 </ul>
 
+<div class="callout green">
+  <div class="co-t">Intuition — Why Different KL Directions?</div>
+  <p>Imagine the target model assigns probabilities to the next token in a sentence about European capitals:</p>
+  <table class="results-table" style="margin:.65rem 0 .5rem">
+    <thead><tr><th>Token</th><th>Target P</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td>"Paris"</td><td class="mn">0.55</td><td>strong correct answer</td></tr>
+      <tr><td>"Lyon"</td><td class="mn">0.30</td><td>also fine</td></tr>
+      <tr><td>"Berlin"</td><td class="mn">0.10</td><td>weak but plausible</td></tr>
+      <tr><td>"Banana"</td><td class="mn">0.05</td><td>almost certainly wrong</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Forward KL &mdash; D<sub>KL</sub>(P&thinsp;‖&thinsp;Q), used on accepted tokens:</strong> the loss is <em>weighted by the target P</em>. If the draft assigns near-zero to "Paris" (P=0.55), the penalty blows up toward &infin;. The gradient says <em>"cover every mode the target has mass on"</em> &mdash; a <strong>mean-seeking</strong> pull. On accepted tokens, where the target model already agrees with the draft's context, this reinforces the correct modes without letting the draft miss any of them.</p>
+  <p><strong>Reverse KL &mdash; D<sub>KL</sub>(Q&thinsp;‖&thinsp;P), used on rejected tokens:</strong> the loss is <em>weighted by the draft Q</em>. If the draft confidently predicts "Banana" (Q=0.25) but the target strongly disagrees (P=0.05), it pays a large penalty; but if the draft simply ignores "Berlin" altogether, the cost is zero. The gradient says <em>"don't bet anywhere the target says no"</em> &mdash; a <strong>mode-seeking / zero-forcing</strong> push. On rejected tokens, where the draft has already gone off-track, this directly crushes the overconfident incorrect modes.</p>
+  <p style="margin-bottom:0"><strong>The asymmetry is load-bearing:</strong> accepted tokens need <em>coverage</em> (don't miss the target's modes &rarr; forward KL pulls Q up); rejected tokens need <em>suppression</em> (don't overestimate where the target disagrees &rarr; reverse KL pushes Q down). Applying a single symmetric loss applies the wrong pressure in one of the two regions.</p>
+</div>
+
 <div class="vp">
   <div class="vp-head">
     <span class="vp-title">asymmetric_kl.inspector</span>
@@ -378,6 +395,35 @@ canvas{display:block;width:100%}
 </div>
 
 <p>This asymmetric loss formulation directly targets the draft model's finite capacity: forward KL aligns the base distribution, while reverse KL acts as a zero-forcing penalty that cleanses draft-induced errors.</p>
+
+<p>The empirical advantage of reverse KL on rejected tokens is not accidental — it falls directly from how rejection is defined. A token is rejected when q(x) &gt; p(x): the draft overestimates it relative to the target. Reverse KL = &Sigma; Q(x) log(Q(x)/P(x)) is weighted by Q, so it registers a large signal exactly where Q is large and P is small — which is the rejected-token condition by construction. Forward KL = &Sigma; P(x) log(P(x)/Q(x)) is weighted by P, which is <em>small</em> on rejected tokens; those terms barely contribute even though the draft's error there is large.</p>
+
+<table class="results-table" style="margin:1rem 0">
+  <thead>
+    <tr><th>Loss on rejected tokens</th><th>Weighted by</th><th>Penalizes</th><th>Fixes q &gt; p?</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Forward KL &mdash; D<sub>KL</sub>(P&thinsp;‖&thinsp;Q)</td>
+      <td class="mn">P</td>
+      <td>Q missing where P has mass</td>
+      <td>✗ &mdash; P is small here; barely contributes</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Reverse KL &mdash; D<sub>KL</sub>(Q&thinsp;‖&thinsp;P)</td>
+      <td class="mn">Q</td>
+      <td>Q having mass where P doesn't</td>
+      <td>✓ &mdash; Q is large here; dominates the sum</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout amber">
+  <div class="co-t">What the Empirical Win Tells You</div>
+  <p style="margin-bottom:.6rem"><strong>The dominant draft failure mode is false positives, not false negatives.</strong> If the draft's main error were <em>missing</em> correct tokens (q &lt; p — under-confident), forward KL would win, since it pulls Q up toward P's uncovered modes. The fact that reverse KL wins says the actual failure is the draft <em>overassigning probability</em> to tokens the target dislikes (q &gt; p — overconfident). In on-policy rollouts the draft operates in draft-induced states — prefixes it generated itself, which are subtly off-distribution. In those states its learned shortcuts fire on tokens that look right given its own context but that the target disagrees with. The error is excess confidence.</p>
+  <p style="margin-bottom:.6rem"><strong>Conservative Q maximizes acceptance; reverse KL produces conservative Q.</strong> Expected accepted length scales with &prod; min(1, p(x<sub>t</sub>) / q(x<sub>t</sub>)). This product is maximized when q(x) &le; p(x) everywhere — a draft that is systematically slightly underconfident beats an overconfident one. Reverse KL's mode-seeking behavior concentrates Q inside P's footprint and refuses to assign mass outside it, naturally producing this conservative regime. Forward KL's mean-seeking behavior inflates Q on P's low-probability tail, worsening the acceptance ratio at exactly those positions.</p>
+  <p style="margin-bottom:0"><strong>The acceptance criterion is itself asymmetric in the same direction.</strong> Speculative decoding only rejects when q &gt; p; it never rejects when q &lt; p (under-proposals are accepted with probability 1). The training loss should be asymmetric in the same direction — hard zero-forcing penalty for q &gt; p (reverse KL on rejected tokens), soft coverage pull for q &lt; p (forward KL on accepted tokens). The empirical result confirms the loss was set up with the right handedness.</p>
+</div>
 </section>
 
 <section id="s-decay" data-code="decay">

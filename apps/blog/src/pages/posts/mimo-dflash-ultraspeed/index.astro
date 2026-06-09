@@ -506,6 +506,232 @@ for epoch in range(N):
 </div>
 
 <p>All four modifications together — random anchors, early-position weighting, shared embeddings, and fixed-block long-context training — are necessary. The paper's ablations show each contributes meaningfully: Table 9 in the paper shows random anchor sampling alone provides a significant boost over uniform block construction.</p>
+
+<h3>Training Stage: Post-Target, Fully Frozen — Not an MTP Head</h3>
+<p>DFlash draft model training happens entirely <strong>after the target model is fully trained and frozen</strong>. There is no joint optimization, no shared gradients between the draft and target, and no modification to any target model weights. This is a lightweight post-training step: training the 5-layer draft model takes on the order of GPU-hours, compared to GPU-months for the target backbone.</p>
+
+<p>Because the target is frozen, the draft model operates as a <strong>diffusion adapter</strong> — a small module that learns to exploit the fixed representations produced by the target's hidden layers. The shared embedding and LM head (Innovation 3 above) enforce alignment at the vocabulary level, while KV injection enforces alignment at the representation level at every draft layer.</p>
+
+<h3>DFlash vs. Multi-Token Prediction (MTP): A Fundamental Distinction</h3>
+<p>A natural question arises: is the DFlash draft model just a variant of <strong>Multi-Token Prediction (MTP)</strong> — the technique used by models like DeepSeek-V3 and Qwen3, where additional prediction heads are trained <em>jointly during pretraining</em> to simultaneously predict multiple future tokens?</p>
+
+<p>The answer is no, and the distinction matters. MTP heads are baked into the target model itself during pretraining — they add trainable parameters to the backbone and are co-optimized with it from the start. At inference, they function as a native speculative drafting mechanism that requires no separate model. DFlash is architecturally and procedurally the opposite:</p>
+
+<div class="compare-grid">
+  <div class="compare-card bad">
+    <div class="compare-label">MTP (e.g. Qwen, DeepSeek)</div>
+    <div class="compare-desc">
+      <strong style="color:var(--muted2)">When trained:</strong> During pretraining, jointly with the target model.<br><br>
+      <strong style="color:var(--muted2)">Architecture:</strong> Extra prediction heads added to the backbone; target weights may change to accommodate them.<br><br>
+      <strong style="color:var(--muted2)">Dependency:</strong> The target model must support MTP at training time — can't be retrofitted to an already-trained model.<br><br>
+      <strong style="color:var(--muted2)">Draft type:</strong> Autoregressive (predicts a fixed small number of tokens in parallel; no iterative denoising).
+    </div>
+  </div>
+  <div class="compare-card good">
+    <div class="compare-label">DFlash (e.g. MiMo 2.5 Pro)</div>
+    <div class="compare-desc">
+      <strong style="color:var(--muted2)">When trained:</strong> After target model training is fully complete; target is frozen throughout.<br><br>
+      <strong style="color:var(--muted2)">Architecture:</strong> Separate 5-layer diffusion module; target model is untouched.<br><br>
+      <strong style="color:var(--muted2)">Dependency:</strong> Can be trained for any frozen target model — a post-hoc adapter, not a pretraining co-optimization.<br><br>
+      <strong style="color:var(--muted2)">Draft type:</strong> Block diffusion (denoises a full block of γ masked tokens in one parallel forward pass).
+    </div>
+  </div>
+</div>
+
+<p>The paper directly benchmarks DFlash against native MTP on identical hardware (B200, concurrency=8) across three Qwen3.5 models. The results show DFlash consistently wins by a wide margin — roughly 1.5–2× higher end-to-end speedup despite MTP being trained with the full pretraining budget:</p>
+
+<table class="results-table" style="margin:1.25rem 0">
+  <thead>
+    <tr>
+      <th style="width:28%">Model</th>
+      <th style="width:18%">Method</th>
+      <th>Math500<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.65rem">τ / speedup</span></th>
+      <th>HumanEval<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.65rem">τ / speedup</span></th>
+      <th>MT-Bench<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.65rem">τ / speedup</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2" style="vertical-align:middle">Qwen3.5-4B</td>
+      <td class="mn">Native MTP</td>
+      <td class="mn">6.5 / 1.5×</td>
+      <td class="mn">6.3 / 1.6×</td>
+      <td class="mn">5.3 / 1.3×</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">DFlash</td>
+      <td class="mn best">7.1 / <strong>3.0×</strong></td>
+      <td class="mn best">7.3 / <strong>2.9×</strong></td>
+      <td class="mn best">5.6 / <strong>2.3×</strong></td>
+    </tr>
+    <tr>
+      <td rowspan="2" style="vertical-align:middle">Qwen3.5-9B</td>
+      <td class="mn">Native MTP</td>
+      <td class="mn">6.7 / 1.7×</td>
+      <td class="mn">6.6 / 1.7×</td>
+      <td class="mn">5.3 / 1.3×</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">DFlash</td>
+      <td class="mn best">7.3 / <strong>3.5×</strong></td>
+      <td class="mn best">7.9 / <strong>3.4×</strong></td>
+      <td class="mn best">5.5 / <strong>2.5×</strong></td>
+    </tr>
+    <tr>
+      <td rowspan="2" style="vertical-align:middle">Qwen3.5-35B-A3B</td>
+      <td class="mn">Native MTP</td>
+      <td class="mn">6.9 / 1.7×</td>
+      <td class="mn">7.1 / 1.6×</td>
+      <td class="mn">5.2 / 1.2×</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">DFlash</td>
+      <td class="mn best">7.2 / <strong>2.4×</strong></td>
+      <td class="mn best">7.9 / <strong>2.3×</strong></td>
+      <td class="mn best">5.4 / <strong>1.7×</strong></td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono);margin-top:-.75rem;margin-bottom:1.25rem">Source: DFlash paper Table 11 (Appendix A.4) — B200, SGLang, concurrency=8. τ = avg accepted tokens per cycle.</p>
+
+<p>Why does a post-training diffusion adapter beat a jointly-trained MTP head? Two reasons: <strong>(1) Block size</strong> — DFlash drafts γ=8–16 tokens per cycle; MTP heads typically predict 1–4 ahead. <strong>(2) Parallel denoising</strong> — MTP still generates tokens left-to-right (its "parallelism" is across prediction heads at training time, not inference time); DFlash fills all γ masked positions in a single forward pass with bidirectional attention, giving a fundamentally lower drafting latency floor.</p>
+
+<div class="callout">
+  <div class="callout-title">📍 Summary: How the DFlash Drafter for MiMo 2.5 Pro Was Trained</div>
+  <p><strong>1. When:</strong> Entirely after MiMo 2.5 Pro's full training pipeline (pre-training → mid-training → post-training RLVR) was complete. The target model is frozen from the first draft training step onward.</p>
+  <p style="margin-top:.5rem"><strong>2. What was updated:</strong> Only the 5 diffusion transformer layers. The shared embedding table and LM head (borrowed from the frozen target) are not updated.</p>
+  <p style="margin-top:.5rem"><strong>3. Data:</strong> ~800K samples (Nemotron Post-Training Dataset V2 + CodeAlpaca for the paper's recipe; exact sources for MiMo 2.5 Pro not publicly disclosed). Training labels are <em>generated by the frozen target model itself</em> — not human-written text.</p>
+  <p style="margin-top:.5rem"><strong>4. Optimizer:</strong> Muon (second-order) for the MiMo deployment; AdamW in the base DFlash paper.</p>
+  <p style="margin-top:.5rem"><strong>5. Not MTP:</strong> There is no joint pretraining, no co-optimization with the backbone, and no modification to target weights. The DFlash drafter is a post-hoc diffusion adapter, not a multi-token prediction head embedded in the target architecture.</p>
+</div>
+
+<h3>Training Dataset: 800K Target-Generated Samples</h3>
+<p>The training corpus is a mixture of approximately <strong>800K samples</strong> drawn from two sources:</p>
+<ul>
+  <li><strong>NVIDIA Nemotron Post-Training Dataset V2</strong> — a large, diverse post-training mixture covering instruction-following, math, and reasoning</li>
+  <li><strong>CodeAlpaca</strong> — a code-focused instruction dataset derived from Self-Instruct applied to code generation tasks</li>
+</ul>
+<p>Critically, the training set is <strong>not</strong> constructed from the original human-written responses in these datasets. Instead, the target model is first run on all the prompts, and the <strong>target model's own generated responses are used as training labels</strong>. This technique is called <em>model self-distillation</em>.</p>
+
+<div class="callout">
+  <div class="callout-title">📐 What Is Model Self-Distillation — and Why Does It Matter Here?</div>
+  <p><strong>Model self-distillation</strong> means the draft model is trained to predict tokens that match what the <em>target model would itself generate</em>, rather than what a human wrote. The target model is run on the prompt data; its outputs become the ground-truth labels for the draft's cross-entropy loss.</p>
+  <p style="margin-top:.6rem">This is the critical link that makes all the other training innovations work. Consider the speculative decoding acceptance check: a draft token is accepted only if it is consistent with the target model's token distribution — not with human-written text. If the draft were trained on raw human data, there could be a distributional gap: the target model might prefer different phrasings, orderings, or tokens than the human-written ground truth. That gap would reduce acceptance rates, defeating the purpose of the drafter.</p>
+  <p style="margin-top:.6rem">By constructing training labels from the target model's own generations, the draft's learned distribution is <strong>naturally aligned with the target's inference-time behavior</strong>. Several design choices in the training recipe reinforce this alignment: random anchor sampling mirrors the inference setting where the anchor is always a verified token from the target (not a human token); shared embeddings and LM head place the draft in the target's vocabulary space; and KV injection at every layer continuously reconditions the draft on what the target model currently "knows." Model self-distillation closes the loop at the data level, ensuring the labels the draft trains on match what the acceptance check will actually test at inference time.</p>
+  <p style="margin-top:.6rem">For the MiMo 2.5 Pro deployment specifically, the Muon second-order optimizer is used instead of AdamW, which the MiMo team reports yields better convergence for the draft layers while keeping the target model fully frozen.</p>
+</div>
+
+<h3>Training Configuration Comparison</h3>
+<p>The table below compares the draft model training setup as reported in the DFlash paper (Appendix A.1, arXiv:2602.06036) against what is known about the MiMo 2.5 Pro deployment from the model card and blog post. <em>N/A</em> indicates the value was not publicly disclosed.</p>
+
+<table class="results-table" style="margin:1.25rem 0">
+  <thead>
+    <tr>
+      <th style="width:34%">Parameter</th>
+      <th style="width:33%">DFlash paper<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.65rem">arXiv:2602.06036 · Appendix A.1</span></th>
+      <th style="width:33%">MiMo 2.5 Pro DFlash<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.65rem">model card · blog post</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Training stage</td>
+      <td class="mn">After target fully trained; target frozen</td>
+      <td class="mn">After target fully trained; target frozen</td>
+    </tr>
+    <tr>
+      <td>Training data sources</td>
+      <td class="mn">Nemotron Post-Training v2 + CodeAlpaca</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Dataset size</td>
+      <td class="mn">~800K samples</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Training labels</td>
+      <td class="mn">Target-model generated (self-distillation)</td>
+      <td class="mn">Target-model generated (self-distillation)</td>
+    </tr>
+    <tr>
+      <td>Training precision</td>
+      <td class="mn" style="color:var(--muted)">BF16 (inferred — paper states "BF16 weights" in memory calc; training dtype not explicitly stated)</td>
+      <td class="mn best">BF16 (explicitly stated in model card)</td>
+    </tr>
+    <tr>
+      <td>Optimizer</td>
+      <td class="mn">AdamW</td>
+      <td class="mn best">Muon (second-order)</td>
+    </tr>
+    <tr>
+      <td>Learning rate</td>
+      <td class="mn">6 × 10⁻⁴</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>LR schedule</td>
+      <td class="mn">Cosine decay, 4% warmup</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Gradient clipping</td>
+      <td class="mn">1.0</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Epochs</td>
+      <td class="mn">6</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Max sequence length</td>
+      <td class="mn">3072 tok (4096 for Qwen3-Coder)</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Anchors per sequence</td>
+      <td class="mn">512 randomly sampled</td>
+      <td class="mn">Sampled per local GPU shard</td>
+    </tr>
+    <tr>
+      <td>Loss decay γ</td>
+      <td class="mn">7 (bs=16) · 5 (bs=10) · 4 (bs=8)</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Draft layers</td>
+      <td class="mn">5 (8 for Qwen3-Coder)</td>
+      <td class="mn">5</td>
+    </tr>
+    <tr>
+      <td>Block size</td>
+      <td class="mn">16 (10 for LLaMA-3.1)</td>
+      <td class="mn">8</td>
+    </tr>
+    <tr>
+      <td>Target hidden layers tapped</td>
+      <td class="mn">5, uniformly sampled shallow→deep</td>
+      <td class="mn best">[0, 15, 31, 47, 69] of 70</td>
+    </tr>
+    <tr>
+      <td>Draft attention type</td>
+      <td class="mn">Bidirectional (full context window)</td>
+      <td class="mn best">SWA, window = 1024 tokens</td>
+    </tr>
+    <tr>
+      <td>Online vs offline features</td>
+      <td class="mn">Both supported</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+    <tr>
+      <td>Long-context fine-tune</td>
+      <td class="mn">1,600 samples · LongAlign-10K · 3 epochs</td>
+      <td class="mn" style="color:var(--muted)">N/A</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The "online vs offline" distinction refers to when target hidden features are computed: in <strong>online</strong> mode they are extracted on the fly each training step (higher GPU use, no storage overhead); in <strong>offline</strong> mode they are precomputed and cached — for 800K samples with 5 hidden states per token at BF16, that is roughly 40–80 GB of disk, but reduces per-step compute significantly. The long-context fine-tune row shows that generalizing beyond the 3072-token training window is cheap: 1,600 samples from LongAlign-10K for 3 epochs suffices, and the SWA window in the MiMo deployment provides architectural O(1) cost per token regardless of context length.</p>
 </section>
 
 <!-- ── SECTION 06 ── -->
@@ -534,7 +760,9 @@ for epoch in range(N):
 <h3>Layer 2: DFlash Drafter (MiMo-specific)</h3>
 <p>The MiMo deployment uses DFlash with a 5-layer draft model capturing backbone layers at positions <a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro-FP4-DFlash/blob/main/dflash/config.json#L15" target="_blank" rel="noopener">[0, 15, 31, 47, 69]</a> (uniformly sampled across the 70-layer backbone). The draft uses <a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro-FP4-DFlash/blob/main/dflash/config.json#L20-L21" target="_blank" rel="noopener"><strong>Sliding Window Attention (SWA)</strong></a> with a 1024-token window, making per-prediction compute constant regardless of context length — critical for MiMo's 1M-token context support.</p>
 
-<p>The drafter is trained with the <a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro-FP4-DFlash/blob/main/README.md#L95" target="_blank" rel="noopener"><strong>Muon second-order optimizer</strong></a> and model self-distillation, achieving acceptance lengths of 6.30 for coding tasks (out of a block size of 8). Each verification cycle thus delivers roughly 6× the tokens of a standard autoregressive step.</p>
+<p>Training follows the four-innovation recipe described in Section 05, but with two MiMo-specific differences. First, the optimizer is <a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro-FP4-DFlash/blob/main/README.md#L95" target="_blank" rel="noopener"><strong>Muon</strong></a> — a second-order method that uses orthogonalized gradient updates and converges faster than AdamW for the small draft layer count. Second, the training labels are generated by the MiMo 2.5 Pro model itself (<strong>model self-distillation</strong>), meaning the draft model learns to predict specifically what MiMo would say, maximizing acceptance under MiMo's exact token distribution rather than a generic distribution. The draft model is trained <em>after</em> the target model's entire training pipeline — pre-training, mid-training, and post-training — is complete; the target is frozen throughout.</p>
+
+<p>One implementation detail from the model card: because anchor positions are randomly sampled on the local GPU shard at training time, <strong>a single long sequence yields tens of thousands of independent masked-block training signals</strong>, making the 800K-sample corpus far more data-efficient than its raw count suggests. The result is a drafter that achieves acceptance lengths of 6.30 for coding tasks (out of a block size of 8), with each verification cycle delivering roughly 6× the tokens of a standard autoregressive step.</p>
 
 <h3>Layer 3: TileRT Persistent Engine</h3>
 <p>Even with DFlash delivering long acceptance chains, microsecond-scale gaps between kernel launches can add up. TileRT introduces two kernel-level innovations:</p>
@@ -793,34 +1021,44 @@ const PANELS = {
     ['hl-a', '# across blocks: DISABLED (causal consistency)'],
   ],
   training: [
-    ['cmt', '# DFlash training: 4 key innovations'],
+    ['cmt', '# DFlash draft training — Appendix A.1 hyperparams'],
     ['', ''],
-    ['hl-p', 'def build_training_batch(response, target_hidden, gamma):'],
-    ['', '    blocks = []'],
-    ['', '    # Innovation 1: Random anchor sampling'],
-    ['hl-c', '    anchors = random.sample(range(len(response)),'],
-    ['hl-c', '                            k=4)  # fixed count'],
-    ['', '    for a in anchors:'],
-    ['', '        block = [response[a]] + [MASK]*(gamma-1)'],
-    ['', '        blocks.append(block)'],
-    ['', '    return blocks'],
+    ['cmt', '# KEY QUESTION: MTP head (pretraining) or separate adapter?'],
+    ['cmt', '# ANSWER: SEPARATE — post-target training, target frozen'],
     ['', ''],
-    ['hl-p', 'def weighted_loss(pred, target, gamma):'],
-    ['', '    # Innovation 2: Exponential positional weighting'],
-    ['hl-p', '    weights = [exp(-(k-1)/gamma) for k in range(1, gamma+1)]'],
-    ['', '    # w_1=1.0, w_2=0.88, w_3=0.78, ... w_8=0.43'],
-    ['hl-p', '    # Early positions matter most — errors cascade'],
-    ['hl-g', '    return sum(w * CE(p, t) for w, p, t in'],
-    ['hl-g', '               zip(weights, pred, target))'],
+    ['cmt', '# MTP (Qwen/DeepSeek style) for comparison:'],
+    ['hl-a', '#   trained JOINTLY during pretraining'],
+    ['hl-a', '#   backbone weights change to accommodate MTP heads'],
+    ['hl-a', '#   autoregressive — predicts 1-4 tokens ahead'],
+    ['hl-a', '#   cannot be added to a finished model'],
     ['', ''],
-    ['cmt', '# Innovation 3: Shared embedding (frozen)'],
-    ['hl-g', 'draft.embed   = target.embed    # no gradients'],
-    ['hl-g', 'draft.lm_head = target.lm_head  # no gradients'],
-    ['', '# Reduces trainable params by ~30%'],
+    ['cmt', '# DFlash (this model):'],
+    ['hl-g', '#   trained AFTER full target training is complete'],
+    ['hl-g', '#   target weights NEVER modified'],
+    ['hl-g', '#   block diffusion — predicts 8-16 tokens in parallel'],
+    ['hl-g', '#   retrofittable to any frozen target model'],
     ['', ''],
-    ['cmt', '# Innovation 4: Efficient long-context training'],
-    ['hl-a', 'BLOCKS_PER_SEQ = 4  # constant regardless of ctx length'],
-    ['', '# For 1M-token context: same cost as 4K context'],
+    ['cmt', '# Stage: POST target-model training; target is FROZEN'],
+    ['hl-c', 'target.requires_grad_(False)   # all weights frozen'],
+    ['hl-c', 'draft.layers.requires_grad_(True)  # only draft layers'],
+    ['', ''],
+    ['cmt', '# Dataset: 800K samples (Nemotron-v2 + CodeAlpaca)'],
+    ['cmt', '# KEY: labels = target model outputs, not human text'],
+    ['hl-p', 'for prompt in seed_data:                    # self-distillation'],
+    ['hl-p', '    label = target_model.generate(prompt)   # frozen target'],
+    ['hl-p', '    training_set.append((prompt, label))    # draft trains on this'],
+    ['', ''],
+    ['cmt', '# Optimizer config (AdamW; Muon for MiMo 2.5 Pro)'],
+    ['hl-g', 'optimizer = AdamW(lr=6e-4, weight_decay=0.01)'],
+    ['hl-g', 'scheduler = CosineAnnealingWarmup(warmup_ratio=0.04)'],
+    ['hl-g', 'grad_clip  = 1.0'],
+    ['hl-g', 'num_epochs = 6          # passes over 800K samples'],
+    ['hl-g', 'max_seq_len  = 3072     # 4096 for Qwen3-Coder'],
+    ['', ''],
+    ['cmt', '# DFlash vs MTP speedup (B200, SGLang, Qwen3.5-9B):'],
+    ['hl-a', '# Native MTP:  Math 1.7× | HumanEval 1.7× | Chat 1.3×'],
+    ['hl-g', '# DFlash:      Math 3.5× | HumanEval 3.4× | Chat 2.5×'],
+    ['cmt', '# +1.5-2× speedup over MTP — from a post-hoc adapter!'],
   ],
   mimo: [
     ['cmt', '# MiMo 2.5 Pro UltraSpeed: deployment stack'],
