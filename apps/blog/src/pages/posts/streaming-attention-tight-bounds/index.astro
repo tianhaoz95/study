@@ -1,0 +1,1411 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Tight Bounds for Streaming Attention | AI/ML Deep Dives"
+  description="KV cache compression has a theoretical sweet spot: this paper proves nearly tight upper and lower bounds on how much memory streaming attention really needs."
+  crumb="Streaming Attention Bounds"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:230px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-head{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:.875rem 0 .375rem;font-family:var(--ff-mono)}
+
+/* KV cache growth chart */
+#kv-canvas{display:block;width:100%;border-radius:6px}
+
+/* Split diagram */
+.split-diagram{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1rem;margin:1.5rem 0}
+.split-box{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem}
+.split-box-title{font-size:.7rem;font-weight:700;font-family:var(--ff-mono);margin-bottom:.4rem}
+.split-box-body{font-size:.72rem;color:var(--muted);line-height:1.55}
+.split-arrow{font-size:1.25rem;color:var(--muted);text-align:center}
+.split-plus{font-size:1rem;color:var(--purple);font-weight:700;text-align:center}
+
+/* Bound comparison */
+.bound-compare{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+.bound-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem}
+.bound-card.old{border-color:rgba(239,68,68,.3)}
+.bound-card.new{border-color:rgba(139,92,246,.4)}
+.bound-card-label{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.5rem}
+.bound-card.old .bound-card-label{color:rgba(239,68,68,.7)}
+.bound-card.new .bound-card-label{color:var(--purple-l)}
+.bound-formula{font-family:var(--ff-mono);font-size:.85rem;color:var(--text2);line-height:1.8}
+.bound-note{font-size:.7rem;color:var(--muted);margin-top:.4rem;line-height:1.5}
+
+/* Callout */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0}
+.callout-label{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--purple-l);margin-bottom:.375rem;font-family:var(--ff-mono)}
+.callout p{font-size:.82rem;color:var(--muted2);margin:0;line-height:1.65}
+.callout-cyan{background:rgba(6,182,212,.06);border-color:rgba(6,182,212,.25)}
+.callout-cyan .callout-label{color:var(--cyan)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .bound-compare{grid-template-columns:1fr}
+  .split-diagram{grid-template-columns:1fr;gap:.5rem}
+  .split-arrow{display:none}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Theory</span>
+    <span class="tag tag-cyan">KV Cache</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Tight Bounds for Streaming Attention</h1>
+  <p class="lead">How much memory does attention truly need? Prior work left the answer completely open — the best algorithm used O(1/ε) space but the lower bound didn't even depend on ε. This paper closes the gap with a nearly tight (1/ε)<sup>1−1/a</sup> bound, achieved through a surprisingly elegant three-way interplay: polynomial moments, coresets, and space partitioning.</p>
+  <div class="post-hero-meta">
+    <span>June 9, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2606.07205</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.07205" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The KV Cache Problem</a></li>
+    <li class="toc-item" id="toc-s-formulation"><a href="#s-formulation"><span class="toc-num">02</span> Streaming Approximation</a></li>
+    <li class="toc-item" id="toc-s-gap"><a href="#s-gap"><span class="toc-num">03</span> The Open Gap</a></li>
+    <li class="toc-item" id="toc-s-algorithm"><a href="#s-algorithm"><span class="toc-num">04</span> The Algorithm</a></li>
+    <li class="toc-item" id="toc-s-temperature"><a href="#s-temperature"><span class="toc-num">05</span> Temperature Regimes</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Tight Bounds</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 THE KV CACHE PROBLEM -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The KV Cache Problem</div>
+<h2>Why Transformers Can't Forget</h2>
+<p>Every time a transformer generates the next token, it computes attention — a weighted sum of all past tokens' value vectors, where the weights are determined by how much each past key vector aligns with the current query. To avoid recomputing everything from scratch, the key-value pairs for all past tokens are cached in memory: the KV cache.</p>
+<p>The memory footprint scales linearly with context length. For a model with 32 layers, 8 attention heads, and key/value dimension 128, storing a single token costs 32 × 8 × 2 × 128 = 65,536 floats. At 16-bit precision, that's 128 KB <em>per token</em>. A 100K-token context needs 12.5 GB — just for the cache.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">kv-cache-growth.canvas — memory vs context length</span>
+    <span class="vp-hint">drag the slider to explore</span>
+  </div>
+  <div class="vp-body" style="padding-bottom:.5rem">
+    <canvas id="kv-canvas" height="200"></canvas>
+    <div style="display:flex;align-items:center;gap:1rem;margin-top:.875rem;flex-wrap:wrap">
+      <label style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">Context length:
+        <input type="range" id="ctx-slider" min="1" max="128" value="32"
+          style="margin-left:.5rem;vertical-align:middle;accent-color:var(--purple);width:140px">
+        <span id="ctx-val" style="color:var(--text2);margin-left:.4rem">32K tokens</span>
+      </label>
+      <div style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">
+        Cache: <span id="cache-gb" style="color:var(--purple-l);font-weight:700">4.0 GB</span>
+        &nbsp;·&nbsp; Full KV: <span id="full-gb" style="color:rgba(239,68,68,.8);font-weight:700">4.0 GB</span>
+        &nbsp;·&nbsp; Approx (ε=0.01): <span id="approx-gb" style="color:var(--green);font-weight:700">— MB</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The research question: can we compute accurate attention outputs while storing only a <em>compressed sketch</em> of past tokens — a small subset or summary that answers any future query within a guaranteed error bound ε?</p>
+</section>
+
+<!-- §02 STREAMING APPROXIMATION -->
+<section id="s-formulation" data-code="formulation">
+<div class="section-no">02 — Streaming Approximation</div>
+<h2>The Problem, Precisely</h2>
+<p>The attention function takes keys k<sub>1</sub>,…,k<sub>n</sub>, values v<sub>1</sub>,…,v<sub>n</sub>, and query q, and returns:</p>
+
+<div class="math-block">
+  <div class="math-label">Attention Formula</div>
+  Attn(K, q, V) = <span class="math-var">Σ</span> [exp(⟨k<sub>i</sub>, q⟩) / <span class="math-var">Σ</span> exp(⟨k<sub>j</sub>, q⟩)] · v<sub>i</sub>
+  <br><span class="math-comment">// weighted average of values; weights are softmax of key-query dot products</span>
+</div>
+
+<p>In the <strong>streaming model</strong>, tokens arrive one by one. After each new token, the algorithm must be able to answer any query q with guaranteed accuracy. Crucially, it can only use <em>limited memory</em> — it cannot store all n key-value pairs. The goal is to maintain a compact data structure that approximates attention to within ε relative error.</p>
+
+<p>The key difficulty comes from the softmax kernel: exp(⟨k, q⟩) = e<sup>⟨k,q⟩</sup>. The exponential makes it very sensitive to alignment between keys and queries. A key k that aligns perfectly with q gets exponentially more weight than one that doesn't — this is what makes attention expressive, and also what makes approximating it tricky.</p>
+
+<div class="callout">
+  <div class="callout-label">The Formal Problem</div>
+  <p>Maintain a data structure using <em>S</em> bits that, for any new query q, outputs ẑ such that ‖ẑ − Attn(K, q, V)‖ ≤ ε · ‖softmax(K, q)‖ · ‖V‖<sub>F</sub>. The vectors k, q are bounded: ‖k‖, ‖q‖ ≤ r. What is the minimum S?</p>
+</div>
+
+<p>Two parameters control the difficulty: the precision ε (smaller = harder) and the radius r (larger = more "peaked" softmax, harder to approximate). This paper gives nearly matching upper and lower bounds in terms of both.</p>
+</section>
+
+<!-- §03 THE OPEN GAP -->
+<section id="s-gap" data-code="gap">
+<div class="section-no">03 — The Open Gap</div>
+<h2>A Puzzling Mismatch</h2>
+<p>Prior to this work, the state of the art left a wide gap. The best known algorithm (Kochetkova et al., NeurIPS 2025) used a discrepancy-based coreset and achieved space complexity O(√d · e<sup>2r²</sup> / ε). Their matching lower bound, however, didn't depend on ε at all — only on r.</p>
+
+<div class="bound-compare">
+  <div class="bound-card old">
+    <div class="bound-card-label">Prior upper bound (KSH+ 2025)</div>
+    <div class="bound-formula">Õ( √d · e<sup>2r²</sup> / ε )</div>
+    <div class="bound-note">Linear in 1/ε — improves with lower precision</div>
+  </div>
+  <div class="bound-card old">
+    <div class="bound-card-label">Prior lower bound (KSH+ 2025)</div>
+    <div class="bound-formula">Ω̃( min(n, e<sup>2r²</sup>) )</div>
+    <div class="bound-note">No ε dependence — the bound doesn't get stronger as ε decreases!</div>
+  </div>
+</div>
+
+<p>This gap is enormous. The algorithm says "halve ε → double the memory." The lower bound says "you might not need any extra memory at all." One of them had to be wrong, or at least far from tight. Which one?</p>
+
+<p>The answer turns out to be: <strong>both</strong> were loose, in different regimes. The true memory requirement is a sublinear function of 1/ε — the correct exponent depends on the dimension d. This paper finds it.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">bound-gap.canvas — old vs new bounds as ε varies</span>
+    <span class="vp-hint">click a regime to compare</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="gap-canvas" height="220"></canvas>
+    <div style="display:flex;gap:.625rem;margin-top:.875rem;flex-wrap:wrap">
+      <button class="regime-btn active" data-a="1.5" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--purple-dim);color:var(--purple-l);cursor:pointer">d = log<sup>1.5</sup>n</button>
+      <button class="regime-btn" data-a="2" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted2);cursor:pointer">d = log²n</button>
+      <button class="regime-btn" data-a="3" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted2);cursor:pointer">d = log³n</button>
+      <button class="regime-btn" data-a="4" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted2);cursor:pointer">d = log⁴n</button>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §04 THE ALGORITHM -->
+<section id="s-algorithm" data-code="algorithm">
+<div class="section-no">04 — The Algorithm</div>
+<h2>Split, Sketch, and Combine</h2>
+<p>The key insight is to decompose the exponential kernel using its Taylor series, then handle the two parts separately. Recall that e<sup>x</sup> = Σ x<sup>l</sup>/l!. For a cutoff t, write:</p>
+
+<div class="math-block">
+  <div class="math-label">Taylor Split</div>
+  exp(K, q) = <span class="math-var">Σ<sub>k∈K</sub></span> [exp<sub>≤t</sub>(k, q) + exp<sub>&gt;t</sub>(k, q)]
+  <br>
+  exp<sub>≤t</sub>(k, q) = <span class="math-var">Σ<sub>l=0</sub><sup>t</sup></span> ⟨k, q⟩<sup>l</sup> / l! &nbsp;&nbsp;<span class="math-comment">// low-degree part</span>
+  <br>
+  exp<sub>&gt;t</sub>(k, q) = <span class="math-var">Σ<sub>l=t+1</sub><sup>∞</sup></span> ⟨k, q⟩<sup>l</sup> / l! &nbsp;&nbsp;<span class="math-comment">// high-degree part</span>
+</div>
+
+<p>This split creates two subproblems, each solvable with a different technique:</p>
+
+<div class="split-diagram">
+  <div class="split-box">
+    <div class="split-box-title" style="color:var(--cyan)">📐 Low-Degree Moments</div>
+    <div class="split-box-body">Store the aggregate <strong>polynomial sketch</strong> Σ<sub>k∈K</sub> ψ₁(k), where ψ₁(k) = (k⊗l/l!)<sub>l=0..t</sub> stores all moments of keys up to degree t. Query evaluation is just a dot product. Space: O((d+t)ᵗ/t!) — grows with t but doesn't depend on n.</div>
+  </div>
+  <div class="split-plus">+</div>
+  <div class="split-box">
+    <div class="split-box-title" style="color:var(--purple)">🎯 High-Degree Coreset</div>
+    <div class="split-box-body">Store a small <strong>weighted subset</strong> C ⊂ K that approximates the high-degree kernel. Because exp<sub>&gt;t</sub> is positive definite, Banaszczyk's theorem (from discrepancy theory) guarantees such a subset exists. Size: O(er²/ε · Σ<sub>l&gt;t</sub> r²ˡ/l!) — shrinks as t grows.</div>
+  </div>
+</div>
+
+<p>The trick is to choose <em>t</em> to balance these two costs. As t increases, the sketch grows but the coreset shrinks. The optimal t minimizes their sum — and it turns out to be t ≈ log(1/ε) / log(d), giving a total space of (1/ε)<sup>1 − 1/a + o(1)</sup> when d = log<sup>a</sup>n.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">algorithm-split.canvas — sketch vs coreset cost as t varies</span>
+    <span class="vp-hint">drag t to find the optimal split</span>
+  </div>
+  <div class="vp-body" style="padding-bottom:.5rem">
+    <canvas id="split-canvas" height="210"></canvas>
+    <div style="display:flex;align-items:center;gap:1rem;margin-top:.875rem;flex-wrap:wrap">
+      <label style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">Cutoff t:
+        <input type="range" id="t-slider" min="1" max="20" value="8"
+          style="margin-left:.5rem;vertical-align:middle;accent-color:var(--purple);width:140px">
+        <span id="t-val" style="color:var(--text2);margin-left:.4rem">8</span>
+      </label>
+      <div style="font-size:.72rem;font-family:var(--ff-mono)">
+        Sketch: <span id="sketch-cost" style="color:var(--cyan);font-weight:700">—</span>
+        &nbsp;·&nbsp; Coreset: <span id="coreset-cost" style="color:var(--purple-l);font-weight:700">—</span>
+        &nbsp;·&nbsp; Total: <span id="total-cost" style="color:var(--text2);font-weight:700">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>The Step-by-Step Algorithm</h3>
+<div class="step-list" id="step-list">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Choose cutoff t</div>
+      <div class="step-desc">Set t = ⌊log(1/ε) / log(d)⌋. This balances the low-degree sketch size against the coreset size.</div>
+      <div class="step-code">t = floor(log(1/eps) / log(d))</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Maintain polynomial sketch</div>
+      <div class="step-desc">For each incoming key k, accumulate ψ₁(k) = (k⊗l / l!)ₗ₌₀..t into the running sum. Store O((d+t)ᵗ/t!) numbers.</div>
+      <div class="step-code">sketch += outer_powers(k, t)  # O(d^t / t!) floats</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Maintain coreset for high-degree part</div>
+      <div class="step-desc">Run a discrepancy-minimization oracle (e.g., the randomized Gram-Schmidt walk) to maintain a weighted subset C ⊆ K for exp<sub>&gt;t</sub>. Double the size when needed, halve using BaseCompress.</div>
+      <div class="step-code">C = base_compress(K, exp_gt(t), eps)  # |C| = O(e^r2/eps)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Answer queries</div>
+      <div class="step-desc">For query q, compute the low-degree part from the sketch and the high-degree part from the coreset; sum for the full approximation.</div>
+      <div class="step-code">z_low  = dot(sketch, outer_powers(q, t))
+z_high = sum(w_k * exp_gt(k,q) for k,w in C)
+return z_low + z_high</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span class="step-prog" id="step-prog">Step 1 of 4</span>
+  <button id="step-next">Next →</button>
+</div>
+</section>
+
+<!-- §05 TEMPERATURE REGIMES -->
+<section id="s-temperature" data-code="temperature">
+<div class="section-no">05 — Temperature Regimes</div>
+<h2>Hot vs. Cold Attention</h2>
+<p>The radius r controls how "sharp" the attention distribution can be. Think of r as an inverse temperature: when r is large, the softmax can concentrate nearly all its weight on one token; when r is small, the weights stay roughly uniform.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">temperature.canvas — softmax sharpness for r = 1, 2, 4</span>
+    <span class="vp-hint">click a row to highlight</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="temp-canvas" height="230"></canvas>
+    <div style="display:flex;gap:.625rem;margin-top:.875rem;flex-wrap:wrap">
+      <button class="temp-btn active" data-r="1" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--cyan-dim);color:var(--cyan);cursor:pointer">r = 1 (high temp)</button>
+      <button class="temp-btn" data-r="2" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted2);cursor:pointer">r = 2</button>
+      <button class="temp-btn" data-r="3" style="padding:.25rem .7rem;font-size:.68rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);border-radius:4px;background:var(--surface);color:var(--muted2);cursor:pointer">r = 3 (low temp)</button>
+    </div>
+  </div>
+</div>
+
+<p>The two regimes require different algorithmic strategies:</p>
+
+<ul>
+  <li><strong>High temperature (small r):</strong> The softmax is spread out. The polynomial sketch approach dominates — you need relatively few terms in the Taylor expansion to approximate the smooth distribution. The memory bound is (1/ε)<sup>1−1/a</sup>, where a comes from d = log<sup>a</sup>n.</li>
+  <li><strong>Low temperature (large r, r² = Ω(log n)):</strong> Attention concentrates sharply. The algorithm must find and exploit cluster structure in the key set — "recentering and rescaling" dense clusters to reduce the effective radius, then applying the base coreset construction to each cluster independently. The memory bound is e<sup>r²(1±o(1)</sup>/ε.</li>
+</ul>
+
+<div class="callout callout-cyan">
+  <div class="callout-label">Key insight: recentering saves exponential factors</div>
+  <p>If all keys cluster near center c, running a coreset over the raw keys wastes exp(2r²) space. But if you first shift to K−c and rescale, the effective radius drops from r to √(r·r'), saving the difference exponentially. The paper shows this recentering step is what achieves the nearly tight e<sup>r²(1±o(1))</sup> bound in the low-temperature regime.</p>
+</div>
+</section>
+
+<!-- §06 TIGHT BOUNDS -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Tight Bounds</div>
+<h2>The Final Scorecard</h2>
+<p>The main result is two theorems — one for each regime — each giving nearly matching upper and lower bounds.</p>
+
+<div class="bound-compare">
+  <div class="bound-card new">
+    <div class="bound-card-label">High-Temperature Regime (Theorem 2.1)</div>
+    <div class="bound-formula">
+      Upper: Õ( (1/ε)<sup>1 − 1/a + o(1)</sup> )<br>
+      Lower: Ω̃( (1/ε)<sup>1 − 1/a − o(1)</sup> )
+    </div>
+    <div class="bound-note">For d = log<sup>a</sup>n, r = (log n)<sup>o(1)</sup>. Tight up to subpolynomial factors for integer a &gt; 2.</div>
+  </div>
+  <div class="bound-card new">
+    <div class="bound-card-label">Low-Temperature Regime (Theorem 2.2)</div>
+    <div class="bound-formula">
+      Upper: Õ( e<sup>r²(1+o(1))</sup> / ε )<br>
+      Lower: Ω̃( min(n, e<sup>r²(1−o(1))</sup> / ε) )
+    </div>
+    <div class="bound-note">For r² = Ω(log n), d = (log n)<sup>1+Ω(1)</sup>. Nearly tight in the exponent of e<sup>r²</sup>.</div>
+  </div>
+</div>
+
+<h3>The improvement over prior work</h3>
+
+<div class="results-bars" id="bounds-bars">
+  <div class="bar-section-head">Space needed for ε = 0.001 (d = log²n, r = 1)</div>
+  <div class="bar-row">
+    <div class="bar-label">Prior upper bound<br><small style="font-size:.62rem;color:var(--muted)">(KSH+25) O(1/ε)</small></div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(239,68,68,.5)"><span>1000 units</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">This paper's upper bound<br><small style="font-size:.62rem;color:var(--muted)">(1/ε)<sup>1−1/2</sup> = (1/ε)<sup>0.5</sup></small></div>
+    <div class="bar-track"><div class="bar-fill" data-w="31.6" style="background:var(--purple)"><span>≈ 31.6 units</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Prior lower bound<br><small style="font-size:.62rem;color:var(--muted)">(KSH+25) Ω(1) — no ε dep.</small></div>
+    <div class="bar-track"><div class="bar-fill" data-w="1" style="background:rgba(107,114,128,.4)"><span>1 unit</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">This paper's lower bound<br><small style="font-size:.62rem;color:var(--muted)">(1/ε)<sup>1−1/2−o(1)</sup> ≈ 28 units</small></div>
+    <div class="bar-track"><div class="bar-fill" data-w="28" style="background:var(--cyan)"><span>≈ 28 units</span></div></div>
+  </div>
+</div>
+
+<p>The gap between the upper and lower bounds drops from a factor of 1000× (old) to just ≈ 1.1× (new) — nearly tight. The prior 1/ε upper bound was off by a factor of √(1/ε) = √1000 ≈ 31 at ε = 0.001.</p>
+
+<h3>Why the lower bound is hard</h3>
+<p>Proving that <em>no</em> algorithm can do better requires a carefully designed lower bound. The paper reduces streaming attention to the classic <strong>INDEX communication problem</strong>: Alice holds a binary string x of length N, Bob holds index i; Alice sends one message, Bob must output x<sub>i</sub>. This requires Ω(N) bits.</p>
+<p>The reduction maps each bit x<sub>j</sub> to the presence or absence of a key k<sub>j</sub> in the input stream. Bob queries the attention algorithm at q = k<sub>i</sub> and uses the output to infer x<sub>i</sub>. The main challenge: the cross-terms (keys j ≠ i) create noise that drowns the signal. The paper's key novelty is sending "side information" — a degree-t sketch of the input — alongside the algorithm state, and using the <strong>Hermite basis</strong> (rather than Taylor monomials) to make the signal-to-noise ratio work out exactly right.</p>
+
+<div class="callout">
+  <div class="callout-label">The matching magic</div>
+  <p>The upper and lower bounds match because the same expression — min<sub>t</sub>[ (d+t)ᵗ/t! + (er²/ε)·Σ<sub>l&gt;t</sub> r²ˡ/l! ] — appears in both. The algorithm minimizes it to choose t; the lower bound shows you can't do better than the minimum. The Hermite expansion is precisely calibrated to make this match exact.</p>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">attention/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The KV Cache Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="formulation">formulation</button>
+    <button class="cs-tab" data-panel="gap">gap</button>
+    <button class="cs-tab" data-panel="algorithm">algorithm</button>
+    <button class="cs-tab" data-panel="temperature">temperature</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># KV Cache: memory scales linearly with context</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># For a typical LLM deployment:</span>
+<span class="cs-line cmt">#   layers=32, heads=8, head_dim=128</span>
+<span class="cs-line cmt">#   bytes_per_token = 32*8*2*128*2  (float16)</span>
+<span class="cs-line cmt">#                  = 131072 bytes = 128 KB</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">kv_cache_gb</span>(n_tokens, n_layers<span class="op">=</span><span class="num">32</span>,</span>
+<span class="cs-line hl-p">                 n_heads<span class="op">=</span><span class="num">8</span>, head_dim<span class="op">=</span><span class="num">128</span>):</span>
+<span class="cs-line">    bytes_per_token <span class="op">=</span> (</span>
+<span class="cs-line">        n_layers <span class="op">*</span> n_heads <span class="op">*</span> <span class="num">2</span>  <span class="cmt"># K and V</span></span>
+<span class="cs-line">        <span class="op">*</span> head_dim <span class="op">*</span> <span class="num">2</span>           <span class="cmt"># float16</span></span>
+<span class="cs-line">    )</span>
+<span class="cs-line">    <span class="kw">return</span> n_tokens <span class="op">*</span> bytes_per_token <span class="op">/</span> <span class="num">1e9</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Context length → KV cache size</span>
+<span class="cs-line cmt">#   1K  tokens →   0.12 GB</span>
+<span class="cs-line cmt">#   32K tokens →   4.0  GB</span>
+<span class="cs-line cmt">#   100K tokens → 12.5  GB</span>
+<span class="cs-line cmt">#   1M  tokens → 125   GB  ← impractical</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Attention computation</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">attention</span>(K, q, V):</span>
+<span class="cs-line">    weights <span class="op">=</span> [<span class="fn">exp</span>(<span class="fn">dot</span>(k, q)) <span class="kw">for</span> k <span class="kw">in</span> K]</span>
+<span class="cs-line">    Z <span class="op">=</span> <span class="fn">sum</span>(weights)            <span class="cmt"># normalizer</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">sum</span>(w<span class="op">/</span>Z <span class="op">*</span> v</span>
+<span class="cs-line">               <span class="kw">for</span> w, v <span class="kw">in</span> <span class="fn">zip</span>(weights, V))</span>
+<span class="cs-line cmt"># This requires storing ALL n key-value pairs</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-formulation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Streaming attention problem (Definition 2.2)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Input arrives as a stream: (k1,v1), (k2,v2), ...</span>
+<span class="cs-line cmt"># After each token j, for any query q:</span>
+<span class="cs-line cmt">#   output z_hat such that</span>
+<span class="cs-line cmt">#   ‖z_hat - Attn(K_j, q, V_j)‖</span>
+<span class="cs-line cmt">#     ≤ ε · ‖softmax(K_j, q)‖ · ‖V_j‖_F</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Parameters:</span>
+<span class="cs-line cmt">#   ε  ∈ (n^-100, 0.5)  precision</span>
+<span class="cs-line cmt">#   r  > 0              ‖k‖, ‖q‖ ≤ r</span>
+<span class="cs-line cmt">#   d  = log^a(n)       dimension</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Equivalent problem: softmax KDE</span>
+<span class="cs-line cmt"># (normalizing constant is the hard part)</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">softmax_kde</span>(K, q):</span>
+<span class="cs-line hl-c">    <span class="str">"""Approximate exp(K,q) = Σ e^⟨k,q⟩"""</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> <span class="fn">sum</span>(<span class="fn">exp</span>(<span class="fn">dot</span>(k, q)) <span class="kw">for</span> k <span class="kw">in</span> K)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># The exp kernel: exp(k, q) = e^⟨k,q⟩</span>
+<span class="cs-line cmt"># Positive definite → admits coreset theory</span>
+<span class="cs-line cmt"># But the softmax distribution can be spiky:</span>
+<span class="cs-line cmt">#   ‖softmax‖_2 ranges from 1/√n to 1</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-gap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Prior work bounds (KSH+ 2025)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Upper bound (BalanceKV algorithm):</span>
+<span class="cs-line hl-a">  Space = Õ( sqrt(d) * exp(2*r^2) / eps )</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Lower bound (INDEX reduction):</span>
+<span class="cs-line hl-a">  Space = Ω( min(n, exp(2*r^2)) )</span>
+<span class="cs-line cmt">#         ^^^ NO ε dependence!</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># The gap at ε = 0.001, r=1, d = log²n:</span>
+<span class="cs-line cmt">#   Upper ≈ 1000 * sqrt(d) * e^2 ≈ 7400 * sqrt(d)</span>
+<span class="cs-line cmt">#   Lower ≈ e^2 ≈ 7.4</span>
+<span class="cs-line cmt">#   Gap   ≈ 1000× !</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># This paper's bounds (Theorem 2.1):</span>
+<span class="cs-line cmt">#   d = log^a(n),  a > 2</span>
+<span class="cs-line hl-g">  Upper = Õ( (1/eps)^(1 - 1/a + o(1)) )</span>
+<span class="cs-line hl-g">  Lower = Ω( (1/eps)^(1 - 1/a - o(1)) )</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># At a=2 (d=log²n), ε=0.001:</span>
+<span class="cs-line cmt">#   Bound ≈ (1000)^0.5 ≈ 31.6</span>
+<span class="cs-line cmt">#   Gap shrinks from 1000× to ≈1.1×</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-algorithm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The streaming algorithm (high-temp regime)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Key idea: split the Taylor series at degree t</span>
+<span class="cs-line cmt">#   exp(k,q) = exp_le_t(k,q) + exp_gt_t(k,q)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">optimal_cutoff</span>(eps, d):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Balance sketch size vs coreset size</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> <span class="fn">floor</span>(<span class="fn">log</span>(<span class="num">1</span><span class="op">/</span>eps) <span class="op">/</span> <span class="fn">log</span>(d))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Component 1: polynomial sketch for low-degree</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">embed_key</span>(k, t):</span>
+<span class="cs-line">    <span class="cmt"># Tensor powers: ψ₁(k) = (k^⊗l / l!)_l=0..t</span></span>
+<span class="cs-line">    <span class="kw">return</span> [k_outer_power(k, l) <span class="op">/</span> <span class="fn">factorial</span>(l)</span>
+<span class="cs-line">            <span class="kw">for</span> l <span class="kw">in</span> <span class="fn">range</span>(t<span class="op">+</span><span class="num">1</span>)]</span>
+<span class="cs-line cmt"># Space: O( (d+t)^t / t! ) — the monomial count</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Component 2: coreset for high-degree (exp_gt_t)</span>
+<span class="cs-line cmt"># Relies on Banaszczyk's theorem:</span>
+<span class="cs-line cmt"># Since exp_gt_t is positive definite,</span>
+<span class="cs-line cmt"># discrepancy theory guarantees C exists</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">base_compress</span>(K, kernel, eps):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Gram-Schmidt walk discrepancy oracle</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Returns C with |C| ≤ |K|/2</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># coreset size: Õ(e^r² * Σ_&#123;l&gt;t&#125; r^2l/l! / ε)</span></span>
+<span class="cs-line hl-c">    ...</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Query time: dot product + coreset sum</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">query</span>(sketch, C, q, t):</span>
+<span class="cs-line">    low  <span class="op">=</span> <span class="fn">dot</span>(sketch, <span class="fn">embed_query</span>(q, t))</span>
+<span class="cs-line">    high <span class="op">=</span> <span class="fn">sum</span>(w <span class="op">*</span> <span class="fn">exp_gt</span>(k, q, t)</span>
+<span class="cs-line">               <span class="kw">for</span> k, w <span class="kw">in</span> C)</span>
+<span class="cs-line">    <span class="kw">return</span> low <span class="op">+</span> high</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-temperature">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Two regimes based on radius r</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># HIGH TEMPERATURE: r = (log n)^o(1)</span>
+<span class="cs-line cmt"># Softmax is diffuse — use polynomial sketch</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Space: (1/ε)^(1 - 1/a + o(1))</span>
+<span class="cs-line cmt"># where a: d = log^a(n)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LOW TEMPERATURE: r² = Ω(log n)</span>
+<span class="cs-line cmt"># Softmax is sharp — use cluster decomposition</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">pseudorandomize</span>(K, r, Delta, tau):</span>
+<span class="cs-line hl-p">    <span class="str">"""Split K into pseudo-random + dense parts"""</span></span>
+<span class="cs-line hl-p">    dense <span class="op">=</span> []</span>
+<span class="cs-line hl-p">    prand <span class="op">=</span> []</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> cluster <span class="kw">in</span> <span class="fn">find_dense_caps</span>(K, Delta, tau):</span>
+<span class="cs-line hl-p">        center <span class="op">=</span> cluster.center</span>
+<span class="cs-line hl-p">        r_prime <span class="op">=</span> cluster.radius   <span class="cmt"># &lt; r</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># Recenter &amp; rescale: effective radius → √(r·r')</span></span>
+<span class="cs-line hl-p">        K_shifted <span class="op">=</span> <span class="fn">rescale</span>(K <span class="op">-</span> center, r, r_prime)</span>
+<span class="cs-line hl-p">        dense.append(K_shifted)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> prand, dense</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># After recentering, the exp factor becomes:</span>
+<span class="cs-line cmt">#   exp(2*r*r') instead of exp(2*r²)</span>
+<span class="cs-line cmt"># Since r' &lt; r, this is exponentially smaller!</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># Low-temp space: Õ(e^(r²(1+o(1))) / ε)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Results summary</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># High-temperature theorem (Thm 2.1):</span>
+<span class="cs-line cmt">#   d = log^a(n), r = (log n)^o(1)</span>
+<span class="cs-line cmt">#   ε ∈ (n^-100, n^-c)</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line hl-g">  UPPER = (1/eps)**(1 - 1/a) * polylog(n)</span>
+<span class="cs-line hl-g">  LOWER = (1/eps)**(1 - 1/a) / polylog(n)</span>
+<span class="cs-line cmt">#   Tight to polylog factors for integer a &gt; 2</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Low-temperature theorem (Thm 2.2):</span>
+<span class="cs-line cmt">#   r² = Ω(log n), d = (log n)^(1+Ω(1))</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line hl-p">  UPPER = exp(r**2 * (1 + o(1))) / eps</span>
+<span class="cs-line hl-p">  LOWER = exp(r**2 * (1 - o(1))) / eps</span>
+<span class="cs-line cmt">#   Tight to lower-order factors in the exponent</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Prior best (KSH+25) vs this work at ε=0.001:</span>
+<span class="cs-line cmt">#   Old upper: 1/ε = 1000 units</span>
+<span class="cs-line cmt">#   New upper: (1/ε)^0.5 ≈ 31.6 units  (a=2)</span>
+<span class="cs-line cmt">#   New lower: ≈ 28.8 units</span>
+<span class="cs-line cmt">#   Gap: 1000× → 1.1× improvement!</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Three techniques working together:</span>
+<span class="cs-line hl-c">  1. Polynomial method  (moments sketch)</span>
+<span class="cs-line hl-c">  2. Discrepancy theory (coreset via Banaszczyk)</span>
+<span class="cs-line hl-c">  3. Space partitioning (cluster recentering)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + SIDEBAR TOGGLES ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── CODE SIDEBAR TAB SWITCHING ──────────────────────────────────────────────
+const tabMeta = {
+  problem:     { file: 'attention/problem.py',     title: 'The KV Cache Problem' },
+  formulation: { file: 'attention/formulation.py', title: 'Streaming Approximation' },
+  gap:         { file: 'attention/gap.py',         title: 'The Open Gap' },
+  algorithm:   { file: 'attention/algorithm.py',   title: 'The Algorithm' },
+  temperature: { file: 'attention/temperature.py', title: 'Temperature Regimes' },
+  results:     { file: 'attention/results.py',     title: 'Tight Bounds' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── INTERSECTION OBSERVER ───────────────────────────────────────────────────
+const sectionMap = {
+  's-problem':     'problem',
+  's-formulation': 'formulation',
+  's-gap':         'gap',
+  's-algorithm':   'algorithm',
+  's-temperature': 'temperature',
+  's-results':     'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── STEP NAVIGATOR ──────────────────────────────────────────────────────────
+let step = 0;
+const stepBoxes = document.querySelectorAll('.step-box');
+const prevBtn   = document.getElementById('step-prev');
+const nextBtn   = document.getElementById('step-next');
+const progEl    = document.getElementById('step-prog');
+function updateSteps() {
+  stepBoxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === stepBoxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${stepBoxes.length}`;
+  stepBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if(step>0){step--;updateSteps();} });
+nextBtn?.addEventListener('click', () => { if(step<stepBoxes.length-1){step++;updateSteps();} });
+updateSteps();
+
+// ─── KV CACHE GROWTH CANVAS ──────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('kv-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resizeCanvas() {
+    const W = canvas.clientWidth;
+    const H = 200;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    drawKV();
+  }
+
+  const slider = document.getElementById('ctx-slider');
+  const ctxVal = document.getElementById('ctx-val');
+  const cacheGb = document.getElementById('cache-gb');
+  const fullGb  = document.getElementById('full-gb');
+  const approxGb = document.getElementById('approx-gb');
+
+  function drawKV() {
+    const W = canvas.clientWidth;
+    const H = 200;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(DPR, DPR);
+    const ctxN = parseInt(slider.value); // in K tokens
+    ctxVal.textContent = ctxN + 'K tokens';
+
+    // bytes per token for 32-layer, 8-head, 128-dim model
+    const bytesPerToken = 32 * 8 * 2 * 128 * 2;
+    const gb = ctxN * 1024 * bytesPerToken / 1e9;
+    cacheGb.textContent = gb.toFixed(1) + ' GB';
+    fullGb.textContent  = gb.toFixed(1) + ' GB';
+
+    // approximate size: (1/ε)^0.5 scaling
+    const epsExponent = 0.5; // a=2, high temp
+    const eps = 0.01;
+    // relative compression = (eps)^(0.5) ≈ 0.1 of n
+    const compressRatio = Math.pow(eps, epsExponent);
+    const approxMb = gb * compressRatio * 1000;
+    approxGb.textContent = approxMb.toFixed(0) + ' MB';
+
+    const pad = { l:48, r:20, t:16, b:32 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = pad.t + plotH - (g/4)*plotH;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    }
+
+    const maxCtx = 128;
+    const maxGb  = maxCtx * 1024 * bytesPerToken / 1e9;
+
+    // draw lines for full KV and approximate
+    function drawLine(colorStr, getValue, lineWidth) {
+      ctx.strokeStyle = colorStr;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      for (let x = 0; x <= plotW; x++) {
+        const n = (x / plotW) * maxCtx;
+        const v = getValue(n);
+        const frac = Math.min(v / maxGb, 1);
+        const py = pad.t + plotH * (1 - frac);
+        if (x === 0) ctx.moveTo(pad.l + x, py);
+        else ctx.lineTo(pad.l + x, py);
+      }
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    drawLine('rgba(239,68,68,0.5)', n => n * 1024 * bytesPerToken / 1e9, 1.5);
+    ctx.setLineDash([4, 3]);
+    drawLine('rgba(139,92,246,0.8)', n => n * 1024 * bytesPerToken / 1e9 * compressRatio, 1.5);
+    ctx.setLineDash([]);
+
+    // current position marker
+    const cx = pad.l + (ctxN / maxCtx) * plotW;
+    const fullY = pad.t + plotH * (1 - Math.min(gb / maxGb, 1));
+    const approxY = pad.t + plotH * (1 - Math.min(gb * compressRatio / maxGb, 1));
+
+    ctx.fillStyle = 'rgba(239,68,68,0.9)';
+    ctx.beginPath(); ctx.arc(cx, fullY, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.beginPath(); ctx.arc(cx, approxY, 4, 0, Math.PI*2); ctx.fill();
+
+    // vertical dotted line
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, pad.t + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // y-axis labels
+    ctx.fillStyle = 'rgba(148,163,184,0.7)';
+    ctx.font = `${10*DPR}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.scale(1/DPR, 1/DPR);
+    for (let g = 0; g <= 4; g++) {
+      const v = (g/4) * maxGb;
+      const y = (pad.t + plotH - (g/4)*plotH) * DPR;
+      ctx.fillText(v.toFixed(0)+'GB', (pad.l - 4)*DPR, y + 3);
+    }
+    ctx.scale(DPR, DPR);
+
+    // legend
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(239,68,68,0.8)';
+    ctx.fillText('Full KV cache', pad.l + 8, pad.t + 14);
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.fillText('Approx (ε=0.01)', pad.l + 8, pad.t + 28);
+  }
+
+  slider.addEventListener('input', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    drawKV();
+  });
+
+  window.addEventListener('resize', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    resizeCanvas();
+  });
+
+  resizeCanvas();
+})();
+
+// ─── GAP CANVAS ──────────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('gap-canvas');
+  if (!canvas) return;
+  let currentA = 1.5;
+  const DPR = window.devicePixelRatio || 1;
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth;
+    const H = 220;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    drawGap();
+  }
+
+  function drawGap() {
+    const W = canvas.clientWidth;
+    const H = 220;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(DPR, DPR);
+
+    const pad = { l:52, r:20, t:18, b:36 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+
+    // ε ranges from 0.5 down to 0.001 (log scale on x)
+    const log_eps_min = Math.log10(0.001);
+    const log_eps_max = Math.log10(0.5);
+
+    function epsToX(eps) {
+      return pad.l + (Math.log10(eps) - log_eps_min) / (log_eps_max - log_eps_min) * plotW;
+    }
+
+    // space in terms of 1/eps units
+    function oldUpper(eps) { return 1/eps; }
+    function newUpper(eps, a) { return Math.pow(1/eps, 1 - 1/a); }
+    function newLower(eps, a) { return Math.pow(1/eps, 1 - 1/a - 0.05); }
+    function oldLower() { return 1; }
+
+    const maxSpace = 1000;
+    function spaceToY(s) {
+      return pad.t + plotH * (1 - Math.min(s / maxSpace, 1));
+    }
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = pad.t + (g/4)*plotH;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    }
+
+    const EPS_VALS = [];
+    for (let i = 0; i <= 200; i++) {
+      const le = log_eps_min + (i/200) * (log_eps_max - log_eps_min);
+      EPS_VALS.push(Math.pow(10, le));
+    }
+
+    function drawCurve(color, dash, fn, lw) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw || 1.5;
+      ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      EPS_VALS.forEach((eps, i) => {
+        const x = epsToX(eps);
+        const y = spaceToY(fn(eps));
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    drawCurve('rgba(239,68,68,0.5)', [5,3], oldUpper);
+    drawCurve('rgba(107,114,128,0.4)', [3,4], oldLower);
+    drawCurve('rgba(139,92,246,0.85)', [], eps => newUpper(eps, currentA), 2);
+    drawCurve('rgba(6,182,212,0.7)',   [2,3], eps => newLower(eps, currentA));
+
+    // labels at right edge
+    const rightEps = 0.48;
+    ctx.font = `${9*DPR}px monospace`;
+    ctx.scale(1/DPR, 1/DPR);
+    ctx.textAlign = 'left';
+    const labelX = (epsToX(rightEps) + 4) * DPR;
+    ctx.fillStyle = 'rgba(239,68,68,0.8)';
+    ctx.fillText('Prior UB O(1/ε)', labelX, spaceToY(oldUpper(rightEps)) * DPR);
+    ctx.fillStyle = 'rgba(139,92,246,1)';
+    ctx.fillText(`New UB (1/ε)^${(1-1/currentA).toFixed(2)}`, labelX, spaceToY(newUpper(rightEps, currentA)) * DPR - 12);
+    ctx.fillStyle = 'rgba(6,182,212,0.9)';
+    ctx.fillText('New LB', labelX, spaceToY(newLower(rightEps, currentA)) * DPR + 14);
+    ctx.scale(DPR, DPR);
+
+    // x axis labels (ε values)
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    [0.001, 0.01, 0.1, 0.5].forEach(eps => {
+      const x = epsToX(eps);
+      ctx.fillText('ε='+eps, x, pad.t + plotH + 20);
+    });
+
+    // y axis labels
+    ctx.textAlign = 'right';
+    [0, 250, 500, 750, 1000].forEach((v, i) => {
+      ctx.fillText(v, pad.l - 4, pad.t + plotH*(1 - v/maxSpace) + 3);
+    });
+
+    // axis arrow
+    ctx.strokeStyle = 'rgba(148,163,184,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l, pad.t + plotH);
+    ctx.lineTo(pad.l + plotW, pad.t + plotH);
+    ctx.stroke();
+  }
+
+  document.querySelectorAll('.regime-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentA = parseFloat(btn.dataset.a);
+      document.querySelectorAll('.regime-btn').forEach(b => {
+        b.style.background = 'var(--surface)';
+        b.style.color = 'var(--muted2)';
+        b.style.borderColor = 'var(--border-hi)';
+      });
+      btn.style.background = 'var(--purple-dim)';
+      btn.style.color = 'var(--purple-l)';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1,0,0,1,0,0);
+      drawGap();
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    resizeAndDraw();
+  });
+
+  resizeAndDraw();
+})();
+
+// ─── SPLIT CANVAS (sketch vs coreset cost) ───────────────────────────────────
+(function() {
+  const canvas = document.getElementById('split-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const tSlider = document.getElementById('t-slider');
+  const tValEl  = document.getElementById('t-val');
+  const sketchEl = document.getElementById('sketch-cost');
+  const coresetEl = document.getElementById('coreset-cost');
+  const totalEl  = document.getElementById('total-cost');
+
+  // Parameters: d = log^2(n), r=1, eps=0.001
+  const d = 16; // log^2(n) for n = 65536
+  const r = 1;
+  const eps = 0.001;
+
+  function factorial(n) {
+    let f = 1; for (let i = 2; i <= n; i++) f *= i; return f;
+  }
+
+  function sketchSize(t) {
+    // (d+t)^t / t!
+    return Math.pow(d + t, t) / factorial(t);
+  }
+
+  function coresetSize(t) {
+    // (e^r^2 / eps) * sum_{l > t} r^{2l} / l!
+    let tail = 0;
+    for (let l = t+1; l <= 40; l++) {
+      tail += Math.pow(r*r, l) / factorial(l);
+    }
+    return (Math.exp(r*r) / eps) * tail;
+  }
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth;
+    const H = 210;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    drawSplit();
+  }
+
+  function drawSplit() {
+    const W = canvas.clientWidth;
+    const H = 210;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(DPR, DPR);
+
+    const tCur = parseInt(tSlider.value);
+    tValEl.textContent = tCur;
+
+    const pad = { l:60, r:20, t:18, b:36 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+
+    // Find optimal t and max value
+    let maxVal = 0;
+    for (let t = 1; t <= 20; t++) {
+      maxVal = Math.max(maxVal, sketchSize(t), coresetSize(t));
+    }
+    maxVal = Math.min(maxVal, 1e7);
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = pad.t + (g/4)*plotH;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    }
+
+    const tMin = 1, tMax = 20;
+
+    function tToX(t) { return pad.l + ((t - tMin) / (tMax - tMin)) * plotW; }
+    function valToY(v) { return pad.t + plotH * (1 - Math.min(v, maxVal) / maxVal); }
+
+    // Draw sketch line (cyan)
+    ctx.strokeStyle = 'rgba(6,182,212,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    for (let t = tMin; t <= tMax; t++) {
+      const x = tToX(t);
+      const y = valToY(sketchSize(t));
+      if (t === tMin) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw coreset line (purple)
+    ctx.strokeStyle = 'rgba(139,92,246,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let t = tMin; t <= tMax; t++) {
+      const x = tToX(t);
+      const y = valToY(coresetSize(t));
+      if (t === tMin) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Total = sketch + coreset (white)
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    for (let t = tMin; t <= tMax; t++) {
+      const x = tToX(t);
+      const y = valToY(sketchSize(t) + coresetSize(t));
+      if (t === tMin) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Optimal t marker (lowest total)
+    let optT = tMin, optTotal = 1e18;
+    for (let t = tMin; t <= tMax; t++) {
+      const tot = sketchSize(t) + coresetSize(t);
+      if (tot < optTotal) { optTotal = tot; optT = t; }
+    }
+    const optX = tToX(optT);
+    ctx.strokeStyle = 'rgba(16,185,129,0.6)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(optX, pad.t); ctx.lineTo(optX, pad.t + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Current t marker
+    const cx = tToX(tCur);
+    const sk = sketchSize(tCur);
+    const co = coresetSize(tCur);
+    const tot = sk + co;
+
+    sketchEl.textContent  = sk.toFixed(0);
+    coresetEl.textContent = co.toFixed(0);
+    totalEl.textContent   = tot.toFixed(0);
+
+    ctx.fillStyle = 'rgba(6,182,212,0.9)';
+    ctx.beginPath(); ctx.arc(cx, valToY(sk), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.beginPath(); ctx.arc(cx, valToY(co), 4, 0, Math.PI*2); ctx.fill();
+
+    // vertical current line
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, pad.t + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // x axis labels
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    [1, 5, 10, 15, 20].forEach(t => {
+      ctx.fillText('t='+t, tToX(t), pad.t + plotH + 20);
+    });
+    ctx.fillStyle = 'rgba(16,185,129,0.7)';
+    ctx.fillText('opt', tToX(optT), pad.t + plotH + 20);
+
+    // legend
+    ctx.textAlign = 'left';
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(6,182,212,0.85)';
+    ctx.fillText('sketch (low-deg)', pad.l + 8, pad.t + 14);
+    ctx.fillStyle = 'rgba(139,92,246,0.85)';
+    ctx.fillText('coreset (high-deg)', pad.l + 8, pad.t + 27);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('total', pad.l + 8, pad.t + 40);
+  }
+
+  tSlider.addEventListener('input', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    drawSplit();
+  });
+
+  window.addEventListener('resize', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    resizeAndDraw();
+  });
+
+  resizeAndDraw();
+})();
+
+// ─── TEMPERATURE CANVAS ──────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('temp-canvas');
+  if (!canvas) return;
+  let activeR = 1;
+  const DPR = window.devicePixelRatio || 1;
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth;
+    const H = 230;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    drawTemp();
+  }
+
+  function drawTemp() {
+    const W = canvas.clientWidth;
+    const H = 230;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(DPR, DPR);
+
+    const pad = { l:52, r:20, t:18, b:36 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+
+    // x axis: dot product ⟨k, q⟩ from -r² to r²
+    // For a fixed query q, show the softmax weights as a function of ⟨k, q⟩
+
+    // Show a set of 8 tokens with varying dot products
+    // The actual dot products depend on r
+    const tokenLabels = ['cat', 'dog', 'ran', 'over', 'the', 'fence', 'today', 'quickly'];
+    // Fixed dot products (as fractions of r²): roughly uniform spread
+    const dotFracs = [-0.9, -0.6, -0.3, 0.1, 0.4, 0.65, 0.8, 1.0];
+
+    function softmaxWeights(r) {
+      const dots = dotFracs.map(f => f * r * r);
+      const exps = dots.map(d => Math.exp(d));
+      const Z = exps.reduce((a,b) => a+b, 0);
+      return exps.map(e => e / Z);
+    }
+
+    const weights = softmaxWeights(activeR);
+    const maxW = Math.max(...weights);
+
+    const nTokens = tokenLabels.length;
+    const barWidth = (plotW - (nTokens-1)*6) / nTokens;
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = pad.t + (g/4)*plotH;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    }
+
+    const colorMap = {
+      1: 'rgba(6,182,212,0.75)',
+      2: 'rgba(139,92,246,0.75)',
+      3: 'rgba(245,158,11,0.75)',
+    };
+
+    weights.forEach((w, i) => {
+      const x = pad.l + i * (barWidth + 6);
+      const barH = (w / maxW) * plotH * 0.9;
+      const y = pad.t + plotH - barH;
+
+      // inactive colors
+      const isActive = activeR !== null;
+      ctx.fillStyle = colorMap[activeR];
+      ctx.fillRect(x, y, barWidth, barH);
+
+      // token label
+      ctx.save();
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(148,163,184,0.75)';
+      ctx.fillText(tokenLabels[i], x + barWidth/2, pad.t + plotH + 18);
+      ctx.restore();
+
+      // weight label on bar
+      if (barH > 12) {
+        ctx.save();
+        ctx.font = '7px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText((w*100).toFixed(0)+'%', x + barWidth/2, y + 10);
+        ctx.restore();
+      }
+    });
+
+    // y-axis
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    [0, 25, 50, 75, 100].forEach(pct => {
+      const v = (pct/100) * maxW;
+      const y = pad.t + plotH * (1 - v / maxW);
+      ctx.fillText(pct+'%', pad.l - 4, y + 3);
+    });
+
+    // title
+    ctx.textAlign = 'left';
+    ctx.fillStyle = colorMap[activeR];
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`r = ${activeR}  →  softmax sharpness`, pad.l + 6, pad.t + 14);
+    const maxPct = (maxW * 100).toFixed(0);
+    ctx.fillStyle = 'rgba(148,163,184,0.7)';
+    ctx.font = '9px monospace';
+    ctx.fillText(`top token gets ${maxPct}% of weight`, pad.l + 6, pad.t + 28);
+  }
+
+  document.querySelectorAll('.temp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeR = parseInt(btn.dataset.r);
+      document.querySelectorAll('.temp-btn').forEach(b => {
+        b.style.background = 'var(--surface)';
+        b.style.color = 'var(--muted2)';
+      });
+      const colorClass = { 1: 'var(--cyan-dim)', 2: 'var(--purple-dim)', 3: 'rgba(245,158,11,.1)' };
+      const textClass  = { 1: 'var(--cyan)', 2: 'var(--purple-l)', 3: 'var(--amber)' };
+      btn.style.background = colorClass[activeR];
+      btn.style.color      = textClass[activeR];
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1,0,0,1,0,0);
+      drawTemp();
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    resizeAndDraw();
+  });
+
+  resizeAndDraw();
+})();
+
+// ─── ANIMATED BAR CHART ──────────────────────────────────────────────────────
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+</BaseLayout>

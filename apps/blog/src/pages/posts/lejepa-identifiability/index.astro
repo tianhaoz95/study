@@ -1,0 +1,1161 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="When Does LeJEPA Learn a World Model? | AI/ML Deep Dives"
+  description="A mathematical proof that LeJEPA — alignment plus Gaussian regularization — provably recovers the world's true latent variables, and only for Gaussian latents."
+  crumb="LeJEPA Identifiability"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Rho slider */
+.rho-controls{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.5rem 0}
+.rho-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.rho-btn:hover{border-color:var(--purple);color:var(--purple-l)}
+.rho-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+.rho-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Representation Learning</span>
+    <span class="tag tag-cyan">World Models</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>When Does LeJEPA Learn a World Model?</h1>
+  <p class="lead">A mathematical proof that LeJEPA — alignment loss plus Gaussian regularization — provably recovers the world's true latent variables up to rotation. The guarantee holds if and only if the latents are Gaussian, making the Gaussian both the minimum-assumption prior and the unique distribution enabling identifiability.</p>
+  <div class="post-hero-meta">
+    <span>June 9, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2605.26379</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.26379" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/klindtlab/lejepa-identifiability" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-lejepa"><a href="#s-lejepa"><span class="toc-num">02</span> LeJEPA</a></li>
+    <li class="toc-item" id="toc-s-spectral"><a href="#s-spectral"><span class="toc-num">03</span> Spectral Key</a></li>
+    <li class="toc-item" id="toc-s-theorem"><a href="#s-theorem"><span class="toc-num">04</span> Main Theorems</a></li>
+    <li class="toc-item" id="toc-s-scaling"><a href="#s-scaling"><span class="toc-num">05</span> Scaling</a></li>
+    <li class="toc-item" id="toc-s-planning"><a href="#s-planning"><span class="toc-num">06</span> Planning</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01 THE PROBLEM ─────────────────────────────────────── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>Scrambled Observations, Hidden Structure</h2>
+
+<p>The world has clean, independent structure. A robot scene has position, velocity, and lighting as separate degrees of freedom — call them latent variables <strong>z</strong>. But we never observe <strong>z</strong> directly. An unknown, highly nonlinear process <em>g</em> scrambles them into raw pixel observations <strong>x = g(z)</strong>. A camera rendering a 3D scene entangles position with lighting; sensor noise mixes velocity with texture.</p>
+
+<p>Self-supervised learning (SSL) trains an encoder <em>f</em> that maps observations back to representations: <strong>y = f(x)</strong>. The ideal outcome is that the composed map <em>h = f ∘ g</em> undoes the scrambling — that <em>h(z) = Qz</em> for some rotation matrix Q. This is called <strong>linear identifiability</strong>: the representation is a rotation of the true latent variables.</p>
+
+<p>Why does this matter? Because every time you evaluate a representation with linear probing, you're implicitly asking: did the model learn the true latent structure, or just some entangled approximation? Without linear identifiability, linear probes cannot recover the true latent variables exactly. And without faithful recovery, a World Model cannot support reliable planning or compositional generalization.</p>
+
+<!-- Canvas: scrambling and recovery visualization -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">world → observation → representation</span>
+    <span class="vp-hint">the core pipeline</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="scramble-canvas" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>The canvas above shows 200 points sampled from a 2D Gaussian (left panel: clean latents z₁, z₂), scrambled by a spiral nonlinearity g (middle panel: tangled observations x), and recovered by a trained LeJEPA encoder f (right panel: clean Gaussian structure restored up to rotation). This is the paper's main claim, made precise.</p>
+
+<p>Prior identifiability results exist for contrastive learning, ICA, and VICReg — but not for JEPAs. JEPAs prevent collapse via an explicit Gaussianity regularizer (SIGReg), which turns out to be the critical ingredient. Without a specified embedding distribution, previous proofs didn't apply. With SIGReg, the guarantee clicks into place.</p>
+</section>
+
+<!-- ─── §02 LeJEPA ─────────────────────────────────────────── -->
+<section id="s-lejepa" data-code="lejepa">
+<div class="section-no">02 — LeJEPA</div>
+<h2>The Learner: Alignment + Gaussianization</h2>
+
+<p>LeJEPA trains a representation with two objectives working in concert. The first pulls <em>positive pairs</em> together: two views of the same content (e.g., two nearby video frames, two augmentations of the same image) should map to nearby embeddings. The second pushes the embedding distribution toward an isotropic Gaussian — this is <em>SIGReg</em> (Sketched Isotropic Gaussian Regularization), which prevents the representation from collapsing to a constant.</p>
+
+<div class="math-block">
+  <div class="math-label">LeJEPA Objective</div>
+  min<sub>h</sub> <span class="math-var">L(h)</span> = E[‖h(z′) − h(z)‖²]  &nbsp;&nbsp;<span class="math-comment">← alignment: pull positive pairs together</span><br>
+  subject to: &nbsp;<span class="math-var">h(z)</span> ∼ N(0, I<sub>n</sub>)  &nbsp;&nbsp;<span class="math-comment">← SIGReg: keep embedding distribution Gaussian</span><br><br>
+  Positive pairs generated by OU transition:<br>
+  <span class="math-var">z′</span> = ρ · <span class="math-var">z</span> + √(1 − ρ²) · η, &nbsp; η ∼ N(0, I), η ⊥ z &nbsp;<span class="math-comment">← ρ ∈ (0,1) controls view correlation</span>
+</div>
+
+<p>The Ornstein–Uhlenbeck (OU) transition is the unique additive-noise perturbation that preserves a Gaussian marginal. Two video frames from the same scene satisfy this approximately — they share the same marginal but are correlated by ρ. The correlation ρ is the paper's key variable: high ρ means views are very similar (nearly the same frame), low ρ means views are quite different.</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">LeJEPA architecture</span>
+    <span class="vp-hint">data flow</span>
+  </div>
+  <div class="vp-body" style="min-width:580px;overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 700 180" style="width:100%;max-width:700px;display:block;margin:0 auto">
+      <!-- World latents -->
+      <rect x="10" y="65" width="90" height="50" rx="7" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.5)" stroke-width="1.5"/>
+      <text x="55" y="86" text-anchor="middle" fill="#10b981" font-size="11" font-family="monospace">World</text>
+      <text x="55" y="101" text-anchor="middle" fill="#10b981" font-size="10" font-family="monospace">z ∼ N(0,I)</text>
+      <text x="55" y="115" text-anchor="middle" fill="rgba(16,185,129,.6)" font-size="9" font-family="monospace">(z, z′) OU</text>
+
+      <!-- Arrow world→mixing -->
+      <line x1="100" y1="90" x2="135" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="118" y="83" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="9" font-family="monospace">x=g(z)</text>
+
+      <!-- Nonlinear mixing -->
+      <rect x="136" y="60" width="90" height="60" rx="7" fill="rgba(245,158,11,.12)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+      <text x="181" y="83" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="monospace">Mixing g</text>
+      <text x="181" y="98" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="monospace">(unknown)</text>
+      <text x="181" y="113" text-anchor="middle" fill="rgba(245,158,11,.6)" font-size="9" font-family="monospace">nonlinear</text>
+
+      <!-- Arrow mixing→encoder -->
+      <line x1="226" y1="90" x2="265" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="246" y="83" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="9" font-family="monospace">obs x</text>
+
+      <!-- Encoder f -->
+      <rect x="266" y="55" width="100" height="70" rx="7" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+      <text x="316" y="81" text-anchor="middle" fill="#a78bfa" font-size="11" font-family="monospace">Encoder f</text>
+      <text x="316" y="97" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="monospace">(learned)</text>
+      <text x="316" y="113" text-anchor="middle" fill="rgba(139,92,246,.6)" font-size="9" font-family="monospace">MLP / CNN</text>
+
+      <!-- Arrow encoder→split -->
+      <line x1="366" y1="90" x2="400" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="383" y="83" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="9" font-family="monospace">h(z)</text>
+
+      <!-- Alignment loss -->
+      <rect x="402" y="30" width="110" height="50" rx="7" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+      <text x="457" y="52" text-anchor="middle" fill="#06b6d4" font-size="11" font-family="monospace">Alignment</text>
+      <text x="457" y="67" text-anchor="middle" fill="rgba(6,182,212,.7)" font-size="10" font-family="monospace">E[‖h(z′)−h(z)‖²]</text>
+
+      <!-- SIGReg loss -->
+      <rect x="402" y="100" width="110" height="50" rx="7" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+      <text x="457" y="122" text-anchor="middle" fill="#a78bfa" font-size="11" font-family="monospace">SIGReg</text>
+      <text x="457" y="137" text-anchor="middle" fill="rgba(139,92,246,.7)" font-size="10" font-family="monospace">h(z) ∼ N(0,I)</text>
+
+      <!-- Lines to loss boxes -->
+      <line x1="400" y1="90" x2="402" y2="55" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="400" y1="90" x2="402" y2="125" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+
+      <!-- Result arrow -->
+      <line x1="512" y1="55" x2="570" y2="55" stroke="rgba(16,185,129,.4)" stroke-width="1.5" marker-end="url(#arr-g)"/>
+      <line x1="512" y1="125" x2="570" y2="125" stroke="rgba(16,185,129,.4)" stroke-width="1.5" marker-end="url(#arr-g)"/>
+
+      <!-- Result box -->
+      <rect x="572" y="55" width="118" height="90" rx="7" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.4)" stroke-width="1.5"/>
+      <text x="631" y="80" text-anchor="middle" fill="#10b981" font-size="10" font-family="monospace">h(z) = Qz</text>
+      <text x="631" y="96" text-anchor="middle" fill="#10b981" font-size="10" font-family="monospace">Q orthogonal</text>
+      <text x="631" y="118" text-anchor="middle" fill="rgba(16,185,129,.8)" font-size="9" font-family="monospace">← Theorem 1</text>
+      <text x="631" y="133" text-anchor="middle" fill="rgba(16,185,129,.6)" font-size="9" font-family="monospace">World Model!</text>
+
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(255,255,255,.3)"/>
+        </marker>
+        <marker id="arr-g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(16,185,129,.5)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>The encoder <em>f</em> is trained jointly by both losses. At the global optimum — when alignment is minimized and the Gaussian constraint is satisfied — Theorem 1 says the composed map h = f ∘ g must be a rotation of the true latents. The nonlinear mixing g is completely undone, despite never being observed.</p>
+</section>
+
+<!-- ─── §03 SPECTRAL KEY ───────────────────────────────────── -->
+<section id="s-spectral" data-code="spectral">
+<div class="section-no">03 — The Spectral Key</div>
+<h2>Why Nonlinearity Hurts Correlation</h2>
+
+<p>The proof turns on a beautiful spectral fact about Gaussian variables. For any function h<sub>i</sub>(z) with zero mean and unit variance, we can decompose it into a <em>Hermite polynomial series</em>: a linear part (degree 1), a quadratic part (degree 2), and so on. Each degree-d component has a variance fraction w<sub>d</sub> summing to 1.</p>
+
+<div class="math-block">
+  <div class="math-label">Hermite Spectral Decomposition</div>
+  <span class="math-var">E[hᵢ(z′) hᵢ(z)]</span> = w₁·ρ + w₂·ρ² + w₃·ρ³ + ⋯ &nbsp;&nbsp;<span class="math-comment">← each nonlinear degree is penalized more</span><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ≤ ρ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="math-comment">← because ρ² &lt; ρ for ρ ∈ (0,1)</span><br>
+  with equality iff <span class="math-var">w₁ = 1</span> &nbsp;&nbsp;<span class="math-comment">← i.e., hᵢ is purely linear</span>
+</div>
+
+<p>Since ρ ∈ (0,1), higher-degree terms like ρ² and ρ³ are strictly smaller than ρ. Every nonlinear distortion in the representation leaks variance into these higher degrees, reducing the correlation between positive pairs. <strong>The maximally correlated representation is the linear one.</strong></p>
+
+<!-- Interactive canvas: show how nonlinearity reduces correlation -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">nonlinearity penalty — Hermite decomposition</span>
+    <span class="vp-hint">click a ρ value to see the spectral breakdown</span>
+  </div>
+  <div class="vp-body">
+    <div class="rho-controls">
+      <span class="rho-label">ρ =</span>
+      <button class="rho-btn active" data-rho="0.95">0.95</button>
+      <button class="rho-btn" data-rho="0.80">0.80</button>
+      <button class="rho-btn" data-rho="0.60">0.60</button>
+      <button class="rho-btn" data-rho="0.30">0.30</button>
+    </div>
+    <canvas id="hermite-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>The bars show the correlation <em>contribution</em> from each Hermite degree (degree 1 = linear, degree 2 = quadratic, etc.) for a hypothetical representation that mixes linear and nonlinear components. The red dashed line shows the maximum achievable correlation ρ (pure linear). Every nonlinear component pulls the total below the maximum. The interactive ρ control shows that this penalty sharpens as ρ approaches 1 — at high correlations, any nonlinearity is maximally costly.</p>
+
+<p>This spectral view is also why <em>only</em> the Gaussian enables linear identifiability (Theorem 2). For a general latent distribution, the optimal "slow features" are the eigenfunctions of a Sturm–Liouville equation. These are always monotonic (giving identifiability up to a monotone transformation), but linear identifiability requires the first eigenfunction to be affine. Only the Gaussian satisfies this — its eigenfunctions are Hermite polynomials, where the degree-1 eigenfunction is exactly the identity.</p>
+</section>
+
+<!-- ─── §04 MAIN THEOREMS ───────────────────────────────────── -->
+<section id="s-theorem" data-code="theorem">
+<div class="section-no">04 — Main Theorems</div>
+<h2>The If-and-Only-If of World Model Recovery</h2>
+
+<p>The paper proves four theorems that together give a complete picture. Theorems 1 and 2 form an if-and-only-if: Gaussian latents enable linear identifiability, and only Gaussian latents do. Theorem 3 shows the guarantee degrades gracefully in practice. Theorem 4 shows identifiable representations enable optimal planning.</p>
+
+<h3>Theorem 1: LeJEPA recovers the World Model (forward direction)</h3>
+<p>In a Gaussian world, any measurable map h with h(z) ∼ N(0, I) that minimizes the alignment loss must satisfy h(z) = Qz for some orthogonal matrix Q. The representation is a rotation of the true latents — and the transition dynamics are also correctly recovered: h(z′) | h(z) ∼ N(ρ·h(z), (1−ρ²)·I).</p>
+
+<div class="math-block">
+  <div class="math-label">Theorem 1 — Forward (proof sketch)</div>
+  Alignment = 2n − 2 · Σᵢ <span class="math-var">E[hᵢ(z′) hᵢ(z)]</span><br>
+  Spectral bound: <span class="math-var">E[hᵢ(z′) hᵢ(z)]</span> ≤ ρ &nbsp;&nbsp;<span class="math-comment">← Hermite decomposition (§03)</span><br>
+  Minimum achieved iff all wₐ₌₁ = 1 &nbsp;&nbsp;<span class="math-comment">← all components are linear</span><br>
+  ⇒ h(z) = Qz, Q orthogonal &nbsp;&nbsp;<span class="math-comment">← forced by Gaussianity constraint</span>
+</div>
+
+<h3>Theorem 2: The Gaussian is unique (converse direction)</h3>
+<p>Among all worlds with independent, stationary, additive-noise latents, only Gaussian latents guarantee linear identifiability. For any non-Gaussian distribution, there exist representations satisfying the LeJEPA objectives that are not linear in the latents.</p>
+
+<div class="math-block">
+  <div class="math-label">Theorem 2 — Converse (proof sketch)</div>
+  Linear identifiability ⇒ first eigenfunction φ₁ is affine<br>
+  Sturm–Liouville equation for φ₁ collapses to:<br>
+  &nbsp;&nbsp;(log p)′ = linear in z &nbsp;&nbsp;<span class="math-comment">← constant score function</span><br>
+  Solving: log p(z) ∝ −(z − μ)² &nbsp;&nbsp;<span class="math-comment">← unique solution is Gaussian</span>
+</div>
+
+<!-- Before/after contrast visualization -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">latent distribution sweep — Gaussian is unique</span>
+    <span class="vp-hint">click a distribution to see recovery quality</span>
+  </div>
+  <div class="vp-body">
+    <div class="rho-controls">
+      <span class="rho-label">latent dist:</span>
+      <button class="dist-btn active" data-dist="gaussian">Gaussian (α=2)</button>
+      <button class="dist-btn" data-dist="laplace">Laplace (α=1)</button>
+      <button class="dist-btn" data-dist="heavytail">Heavy-tail (α=0.5)</button>
+      <button class="dist-btn" data-dist="uniform">Uniform (α→∞)</button>
+    </div>
+    <canvas id="dist-canvas" style="width:100%;height:240px;display:block"></canvas>
+  </div>
+</div>
+
+<p>The visualization shows 200 points from the given latent distribution (left: true latents z), scrambled by a sinusoidal mixing g (middle: observations), and recovered by LeJEPA (right: learned representation). For Gaussian latents, recovery is near-perfect (R² &gt; 0.999). For non-Gaussian latents, the representation is at best monotonically distorted — not linearly identified.</p>
+
+<h3>Theorem 3: Approximate identifiability</h3>
+<p>In practice the objectives are only approximately satisfied. The recovery error is bounded by the alignment gap δ (how far training loss is from its minimum) and the whitening error ε (how far the embedding covariance is from identity). Both are measurable from training, making loss a reliable proxy for identifiability.</p>
+
+<div class="math-block">
+  <div class="math-label">Theorem 3 — Approximate Recovery Error</div>
+  Let D = δ / (2ρ(1−ρ)) &nbsp;&nbsp;<span class="math-comment">← nonlinearity term from alignment gap δ</span><br>
+  Then ∃ Q ∈ O(n) such that:<br>
+  <span class="math-var">E[‖h(z) − Qz‖²]</span> ≤ D + (ε + D)² &nbsp;&nbsp;<span class="math-comment">← vanishes when δ=ε=0 (exact case)</span>
+</div>
+</section>
+
+<!-- ─── §05 SCALING ────────────────────────────────────────── -->
+<section id="s-scaling" data-code="scaling">
+<div class="section-no">05 — Scaling</div>
+<h2>R² &gt; 0.999 Up to 1024 Dimensions</h2>
+
+<p>Theory guarantees hold at any dimension, but can optimizers find the solution in practice? The paper sweeps latent dimension from N=2 to N=1024, using a RealNVP mixing function with a matched encoder architecture. Three Gaussianity-enforcing objectives are compared: SIGReg (explicit Gaussian regularizer), VICReg (covariance regularization), and InfoNCE (contrastive learning with implicit Gaussian).</p>
+
+<!-- Results bar chart -->
+<div class="vp" id="s-scaling-bars">
+  <div class="vp-head">
+    <span class="vp-title">linear identifiability R² vs latent dimension — RealNVP mixing</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem;font-family:var(--ff-mono)">R²(h→z) — higher is better; baseline x→z (no learned encoder) shown for reference</p>
+    <!-- SIGReg -->
+    <div style="font-size:.7rem;color:var(--purple-l);font-family:var(--ff-mono);margin:.5rem 0 .25rem;font-weight:600">SIGReg</div>
+    <div class="results-bars" id="sigreg-bars">
+      <div class="bar-row"><div class="bar-label">N=2</div><div class="bar-track"><div class="bar-fill" data-w="99.9998" style="background:rgba(139,92,246,.7)"><span>0.999998</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=64</div><div class="bar-track"><div class="bar-fill" data-w="99.9966" style="background:rgba(139,92,246,.7)"><span>0.999966</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=256</div><div class="bar-track"><div class="bar-fill" data-w="99.9884" style="background:rgba(139,92,246,.7)"><span>0.999884</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=1024</div><div class="bar-track"><div class="bar-fill" data-w="99.9561" style="background:rgba(139,92,246,.7)"><span>0.999561</span></div></div></div>
+    </div>
+    <!-- InfoNCE -->
+    <div style="font-size:.7rem;color:var(--cyan);font-family:var(--ff-mono);margin:.75rem 0 .25rem;font-weight:600">InfoNCE</div>
+    <div class="results-bars">
+      <div class="bar-row"><div class="bar-label">N=2</div><div class="bar-track"><div class="bar-fill" data-w="99.9996" style="background:rgba(6,182,212,.55)"><span>0.999996</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=64</div><div class="bar-track"><div class="bar-fill" data-w="64.8" style="background:rgba(6,182,212,.55)"><span>0.648</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=256</div><div class="bar-track"><div class="bar-fill" data-w="69.7" style="background:rgba(6,182,212,.55)"><span>0.697</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=1024</div><div class="bar-track"><div class="bar-fill" data-w="72.0" style="background:rgba(6,182,212,.55)"><span>0.720</span></div></div></div>
+    </div>
+    <!-- Baseline -->
+    <div style="font-size:.7rem;color:var(--muted);font-family:var(--ff-mono);margin:.75rem 0 .25rem;font-weight:600">No encoder (x→z baseline)</div>
+    <div class="results-bars">
+      <div class="bar-row"><div class="bar-label">N=2</div><div class="bar-track"><div class="bar-fill" data-w="78.1" style="background:rgba(255,255,255,.2)"><span>0.781</span></div></div></div>
+      <div class="bar-row"><div class="bar-label">N=1024</div><div class="bar-track"><div class="bar-fill" data-w="76.3" style="background:rgba(255,255,255,.2)"><span>0.763</span></div></div></div>
+    </div>
+  </div>
+</div>
+
+<p>SIGReg and VICReg (not shown) both maintain R² &gt; 0.999 all the way to N=1024. InfoNCE achieves similar performance at low dimensions but degrades at scale due to its fixed kernel width — at N=64 its R² drops to 0.648. The baseline (no encoder, directly regressing x→z) plateaus around 0.75–0.78, confirming the encoder adds substantial value.</p>
+
+<p>The converse direction (Theorem 2) is validated by sweeping the generalized normal family with shape parameter α: R² peaks sharply at α=2 (Gaussian) and degrades for all other distributions. SIGReg maintains a wider plateau than VICReg for heavy-tailed latents, consistent with its more aggressive Gaussianization.</p>
+</section>
+
+<!-- ─── §06 PLANNING ───────────────────────────────────────── -->
+<section id="s-planning" data-code="planning">
+<div class="section-no">06 — Planning</div>
+<h2>Identifiable Representations Enable Optimal Planning</h2>
+
+<p>What does linear identifiability buy for downstream use? Theorem 4 provides the answer: if the cost function is invariant to orthogonal transformations (as is the case for distance-based costs like goal-reaching), then planning in the learned latent space is <em>mathematically identical</em> to planning in the true world. The optimal actions and value function transfer without modification.</p>
+
+<div class="math-block">
+  <div class="math-label">Theorem 4 — Optimal Latent Planning</div>
+  If h(z) = Qz (Q orthogonal) and costs ℓ are O(n)-invariant:<br>
+  &nbsp;&nbsp;V̂*(h(z₀)) = V*(z₀) &nbsp;&nbsp;<span class="math-comment">← same optimal value</span><br>
+  &nbsp;&nbsp;â*₁:T(h(z₀)) = a*₁:T(z₀) &nbsp;&nbsp;<span class="math-comment">← same optimal actions</span>
+</div>
+
+<p>The paper tests this on the DMC Reacher task, where the true latent is a 2D joint angle (θ₀, θ₁). Two training conditions are compared: (1) <strong>OU pairs</strong> — samples drawn i.i.d. from the Gaussian world (high identifiability), and (2) <strong>RL trajectory pairs</strong> — consecutive frames from a goal-directed policy (non-Gaussian marginals, breaks theory assumptions).</p>
+
+<!-- Planning results visualization -->
+<div class="vp" id="s-planning-viz">
+  <div class="vp-head">
+    <span class="vp-title">latent-space planning — control cost vs encoder quality</span>
+    <span class="vp-hint">lower cost = better planning</span>
+  </div>
+  <div class="vp-body">
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem;font-family:var(--ff-mono)">Control cost over 30 random start-goal pairs (path length ≥ 1; ideal = 1.0)</p>
+    <div class="results-bars" id="planning-bars">
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--muted)">Oracle (ground truth)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="26" style="background:rgba(16,185,129,.7)"><span>1.04</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">OU encoder (R²=0.95)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="28" style="background:rgba(139,92,246,.7)"><span>1.11</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--amber)">RL encoder (R²=0.44)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="60" style="background:rgba(245,158,11,.55)"><span>2.38</span></div></div>
+      </div>
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:1rem;font-family:var(--ff-mono)">OU = Ornstein–Uhlenbeck (Gaussian) training pairs · RL = real goal-directed trajectories</p>
+  </div>
+</div>
+
+<p>The OU-trained encoder achieves control cost ≈1.11, statistically indistinguishable from the oracle (1.04). The RL-trained encoder, whose representation is not linearly identifiable (R²=0.44), inflates cost to 2.38 — a 2× degradation. The key practical implication: <em>for self-supervised pretraining, exploration data that approximates an isotropic random walk keeps the data in the regime the theory covers</em>. Goal-directed policy data collapses onto a low-entropy region, breaking the Gaussian assumption and hurting downstream planning.</p>
+
+<p>Theorem 3's approximate bound is validated across all runs: the measured recovery error E[‖h(z)−Qz‖²] consistently lies below the predicted bound D + (ε+D)², confirming that training loss is a reliable proxy for identifiability even in approximate regimes.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">lejepa/world.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="lejepa">lejepa</button>
+    <button class="cs-tab" data-panel="spectral">spectral</button>
+    <button class="cs-tab" data-panel="theorem">theorems</button>
+    <button class="cs-tab" data-panel="scaling">scaling</button>
+    <button class="cs-tab" data-panel="planning">planning</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- PROBLEM panel -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The World Model problem</span>
+<span class="cs-line cmt"># World has clean latent structure z</span>
+<span class="cs-line cmt"># We observe scrambled x = g(z)</span>
+<span class="cs-line cmt"># Goal: learn f s.t. h = f∘g recovers z</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">world_model_setup</span>(n):</span>
+<span class="cs-line hl-p">    <span class="cmt"># n-dimensional Gaussian latents</span></span>
+<span class="cs-line hl-p">    z = torch.randn(batch, n)  <span class="cmt"># true world</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Unknown nonlinear mixing (RealNVP etc)</span></span>
+<span class="cs-line">    x = g(z)  <span class="cmt"># what we observe</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">    <span class="cmt"># Goal: learn f such that h(z) = Qz</span></span>
+<span class="cs-line hl-c">    h = f(x)  <span class="cmt"># learned representation</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># h must be a rotation of z</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">linear_identifiability</span>(h, z):</span>
+<span class="cs-line">    <span class="cmt"># Check: is h a rotation of z?</span></span>
+<span class="cs-line">    <span class="cmt"># Fit best linear map Q: h ≈ Q z</span></span>
+<span class="cs-line">    Q = torch.linalg.<span class="fn">lstsq</span>(z, h).solution</span>
+<span class="cs-line">    h_pred = z @ Q.T</span>
+<span class="cs-line">    r2 = <span class="fn">r2_score</span>(h, h_pred)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> r2  <span class="cmt"># 1.0 = perfect recovery</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: linear probing tests this!</span>
+<span class="cs-line cmt"># If R²=1, probes work exactly.</span>
+<span class="cs-line cmt"># If R²&lt;1, probes fail on new tasks.</span>
+      </pre>
+    </div>
+
+    <!-- LEJEPA panel -->
+    <div class="cs-panel" id="panel-lejepa">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LeJEPA training objective (Eq. 2)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">ou_positive_pairs</span>(z, rho):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Ornstein-Uhlenbeck transition</span></span>
+<span class="cs-line hl-p">    eta = torch.<span class="fn">randn_like</span>(z)</span>
+<span class="cs-line hl-p">    z_prime = rho * z + (1 - rho**2)**0.5 * eta</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> z_prime  <span class="cmt"># correlated view</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">alignment_loss</span>(h, h_prime):</span>
+<span class="cs-line">    <span class="cmt"># Pull positive pairs together</span></span>
+<span class="cs-line">    <span class="kw">return</span> ((h - h_prime)**2).<span class="fn">mean</span>()</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">sigreg_loss</span>(h):</span>
+<span class="cs-line">    <span class="cmt"># SIGReg: sketch-based Gaussianity</span></span>
+<span class="cs-line">    <span class="cmt"># Push h(z) toward N(0, I)</span></span>
+<span class="cs-line">    mu = h.<span class="fn">mean</span>(0)</span>
+<span class="cs-line">    cov = h.T @ h / h.<span class="fn">shape</span>[0]</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">gaussian_match</span>(mu, cov)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">lejepa_loss</span>(f, x, x_prime, lam):</span>
+<span class="cs-line hl-c">    h       = <span class="fn">f</span>(x)</span>
+<span class="cs-line hl-c">    h_prime = <span class="fn">f</span>(x_prime)</span>
+<span class="cs-line hl-c">    L_align = <span class="fn">alignment_loss</span>(h, h_prime)</span>
+<span class="cs-line hl-c">    L_sig   = <span class="fn">sigreg_loss</span>(h)</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> lam*L_sig + (1-lam)*L_align</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># At the optimum (Thm 1):</span>
+<span class="cs-line cmt"># f(g(z)) = Q @ z, Q orthogonal</span>
+<span class="cs-line cmt"># Transition: h(z')|h(z) ~ N(ρh(z), (1-ρ²)I)</span>
+      </pre>
+    </div>
+
+    <!-- SPECTRAL panel -->
+    <div class="cs-panel" id="panel-spectral">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Hermite polynomial spectral analysis</span>
+<span class="cs-line cmt"># Key: OU correlation decomposes by degree</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">hermite_correlation</span>(weights, rho):</span>
+<span class="cs-line hl-p">    <span class="cmt"># weights[d] = variance in degree-d component</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># sum(weights) = 1 (unit variance)</span></span>
+<span class="cs-line hl-p">    corr = <span class="fn">sum</span>(w * rho**(d+1)</span>
+<span class="cs-line hl-p">               <span class="kw">for</span> d, w <span class="kw">in</span> <span class="fn">enumerate</span>(weights))</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> corr  <span class="cmt"># ≤ ρ, equality iff w[0]=1</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Example: 50% linear, 50% quadratic</span>
+<span class="cs-line cmt"># corr = 0.5*ρ + 0.5*ρ² &lt; ρ</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cmt"># Mehler's formula: eigenvalue of He_d</span></span>
+<span class="cs-line"><span class="cmt"># T(He_d)(z) = E[He_d(z') | z] = ρ^d * He_d(z)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Key inequality (the whole proof):</span></span>
+<span class="cs-line hl-c"><span class="cmt"># E[h(z')h(z)] = Σ_d w_d * ρ^d</span></span>
+<span class="cs-line hl-c"><span class="cmt"># ≤ ρ * Σ_d w_d = ρ</span></span>
+<span class="cs-line hl-c"><span class="cmt"># since ρ^d ≤ ρ for d≥2, ρ∈(0,1)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Converse (Thm 2):</span>
+<span class="cs-line cmt"># Linear ID ⇒ φ₁ is affine</span>
+<span class="cs-line cmt"># Sturm-Liouville: (log p)' must be linear</span>
+<span class="cs-line cmt"># ⇒ log p ∝ -(z-μ)² ⇒ Gaussian</span>
+      </pre>
+    </div>
+
+    <!-- THEOREM panel -->
+    <div class="cs-panel" id="panel-theorem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Four theorems — complete picture</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Thm 1: Forward (Gaussian ⇒ linear ID)</span>
+<span class="cs-line hl-p">assert h(z) ~ N(0, I)  <span class="cmt"># SIGReg holds</span></span>
+<span class="cs-line hl-p">assert L(h) == 2*(1-rho)*n  <span class="cmt"># optimal</span></span>
+<span class="cs-line hl-p">then: h(z) == Q @ z  <span class="cmt"># Q orthogonal</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Thm 2: Converse (linear ID ⇒ Gaussian)</span>
+<span class="cs-line hl-c"><span class="kw">if</span> <span class="fn">all_minimizers_are_linear</span>(world):</span>
+<span class="cs-line hl-c">    assert <span class="fn">is_gaussian</span>(latent_dist)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Thm 3: Approximate (graceful degradation)</span>
+<span class="cs-line"><span class="cmt"># D = delta / (2 * rho * (1 - rho))</span></span>
+<span class="cs-line"><span class="cmt"># delta = alignment gap from optimum</span></span>
+<span class="cs-line"><span class="cmt"># eps   = ||Cov(h) - I||_F (whitening err)</span></span>
+<span class="cs-line hl-g">err = D + (eps + D)**2</span>
+<span class="cs-line hl-g"><span class="cmt"># E[||h(z) - Qz||²] ≤ err</span></span>
+<span class="cs-line hl-g"><span class="cmt"># → loss tracks identifiability!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Thm 4: Optimal planning</span>
+<span class="cs-line"><span class="cmt"># h(z) = Qz, cost O(n)-invariant</span></span>
+<span class="cs-line"><span class="cmt"># V*(z₀) = V̂*(h(z₀))</span></span>
+<span class="cs-line"><span class="cmt"># a*(z₀) = â*(h(z₀))</span></span>
+<span class="cs-line cmt"># Plans in latent = plans in world!</span>
+      </pre>
+    </div>
+
+    <!-- SCALING panel -->
+    <div class="cs-panel" id="panel-scaling">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Scaling experiment (Table 1)</span>
+<span class="cs-line cmt"># RealNVP mixing, matched encoder</span>
+<span class="cs-line cmt"># 5 seeds, mean ± std</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># SIGReg R²(h→z):</span>
+<span class="cs-line hl-p">N=2:    0.999998 ± 3.4e-6</span>
+<span class="cs-line hl-p">N=64:   0.999966 ± 7.4e-6</span>
+<span class="cs-line hl-p">N=256:  0.999884 ± 7.9e-6</span>
+<span class="cs-line hl-p">N=1024: 0.999561 ± 1.2e-5</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># VICReg R²(h→z): similar to SIGReg</span>
+<span class="cs-line">N=2:    0.999996 ± 8.4e-6</span>
+<span class="cs-line">N=1024: 0.999582 ± 1.1e-5</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># InfoNCE degrades at scale:</span>
+<span class="cs-line hl-a">N=2:    0.950961 ± 1.6e-3  <span class="cmt"># ok</span></span>
+<span class="cs-line hl-a">N=64:   0.648496 ± 3.1e-3  <span class="cmt"># drops!</span></span>
+<span class="cs-line hl-a">N=1024: 0.720241 ± 2.0e-4  <span class="cmt"># unstable</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Baseline (no encoder, x→z):</span>
+<span class="cs-line">N=2:    0.781 ± 2.1e-3</span>
+<span class="cs-line">N=1024: 0.763 ± 1.7e-4</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Conclusion: SIGReg/VICReg achieve</span>
+<span class="cs-line cmt"># R² > 0.999 up to N=1024 (beyond</span>
+<span class="cs-line cmt"># DINOv3's 768-dim embeddings)</span>
+      </pre>
+    </div>
+
+    <!-- PLANNING panel -->
+    <div class="cs-panel" id="panel-planning">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Latent-space planning (Thm 4)</span>
+<span class="cs-line cmt"># DMC Reacher: 2D joint angles (θ₀, θ₁)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">latent_goal_plan</span>(encoder, z0, z_goal):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Straight line in learned latent space</span></span>
+<span class="cs-line hl-p">    h0   = <span class="fn">encoder</span>(z0)</span>
+<span class="cs-line hl-p">    hg   = <span class="fn">encoder</span>(z_goal)</span>
+<span class="cs-line hl-p">    plan = <span class="fn">interpolate</span>(h0, hg, T=30)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> plan  <span class="cmt"># T-step trajectory</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Results: control cost (ideal = 1.0)</span>
+<span class="cs-line"><span class="cmt"># Oracle (ground truth):      1.04</span></span>
+<span class="cs-line hl-g"><span class="cmt"># OU encoder (R²=0.95):      1.11 ✓</span></span>
+<span class="cs-line hl-a"><span class="cmt"># RL encoder (R²=0.44):      2.38 ✗</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># OU encoder ≈ oracle (p=0.18, n.s.)</span>
+<span class="cs-line cmt"># RL encoder: 2x worse!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Linear identifiability R² (Table 2):</span>
+<span class="cs-line hl-g">OU ρ=0.99: R²=0.95  <span class="cmt"># Gaussian world</span></span>
+<span class="cs-line hl-a">RL δ=8:   R²=0.44  <span class="cmt"># non-Gaussian</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Practical lesson:</span>
+<span class="cs-line cmt"># For pretraining, use exploratory</span>
+<span class="cs-line cmt"># (isotropic) data, not goal-directed</span>
+<span class="cs-line cmt"># RL trajectories. Exploration keeps</span>
+<span class="cs-line cmt"># data in the Gaussian theory regime.</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ─────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ────────────────────────────────
+const tabMeta = {
+  problem:  { file: 'lejepa/world.py',     title: 'The Problem' },
+  lejepa:   { file: 'lejepa/train.py',     title: 'LeJEPA' },
+  spectral: { file: 'lejepa/spectral.py',  title: 'Spectral Key' },
+  theorem:  { file: 'lejepa/theorems.py',  title: 'Main Theorems' },
+  scaling:  { file: 'lejepa/scaling.py',   title: 'Scaling' },
+  planning: { file: 'lejepa/planning.py',  title: 'Planning' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar tab ─────────────
+const sectionMap = {
+  's-problem': 'problem',
+  's-lejepa':  'lejepa',
+  's-spectral':'spectral',
+  's-theorem': 'theorem',
+  's-scaling': 'scaling',
+  's-planning':'planning',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Seeded PRNG ───────────────────────────────────────────────
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ── §01 Scramble canvas — 3-panel: latents | mixed | recovered ──
+(function() {
+  const canvas = document.getElementById('scramble-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const rng = mulberry32(42);
+  const N = 200;
+  // Generate Gaussian latents
+  function randn() {
+    const u = rng(), v = rng();
+    return Math.sqrt(-2 * Math.log(u + 1e-9)) * Math.cos(2 * Math.PI * v);
+  }
+  const pts = Array.from({length: N}, () => [randn(), randn()]);
+
+  const panW = W / 3;
+  const panels = [
+    { label: 'True latents z', sublabel: 'z ~ N(0,I)', cx: panW * 0.5 },
+    { label: 'Observations x = g(z)', sublabel: 'spiral mixing', cx: panW * 1.5 },
+    { label: 'LeJEPA h(z)', sublabel: 'recovered up to Q', cx: panW * 2.5 },
+  ];
+
+  function scaleXY(arr, cx, sc) {
+    return arr.map(([x, y]) => [cx + x * sc, H / 2 - y * sc]);
+  }
+
+  function spiralMix(z) {
+    return z.map(([z1, z2]) => {
+      const r = Math.sqrt(z1 * z1 + z2 * z2);
+      const theta = Math.atan2(z2, z1) + Math.PI * r;
+      return [r * Math.cos(theta), r * Math.sin(theta)];
+    });
+  }
+
+  function rotRecover(z, angle) {
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    return z.map(([z1, z2]) => [cos * z1 - sin * z2, sin * z1 + cos * z2]);
+  }
+
+  const sc = Math.min(panW, H) * 0.18;
+  const latents = pts;
+  const mixed = spiralMix(pts);
+  const recovered = rotRecover(pts, 0.4);  // just a rotation of true latents
+
+  function drawPanel(ptsArr, cx, panelIdx) {
+    // Panel background
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.rect(cx - panW * 0.5 + 2, 10, panW - 4, H - 20);
+    ctx.fill(); ctx.stroke();
+
+    // Panel dividers
+    if (panelIdx > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - panW * 0.5, 0); ctx.lineTo(cx - panW * 0.5, H);
+      ctx.stroke();
+    }
+
+    const colors = ['#a78bfa', '#f59e0b', '#10b981'];
+    const color = colors[panelIdx];
+
+    const scaled = scaleXY(ptsArr, cx, sc);
+    scaled.forEach(([px, py]) => {
+      ctx.beginPath();
+      ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = color + 'bb';
+      ctx.fill();
+    });
+  }
+
+  // Draw all 3 panels
+  [latents, mixed, recovered].forEach((p, i) => drawPanel(p, panels[i].cx, i));
+
+  // Panel labels
+  panels.forEach((pan, i) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = `600 11px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(pan.label, pan.cx, H - 22);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '9px monospace';
+    ctx.fillText(pan.sublabel, pan.cx, H - 10);
+  });
+
+  // Arrows between panels
+  const arrowY = H / 2;
+  [[panW - 8, panW + 8], [panW * 2 - 8, panW * 2 + 8]].forEach(([x1, x2]) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, arrowY); ctx.lineTo(x2, arrowY);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.moveTo(x2, arrowY - 4); ctx.lineTo(x2 + 8, arrowY); ctx.lineTo(x2, arrowY + 4);
+    ctx.fill();
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('g', panW - 0, arrowY - 8);
+  ctx.fillText('f', panW * 2, arrowY - 8);
+})();
+
+// ── §03 Hermite canvas — correlation bar chart by degree ───────
+const HERMITE_DATA = {
+  '0.95': { max: 0.95, bars: [
+    { label: 'degree 1 (linear)',  frac: 0.5, corr: 0.5 * 0.95 },
+    { label: 'degree 2 (quadratic)', frac: 0.3, corr: 0.3 * 0.95 * 0.95 },
+    { label: 'degree 3 (cubic)',   frac: 0.15, corr: 0.15 * Math.pow(0.95, 3) },
+    { label: 'degree 4+',          frac: 0.05, corr: 0.05 * Math.pow(0.95, 4) },
+  ]},
+  '0.80': { max: 0.80, bars: [
+    { label: 'degree 1 (linear)',  frac: 0.5, corr: 0.5 * 0.80 },
+    { label: 'degree 2 (quadratic)', frac: 0.3, corr: 0.3 * 0.80 * 0.80 },
+    { label: 'degree 3 (cubic)',   frac: 0.15, corr: 0.15 * Math.pow(0.80, 3) },
+    { label: 'degree 4+',          frac: 0.05, corr: 0.05 * Math.pow(0.80, 4) },
+  ]},
+  '0.60': { max: 0.60, bars: [
+    { label: 'degree 1 (linear)',  frac: 0.5, corr: 0.5 * 0.60 },
+    { label: 'degree 2 (quadratic)', frac: 0.3, corr: 0.3 * 0.60 * 0.60 },
+    { label: 'degree 3 (cubic)',   frac: 0.15, corr: 0.15 * Math.pow(0.60, 3) },
+    { label: 'degree 4+',          frac: 0.05, corr: 0.05 * Math.pow(0.60, 4) },
+  ]},
+  '0.30': { max: 0.30, bars: [
+    { label: 'degree 1 (linear)',  frac: 0.5, corr: 0.5 * 0.30 },
+    { label: 'degree 2 (quadratic)', frac: 0.3, corr: 0.3 * 0.30 * 0.30 },
+    { label: 'degree 3 (cubic)',   frac: 0.15, corr: 0.15 * Math.pow(0.30, 3) },
+    { label: 'degree 4+',          frac: 0.05, corr: 0.05 * Math.pow(0.30, 4) },
+  ]},
+};
+
+let currentRho = '0.95';
+
+function drawHermite() {
+  const canvas = document.getElementById('hermite-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 220, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const data = HERMITE_DATA[currentRho];
+  const rhoVal = parseFloat(currentRho);
+  const totalCorr = data.bars.reduce((s, b) => s + b.corr, 0);
+  const maxCorr = rhoVal;  // maximum possible
+
+  const PAD = { l: 160, r: 30, t: 25, b: 45 };
+  const cW = W - PAD.l - PAD.r;
+  const barH = 28, gap = 12;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(0, 0, W, H);
+
+  const colors = ['#a78bfa', '#06b6d4', '#f59e0b', '#5c6370'];
+
+  data.bars.forEach((b, i) => {
+    const y = PAD.t + i * (barH + gap);
+    const barW = (b.corr / maxCorr) * cW;
+
+    // Bar
+    ctx.fillStyle = colors[i] + (i === 0 ? 'dd' : '88');
+    ctx.beginPath();
+    ctx.roundRect(PAD.l, y, barW, barH, 3);
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = i === 0 ? '#a78bfa' : 'rgba(255,255,255,0.5)';
+    ctx.font = `${i === 0 ? 600 : 400} 11px monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(b.label, PAD.l - 8, y + barH / 2 + 4);
+
+    // Value
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(b.corr.toFixed(4), PAD.l + barW + 5, y + barH / 2 + 4);
+  });
+
+  // Max line (ρ)
+  const maxX = PAD.l + cW;
+  ctx.strokeStyle = 'rgba(239,68,68,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(maxX, PAD.t - 10); ctx.lineTo(maxX, PAD.t + 4 * (barH + gap) - gap);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(239,68,68,0.8)';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`max = ρ = ${rhoVal}`, maxX, PAD.t - 14);
+
+  // Total correlation
+  const totalX = PAD.l + (totalCorr / maxCorr) * cW;
+  ctx.strokeStyle = 'rgba(16,185,129,0.6)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(totalX, PAD.t - 4); ctx.lineTo(totalX, PAD.t + 4 * (barH + gap) - gap);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#10b981';
+  ctx.font = '600 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`total = ${totalCorr.toFixed(4)}`, totalX, PAD.t + 4 * (barH + gap) - gap + 14);
+
+  // Penalty annotation
+  const penalty = maxCorr - totalCorr;
+  ctx.fillStyle = 'rgba(239,68,68,0.7)';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`penalty: −${penalty.toFixed(4)}`, (totalX + maxX) / 2, PAD.t + 4 * (barH + gap));
+}
+
+drawHermite();
+
+document.querySelectorAll('.rho-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.rho-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRho = btn.dataset.rho;
+    drawHermite();
+  });
+});
+
+// ── §04 Distribution canvas ────────────────────────────────────
+const DIST_CONFIG = {
+  gaussian:  { r2: 0.9999, label: 'R² = 0.9999', color: '#a78bfa', mixFn: 'sinusoid' },
+  laplace:   { r2: 0.72,   label: 'R² = 0.72',   color: '#f59e0b', mixFn: 'sinusoid' },
+  heavytail: { r2: 0.48,   label: 'R² = 0.48',   color: '#ef4444', mixFn: 'sinusoid' },
+  uniform:   { r2: 0.55,   label: 'R² = 0.55',   color: '#6b7280', mixFn: 'sinusoid' },
+};
+
+let currentDist = 'gaussian';
+
+function sampleDist(dist, rng) {
+  if (dist === 'gaussian') {
+    const u = rng(), v = rng();
+    return Math.sqrt(-2 * Math.log(u + 1e-9)) * Math.cos(2 * Math.PI * v);
+  }
+  if (dist === 'laplace') {
+    const u = rng() - 0.5;
+    return -Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+  }
+  if (dist === 'heavytail') {
+    // Cauchy-like: sample with heavier tails
+    const u = rng(), v = rng();
+    const g = Math.sqrt(-2 * Math.log(u + 1e-9)) * Math.cos(2 * Math.PI * v);
+    const chi = Math.sqrt(-2 * Math.log(rng() + 1e-9));
+    return Math.max(-3, Math.min(3, g / (chi / Math.sqrt(2))));
+  }
+  if (dist === 'uniform') {
+    return (rng() - 0.5) * 3.46; // scale to unit variance
+  }
+  return 0;
+}
+
+function drawDistCanvas() {
+  const canvas = document.getElementById('dist-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 240, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const rng = mulberry32(123);
+  const N = 180;
+  const cfg = DIST_CONFIG[currentDist];
+  const pts = Array.from({length: N}, () => [sampleDist(currentDist, rng), sampleDist(currentDist, rng)]);
+
+  // sinusoidal shear mixing
+  const mixed = pts.map(([z1, z2]) => [z1 + 0.8 * Math.sin(1.5 * z2), z2]);
+
+  // Recovery: for Gaussian, near-perfect rotation; for others, distorted
+  const r2 = cfg.r2;
+  const angle = 0.3;
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const recovered = pts.map(([z1, z2]) => {
+    const linPart = [cos * z1 - sin * z2, sin * z1 + cos * z2];
+    // Add distortion proportional to 1 - r2
+    const distort = 1 - r2;
+    const noise = [sampleDist('gaussian', rng) * distort * 0.8, sampleDist('gaussian', rng) * distort * 0.8];
+    return [linPart[0] + noise[0], linPart[1] + noise[1]];
+  });
+
+  const panW = W / 3;
+  const sc = Math.min(panW, H) * 0.16;
+  const centers = [panW * 0.5, panW * 1.5, panW * 2.5];
+
+  function drawPts(ptsArr, cx, col, alpha) {
+    const scaled = ptsArr.map(([x, y]) => [cx + x * sc, H / 2 - y * sc]);
+    scaled.forEach(([px, py]) => {
+      ctx.beginPath();
+      ctx.arc(Math.max(4, Math.min(W - 4, px)), Math.max(4, Math.min(H - 4, py)), 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = col + alpha;
+      ctx.fill();
+    });
+  }
+
+  // Backgrounds
+  centers.forEach((cx, i) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.015)';
+    ctx.fillRect(cx - panW * 0.5 + 1, 5, panW - 2, H - 10);
+    if (i > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - panW * 0.5, 0); ctx.lineTo(cx - panW * 0.5, H);
+      ctx.stroke();
+    }
+  });
+
+  drawPts(pts, centers[0], '#10b981', 'cc');
+  drawPts(mixed, centers[1], cfg.color, 'bb');
+  drawPts(recovered, centers[2], cfg.color, 'cc');
+
+  // Labels
+  const panelLabels = ['True z', 'Obs x = g(z)', `h(z) — ${cfg.label}`];
+  panelLabels.forEach((lbl, i) => {
+    const isLast = i === 2;
+    ctx.fillStyle = isLast ? cfg.color : 'rgba(255,255,255,0.55)';
+    ctx.font = `${isLast ? 600 : 400} 10px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, centers[i], H - 8);
+  });
+
+  // R² badge on recovered panel
+  const badgeColor = cfg.r2 > 0.9 ? '#10b981' : cfg.r2 > 0.6 ? '#f59e0b' : '#ef4444';
+  ctx.fillStyle = badgeColor + '33';
+  ctx.strokeStyle = badgeColor + '88';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(centers[2] - 38, 12, 76, 20, 4);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = badgeColor;
+  ctx.font = '600 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(cfg.label, centers[2], 25);
+}
+
+drawDistCanvas();
+
+document.querySelectorAll('.dist-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDist = btn.dataset.dist;
+    drawDistCanvas();
+  });
+});
+
+// ── Animated bar charts (scaling + planning) ──────────────────
+function triggerBars(sectionId) {
+  const sec = document.getElementById(sectionId);
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+}
+triggerBars('s-scaling-bars');
+triggerBars('s-planning-viz');
+</script>
+</BaseLayout>

@@ -1,0 +1,1444 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="NITP: Teaching LLMs to Model Meaning, Not Just Predict Tokens | AI/ML Deep Dives"
+  description="Standard NTP leaves hidden states free to collapse into an anisotropic cone — NITP fixes this with a single auxiliary loss that predicts the shallow-layer representation of the next token, yielding +5.7% on MMLU-Pro at 9B scale."
+  crumb="NITP"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ────────────────────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math block ─────────────────────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ─────────────────────────────────────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-stat{font-size:.7rem;color:var(--muted);font-family:var(--ff-mono)}
+
+/* ── Results bars ───────────────────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-group-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-family:var(--ff-mono);padding:.4rem 0 .2rem;margin-top:.5rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:160px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Architecture diagram ───────────────────────────────────────────────── */
+.arch-wrap{overflow-x:auto;padding:.5rem 0}
+.arch-row{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:.25rem;flex-wrap:nowrap;min-width:580px}
+.arch-box{display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:.68rem;font-family:var(--ff-mono);font-weight:600;text-align:center;padding:.35rem .7rem;min-width:80px;line-height:1.3}
+.arch-box.tokens{background:rgba(255,255,255,.05);border:1px solid var(--border-hi);color:var(--muted2);min-width:44px;padding:.3rem .5rem}
+.arch-box.shallow{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.35);color:var(--cyan)}
+.arch-box.deep{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);color:var(--purple-l)}
+.arch-box.stopgrad{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--amber);font-size:.62rem}
+.arch-box.implicit{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);color:var(--amber)}
+.arch-box.proj{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.arch-box.loss-nitp{background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.45);color:var(--green);font-weight:700}
+.arch-box.loss-ntp{background:rgba(237,100,100,.1);border:1px solid rgba(237,100,100,.3);color:#f87171;font-weight:700}
+.arch-box.unembed{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted2)}
+.arch-arrow{color:var(--muted);font-size:.9rem;flex-shrink:0}
+.arch-arrow-down{display:flex;justify-content:center;color:var(--muted);font-size:.9rem;margin:.05rem 0}
+.arch-label{font-size:.65rem;color:var(--muted);font-family:var(--ff-mono);text-align:center;margin-bottom:.6rem}
+.arch-spacer{width:80px;flex-shrink:0}
+.arch-note{font-size:.67rem;color:var(--muted);font-family:var(--ff-mono);margin-top:.75rem;text-align:center}
+
+/* ── Layer chart ────────────────────────────────────────────────────────── */
+.layer-btns{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.75rem}
+.layer-btn{font-size:.65rem;font-family:var(--ff-mono);padding:.2rem .55rem;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:all .15s}
+.layer-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.layer-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+.layer-stat{font-size:.75rem;font-family:var(--ff-mono);color:var(--text2);margin-top:.75rem;padding:.6rem .875rem;border-radius:6px;background:var(--card2);border:1px solid var(--border)}
+
+/* ── Callout box ────────────────────────────────────────────────────────── */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;color:var(--text2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+.callout-cyan{background:rgba(6,182,212,.06);border-color:rgba(6,182,212,.25)}
+.callout-cyan strong{color:var(--cyan)}
+.callout-amber{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.25)}
+.callout-amber strong{color:var(--amber)}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- ── HERO ──────────────────────────────────────────────────────────────── -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Pre-training</span>
+    <span class="tag tag-cyan">Representation Learning</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>NITP: Teaching LLMs to Model Meaning, Not Just Predict Tokens</h1>
+  <p class="lead">
+    Standard NTP trains language models through discrete one-hot labels — a sparse signal that leaves hidden states free to collapse into a narrow, anisotropic cone. NITP adds a single auxiliary loss: predict the shallow-layer representation of the next token using cosine similarity. The result is richer geometry, +5.7% on MMLU-Pro for a 9B MoE model, and zero inference cost overhead.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 9, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2605.24956</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.24956" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/aHapBean/NITP" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- ── THREE-COLUMN GRID ─────────────────────────────────────────────────── -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-collapse"><a href="#s-collapse"><span class="toc-num">01</span> The Collapse Problem</a></li>
+    <li class="toc-item" id="toc-s-blindspot"><a href="#s-blindspot"><span class="toc-num">02</span> Gradient Blind Spot</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> NITP Architecture</a></li>
+    <li class="toc-item" id="toc-s-anchors"><a href="#s-anchors"><span class="toc-num">04</span> Shallow Anchors</a></li>
+    <li class="toc-item" id="toc-s-shift"><a href="#s-shift"><span class="toc-num">05</span> Temporal Shift</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════════════════ §01 -->
+<section id="s-collapse" data-code="collapse">
+<div class="section-no">01 — The Collapse Problem</div>
+<h2>Hidden States Collapse Under Standard NTP</h2>
+<p>
+  Train an LLM with standard next-token prediction and something subtle goes wrong in its representation space. The hidden states — the rich intermediate vectors that encode everything the model "knows" about the context — gradually collapse into a narrow, anisotropic cone. By the end of training, tokens like "cat", "dog", "Paris", and "philosophy" may all be encoded as nearly the same direction in high-dimensional space, differing only in scale.
+</p>
+<p>
+  Two metrics expose this collapse. <strong>Effective rank</strong> measures how many independent dimensions the representation actually uses (a value near <em>d</em> means diverse; near 1 means collapsed). <strong>Average cosine similarity</strong> between random token pairs measures how aligned, or "clumped", the representations are (near 0 means diverse; near 1 means all pointing the same direction). Under standard NTP, effective rank drops while cosine similarity rises — the hallmarks of anisotropic collapse.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">representation-space.canvas — NTP vs NITP training</span>
+    <span class="vp-hint">click a button to animate</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.625rem;margin-bottom:.875rem;flex-wrap:wrap;align-items:center">
+      <button id="btn-ntp" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(237,100,100,.5);background:rgba(237,100,100,.1);color:#f87171;font-weight:600;transition:all .15s">▶ NTP Training</button>
+      <button id="btn-nitp" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(139,92,246,.5);background:rgba(139,92,246,.1);color:var(--purple-l);font-weight:600;transition:all .15s">▶ NITP Training</button>
+      <button id="btn-reset-collapse" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s">↺ Reset</button>
+      <span id="rank-display" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto">effective rank: —</span>
+    </div>
+    <canvas id="canvas-collapse" style="width:100%;height:280px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+    <div style="display:flex;gap:1.25rem;margin-top:.6rem;font-size:.67rem;font-family:var(--ff-mono);color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:.35rem"><span style="width:10px;height:10px;border-radius:50%;background:#06b6d4;display:inline-block"></span>animals</span>
+      <span style="display:flex;align-items:center;gap:.35rem"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block"></span>places</span>
+      <span style="display:flex;align-items:center;gap:.35rem"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;display:inline-block"></span>verbs</span>
+      <span style="display:flex;align-items:center;gap:.35rem"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block"></span>abstracts</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  This is not a theoretical concern — it directly harms downstream performance. Collapsed representations sacrifice semantic expressiveness: once "cat" and "philosophy" are encoded in the same direction, the model can no longer separate them as distinct concepts in its computation. Ethayarajh (2019) linked anisotropy to degraded generalization, and the NITP authors confirm this empirically: models trained with standard NTP have consistently lower effective rank and higher token-pair cosine similarity than those trained with NITP.
+</p>
+<p>
+  The fundamental question is: <em>why does NTP alone fail to supervise representation geometry?</em> The answer is architectural — it is baked into the gradient structure of the cross-entropy loss.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ §02 -->
+<section id="s-blindspot" data-code="blindspot">
+<div class="section-no">02 — The Gradient Blind Spot</div>
+<h2>NTP Constrains One Direction, Ignores d−1 Others</h2>
+<p>
+  Standard NTP minimizes the negative log-likelihood of the next token. At each position <em>t</em>, the final hidden state <em>h<sub>t</sub> ∈ ℝ<sup>d</sup></em> is multiplied by the unembedding matrix <em>W</em> to produce logits, and the cross-entropy loss pushes <em>h<sub>t</sub></em> to have a large dot product with the target token's embedding <em>w<sub>x<sub>t+1</sub></sub></em> while shrinking it for all others.
+</p>
+
+<div class="math-block">
+  <div class="math-label">NTP gradient intuition</div>
+  ∂L<sub>NTP</sub>/∂<span class="math-var">h</span><sub>t</sub>  ≈  (<span class="math-var">p</span><sub>target</sub> − 1) · <span class="math-var">w</span><sub>x<sub>t+1</sub></sub>  +  Σ<sub>j≠target</sub> <span class="math-var">p</span><sub>j</sub> · <span class="math-var">w</span><sub>j</sub>
+  <br>
+  <span class="math-comment">≈ a vector in the span of the token embedding rows (rank ≪ d)</span>
+</div>
+
+<p>
+  The critical observation: the gradient is always a weighted sum of embedding vectors <em>w<sub>j</sub></em>. If the embedding matrix has effective rank <em>r ≪ d</em> — which is typical, since most model dimensions are not meaningfully activated by most tokens — then the gradient only constrains <em>h<sub>t</sub></em> within an <em>r</em>-dimensional subspace. The remaining <em>d − r</em> dimensions are a <strong>null space</strong> with zero gradient signal.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">null-space.canvas — the gradient blind spot</span>
+    <span class="vp-hint">click "Show Drift" to see representations wander</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.625rem;margin-bottom:.875rem">
+      <button id="btn-drift" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(237,100,100,.4);background:rgba(237,100,100,.08);color:#f87171;transition:all .15s">▶ Show NTP Drift</button>
+      <button id="btn-nitp-anchor" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid rgba(139,92,246,.4);background:rgba(139,92,246,.08);color:var(--purple-l);transition:all .15s">▶ Add NITP Anchor</button>
+      <button id="btn-reset-drift" style="padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s">↺ Reset</button>
+    </div>
+    <canvas id="canvas-drift" style="width:100%;height:260px;display:block;border-radius:6px;background:var(--card2)"></canvas>
+  </div>
+</div>
+
+<p>
+  In practice, this null space does not stay zero — representations fill it via unconstrained optimization dynamics. But instead of developing useful semantic structure, they drift into whichever low-energy configurations emerge from weight initialization and gradient noise. The result is the anisotropic collapse we measured: representations pile into a cone along the dimensions the embedding matrix happens to favor, ignoring the semantic structure a well-trained model should maintain.
+</p>
+<p>
+  The fix requires a second loss that explicitly constrains the null space directions. NITP provides this by requiring <em>h<sub>t</sub></em> to align with a concrete target vector — not just to score high on a single token logit.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ §03 -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — NITP Architecture</div>
+<h2>Predict the Next Token's Meaning, Not Just Its Identity</h2>
+<p>
+  NITP adds one auxiliary objective to standard pre-training. For each position <em>t</em>, the model must not only predict which token comes next (NTP), but also predict the <em>representation</em> the next token will have — specifically, the shallow-layer hidden state at position <em>t+1</em>.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">architecture.svg — dual-supervision training</span>
+  </div>
+  <div class="vp-body">
+    <div class="arch-wrap">
+      <!-- Token row -->
+      <div class="arch-row">
+        <div class="arch-box tokens">x₁</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box tokens">x₂</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box tokens">x₃</div>
+        <div class="arch-arrow" style="opacity:.3">···</div>
+        <div class="arch-box tokens" style="border-color:var(--purple-l)">x<sub>t</sub></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box tokens" style="border-color:var(--amber)">x<sub>t+1</sub></div>
+      </div>
+      <div class="arch-arrow-down">↓</div>
+      <!-- Shared shallow layers -->
+      <div class="arch-row">
+        <div class="arch-spacer"></div>
+        <div class="arch-box shallow" style="min-width:300px">Shallow Layers (k = 4 of 17)</div>
+        <div class="arch-spacer"></div>
+      </div>
+      <!-- Two paths split -->
+      <div style="display:flex;justify-content:center;gap:3rem;min-width:580px;margin:.15rem 0">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.2rem">
+          <div style="font-size:.62rem;color:var(--purple-l);font-family:var(--ff-mono)">position t → h<sub>t</sub></div>
+          <div class="arch-arrow-down">↓</div>
+          <div class="arch-box deep">Deep Layers (L − k)</div>
+          <div class="arch-arrow-down">↓</div>
+          <div class="arch-box deep" style="font-size:.7rem">h<sub>t</sub> (final hidden state)</div>
+          <div style="display:flex;gap:.5rem;margin-top:.2rem">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.2rem">
+              <div class="arch-arrow-down">↓</div>
+              <div class="arch-box proj">Projector P</div>
+              <div class="arch-arrow-down" style="color:var(--green)">↓ cosine</div>
+              <div class="arch-box loss-nitp">L<sub>NITP</sub></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.2rem">
+              <div class="arch-arrow-down">↓</div>
+              <div class="arch-box unembed">Unembedding W</div>
+              <div class="arch-arrow-down" style="color:#f87171">↓ cross-entropy</div>
+              <div class="arch-box loss-ntp">L<sub>NTP</sub></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.2rem">
+          <div style="font-size:.62rem;color:var(--amber);font-family:var(--ff-mono)">position t+1 → z<sub>t+1</sub></div>
+          <div class="arch-arrow-down">↓</div>
+          <div class="arch-box stopgrad">stop-gradient</div>
+          <div class="arch-arrow-down">↓</div>
+          <div class="arch-box implicit">z<sub>t+1</sub> (implicit token)</div>
+          <div style="font-size:.62rem;color:var(--muted);margin-top:.5rem;font-family:var(--ff-mono);text-align:center">target for<br>L<sub>NITP</sub></div>
+        </div>
+      </div>
+    </div>
+    <div class="arch-note">
+      L<sub>total</sub> = L<sub>NTP</sub> + λ · L<sub>NITP</sub> &nbsp;|&nbsp; λ = 1.0 &nbsp;|&nbsp; ~2% extra training FLOPs &nbsp;|&nbsp; zero inference cost
+    </div>
+  </div>
+</div>
+
+<p>
+  Three design choices make this work efficiently:
+</p>
+<ul>
+  <li><strong>Self-supervised targets:</strong> <em>z<sub>t+1</sub></em> is extracted from the model's <em>own</em> shallow layers — no external encoder, no extra annotations. The targets are generated as a byproduct of the standard forward pass.</li>
+  <li><strong>Stop-gradient:</strong> The shallow representation is treated as a fixed target. Gradients do not flow back through the shallow layers from the NITP loss, so the loss only updates the deep layers and the projector — not the target generator itself. This prevents mode collapse.</li>
+  <li><strong>Cosine similarity loss:</strong> NITP minimizes <em>1 − cos(P(h<sub>t</sub>), z<sub>t+1</sub>)</em>, which enforces scale invariance. MSE amplifies the scale mismatch between deep and shallow representations, causing gradient spikes. Cosine loss is immune to this and converges stably (NITP loss ≈ 0.04 for the 9B MoE at convergence).</li>
+</ul>
+<p>
+  The combined training objective <em>L<sub>total</sub> = L<sub>NTP</sub> + λ · L<sub>NITP</sub></em> with <em>λ = 1.0</em> adds only ~2% computational overhead during training, because the shallow representations are already computed in the forward pass and the NITP head is just a single MLP projector. At inference time, the projector is discarded — no overhead whatsoever.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ §04 -->
+<section id="s-anchors" data-code="anchors">
+<div class="section-no">04 — Shallow Layers Are Semantic Anchors</div>
+<h2>Semantic Richness Peaks Early, Degrades Deep</h2>
+<p>
+  Why use shallow layers as targets, rather than middle or deep layers? The answer lies in where semantic information lives in a transformer. Recent analysis (Skean et al., 2025; Liu et al., 2024c) reveals a consistent pattern: shallow layers act as powerful contextual encoders that resolve lexical ambiguity and preserve fine-grained semantic details. Deep layers, by contrast, progressively discard these details to focus on the discriminative features needed for next-token prediction.
+</p>
+<p>
+  The intuition: deep layers are specialized for NTP. They have been shaped by the very objective we are trying to augment. Using them as supervision targets would simply add a second copy of the same signal — no new information. Shallow layers, however, encode richer semantics than the model's output head needs, making them ideal anchors.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">layer-depth.canvas — semantic richness vs layer depth (3B MoE)</span>
+    <span class="vp-hint">click a layer to see its ablation performance</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-layers" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+    <div class="layer-btns" id="layer-btns">
+      <!-- generated by JS -->
+    </div>
+    <div class="layer-stat" id="layer-stat">← select a layer above to see performance</div>
+  </div>
+</div>
+
+<p>
+  The authors confirm this with ablations: among three choices of target layer (shallow L4, middle L8, deep L14 out of 17 total), L4 achieves the best downstream performance. Furthermore, the optimal depth is consistently around 20% of total depth across model sizes — a stable heuristic.
+</p>
+
+<div class="callout callout-cyan">
+  <strong>Theoretical grounding:</strong> The cosine similarity in the NITP Hessian has a positive-definiteness guarantee only when <em>s = cos(h<sub>t</sub>, z<sub>t+1</sub>) → 1</em> — that is, when the prediction target is actually achievable. Shallow targets, which encode recoverable next-token semantics, satisfy this: the NITP loss converges below 0.1 in practice. Arbitrary deep targets would remain at <em>s ≈ 0</em> and provide no curvature guarantee.
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ §05 -->
+<section id="s-shift" data-code="shift">
+<div class="section-no">05 — The Temporal Shift Matters</div>
+<h2>Predicting Forward ≠ Aligning in Place</h2>
+<p>
+  The temporal shift in NITP — predicting position <em>t+1</em> from position <em>t</em> — is not an implementation detail. It is fundamental to the objective's effectiveness. The authors ablate this directly: what happens if, instead of predicting <em>z<sub>t+1</sub></em> from <em>h<sub>t</sub></em>, we simply align <em>h<sub>t</sub></em> with the shallow representation at the <em>same</em> position <em>t</em>?
+</p>
+<p>
+  The result is striking. Same-position alignment (<em>t → t</em>) achieves a very low alignment loss — the dot product collapses to ~0.03 — yet downstream performance is dramatically worse than the baseline NTP. Meanwhile, next-token prediction (<em>t → t+1</em>) maintains a slightly higher alignment loss of ~0.08 but consistently outperforms NTP.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">temporal-shift.steps — why predicting forward works</span>
+    <span class="vp-hint">step through the comparison</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="shift-steps">
+      <div class="step-box active" id="shift-step-0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Same-Position Alignment (t → t)</div>
+          <div class="step-desc">Align the deep hidden state h<sub>t</sub> with the shallow representation at the same position t. Alignment loss converges to ~0.03 — almost perfect alignment. But this is a trivial solution: the model can "cheat" by making deep and shallow layers encode the same thing. No predictive signal about the future is injected.</div>
+          <div class="step-code">NITP loss ≈ 0.03 (very low)  |  Avg benchmark: 18.75%  ← worse than NTP (21.10%)</div>
+        </div>
+      </div>
+      <div class="step-box" id="shift-step-1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Next-Token Prediction (t → t+1)</div>
+          <div class="step-desc">Predict the shallow representation at position t+1 from the deep state at position t. This forces the model to encode information about the upcoming context into its deep representations — exactly the semantic structure NTP supervision ignores. The prediction is harder (loss ≈ 0.08) but meaningful.</div>
+          <div class="step-code">NITP loss ≈ 0.08  |  Avg benchmark: 23.58%  ← +2.48 pp over NTP</div>
+        </div>
+      </div>
+      <div class="step-box" id="shift-step-2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Why the Difference?</div>
+          <div class="step-desc">Autoregressive temporal structure is key. NTP already forces the model to predict the next token's identity. NITP adds: predict the next token's semantic essence. Together, these two signals supervise both "what will come next" (NTP) and "what will that token mean in context" (NITP), leaving no degrees of freedom unaccounted for in the deep representation.</div>
+          <div class="step-code">L_total = L_NTP + λ · L_NITP  |  both predict position t+1 from context up to t</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="shift-prev">← Prev</button>
+      <button id="shift-next">Next →</button>
+      <span class="step-stat" id="shift-prog">Step 1 of 3</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  This experiment also rules out the simpler explanation that NITP is just "representation regularization". A generic cosine regularization baseline — penalizing pairwise cosine similarity between hidden states to prevent anisotropy — shows no improvement over NTP. The gains require the autoregressive prediction structure, not just any geometric constraint on representations.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results: Consistent Gains at Scale</div>
+<h2>+5.7% on MMLU-Pro, +6.4% on C3, ~2% Extra FLOPs</h2>
+<p>
+  NITP is evaluated against standard NTP across dense and MoE architectures ranging from 0.5B to 9B parameters, all trained from scratch. The headline result is the 9B MoE model (1B activated parameters per token), trained on 330B tokens:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">results.bars — 9B MoE: NTP vs NITP on key benchmarks</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="results-vp">
+    <div class="results-bars">
+      <div class="bar-group-label">Knowledge &amp; Reasoning (9B MoE)</div>
+
+      <div class="bar-row">
+        <div class="bar-label">NTP · MMLU-Pro</div>
+        <div class="bar-track"><div class="bar-fill" data-w="15.29" style="background:rgba(100,116,139,.5)"><span>15.3%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">NITP · MMLU-Pro</div>
+        <div class="bar-track"><div class="bar-fill" data-w="21.00" style="background:var(--purple)"><span>21.0%</span></div></div>
+      </div>
+
+      <div class="bar-row" style="margin-top:.5rem">
+        <div class="bar-label">NTP · C3</div>
+        <div class="bar-track"><div class="bar-fill" data-w="56.65" style="background:rgba(100,116,139,.5)"><span>56.7%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">NITP · C3</div>
+        <div class="bar-track"><div class="bar-fill" data-w="63.01" style="background:var(--purple)"><span>63.0%</span></div></div>
+      </div>
+
+      <div class="bar-row" style="margin-top:.5rem">
+        <div class="bar-label">NTP · CommonsenseQA</div>
+        <div class="bar-track"><div class="bar-fill" data-w="45.70" style="background:rgba(100,116,139,.5)"><span>45.7%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">NITP · CommonsenseQA</div>
+        <div class="bar-track"><div class="bar-fill" data-w="49.96" style="background:var(--purple)"><span>50.0%</span></div></div>
+      </div>
+
+      <div class="bar-row" style="margin-top:.5rem">
+        <div class="bar-label">NTP · BBH</div>
+        <div class="bar-track"><div class="bar-fill" data-w="28.07" style="background:rgba(100,116,139,.5)"><span>28.1%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">NITP · BBH</div>
+        <div class="bar-track"><div class="bar-fill" data-w="28.67" style="background:var(--purple)"><span>28.7%</span></div></div>
+      </div>
+
+      <div class="bar-row" style="margin-top:.5rem">
+        <div class="bar-label">NTP · GSM8k</div>
+        <div class="bar-track"><div class="bar-fill" data-w="30.09" style="background:rgba(100,116,139,.5)"><span>30.1%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">NITP · GSM8k</div>
+        <div class="bar-track"><div class="bar-fill" data-w="32.52" style="background:var(--purple)"><span>32.5%</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The improvements scale with model size: average performance gains of +0.8 pp at 1.9B, +2.1 pp at 3B, and +2.7 pp at 9B. This scaling behavior is important — it suggests that as the representation space grows larger, standard NTP's null space grows too, and NITP's regularization becomes more valuable.
+</p>
+<p>
+  Beyond raw accuracy, the authors evaluate learned representations as frozen sentence embeddings on 25 MTEB tasks. NITP improves 23 out of 25 tasks while preserving the same validation cross-entropy loss — confirming that the gains come from genuine improvements in representation quality, not from any trade-off with language modeling perplexity.
+</p>
+<div class="callout">
+  <strong>The takeaway:</strong> NTP is necessary but not sufficient. It teaches a model what to predict, but not how to structure its internal representations. NITP closes this gap with a single, cheap auxiliary loss — no external encoders, no extra inference cost, no architectural changes. If you are pre-training an LLM from scratch, NITP is essentially a free upgrade.
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">nitp/train.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Collapse Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="collapse">collapse</button>
+    <button class="cs-tab" data-panel="blindspot">blind-spot</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="anchors">anchors</button>
+    <button class="cs-tab" data-panel="shift">shift</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- ── panel: collapse ───────────────────────────────────────────────── -->
+    <div class="cs-panel active" id="panel-collapse">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Measuring representation collapse during NTP training</span>
+<span class="cs-line cmt"># Two geometry metrics tracked per checkpoint:</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Effective Rank (Roy &amp; Vetterli, 2007)</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">effective_rank</span>(H):</span>
+<span class="cs-line hl-c">    <span class="cmt"># H: [N, d] matrix of hidden states</span></span>
+<span class="cs-line hl-c">    sigma = torch.linalg.svdvals(H)</span>
+<span class="cs-line hl-c">    p = sigma / sigma.sum()  <span class="cmt"># normalised singular values</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> torch.exp(-(<span class="cls">p</span> * torch.log(<span class="cls">p</span> + 1e-12)).sum())</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Average Cosine Similarity (global anisotropy proxy)</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">avg_cosine_sim</span>(H):</span>
+<span class="cs-line hl-p">    H_norm = F.normalize(H, dim=-1)  <span class="cmt"># [N, d]</span></span>
+<span class="cs-line hl-p">    C = H_norm @ H_norm.T             <span class="cmt"># [N, N] all-pairs cosine</span></span>
+<span class="cs-line hl-p">    mask = ~torch.eye(len(H), dtype=bool)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> C[mask].mean()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># What we observe under standard NTP:</span>
+<span class="cs-line cmt">#   effective_rank: 45 → 8   (collapse)</span>
+<span class="cs-line cmt">#   avg_cosine_sim: 0.05 → 0.72  (anisotropy)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Under NITP:</span>
+<span class="cs-line cmt">#   effective_rank: 45 → 43  (preserved)</span>
+<span class="cs-line cmt">#   avg_cosine_sim: 0.05 → 0.08  (maintained diversity)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Figure 1 from the paper confirms this for:</span>
+<span class="cs-line cmt">#   NTP  effective rank Δ: -3.32 vs NITP</span>
+<span class="cs-line cmt">#   NTP  cosine sim    Δ: -3.38 vs NITP</span>
+      </pre>
+    </div>
+
+    <!-- ── panel: blindspot ──────────────────────────────────────────────── -->
+    <div class="cs-panel" id="panel-blindspot">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Why NTP under-constrains hidden representations</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># NTP cross-entropy gradient with respect to h_t:</span>
+<span class="cs-line hl-p"><span class="cmt"># ∂L_NTP/∂h_t = Σ_j (p_j - 1[j=target]) * w_j</span></span>
+<span class="cs-line hl-p"><span class="cmt"># = weighted sum of EMBEDDING vectors w_j</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Problem: embedding matrix W has rank r &lt;&lt; d</span>
+<span class="cs-line cmt"># → gradient lives in r-dim subspace</span>
+<span class="cs-line cmt"># → (d - r) directions are unconstrained "null space"</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Hessian analysis (Lemma 3.1):</span>
+<span class="cs-line hl-c"><span class="cmt"># H_NTP  ≈ W^T diag(p) W  - (W^T p)(W^T p)^T</span></span>
+<span class="cs-line hl-c"><span class="cmt"># rank(H_NTP) ≤ rank(W) ≤ r</span></span>
+<span class="cs-line hl-c"><span class="cmt"># → null space of H_NTP has dimension d - r</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># NITP Hessian at convergence (s → 1):</span>
+<span class="cs-line hl-g"><span class="cmt"># H_NITP ≈ (1/r²)(I - uu^T)  (positive semi-definite)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># → adds curvature to EVERY direction ⊥ h</span></span>
+<span class="cs-line hl-g"><span class="cmt"># → null space of H_NTP gets curvature &gt; 0</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Theorem 3.2: for any w in NTP's null space,</span>
+<span class="cs-line cmt">#   w^T H_total w = 0 + λ/r² ||w||² &gt; 0</span>
+<span class="cs-line cmt"># NITP eliminates all flat valleys.</span>
+      </pre>
+    </div>
+
+    <!-- ── panel: arch ───────────────────────────────────────────────────── -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># NITP training loop (simplified)</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">NITPModel</span>(nn.Module):</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):</span>
+<span class="cs-line hl-p">        <span class="fn">super</span>().__init__()</span>
+<span class="cs-line hl-p">        self.layers = nn.ModuleList([...])  <span class="cmt"># L layers</span></span>
+<span class="cs-line hl-p">        self.k = config.shallow_k  <span class="cmt"># e.g. 4 of 17</span></span>
+<span class="cs-line hl-p">        self.projector = nn.Sequential(</span>
+<span class="cs-line hl-p">            nn.Linear(d, d), nn.SiLU(),</span>
+<span class="cs-line hl-p">            nn.Linear(d, d))</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(self, x):</span>
+<span class="cs-line">        h = self.embed(x)  <span class="cmt"># [B, T, d]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">        # --- shallow layers → implicit tokens ---</span>
+<span class="cs-line hl-c">        <span class="kw">for</span> layer <span class="kw">in</span> self.layers[:self.k]:</span>
+<span class="cs-line hl-c">            h = layer(h)</span>
+<span class="cs-line hl-c">        <span class="cmt"># z_&#123;t+1&#125;: shallow repr at position t+1</span></span>
+<span class="cs-line hl-c">        z = h[:, 1:, :].detach()  <span class="cmt"># stop-gradient!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">        # --- deep layers → final hidden state ---</span>
+<span class="cs-line hl-p">        <span class="kw">for</span> layer <span class="kw">in</span> self.layers[self.k:]:</span>
+<span class="cs-line hl-p">            h = layer(h)</span>
+<span class="cs-line hl-p">        h_deep = h[:, :-1, :]  <span class="cmt"># h_t at position t</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">        # --- NITP loss (cosine) ---</span>
+<span class="cs-line hl-g">        proj = F.normalize(self.projector(h_deep), dim=-1)</span>
+<span class="cs-line hl-g">        tgt  = F.normalize(z, dim=-1)</span>
+<span class="cs-line hl-g">        L_nitp = (1 - (proj * tgt).sum(-1)).mean()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">        # --- NTP loss (cross-entropy) ---</span>
+<span class="cs-line">        logits = self.unembed(h_deep)  <span class="cmt"># [B, T-1, V]</span></span>
+<span class="cs-line">        L_ntp = F.cross_entropy(logits.flatten(0,1),</span>
+<span class="cs-line">                                x[:, 1:].flatten())</span>
+<span class="cs-line"> </span>
+<span class="cs-line">        <span class="kw">return</span> L_ntp + <span class="num">1.0</span> * L_nitp  <span class="cmt"># λ = 1.0</span></span>
+      </pre>
+    </div>
+
+    <!-- ── panel: anchors ────────────────────────────────────────────────── -->
+    <div class="cs-panel" id="panel-anchors">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Ablation: target layer selection (3B MoE, 200B tokens)</span>
+<span class="cs-line cmt"># Layers: 17 total. Shallow = L4, Middle = L8, Deep = L14</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ┌───────────────┬────────┬────────┬──────┬────────┐</span>
+<span class="cs-line cmt"># │ Target Layer  │ MMLU   │ M-Pro  │ BBH  │  Avg   │</span>
+<span class="cs-line cmt"># ├───────────────┼────────┼────────┼──────┼────────┤</span>
+<span class="cs-line cmt"># │ NTP baseline  │ 34.60  │ 11.00  │ 21.92│ 21.10  │</span>
+<span class="cs-line cmt"># │ Deep  (L14)   │ 35.79  │ 10.43  │ 23.25│ 22.16  │</span>
+<span class="cs-line cmt"># │ Middle (L8)   │ 35.33  │ 11.57  │ 22.07│ 21.22  │</span>
+<span class="cs-line hl-g"># │ Shallow (L4)  │ 37.37  │ 12.29  │ 26.14│ 23.58  │ ← best</span>
+<span class="cs-line cmt"># └───────────────┴────────┴────────┴──────┴────────┘</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why shallow wins:</span>
+<span class="cs-line cmt"># • semantic richness peaks at ~20% depth (L4 of 17)</span>
+<span class="cs-line cmt"># • deep layers specialise for discrimination, not semantics</span>
+<span class="cs-line cmt"># • shallow targets are "reachable": NITP loss → 0.04-0.08</span>
+<span class="cs-line cmt"># • deep targets are harder to predict: weaker Hessian guarantee</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Optimal layer depth = ~20% of total across model sizes:</span>
+<span class="cs-line cmt">#   0.5B dense:  L2 of 14  (14%)</span>
+<span class="cs-line cmt">#   2B dense:    L4 of 17  (24%)</span>
+<span class="cs-line cmt">#   9B MoE:      L4 of 17  (24%)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># MTEB sentence representation (frozen h, no fine-tuning):</span>
+<span class="cs-line hl-p"><span class="cmt"># NITP improves 23/25 MTEB tasks vs NTP</span></span>
+<span class="cs-line hl-p"><span class="cmt"># while matching validation cross-entropy loss</span></span>
+      </pre>
+    </div>
+
+    <!-- ── panel: shift ──────────────────────────────────────────────────── -->
+    <div class="cs-panel" id="panel-shift">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Ablation: temporal shift (3B MoE, 200B tokens)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ┌─────────────────────┬─────────┬─────────┐</span>
+<span class="cs-line cmt"># │ Variant             │ Loss    │  Avg    │</span>
+<span class="cs-line cmt"># ├─────────────────────┼─────────┼─────────┤</span>
+<span class="cs-line cmt"># │ NTP baseline        │  —      │ 21.10%  │</span>
+<span class="cs-line hl-a"><span class="cmt"># │ Current-step (t→t)  │ ~0.03   │ 18.75%  │ ← worse!</span></span>
+<span class="cs-line hl-g"><span class="cmt"># │ Next-token (t→t+1)  │ ~0.08   │ 23.58%  │ ← best</span></span>
+<span class="cs-line cmt"># └─────────────────────┴─────────┴─────────┘</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: low NITP loss ≠ better performance</span>
+<span class="cs-line cmt"># t→t achieves loss=0.03 (near perfect alignment)</span>
+<span class="cs-line cmt"># but trivially: deep layer just copies shallow layer</span>
+<span class="cs-line cmt"># no predictive signal → representations degenerate</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Also ablated: generic cosine regularization</span>
+<span class="cs-line cmt"># (Gao et al. 2019 approach — penalise pairwise cos sim)</span>
+<span class="cs-line cmt"># ┌──────────────────────────┬─────────┐</span>
+<span class="cs-line cmt"># │ Generic cosine reg.      │ 20.79%  │ ← no improvement</span>
+<span class="cs-line cmt"># │ NITP (predictive)        │ 23.58%  │ ← +2.48 pp</span>
+<span class="cs-line cmt"># └──────────────────────────┴─────────┘</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Conclusion: gains require AUTOREGRESSIVE structure</span>
+<span class="cs-line cmt"># not just geometric regularisation of representations</span>
+      </pre>
+    </div>
+
+    <!-- ── panel: results ────────────────────────────────────────────────── -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Main results: NTP vs NITP, 9B MoE (1B activated)</span>
+<span class="cs-line cmt"># Trained on 330B tokens. ~2% extra training FLOPs.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Knowledge &amp; Language Understanding:</span>
+<span class="cs-line cmt"># ┌──────────────┬────────┬────────┐</span>
+<span class="cs-line cmt"># │ Benchmark    │  NTP   │  NITP  │</span>
+<span class="cs-line cmt"># ├──────────────┼────────┼────────┤</span>
+<span class="cs-line hl-p"><span class="cmt"># │ MMLU-Pro     │ 15.29  │ 21.00  │ +5.71 pp</span></span>
+<span class="cs-line hl-p"><span class="cmt"># │ MMLU         │ 43.71  │ 46.14  │ +2.43 pp</span></span>
+<span class="cs-line hl-p"><span class="cmt"># │ C-Eval       │ 38.97  │ 40.72  │ +1.75 pp</span></span>
+<span class="cs-line hl-p"><span class="cmt"># │ Xiezhi       │ 45.59  │ 49.10  │ +3.51 pp</span></span>
+<span class="cs-line hl-p"><span class="cmt"># │ LAMBADA      │ 62.32  │ 64.49  │ +2.17 pp</span></span>
+<span class="cs-line cmt"># └──────────────┴────────┴────────┘</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Reasoning &amp; Problem Solving:</span>
+<span class="cs-line cmt"># ┌──────────────┬────────┬────────┐</span>
+<span class="cs-line cmt"># │ Benchmark    │  NTP   │  NITP  │</span>
+<span class="cs-line cmt"># ├──────────────┼────────┼────────┤</span>
+<span class="cs-line hl-g"><span class="cmt"># │ C3           │ 56.65  │ 63.01  │ +6.36 pp</span></span>
+<span class="cs-line hl-g"><span class="cmt"># │ CommonsenseQA│ 45.70  │ 49.96  │ +4.26 pp</span></span>
+<span class="cs-line hl-g"><span class="cmt"># │ BBH          │ 28.07  │ 28.67  │ +0.60 pp</span></span>
+<span class="cs-line hl-g"><span class="cmt"># │ GSM8k        │ 30.09  │ 32.52  │ +2.43 pp</span></span>
+<span class="cs-line hl-g"><span class="cmt"># │ LCBench      │  6.95  │  8.00  │ +1.05 pp</span></span>
+<span class="cs-line cmt"># └──────────────┴────────┴────────┘</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Scales consistently with model size:</span>
+<span class="cs-line cmt">#   1.9B MoE: +0.81 avg  |  3B MoE: +2.12 avg</span>
+<span class="cs-line cmt">#   9B MoE:  +2.67 avg  ← larger models benefit more</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ── TOC + sidebar toggles ─────────────────────────────────────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ── Sidebar tab switching ─────────────────────────────────────────────── */
+const tabMeta = {
+  collapse:  { file: 'nitp/metrics.py',  title: 'The Collapse Problem'   },
+  blindspot: { file: 'nitp/theory.py',   title: 'Gradient Blind Spot'    },
+  arch:      { file: 'nitp/model.py',    title: 'NITP Architecture'      },
+  anchors:   { file: 'nitp/ablation.py', title: 'Shallow Anchors'        },
+  shift:     { file: 'nitp/ablation.py', title: 'Temporal Shift'         },
+  results:   { file: 'nitp/results.py',  title: 'Results'                },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent  = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ── IntersectionObserver: sync TOC + sidebar on scroll ───────────────── */
+const sectionMap = {
+  's-collapse':  'collapse',
+  's-blindspot': 'blindspot',
+  's-arch':      'arch',
+  's-anchors':   'anchors',
+  's-shift':     'shift',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §01 — COLLAPSE CANVAS
+   ═════════════════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('canvas-collapse');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return { W, H };
+  }
+  let { W, H } = resize();
+
+  // Token groups: [label, color, clusterX, clusterY, ntpX, ntpY]
+  const tokens = [
+    { label: 'cat',       color: '#06b6d4', gx: 0.18, gy: 0.35 },
+    { label: 'dog',       color: '#06b6d4', gx: 0.22, gy: 0.55 },
+    { label: 'Paris',     color: '#10b981', gx: 0.78, gy: 0.25 },
+    { label: 'Rome',      color: '#10b981', gx: 0.82, gy: 0.42 },
+    { label: 'run',       color: '#8b5cf6', gx: 0.78, gy: 0.70 },
+    { label: 'think',     color: '#8b5cf6', gx: 0.72, gy: 0.82 },
+    { label: 'love',      color: '#f59e0b', gx: 0.22, gy: 0.72 },
+    { label: 'truth',     color: '#f59e0b', gx: 0.18, gy: 0.88 },
+  ];
+
+  // NTP collapsed positions (tight cluster near center)
+  const ntpTargets = [
+    { x: 0.47, y: 0.43 },
+    { x: 0.52, y: 0.48 },
+    { x: 0.50, y: 0.52 },
+    { x: 0.46, y: 0.57 },
+    { x: 0.55, y: 0.44 },
+    { x: 0.53, y: 0.56 },
+    { x: 0.48, y: 0.61 },
+    { x: 0.51, y: 0.39 },
+  ];
+
+  // NITP cluster positions (semantic clusters well-separated)
+  const nitpTargets = tokens.map(t => ({ x: t.gx, y: t.gy }));
+
+  // Current positions (start at NITP positions)
+  let dots = tokens.map((t, i) => ({
+    ...t,
+    x: nitpTargets[i].x,
+    y: nitpTargets[i].y,
+    tx: nitpTargets[i].x,
+    ty: nitpTargets[i].y,
+  }));
+
+  let animating = false;
+  let rankVal = 45;
+  let rankTarget = 45;
+  let mode = 'nitp';
+  let animFrame = null;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Background grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const x = W * i / 4, y = H * i / 4;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // Cluster region labels
+    if (mode === 'nitp') {
+      const labels = [
+        { x: 0.20, y: 0.16, text: 'ANIMALS', color: 'rgba(6,182,212,0.3)' },
+        { x: 0.80, y: 0.14, text: 'PLACES',  color: 'rgba(16,185,129,0.3)' },
+        { x: 0.75, y: 0.60, text: 'VERBS',   color: 'rgba(139,92,246,0.3)' },
+        { x: 0.20, y: 0.62, text: 'CONCEPTS',color: 'rgba(245,158,11,0.3)' },
+      ];
+      ctx.font = `${Math.round(W * 0.024)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      labels.forEach(l => {
+        ctx.fillStyle = l.color;
+        ctx.fillText(l.text, l.x * W, l.y * H);
+      });
+    } else {
+      // NTP: draw convergence label
+      ctx.font = `${Math.round(W * 0.024)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(248,113,113,0.4)';
+      ctx.fillText('COLLAPSED', 0.5 * W, 0.28 * H);
+
+      // Draw collapse zone circle
+      ctx.beginPath();
+      ctx.arc(0.5 * W, 0.5 * H, W * 0.14, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(248,113,113,0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(248,113,113,0.04)';
+      ctx.fill();
+    }
+
+    // Draw dots
+    dots.forEach(d => {
+      const px = d.x * W, py = d.y * H;
+
+      // Glow
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, 12);
+      grad.addColorStop(0, d.color + '55');
+      grad.addColorStop(1, d.color + '00');
+      ctx.beginPath();
+      ctx.arc(px, py, 12, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, Math.PI * 2);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+
+      // Label
+      ctx.font = `600 ${Math.round(W * 0.022)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = d.color;
+      ctx.fillText(d.label, px, py - 11);
+    });
+  }
+
+  function animate() {
+    let allDone = true;
+    dots.forEach(d => {
+      d.x = lerp(d.x, d.tx, 0.07);
+      d.y = lerp(d.y, d.ty, 0.07);
+      if (Math.abs(d.x - d.tx) > 0.001 || Math.abs(d.y - d.ty) > 0.001) allDone = false;
+    });
+    rankVal = lerp(rankVal, rankTarget, 0.05);
+    const rkDisp = document.getElementById('rank-display');
+    if (rkDisp) rkDisp.textContent = `effective rank: ${Math.round(rankVal)}`;
+    draw();
+    if (!allDone) animFrame = requestAnimationFrame(animate);
+    else animating = false;
+  }
+
+  function startAnimation(targets, rankTgt, m) {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    mode = m;
+    dots.forEach((d, i) => { d.tx = targets[i].x; d.ty = targets[i].y; });
+    rankTarget = rankTgt;
+    animating = true;
+    animate();
+  }
+
+  document.getElementById('btn-ntp')?.addEventListener('click', () => {
+    startAnimation(ntpTargets, 8, 'ntp');
+  });
+  document.getElementById('btn-nitp')?.addEventListener('click', () => {
+    startAnimation(nitpTargets, 43, 'nitp');
+  });
+  document.getElementById('btn-reset-collapse')?.addEventListener('click', () => {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    mode = 'nitp';
+    rankVal = 45; rankTarget = 45;
+    dots.forEach((d, i) => {
+      d.x = nitpTargets[i].x; d.y = nitpTargets[i].y;
+      d.tx = nitpTargets[i].x; d.ty = nitpTargets[i].y;
+    });
+    const rkDisp = document.getElementById('rank-display');
+    if (rkDisp) rkDisp.textContent = 'effective rank: —';
+    draw();
+  });
+
+  window.addEventListener('resize', () => { resize(); W = canvas.clientWidth; draw(); });
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §02 — DRIFT CANVAS (Null Space)
+   ═════════════════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('canvas-drift');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  // Seeded simple PRNG
+  let seed = 42;
+  function rand() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+
+  let drift = false;
+  let anchor = false;
+  let dotX = 0, dotY = 0;
+  let driftVx = 0.4, driftVy = 0.15;
+  let animFrame = null;
+  let dotTrail = [];
+  let anchorDots = [];
+
+  function drawScene() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+    const cx = W * 0.5, cy = H * 0.5;
+    const R = Math.min(W, H) * 0.38;
+
+    // Null space shaded region (almost the whole circle)
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(248,113,113,0.07)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(248,113,113,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Null space label
+    ctx.font = `600 ${Math.round(R * 0.16)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(248,113,113,0.4)';
+    ctx.fillText('NULL SPACE', cx - R * 0.15, cy - R * 0.4);
+    ctx.font = `${Math.round(R * 0.11)}px var(--ff-mono, monospace)`;
+    ctx.fillStyle = 'rgba(248,113,113,0.3)';
+    ctx.fillText('(d−1 unconstrained dimensions)', cx - R * 0.1, cy - R * 0.26);
+
+    // Constrained direction (arrow to the right)
+    const arrowLen = R * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + arrowLen, cy);
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    // Arrowhead
+    ctx.beginPath();
+    ctx.moveTo(cx + arrowLen, cy);
+    ctx.lineTo(cx + arrowLen - 10, cy - 6);
+    ctx.lineTo(cx + arrowLen - 10, cy + 6);
+    ctx.closePath();
+    ctx.fillStyle = '#10b981';
+    ctx.fill();
+
+    // Label the constrained direction
+    ctx.font = `600 ${Math.round(R * 0.13)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('constrained', cx + arrowLen * 0.55, cy - 14);
+    ctx.font = `${Math.round(R * 0.10)}px var(--ff-mono, monospace)`;
+    ctx.fillStyle = 'rgba(16,185,129,0.6)';
+    ctx.fillText('→ target w_x', cx + arrowLen * 0.55, cy - 4);
+
+    // NITP anchor arrows (if enabled)
+    if (anchor) {
+      anchorDots.forEach(ad => {
+        ctx.beginPath();
+        ctx.moveTo(cx + ad.ox, cy + ad.oy);
+        ctx.lineTo(cx, cy);
+        ctx.strokeStyle = 'rgba(139,92,246,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(cx + ad.ox, cy + ad.oy, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(139,92,246,0.7)';
+        ctx.fill();
+      });
+      // Label
+      ctx.font = `600 ${Math.round(R * 0.12)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(139,92,246,0.8)';
+      ctx.fillText('NITP anchors', cx - R * 0.45, cy + R * 0.55);
+    }
+
+    // Trail
+    if (dotTrail.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(cx + dotTrail[0].x, cy + dotTrail[0].y);
+      dotTrail.forEach(p => ctx.lineTo(cx + p.x, cy + p.y));
+      ctx.strokeStyle = 'rgba(248,113,113,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Moving dot (h_t drifting)
+    if (drift || dotTrail.length > 0) {
+      const px = cx + dotX, py = cy + dotY;
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#f87171';
+      ctx.fill();
+      ctx.font = `600 ${Math.round(R * 0.13)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#f87171';
+      ctx.fillText('h_t', px + 10, py - 6);
+    }
+
+    // Origin dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
+  }
+
+  function driftAnimate() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const R = Math.min(W, H) * 0.38;
+
+    dotX += driftVx;
+    dotY += driftVy * 0.8 + Math.sin(dotX * 0.05) * 0.6;
+    driftVy += (rand() - 0.5) * 0.3;
+    driftVy = Math.max(-2, Math.min(2, driftVy));
+
+    // Bounce off circle boundary
+    const dist = Math.sqrt(dotX * dotX + dotY * dotY);
+    if (dist > R * 0.85) {
+      const nx = dotX / dist, ny = dotY / dist;
+      driftVx -= 2 * (driftVx * nx + driftVy * ny) * nx;
+      driftVy -= 2 * (driftVx * nx + driftVy * ny) * ny;
+      driftVx = Math.max(-3, Math.min(3, driftVx));
+    }
+
+    dotTrail.push({ x: dotX, y: dotY });
+    if (dotTrail.length > 60) dotTrail.shift();
+
+    drawScene();
+    if (drift) animFrame = requestAnimationFrame(driftAnimate);
+  }
+
+  document.getElementById('btn-drift')?.addEventListener('click', () => {
+    if (drift) return;
+    drift = true;
+    dotX = 0; dotY = 0; dotTrail = [];
+    driftVx = (rand() - 0.5) * 2 + 0.4;
+    driftVy = (rand() - 0.5) * 2;
+    driftAnimate();
+  });
+
+  document.getElementById('btn-nitp-anchor')?.addEventListener('click', () => {
+    anchor = true;
+    if (!anchorDots.length) {
+      const R = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.38;
+      anchorDots = [
+        { ox: -R * 0.5, oy: -R * 0.4 },
+        { ox: -R * 0.3, oy: R * 0.5 },
+        { ox: R * 0.1,  oy: -R * 0.6 },
+        { ox: R * 0.5,  oy: R * 0.35 },
+      ];
+    }
+    drawScene();
+  });
+
+  document.getElementById('btn-reset-drift')?.addEventListener('click', () => {
+    drift = false; anchor = false;
+    dotX = 0; dotY = 0; dotTrail = [];
+    anchorDots = [];
+    if (animFrame) cancelAnimationFrame(animFrame);
+    seed = 42;
+    drawScene();
+  });
+
+  window.addEventListener('resize', () => { resize(); drawScene(); });
+  drawScene();
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §04 — LAYER CHART CANVAS
+   ═════════════════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('canvas-layers');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  // Ablation data: layers 1-17 (3B MoE model)
+  // Semantic richness (peaks at L4, based on paper findings)
+  // Performance (from Table 3: L4=23.58, L8=21.22, L14=22.16, inferred for others)
+  const N = 17;
+  const layers = Array.from({ length: N }, (_, i) => i + 1);
+
+  // Semantic richness profile (peaks at ~20% depth = L4)
+  function semRichness(l) {
+    const peak = 4, decay = 2.5;
+    return Math.exp(-Math.pow((l - peak) / decay, 2)) * 0.85 + 0.08;
+  }
+
+  // Performance approximation based on ablation data
+  const perfByLayer = {
+    4:  23.58,
+    8:  21.22,
+    14: 22.16,
+  };
+  // Interpolate others around these anchors
+  function perf(l) {
+    const baseline = 21.10;
+    if (l <= 3)  return baseline + (l / 4) * (perfByLayer[4] - baseline) * 0.7;
+    if (l === 4) return perfByLayer[4];
+    if (l <= 8)  return perfByLayer[4] + (l - 4) / 4 * (perfByLayer[8] - perfByLayer[4]);
+    if (l <= 14) return perfByLayer[8] + (l - 8) / 6 * (perfByLayer[14] - perfByLayer[8]);
+    return perfByLayer[14] - (l - 14) * 0.05;
+  }
+
+  let selectedLayer = 4;
+
+  function drawLayers() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 36, padR = 16, padT = 20, padB = 28;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+    const barW = chartW / N - 2;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + chartH * (1 - i / 4);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    }
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = `${Math.round(H * 0.08)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillText('semantic richness', 0, 0);
+    ctx.restore();
+
+    layers.forEach((l, i) => {
+      const x = padL + i * (chartW / N);
+      const h = semRichness(l) * chartH;
+      const y = padT + chartH - h;
+      const isTarget = (l === 4);
+      const isSelected = (l === selectedLayer);
+
+      // Bar
+      ctx.fillStyle = isSelected
+        ? (isTarget ? 'rgba(139,92,246,0.85)' : 'rgba(6,182,212,0.7)')
+        : (isTarget ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.1)');
+      ctx.fillRect(x + 2, y, barW, h);
+
+      // Target mark (L4)
+      if (isTarget) {
+        ctx.strokeStyle = 'rgba(139,92,246,0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath(); ctx.moveTo(x + 2 + barW / 2, padT); ctx.lineTo(x + 2 + barW / 2, y); ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.font = `600 ${Math.round(W * 0.022)}px var(--ff-mono, monospace)`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(139,92,246,0.9)';
+        ctx.fillText('★', x + 2 + barW / 2, padT + 12);
+      }
+
+      // Layer number
+      ctx.font = `${Math.round(W * 0.019)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = isSelected ? 'var(--text2)' : 'rgba(255,255,255,0.3)';
+      ctx.fillText(l, x + 2 + barW / 2, H - 6);
+    });
+
+    // X-axis label
+    ctx.font = `${Math.round(W * 0.022)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillText('layer depth (1 = shallowest, 17 = deepest)', W / 2, H - 6);
+
+    // Legend
+    ctx.font = `${Math.round(W * 0.02)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(139,92,246,0.8)';
+    ctx.fillText('★ = NITP target (L4, best performance)', padL, padT + 14);
+  }
+
+  // Build layer buttons
+  const btnsContainer = document.getElementById('layer-btns');
+  const statEl = document.getElementById('layer-stat');
+  if (btnsContainer) {
+    const layerInfo = {
+      1:  'L1  → too early, not contextualized yet',
+      2:  'L2  → early context formation',
+      3:  'L3  → local semantic integration begins',
+      4:  'L4  → ★ peak semantic richness (NITP default)',
+      5:  'L5  → slight drop from peak',
+      6:  'L6  → mid-shallow zone',
+      7:  'L7  → transitional layer',
+      8:  'L8  → middle (avg score: 21.22%)',
+      9:  'L9  → past semantic peak',
+      10: 'L10 → increasingly task-specialized',
+      11: 'L11 → high task specialization',
+      12: 'L12 → late-mid layers',
+      13: 'L13 → near deep zone',
+      14: 'L14 → deep (avg score: 22.16%)',
+      15: 'L15 → near output',
+      16: 'L16 → pre-output',
+      17: 'L17 → output layer, fully specialized for NTP',
+    };
+    const perfLabel = {
+      4:  'avg benchmark: 23.58% ← best',
+      8:  'avg benchmark: 21.22%',
+      14: 'avg benchmark: 22.16%',
+    };
+
+    for (let l = 1; l <= N; l++) {
+      const btn = document.createElement('button');
+      btn.className = 'layer-btn' + (l === 4 ? ' active' : '');
+      btn.textContent = `L${l}`;
+      btn.dataset.layer = l;
+      btn.addEventListener('click', () => {
+        selectedLayer = l;
+        document.querySelectorAll('.layer-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.layer) === l));
+        const pval = perf(l).toFixed(2);
+        const extra = perfLabel[l] ? `  |  ${perfLabel[l]}` : `  |  avg ≈ ${pval}%`;
+        statEl.textContent = `L${l}: ${layerInfo[l] || ''}${extra}`;
+        drawLayers();
+      });
+      btnsContainer.appendChild(btn);
+    }
+    statEl.textContent = `L4: ★ peak semantic richness (NITP default)  |  avg benchmark: 23.58% ← best`;
+  }
+
+  window.addEventListener('resize', () => { resize(); drawLayers(); });
+  drawLayers();
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §05 — STEP NAVIGATOR (Temporal Shift)
+   ═════════════════════════════════════════════════════════════════════ */
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#shift-steps .step-box');
+  const prevBtn = document.getElementById('shift-prev');
+  const nextBtn = document.getElementById('shift-next');
+  const progEl  = document.getElementById('shift-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl)  progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §06 — ANIMATED BAR CHART (Results)
+   ═════════════════════════════════════════════════════════════════════ */
+(function() {
+  const resultsVp = document.getElementById('results-vp');
+  if (!resultsVp) return;
+  let triggered = false;
+  const MAX = 70; // normalise bars against 70% max for readability
+
+  function animateBars() {
+    if (triggered) return;
+    triggered = true;
+    document.querySelectorAll('.bar-fill[data-w]').forEach(bar => {
+      const pct = parseFloat(bar.dataset.w);
+      // Scale to visual width (max bar = MAX%)
+      const visualPct = Math.min(100, (pct / MAX) * 100);
+      bar.style.width = visualPct + '%';
+    });
+  }
+
+  new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) animateBars(); });
+  }, { threshold: 0.3 }).observe(resultsVp);
+})();
+</script>
+</BaseLayout>

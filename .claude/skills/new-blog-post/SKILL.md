@@ -686,6 +686,429 @@ pkill -f "astro dev"
 
 ---
 
+## Phase 7 — Generate summary video (HyperFrames) *(optional)*
+
+Run this phase when the user explicitly asks for a video, or when the post has a
+particularly strong visual insight worth a 60–90 second social clip.
+
+### Prerequisites
+
+```bash
+node --version          # must be 22+
+ffmpeg -version         # must be installed
+brew install ffmpeg     # if missing
+```
+
+GSAP is loaded from the CDN at render time — no local install needed.
+
+### What goes in the video
+
+A **60-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts):
+
+| Scene | Window | Voiceover (~165 wpm) | Content |
+|---|---|---|---|
+| Title    | 0–8s   | ~20 words | Post title + one-line insight + blog URL |
+| Core viz | 8–35s  | ~70 words | Hero visualization as a linear GSAP-driven animation |
+| Key result | 35–52s | ~45 words | Headline metric vs baselines (animated bars) |
+| CTA      | 52–60s | ~20 words | "Full interactive post at yourblog.com/posts/…" |
+
+### File locations
+
+```
+social-media/posts/<post-id>/
+  composition.html     ← HyperFrames composition (git-ignored)
+  summary.mp4          ← rendered output (git-ignored)
+  audio/
+    scene-1.mp3        ← title voiceover        (0–8s)
+    scene-2.mp3        ← core viz voiceover     (8–35s)
+    scene-3.mp3        ← results voiceover      (35–52s)
+    scene-4.mp3        ← CTA voiceover          (52–60s)
+```
+
+`social-media/` lives at the repo root and is listed in `.gitignore` — videos and audio are never committed.
+
+### Composition template
+
+Create `social-media/posts/<post-id>/composition.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box }
+    body { width:1080px; height:1920px; overflow:hidden;
+           background:#0d0d14; font-family:'JetBrains Mono',monospace,'Courier New' }
+    :root {
+      --purple:#8b5cf6; --cyan:#06b6d4; --green:#10b981; --amber:#f59e0b;
+      --text:#f0f0f8;   --muted:#6b7280; --card:#1a1a2e;  --surface:#12121f;
+    }
+
+    /* All scenes overlap at position:absolute; GSAP controls opacity */
+    .scene { position:absolute; inset:0; display:flex; flex-direction:column;
+             align-items:center; justify-content:center; padding:80px 60px;
+             opacity:0; pointer-events:none }
+
+    /* ── Scene 1: Title ── */
+    #scene-title { gap:40px; text-align:center }
+    #title-tags  { display:flex; gap:12px; flex-wrap:wrap; justify-content:center }
+    .tag         { font-size:13px; font-weight:700; letter-spacing:.1em;
+                   text-transform:uppercase; padding:6px 14px; border-radius:6px;
+                   background:rgba(139,92,246,.18); color:var(--purple);
+                   border:1px solid rgba(139,92,246,.35) }
+    .tag-c       { color:var(--cyan)!important; border-color:rgba(6,182,212,.35)!important;
+                   background:rgba(6,182,212,.1)!important }
+    #title-text  { font-size:64px; font-weight:800; letter-spacing:-.03em;
+                   line-height:1.1; color:var(--text); max-width:900px }
+    #title-sub   { font-size:26px; color:var(--muted); max-width:860px; line-height:1.6 }
+    #title-url   { position:absolute; bottom:72px; font-size:18px; color:var(--muted);
+                   letter-spacing:.04em }
+
+    /* ── Scene 2: Core viz ── */
+    #scene-viz   { padding:60px 40px; gap:24px }
+    #viz-label   { font-size:16px; color:var(--muted); letter-spacing:.07em;
+                   text-transform:uppercase }
+    #viz-canvas  { border-radius:16px; border:1px solid rgba(255,255,255,.08) }
+
+    /* ── Scene 3: Results ── */
+    #scene-result { gap:28px; align-items:flex-start; padding:100px 80px }
+    #result-title { font-size:28px; font-weight:700; color:var(--text) }
+    .r-row        { display:flex; align-items:center; gap:20px; width:100% }
+    .r-label      { font-size:18px; color:var(--muted); width:260px;
+                    text-align:right; flex-shrink:0 }
+    .r-track      { flex:1; height:36px; background:rgba(255,255,255,.04);
+                    border-radius:6px; overflow:hidden }
+    .r-fill       { height:100%; border-radius:6px; display:flex; align-items:center;
+                    justify-content:flex-end; padding-right:10px; width:0 }
+    .r-fill span  { font-size:14px; font-weight:700; color:rgba(255,255,255,.85) }
+
+    /* ── Scene 4: CTA ── */
+    #scene-cta   { gap:28px; text-align:center }
+    #cta-label   { font-size:18px; letter-spacing:.1em; text-transform:uppercase;
+                   color:var(--muted) }
+    #cta-url     { font-size:38px; font-weight:700; color:var(--purple) }
+    #cta-hint    { font-size:20px; color:var(--muted) }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+<body>
+
+<!-- Single root clip — total composition duration = 60s, 9:16 vertical -->
+<div id="stage"
+     data-composition-id="summary"
+     data-start="0"
+     data-duration="60"
+     data-width="1080"
+     data-height="1920">
+
+  <!-- Scene 1: Title (0–8s) -->
+  <div class="scene" id="scene-title">
+    <div id="title-tags">
+      <span class="tag">REPLACE WITH PRIMARY TOPIC</span>
+      <span class="tag tag-c">REPLACE WITH SECONDARY TOPIC</span>
+    </div>
+    <div id="title-text">Post Title Goes Here</div>
+    <div id="title-sub">One-sentence insight that makes the reader want more.</div>
+    <div id="title-url">yourblog.com</div>
+  </div>
+
+  <!-- Scene 2: Core visualization (8–35s) -->
+  <div class="scene" id="scene-viz">
+    <div id="viz-label">REPLACE WITH VIZ LABEL</div>
+    <canvas id="viz-canvas" width="960" height="800"></canvas>
+  </div>
+
+  <!-- Scene 3: Key result (35–52s) — replace rows with real paper numbers -->
+  <div class="scene" id="scene-result">
+    <div id="result-title">Results — REPLACE WITH BENCHMARK NAME</div>
+    <div class="r-row">
+      <div class="r-label">Baseline A</div>
+      <div class="r-track">
+        <div class="r-fill" id="bar-0" style="background:rgba(107,114,128,.5)" data-w="54">
+          <span>54%</span></div></div></div>
+    <div class="r-row">
+      <div class="r-label">Baseline B</div>
+      <div class="r-track">
+        <div class="r-fill" id="bar-1" style="background:rgba(107,114,128,.5)" data-w="67">
+          <span>67%</span></div></div></div>
+    <div class="r-row">
+      <div class="r-label" style="color:var(--purple)">This Paper</div>
+      <div class="r-track">
+        <div class="r-fill" id="bar-2" style="background:var(--purple)" data-w="91">
+          <span>91%</span></div></div></div>
+  </div>
+
+  <!-- Scene 4: CTA (52–60s) -->
+  <div class="scene" id="scene-cta">
+    <div id="cta-label">Full interactive post</div>
+    <div id="cta-url">yourblog.com/posts/POST-SLUG</div>
+    <div id="cta-hint">Visualizations you can interact with →</div>
+  </div>
+
+  <!-- Voiceover audio — one track per scene, generated by Phase 7 voiceover step -->
+  <audio data-start="0"  data-duration="8"  data-track-index="1" data-volume="1.0" src="audio/scene-1.mp3"></audio>
+  <audio data-start="8"  data-duration="27" data-track-index="1" data-volume="1.0" src="audio/scene-2.mp3"></audio>
+  <audio data-start="35" data-duration="17" data-track-index="1" data-volume="1.0" src="audio/scene-3.mp3"></audio>
+  <audio data-start="52" data-duration="8"  data-track-index="1" data-volume="1.0" src="audio/scene-4.mp3"></audio>
+
+</div><!-- /#stage -->
+
+<script>
+// ── Canvas: Scene 2 ──────────────────────────────────────────────────────
+const vizCanvas = document.getElementById('viz-canvas');
+const vCtx      = vizCanvas ? vizCanvas.getContext('2d') : null;
+const VW = 960, VH = 800;
+
+// GSAP proxy — its `t` value (0→1) drives every canvas draw call.
+// Replace the body of drawViz() with the post's core visualization,
+// expressed as a pure function of t ∈ [0, 1].
+const proxy = { t: 0 };
+
+function drawViz(t) {
+  if (!vCtx) return;
+  vCtx.clearRect(0, 0, VW, VH);
+
+  // ── REPLACE THIS BLOCK with the post's core "before→after" ───────────
+  // Example: a dot sliding from the "bad" zone (left) to "good" zone (right)
+  const ease = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // ease-in-out
+  const x = 80 + ease * (VW - 160);
+  const y = VH / 2;
+
+  // background zones
+  vCtx.fillStyle = 'rgba(239,68,68,.12)';
+  vCtx.fillRect(0, 0, VW/2, VH);
+  vCtx.fillStyle = 'rgba(16,185,129,.12)';
+  vCtx.fillRect(VW/2, 0, VW/2, VH);
+
+  // zone labels
+  vCtx.font = 'bold 18px "JetBrains Mono",monospace';
+  vCtx.fillStyle = 'rgba(239,68,68,.7)';
+  vCtx.fillText('before', 28, VH - 32);
+  vCtx.fillStyle = 'rgba(16,185,129,.7)';
+  vCtx.fillText('after', VW - 90, VH - 32);
+
+  // moving dot
+  vCtx.beginPath();
+  vCtx.arc(x, y, 18, 0, Math.PI * 2);
+  vCtx.fillStyle = '#8b5cf6';
+  vCtx.shadowColor = '#8b5cf6';
+  vCtx.shadowBlur  = 24;
+  vCtx.fill();
+  vCtx.shadowBlur  = 0;
+  // ── END REPLACE ───────────────────────────────────────────────────────
+}
+
+// ── GSAP master timeline (paused — HyperFrames seeks it per frame) ───────
+// Total duration must cover the full composition (60s).
+const tl = gsap.timeline({ paused: true });
+
+// Scene 1: Title elements fade/slide in (0–8s)
+tl.to('#scene-title', { opacity: 1, duration: 0.01 }, 0)
+  .from('#title-tags',  { opacity: 0, y: 20, duration: 0.8,  ease: 'power2.out' }, 0.2)
+  .from('#title-text',  { opacity: 0, y: 40, duration: 1.2,  ease: 'power3.out' }, 0.4)
+  .from('#title-sub',   { opacity: 0, y: 26, duration: 1.0,  ease: 'power2.out' }, 0.9)
+  .from('#title-url',   { opacity: 0,        duration: 0.6                      }, 1.6)
+  .to('#scene-title',   { opacity: 0,        duration: 0.7                      }, 7.3);
+
+// Scene 2: Core viz — proxy.t drives drawViz() (8–35s)
+tl.to('#scene-viz', { opacity: 1, duration: 0.01 }, 8)
+  .from('#viz-label', { opacity: 0, duration: 0.6 }, 8.3)
+  .to(proxy, {
+    t: 1, duration: 27, ease: 'none',   // linear — drawViz() controls its own easing
+    onUpdate() { drawViz(proxy.t); }
+  }, 8)
+  .to('#scene-viz', { opacity: 0, duration: 0.7 }, 34.3);
+
+// Scene 3: Results — bars animate from width:0 to data-w% (35–52s)
+tl.to('#scene-result', { opacity: 1, duration: 0.01 }, 35)
+  .from('#result-title', { opacity: 0, y: 20, duration: 0.8 }, 35.3);
+document.querySelectorAll('.r-fill').forEach((bar, i) => {
+  tl.to(bar, { width: bar.dataset.w + '%', duration: 1.3, ease: 'power2.out' }, 36 + i * 0.35);
+});
+tl.to('#scene-result', { opacity: 0, duration: 0.7 }, 51.3);
+
+// Scene 4: CTA (52–60s)
+tl.to('#scene-cta', { opacity: 1, duration: 0.01 }, 52)
+  .from('#cta-label', { opacity: 0, duration: 0.7 }, 52.4)
+  .from('#cta-url',   { opacity: 0, scale: 0.92, duration: 1.0 }, 53.0)
+  .from('#cta-hint',  { opacity: 0, duration: 0.7 }, 54.3);
+
+// Register — HyperFrames looks for window.__timelines[compositionId]
+window.__timelines = window.__timelines || {};
+window.__timelines.summary = tl;
+</script>
+</body>
+</html>
+```
+
+### Voiceover generation
+
+Write a spoken script for each scene, then generate the audio files **before** running the render (HyperFrames mixes them during encode).
+
+**Script guide — word counts match ~165 wpm conversational pace:**
+
+| Scene | Target | Example |
+|---|---|---|
+| 1 — Title | ~20 words | *"Researchers just cracked [problem]. Here's how [Paper Name] makes [key claim] possible — in 60 seconds."* |
+| 2 — Core viz | ~70 words | *"The old approach [failure mode]. Watch what happens when [new method] kicks in. [Describe the animation beat by beat, narrating what's visually changing and why it matters.]"* |
+| 3 — Results | ~45 words | *"On [Benchmark], the best prior method hits [N]%. This paper reaches [M]% — a [delta]-point jump. Even more striking: [secondary insight from the paper's table]."* |
+| 4 — CTA | ~20 words | *"The full interactive post lets you control the variables yourself. Link in bio, or search [post title]."* |
+
+**Generate with macOS `say` (free, no API key):**
+
+```bash
+mkdir -p audio
+
+# -v: voice  -r: words per minute  -o: output file
+# Check available voices: say -v ?
+# Best English options: Ava (US), Allison (US), Samantha (US), Karen (AU), Serena (UK)
+# Use the "(Enhanced)" or "(Premium)" variant when available — noticeably clearer
+
+say -v "Ava (Enhanced)"    -r 165 "SCENE 1 SCRIPT" -o audio/scene-1.aiff
+say -v "Ava (Enhanced)"    -r 165 "SCENE 2 SCRIPT" -o audio/scene-2.aiff
+say -v "Ava (Enhanced)"    -r 165 "SCENE 3 SCRIPT" -o audio/scene-3.aiff
+say -v "Ava (Enhanced)"    -r 165 "SCENE 4 SCRIPT" -o audio/scene-4.aiff
+
+# Convert AIFF → MP3 (HyperFrames works with both, but MP3 is smaller)
+for i in 1 2 3 4; do
+  ffmpeg -y -i audio/scene-${i}.aiff -acodec libmp3lame -q:a 2 audio/scene-${i}.mp3 \
+    && rm audio/scene-${i}.aiff
+done
+```
+
+**For production-quality voice (ElevenLabs):**
+
+```bash
+# Set your key: export ELEVENLABS_API_KEY=sk_...
+# Browse voices at elevenlabs.io/voice-library — copy the Voice ID from the URL
+VOICE_ID="REPLACE_WITH_VOICE_ID"
+
+for i in 1 2 3 4; do
+  curl -sS -X POST "https://api.elevenlabs.io/v1/text-to-speech/$VOICE_ID" \
+    -H "xi-api-key: $ELEVENLABS_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"$(cat audio/scene-${i}-script.txt)\",
+         \"model_id\": \"eleven_turbo_v2_5\",
+         \"voice_settings\": {\"stability\": 0.5, \"similarity_boost\": 0.75}}" \
+    --output audio/scene-${i}.mp3
+  sleep 1   # avoid rate-limit
+done
+```
+
+Save each scene's script as `audio/scene-N-script.txt` before running the loop.
+
+**Listen back before rendering** — play each MP3 and check it finishes before the scene ends:
+
+```bash
+afplay audio/scene-1.mp3   # should finish within 8s
+afplay audio/scene-2.mp3   # should finish within 27s
+afplay audio/scene-3.mp3   # should finish within 17s
+afplay audio/scene-4.mp3   # should finish within 8s
+```
+
+If a clip runs long, either trim the script or extend the scene's `data-duration` (and adjust all subsequent `data-start` values and GSAP positions accordingly).
+
+### Adapting the post's canvas visualization
+
+The blog uses wall-clock `requestAnimationFrame` loops — HyperFrames cannot seek those.
+Write a **fresh linear version** for the video: a `drawViz(t)` pure function.
+
+**Step 1 — Pick 2–3 keyframes** from the visualization (e.g. t=0: scattered, t=0.5: mid-flow, t=1: clustered).
+
+**Step 2 — Write `drawViz(t)`** as a pure function of `t ∈ [0,1]` using linear interpolation between keyframes. Use easing inline (the GSAP tween uses `ease:'none'`; `drawViz` owns its own easing):
+
+```js
+function drawViz(t) {
+  const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;   // ease-in-out
+  // … draw using `ease` instead of `t` …
+}
+```
+
+**Step 3 — Pre-compute positions with a seeded PRNG** (no `Math.random()` at draw time → deterministic renders):
+
+```js
+function seededRand(n) {
+  // simple LCG — reproducible across frames
+  return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+}
+const N = 30;
+const pts = Array.from({length: N}, (_, i) => ({
+  sx: seededRand(i*4)   * VW,   sy: seededRand(i*4+1) * VH,  // start
+  ex: seededRand(i*4+2) * VW,   ey: seededRand(i*4+3) * VH,  // end
+}));
+function drawViz(t) {
+  const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+  vCtx.clearRect(0, 0, VW, VH);
+  pts.forEach(p => {
+    const x = p.sx + (p.ex - p.sx) * ease;
+    const y = p.sy + (p.ey - p.sy) * ease;
+    vCtx.beginPath(); vCtx.arc(x, y, 6, 0, Math.PI*2);
+    vCtx.fillStyle = '#8b5cf6'; vCtx.fill();
+  });
+}
+```
+
+**You do not need to port the full interactive visualization.** The video only needs the most legible linear "reading" of the core idea.
+
+### Preview without rendering
+
+Open `composition.html` in Chrome. The timeline is paused by default. Run in the DevTools console:
+
+```js
+window.__timelines.summary.play();       // play from current position
+window.__timelines.summary.seek(8);      // jump to scene 2 (core viz)
+window.__timelines.summary.seek(35);     // jump to scene 3 (results)
+window.__timelines.summary.seek(52);     // jump to scene 4 (CTA)
+window.__timelines.summary.seek(0);      // back to start
+```
+
+### Render to MP4
+
+```bash
+cd social-media/posts/<post-id>
+npx hyperframes@latest render ./composition.html -o ./summary.mp4
+```
+
+Output: `social-media/posts/<post-id>/summary.mp4` — ready to upload directly to LinkedIn, Twitter/X, or Instagram. Git-ignored, never committed.
+Requires Node 22+ and FFmpeg. First run downloads Puppeteer (~150 MB).
+
+### Embed in the post (optional)
+
+The video lives in `social-media/` which is git-ignored, so it can't be served directly by Astro. To embed it in the post, copy it into `public/` first:
+
+```bash
+mkdir -p apps/blog/public/posts/<slug>
+cp social-media/posts/<post-id>/summary.mp4 apps/blog/public/posts/<slug>/summary.mp4
+```
+
+`apps/blog/public/posts/<slug>/summary.mp4` **should be committed** (it's a blog asset, not a build artifact). Then add to the post:
+
+```html
+<!-- In the hero body, after .lead -->
+<video class="hero-summary-video" autoplay muted loop playsinline
+       src="/posts/<slug>/summary.mp4"></video>
+
+<!-- In .hero-links -->
+<a class="hero-btn" href="/posts/<slug>/summary.mp4" download>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="23 7 16 12 23 17 23 7"/>
+    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+  </svg>
+  Video Summary
+</a>
+```
+
+Add to the post CSS:
+
+```css
+.hero-summary-video{width:100%;max-width:380px;border-radius:10px;
+                    border:1px solid var(--border);margin-top:1.25rem}
+```
+
+---
+
 ## Checklist before finishing
 
 **Research**
@@ -711,3 +1134,14 @@ pkill -f "astro dev"
 
 **Index**
 - [ ] Index entry added with `★ Latest` badge, previous post's badge removed
+
+**Video (Phase 7 — only if requested)**
+- [ ] `social-media/posts/<post-id>/composition.html` created (git-ignored)
+- [ ] All placeholder text replaced (title, tags, insight, benchmark rows, CTA URL)
+- [ ] `drawViz(t)` implements the post's hero visualization as a pure `t ∈ [0,1]` function
+- [ ] Seeded PRNG used for any particle/dot positions (no `Math.random()`)
+- [ ] Voiceover scripts written — ~20 / ~70 / ~45 / ~20 words for scenes 1–4
+- [ ] `audio/scene-N.mp3` generated and each clip fits within its scene window (`afplay` check)
+- [ ] Previewed in Chrome DevTools (`window.__timelines.summary.seek(N)`)
+- [ ] `npx hyperframes@latest render ./composition.html -o ./summary.mp4` exits 0
+- [ ] If embedded in post: copied to `apps/blog/public/posts/<slug>/summary.mp4` and committed; `<video>` tag + hero-links button added
