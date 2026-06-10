@@ -1,0 +1,1386 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Prefilling-dLLM: Cache the Prefix Once, Generate 28× Faster | AI/ML Deep Dives"
+  description="Diffusion LLMs re-encode the full input prefix at every denoising step. Prefilling-dLLM caches it once, selects only K relevant chunks per decode step, and achieves 9–28× speedup with state-of-the-art quality — no training required."
+  crumb="Prefilling-dLLM"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math/equation block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:170px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:24px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-header{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:.75rem 0 .3rem;font-family:var(--ff-mono)}
+
+/* Architecture diagram */
+.arch-grid{display:flex;align-items:flex-start;gap:.5rem;margin:1.5rem 0;overflow-x:auto;padding-bottom:.5rem}
+.arch-phase{display:flex;flex-direction:column;align-items:center;gap:.4rem;min-width:0}
+.arch-phase-label{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:var(--ff-mono);white-space:nowrap}
+.arch-box{border-radius:8px;padding:.65rem .85rem;font-size:.73rem;font-weight:600;text-align:center;line-height:1.4;min-width:100px}
+.arch-box-p{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);color:var(--purple-l)}
+.arch-box-c{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);color:#67e8f9}
+.arch-box-g{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.arch-box-a{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--amber)}
+.arch-box-d{background:var(--card2);border:1px solid var(--border-hi);color:var(--muted2)}
+.arch-arrow{display:flex;align-items:center;padding:0 .15rem;color:var(--muted);font-size:.9rem;margin-top:1.7rem;flex-shrink:0}
+.arch-note{font-size:.62rem;color:var(--muted);font-family:var(--ff-mono);text-align:center;max-width:110px;line-height:1.4;margin-top:.25rem}
+
+/* Step control buttons */
+.viz-btns{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.viz-btn{padding:.28rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;font-weight:600}
+.viz-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.viz-btn.green-active{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.08)}
+.viz-counter{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.5rem}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Efficient Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Prefilling-dLLM: Cache the Prefix Once,<br>Generate 28× Faster</h1>
+  <p class="lead">Diffusion language models re-encode the entire input prefix at <em>every</em> denoising step — a quadratic cost paid T times over. Prefilling-dLLM caches prefix KV representations once, selects only the K most relevant chunks per decode step, and achieves 9–28× throughput gains at 8K–32K contexts while simultaneously <em>improving</em> quality — no retraining required.</p>
+  <div class="post-hero-meta">
+    <span>June 10, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2606.10537</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.10537" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/menik1126/Prefilling-dLLM" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Quadratic Tax</a></li>
+    <li class="toc-item" id="toc-s-locality"><a href="#s-locality"><span class="toc-num">02</span> Attention Decays</a></li>
+    <li class="toc-item" id="toc-s-method"><a href="#s-method"><span class="toc-num">03</span> Cache Once, Select K</a></li>
+    <li class="toc-item" id="toc-s-bos"><a href="#s-bos"><span class="toc-num">04</span> BOS Anchors</a></li>
+    <li class="toc-item" id="toc-s-speed"><a href="#s-speed"><span class="toc-num">05</span> 28× Faster at 32K</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmark Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ──────────────────────────────── -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Quadratic Tax</div>
+<h2>dLLMs Re-Encode the Prefix at Every Single Step</h2>
+<p>Diffusion language models (dLLMs) like LLaDA and Dream generate text by iteratively <em>unmasking</em> tokens — starting from a fully masked response and progressively revealing predictions over T denoising steps. Unlike autoregressive models that generate one token at a time, dLLMs process the <em>entire sequence</em> — prefix plus response — at every step.</p>
+<p>That's the problem: the input prefix doesn't change during generation, yet the model re-encodes it from scratch at each of the T=16 denoising steps. With a 32K token context, that's T × (L<sub>p</sub> + L<sub>d</sub>)² operations — a cost that scales <strong>quadratically with context length, paid T times over</strong>.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Recomputation Cost — Standard dLLM vs Prefilling-dLLM</span>
+    <span class="vp-hint">Toggle mode, then Play</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-bottleneck" style="width:100%;height:280px;display:block"></canvas>
+    <div class="viz-btns">
+      <button class="viz-btn active" id="btn-std">Standard dLLM</button>
+      <button class="viz-btn" id="btn-pfill">Prefilling-dLLM</button>
+      <button class="viz-btn" id="btn-bot-play">▶ Play</button>
+      <button class="viz-btn" id="btn-bot-reset">↺ Reset</button>
+      <span class="viz-counter" id="bot-counter">step 0 / 10</span>
+    </div>
+  </div>
+</div>
+
+<p>In the animation above, each row is one denoising step. <strong>Red blocks</strong> are prefix tokens being recomputed — wasted work. <strong>Purple blocks</strong> are response tokens transitioning from [MASK] to revealed. In Prefilling-dLLM (right mode), only 2 selected chunks (teal) are accessed per step; the rest of the prefix sits dormant in the static cache.</p>
+
+<div class="math-block">
+  <div class="math-label">Complexity Comparison</div>
+  Standard dLLM: &nbsp;<span class="math-var">O((L<sub>p</sub> + L<sub>d</sub>)<sup>2</sup> · T)</span> &nbsp;<span class="math-comment">— full sequence at every step</span><br>
+  Prefilling-dLLM: &nbsp;<span class="math-var">O(N · C<sup>2</sup> + (L<sub>d</sub><sup>2</sup> + K · C) · T)</span> &nbsp;<span class="math-comment">— prefix once, K chunks per step</span>
+</div>
+
+<p>At 32K context (L<sub>p</sub>=32K, L<sub>d</sub>=256, T=16, K=4, C=1024), the prefill cost is paid <em>once</em>, and per-step decoding cost becomes independent of prefix length. This is the source of the paper's 28× speedup — not an approximation, but an exact reformulation of what gets computed.</p>
+</section>
+
+<!-- §02 ──────────────────────────────── -->
+<section id="s-locality" data-code="locality">
+<div class="section-no">02 — Attention Decays With Distance</div>
+<h2>Why It Works: Response Tokens Attend Locally</h2>
+<p>Why can we get away with skipping most of the prefix? Because dLLM attention is highly local. Measuring the average attention weight from response tokens to each prefix position reveals a striking pattern: <strong>attention weight drops rapidly with distance, and this decay grows stronger as denoising progresses</strong>.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Attention Decay vs Distance — Dream-7B across denoising steps</span>
+    <span class="vp-hint">Select a denoising stage</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-decay" style="width:100%;height:240px;display:block"></canvas>
+    <div class="viz-btns">
+      <button class="viz-btn active" id="decay-all">All steps</button>
+      <button class="viz-btn" id="decay-early">Early (t=1.0)</button>
+      <button class="viz-btn" id="decay-mid">Mid (t=0.5)</button>
+      <button class="viz-btn" id="decay-late">Late (t≈0)</button>
+    </div>
+  </div>
+</div>
+
+<p>Three key observations from the paper: (i) Attention weight falls by 2–3 orders of magnitude within 500 tokens of the response. (ii) At late denoising steps (when predictions stabilize), the decay is especially severe — attending to distant prefix tokens is nearly useless. (iii) Despite the overall decay, there are quasi-periodic <em>spikes</em> at specific positions — segment boundaries that consistently absorb ~25% of the total attention mass across all layers.</p>
+<p>This locality motivates two design choices: chunk-based sparse retrieval (only K chunks are "close enough" to matter), and BOS token anchors at chunk boundaries to exploit those periodic spikes (covered in §04).</p>
+</section>
+
+<!-- §03 ──────────────────────────────── -->
+<section id="s-method" data-code="method">
+<div class="section-no">03 — Cache Once, Select K Chunks</div>
+<h2>The Prefilling-dLLM Pipeline</h2>
+<p>The method has three stages. Crucially, the prefix is touched only once — in the prefill stage — and the per-step decode cost is bounded by K, regardless of how long the prefix is.</p>
+
+<div class="arch-grid">
+  <div class="arch-phase">
+    <span class="arch-phase-label">I — Prefill</span>
+    <div class="arch-box arch-box-d">Prefix (L<sub>p</sub> tokens)</div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box arch-box-c">Partition into N chunks (C=1024 tokens each)</div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box arch-box-c">Each chunk: intra-chunk attention → KV cache K<sub>i</sub>, V<sub>i</sub></div>
+    <div class="arch-note">parallel across devices · O(N·C²) total</div>
+  </div>
+
+  <div class="arch-arrow" style="margin-top:3.2rem">→</div>
+
+  <div class="arch-phase">
+    <span class="arch-phase-label">II — Score &amp; Select</span>
+    <div class="arch-box arch-box-a">Self-information score S<sub>I</sub>(c<sub>i</sub>)</div>
+    <div class="arch-arrow">+</div>
+    <div class="arch-box arch-box-a">Pseudo-label score S<sub>P</sub>(c<sub>i</sub>)</div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box arch-box-p">Top-K chunks selected · intra-chunk top-B tokens retained</div>
+    <div class="arch-note">static KV cache — reused for all T decode steps</div>
+  </div>
+
+  <div class="arch-arrow" style="margin-top:3.2rem">→</div>
+
+  <div class="arch-phase">
+    <span class="arch-phase-label">III — Decode (×T steps)</span>
+    <div class="arch-box arch-box-p">Cached KV for top-K chunks</div>
+    <div class="arch-arrow">+</div>
+    <div class="arch-box arch-box-g">Query + response tokens (fresh each step)</div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box arch-box-g">Iterative denoising — unmask [MASK] → tokens</div>
+    <div class="arch-note">per-step cost O(L<sub>d</sub>² + K·C) — independent of L<sub>p</sub></div>
+  </div>
+</div>
+
+<h3>Scoring: How do we pick the right K chunks?</h3>
+<p>A key challenge is that we don't know which chunks are relevant before generation begins. The paper uses two complementary signals computed during prefill:</p>
+<ul>
+  <li><strong>Self-information score S<sub>I</sub>(c<sub>i</sub>)</strong> — the negative log-likelihood of the query conditioned on chunk c<sub>i</sub>. Lower NLL means the chunk contains more query-relevant information.</li>
+  <li><strong>Pseudo-label score S<sub>P</sub>(c<sub>i</sub>)</strong> — run a quick preliminary denoising pass to get tentative response tokens (pseudo-labels), then measure how well each chunk predicts them. Chunks that predict the response well are likely relevant.</li>
+</ul>
+<p>Combined score S(c<sub>i</sub>) = S<sub>I</sub>(c<sub>i</sub>) + S<sub>P</sub>(c<sub>i</sub>). The top-K chunks by this score are selected; their KV caches are kept and the rest are discarded.</p>
+
+<h3>Intra-chunk token pruning</h3>
+<p>Within each selected chunk, not all tokens are equally useful. The method computes a per-token eviction score — the cumulative bidirectional attention weight between each chunk token and the query — and retains only the top-B tokens (B=512 by default). This further reduces the per-step KV size while preserving the most query-relevant content.</p>
+</section>
+
+<!-- §04 ──────────────────────────────── -->
+<section id="s-bos" data-code="bos">
+<div class="section-no">04 — BOS Anchors</div>
+<h2>Curing the Lost-in-the-Middle Problem</h2>
+<p>Autoregressive LLMs are known to favor information at the beginning and end of long contexts, with a U-shaped accuracy dip in the middle ("lost-in-the-middle"). dLLMs exhibit a different but equally problematic pattern: with bidirectional attention, accuracy decreases <em>monotonically</em> for tokens placed farther from the response — a linearly degrading middle.</p>
+<p>The root cause is an <strong>attention sink</strong>: without special tokens, the first token in the sequence attracts a disproportionate fraction of attention mass. Tokens placed in the middle are progressively ignored as the model biases toward the end (closest to the response).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Attention Profile: Without BOS vs With Chunk-Level BOS Tokens</span>
+    <span class="vp-hint">Toggle to compare</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-bos" style="width:100%;height:260px;display:block"></canvas>
+    <div class="viz-btns">
+      <button class="viz-btn active" id="bos-off">No BOS (standard)</button>
+      <button class="viz-btn" id="bos-on">With chunk BOS tokens</button>
+    </div>
+  </div>
+</div>
+
+<p>The fix is elegant: prepend a special <code>[BOS]</code> token to each chunk during prefill. These BOS tokens act as <strong>periodic attention anchors</strong> — they collect attention mass that would otherwise pile up at the sequence start, distributing it evenly across the prefix. Because every chunk has a BOS anchor, chunk scoring becomes position-invariant: a document placed in chunk 10 gets the same attention boost as a document in chunk 1.</p>
+<p>Crucially, these are not attention sinks. The paper shows that BOS tokens absorb at most 12% of attention mass per layer (vs. 60%+ for a natural attention sink), and this fraction stays stable across all 28 layers. They are anchors, not drains.</p>
+
+<h3>Before vs After: Exact-Match on Long Contexts</h3>
+<p>Using a position-controlled multi-document QA task (32 documents, one containing the gold answer at varying positions), Dream-7B with YaRN scaling at 16K context drops from ~90% EM near the response to &lt;20% EM for documents in the first 20% of the context. Prefilling-dLLM maintains &gt;85% EM across <em>all positions</em> at 16K — and still achieves ~90% at 32K where vanilla Dream completely fails.</p>
+</section>
+
+<!-- §05 ──────────────────────────────── -->
+<section id="s-speed" data-code="speed">
+<div class="section-no">05 — 28× Faster at 32K Contexts</div>
+<h2>Speedup That Scales With Context Length</h2>
+<p>The key claim is sublinear scaling: by fixing the effective context to K×B tokens (K=4 chunks × 512 tokens ≈ 2K), the per-step compute stays constant as L<sub>p</sub> grows. Every other method's cost either grows linearly or degrades from a fixed-ratio eviction policy.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Throughput Speedup vs Context Length — Dream-7B, single A800</span>
+    <span class="vp-hint">Lines animate on load</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-speed" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>Three patterns stand out: (i) <strong>Ours grows monotonically</strong> — 9.1× at 8K, 16.1× at 16K, 28.0× at 32K — because the fixed-K budget means proportionally less compute at longer contexts. (ii) <strong>Sparse-dLLM collapses at 32K</strong> — it uses a fixed eviction ratio, so the absolute number of tokens it must process still grows with length; it's fastest at 8K but falls behind at 32K. (iii) <strong>Fast-dLLM and dKV-Cache scale modestly</strong> — they reduce per-step cost but still process the full sequence at each of the T steps.</p>
+<p>The speedup at 32K is enabled by an additional attention kernel optimization: <em>Split-S FlexAttention</em>, which processes the K non-contiguous cached chunk KVs as independent splits along the batch dimension, then merges results via log-sum-exp reduction — achieving 5.8–10.2× latency reduction for the asymmetric decode attention (query length L<sub>d</sub> ≪ K×B prefix KV length).</p>
+</section>
+
+<!-- §06 ──────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmark Results</div>
+<h2>State-of-the-Art on LongBench and InfiniteBench</h2>
+<p>Quality doesn't trade off against speed. On both LongBench (2K–32K) and InfiniteBench (up to 128K), Prefilling-dLLM achieves the best average score among all dLLM acceleration methods — in some cases beating the un-accelerated vanilla model.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">InfiniteBench — Average Accuracy (Dream-7B, 128K context, YaRN)</span>
+    <span class="vp-hint">Animates on scroll</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="results-bars-infinite">
+      <div class="bar-header">Baselines</div>
+      <div class="bar-row">
+        <div class="bar-label">Vanilla (2K)</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.45)" data-w="28.5"><span>12.44</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Vanilla (128K)</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.45)" data-w="24.8"><span>10.81</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Fast-dLLM</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="9.1"><span>3.96</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">dKV-Cache</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="5.1"><span>2.21</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Sparse-dLLM</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.45)" data-w="28.1"><span>12.24</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Fast-dLLM v2</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.35)" data-w="69.5"><span>30.32</span></div></div>
+      </div>
+      <div class="bar-header">This Paper</div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">Prefilling-dLLM (Ours)</div>
+        <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="100"><span>43.62</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The 43.62% average on InfiniteBench is a <strong>+13.3 point improvement</strong> over the next-best method (Fast-dLLM v2 at 30.32%) — and this is achieved with fewer compute operations per step. The key tasks driving this gain are Passkey (95.42% vs 27.12%) and Number Retrieval (70.00% vs 27.12%), both needle-in-a-haystack style tasks that require attending to specific positions in very long contexts.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">LongBench — Average Score (Dream-7B, 2K–32K)</span>
+    <span class="vp-hint">Animates on scroll</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="results-bars-long">
+      <div class="bar-header">Baselines</div>
+      <div class="bar-row">
+        <div class="bar-label">dKV-Cache</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="21.2"><span>7.32</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Sparse-dLLM</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="24.7"><span>8.54</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Fast-dLLM</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.45)" data-w="58.9"><span>20.38</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Vanilla (2K)</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="82.7"><span>28.60</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Fast-dLLM v2</div>
+        <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.35)" data-w="91.5"><span>31.66</span></div></div>
+      </div>
+      <div class="bar-header">This Paper</div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">Prefilling-dLLM (Ours)</div>
+        <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="100"><span>34.59</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>On LongBench, the method achieves 34.59 average score on Dream-7B and 37.02 on UltraLLaDA — both state-of-the-art. Notably, adding intra-chunk token sparsity (top-B token selection within each chosen chunk) improves accuracy from 22.01 to 34.59 on Dream-7B, contrary to the degradation observed in AR LLMs under sparse attention. The bidirectional nature of dLLM attention benefits from token pruning because the most query-relevant tokens are retained with high fidelity.</p>
+
+<h3>Chunk size ablation</h3>
+<p>The chunk size C controls the granularity of retrieval. Keeping the total token budget fixed (K × C = 4096), smaller chunks with more selections (C=256, K=16) outperform larger chunks at very long contexts (128K): 92.3% EM vs 83.0% for C=1024. At moderate lengths (16K–32K), C=1024, K=4 is optimal. The key insight: finer granularity lets the retrieval score be more precise, which matters most when there are many irrelevant chunks to sift through.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">prefilling_dllm/infer.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Quadratic Tax</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="locality">locality</button>
+    <button class="cs-tab" data-panel="method">method</button>
+    <button class="cs-tab" data-panel="bos">bos</button>
+    <button class="cs-tab" data-panel="speed">speed</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard dLLM inference (Dream / LLaDA)</span>
+<span class="cs-line cmt"># Every step = full forward pass over entire sequence</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">standard_decode</span>(model, prefix, T=16):</span>
+<span class="cs-line">    response = torch.<span class="fn">full</span>((Ld,), MASK)  <span class="cmt"># all masked</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(T):                  <span class="cmt"># T steps</span></span>
+<span class="cs-line hl-p">        seq = <span class="fn">cat</span>([prefix, response])      <span class="cmt"># Lp + Ld</span></span>
+<span class="cs-line hl-p">        logits = model.<span class="fn">forward</span>(seq)       <span class="cmt"># O((Lp+Ld)²)</span></span>
+<span class="cs-line">        <span class="cmt"># unmask high-confidence positions</span></span>
+<span class="cs-line">        response = <span class="fn">unmask_topk</span>(logits, step)</span>
+<span class="cs-line">    <span class="kw">return</span> response</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Total cost: T × (Lp + Ld)²</span>
+<span class="cs-line cmt"># At Lp=32K, Ld=256, T=16:</span>
+<span class="cs-line cmt"># ≈ 16 × (32768+256)² ≈ 17 billion ops per token</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The prefix doesn't change! Yet it's re-encoded</span>
+<span class="cs-line cmt"># from scratch at every single denoising step.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-locality">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Measuring attention locality in Dream-7B</span>
+<span class="cs-line cmt"># (from Sec 4.2 of the paper)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">measure_decay</span>(model, prefix, query, T=16):</span>
+<span class="cs-line hl-c">    decay_by_step = []</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(T):</span>
+<span class="cs-line hl-c">        attn = model.<span class="fn">get_attn_weights</span>(step)</span>
+<span class="cs-line hl-c">        <span class="cmt"># attn[q,k] = attention from response q</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># to prefix token k</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># average over heads and response tokens</span></span>
+<span class="cs-line hl-c">        decay = attn.<span class="fn">mean</span>(dim=0)          <span class="cmt"># [Lp]</span></span>
+<span class="cs-line hl-c">        decay_by_step.<span class="fn">append</span>(decay)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key findings:</span>
+<span class="cs-line cmt"># - Attention to tokens &gt;1000 positions away</span>
+<span class="cs-line cmt">#   is 100× weaker than nearby tokens</span>
+<span class="cs-line cmt"># - Decay becomes 2× sharper from step 0→15</span>
+<span class="cs-line cmt"># - 25% of attention mass on top-1 position</span>
+<span class="cs-line cmt">#   (future BOS anchor), stable across layers</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cmt"># Locality score: fraction of attn in top-K% prefix</span></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">locality_score</span>(attn, k_pct=0.1):</span>
+<span class="cs-line">    K = <span class="fn">int</span>(Lp * k_pct)</span>
+<span class="cs-line">    <span class="kw">return</span> attn[-K:].<span class="fn">sum</span>() / attn.<span class="fn">sum</span>()</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-method">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Prefilling-dLLM: the full pipeline</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">prefilling_decode</span>(model, prefix, query, K=4, C=1024, B=512):</span>
+<span class="cs-line">    N = <span class="fn">ceil</span>(len(prefix) / C)            <span class="cmt"># num chunks</span></span>
+<span class="cs-line">    chunks = <span class="fn">split</span>(prefix, C)            <span class="cmt"># N × C</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># ── Phase I: Prefill (once) ──────────────</span></span>
+<span class="cs-line hl-p">    kv_cache = []                         <span class="cmt"># per-chunk KV</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> chunk <span class="kw">in</span> chunks:                  <span class="cmt"># parallelizable</span></span>
+<span class="cs-line hl-p">        bos_chunk = <span class="fn">cat</span>([BOS, chunk])    <span class="cmt"># prepend anchor</span></span>
+<span class="cs-line hl-p">        K_i, V_i = model.<span class="fn">intra_attn</span>(bos_chunk)</span>
+<span class="cs-line hl-p">        kv_cache.<span class="fn">append</span>((K_i, V_i))      <span class="cmt"># O(C²) each</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">    <span class="cmt"># ── Phase II: Score + Select ─────────────</span></span>
+<span class="cs-line hl-c">    pseudo_labels = <span class="fn">fast_decode</span>(model, chunks[0], query)</span>
+<span class="cs-line hl-c">    scores = [<span class="fn">score_chunk</span>(c, query, pseudo_labels)</span>
+<span class="cs-line hl-c">              <span class="kw">for</span> c <span class="kw">in</span> chunks]</span>
+<span class="cs-line hl-c">    top_k_idx = <span class="fn">argsort</span>(scores)[-K:]     <span class="cmt"># top-K chunks</span></span>
+<span class="cs-line hl-c">    selected_kv = [kv_cache[i] <span class="kw">for</span> i <span class="kw">in</span> top_k_idx]</span>
+<span class="cs-line hl-c">    selected_kv = <span class="fn">prune_to_top_B</span>(selected_kv, query, B)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># ── Phase III: Decode (T steps) ──────────</span></span>
+<span class="cs-line hl-g">    response = torch.<span class="fn">full</span>((Ld,), MASK)</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(T):</span>
+<span class="cs-line hl-g">        logits = model.<span class="fn">decode_with_kv</span>(</span>
+<span class="cs-line hl-g">            selected_kv,               <span class="cmt"># static, K×B tokens</span></span>
+<span class="cs-line hl-g">            query, response            <span class="cmt"># O(Ld² + K·C)</span></span>
+<span class="cs-line hl-g">        )</span>
+<span class="cs-line hl-g">        response = <span class="fn">unmask_topk</span>(logits, step)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> response</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-bos">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># BOS anchors: periodic attention normalization</span>
+<span class="cs-line cmt"># Prevents attention sinks, enables position-invariant</span>
+<span class="cs-line cmt"># chunk retrieval → fixes lost-in-the-middle.</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Without BOS: natural attention sink</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Token 0 absorbs ~60% of attention mass</span></span>
+<span class="cs-line hl-c"><span class="cmt"># → chunk score biased toward chunks near token 0</span></span>
+<span class="cs-line hl-c"><span class="cmt"># → documents in middle of context ignored</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Vanilla Dream at 32K: EM drops to &lt;10% for</span></span>
+<span class="cs-line hl-c"><span class="cmt"># documents in first 20% of the prefix</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># With BOS: periodic attention anchors</span></span>
+<span class="cs-line hl-g">chunks = <span class="fn">split</span>(prefix, chunk_size)</span>
+<span class="cs-line hl-g">anchored = [<span class="fn">cat</span>([BOS_TOKEN, chunk])   <span class="cmt"># ← key change</span></span>
+<span class="cs-line hl-g">            <span class="kw">for</span> chunk <span class="kw">in</span> chunks]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Each BOS absorbs ~12% of attention mass</span>
+<span class="cs-line cmt"># (vs 60% for a natural sink) → stable across layers</span>
+<span class="cs-line cmt"># → chunk scoring becomes position-invariant</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cmt"># EM with chunk-level BOS at 32K context:</span></span>
+<span class="cs-line"><span class="cmt"># Position 10%:  ~90% EM  (vanilla: 8%)</span></span>
+<span class="cs-line"><span class="cmt"># Position 50%:  ~88% EM  (vanilla: 15%)</span></span>
+<span class="cs-line"><span class="cmt"># Position 90%:  ~85% EM  (vanilla: 25%)</span></span>
+<span class="cs-line"><span class="cmt"># Result: flat EM curve across all positions</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-speed">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Throughput benchmarks — Dream-7B, bf16</span>
+<span class="cs-line cmt"># GQA: 32 query / 8 KV heads, head_dim=128</span>
+<span class="cs-line cmt"># Single A800 GPU, 32 generated tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Speedup vs Transformers baseline</span></span>
+<span class="cs-line hl-p">SPEEDUP = &#123;</span>
+<span class="cs-line hl-p">    <span class="str">"8K"</span>:  &#123;<span class="str">"ours"</span>: <span class="num">9.1</span>,  <span class="str">"sparse"</span>: <span class="num">15.3</span>, <span class="str">"fast_v2"</span>: <span class="num">5.3</span>&#125;,</span>
+<span class="cs-line hl-p">    <span class="str">"16K"</span>: &#123;<span class="str">"ours"</span>: <span class="num">16.1</span>, <span class="str">"sparse"</span>: <span class="num">11.9</span>, <span class="str">"fast_v2"</span>: <span class="num">7.5</span>&#125;,</span>
+<span class="cs-line hl-p">    <span class="str">"32K"</span>: &#123;<span class="str">"ours"</span>: <span class="num">28.0</span>, <span class="str">"sparse"</span>: <span class="num">4.2</span>,  <span class="str">"fast_v2"</span>: <span class="num">9.0</span>&#125;,</span>
+<span class="cs-line hl-p">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why ours scales: fixed K×B budget = const ops/step</span>
+<span class="cs-line cmt"># Sparse-dLLM degrades: fixed eviction ratio,</span>
+<span class="cs-line cmt">#   absolute ops grow with Lp</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Split-S FlexAttention for decode KV</span></span>
+<span class="cs-line hl-c"><span class="cmt"># KV is K non-contiguous chunks → can't gather</span></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">split_s_attention</span>(Q, chunk_kvs, S=4):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Partition KV into S splits along batch dim</span></span>
+<span class="cs-line hl-c">    partial_attn = [<span class="fn">flash_attn</span>(Q, kv) <span class="kw">for</span> kv <span class="kw">in</span> chunk_kvs]</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> <span class="fn">logsumexp_merge</span>(partial_attn)  <span class="cmt"># 5.8–10.2× faster</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark results summary</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># InfiniteBench (Dream-7B, 128K via YaRN)</span></span>
+<span class="cs-line hl-p">INFINITE = {</span>
+<span class="cs-line hl-p">    <span class="str">"Vanilla (2K)"</span>:      <span class="num">12.44</span>,  <span class="cmt"># fails at 128K</span></span>
+<span class="cs-line hl-p">    <span class="str">"Fast-dLLM"</span>:         <span class="num">3.96</span>,   <span class="cmt"># worse than vanilla</span></span>
+<span class="cs-line hl-p">    <span class="str">"dKV-Cache"</span>:          <span class="num">2.21</span>,   <span class="cmt"># worse than vanilla</span></span>
+<span class="cs-line hl-p">    <span class="str">"Sparse-dLLM"</span>:        <span class="num">12.24</span>,</span>
+<span class="cs-line hl-p">    <span class="str">"Fast-dLLM v2"</span>:      <span class="num">30.32</span>,  <span class="cmt"># best baseline</span></span>
+<span class="cs-line hl-p">    <span class="str">"Ours"</span>:               <span class="num">43.62</span>,  <span class="cmt"># +13.3 over v2</span></span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># LongBench (Dream-7B, 2K–32K)</span></span>
+<span class="cs-line hl-g">LONGBENCH = {</span>
+<span class="cs-line hl-g">    <span class="str">"Sparse-dLLM"</span>:   <span class="num">8.54</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"dKV-Cache"</span>:      <span class="num">7.32</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"Fast-dLLM"</span>:     <span class="num">20.38</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"Vanilla (2K)"</span>:  <span class="num">28.60</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"Fast-dLLM v2"</span>: <span class="num">31.66</span>,</span>
+<span class="cs-line hl-g">    <span class="str">"Ours"</span>:          <span class="num">34.59</span>,  <span class="cmt"># +2.93 over v2</span></span>
+<span class="cs-line hl-g">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Notable: adding intra-chunk sparsity</span>
+<span class="cs-line cmt"># improves Dream-7B from 22.01 → 34.59</span>
+<span class="cs-line cmt"># (sparse attention hurts AR LLMs but helps dLLMs)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC toggle ──────────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+// ── Code sidebar toggle ─────────────────────────────────────────────────
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Tab switching ───────────────────────────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'prefilling_dllm/infer.py',   title: 'The Quadratic Tax' },
+  locality:   { file: 'prefilling_dllm/analyze.py', title: 'Attention Locality' },
+  method:     { file: 'prefilling_dllm/infer.py',   title: 'The Full Pipeline' },
+  bos:        { file: 'prefilling_dllm/chunk.py',   title: 'BOS Anchors' },
+  speed:      { file: 'prefilling_dllm/bench.py',   title: 'Speedup Numbers' },
+  results:    { file: 'prefilling_dllm/results.py', title: 'Benchmarks' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── Scroll sync: TOC + code tab ─────────────────────────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-locality':   'locality',
+  's-method':     'method',
+  's-bos':        'bos',
+  's-speed':      'speed',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// §01 — BOTTLENECK CANVAS
+// ══════════════════════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-bottleneck');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 280;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  // Layout constants
+  const PAD = 12;
+  const PANEL_W = (W - PAD * 3) / 2;  // left panel width
+  const PANEL_H = H - 44;
+  const T = 10;    // denoising steps to show
+  const N_CHUNKS = 8;   // number of prefix "columns" (chunk groups)
+  const N_RESP   = 5;   // response columns
+  const TOTAL_COLS = N_CHUNKS + N_RESP;
+  const CELL_PAD = 2;
+  const CELL_W = Math.floor((PANEL_W - CELL_PAD * (TOTAL_COLS + 1)) / TOTAL_COLS);
+  const CELL_H = Math.floor((PANEL_H - CELL_PAD * (T + 1)) / T);
+  const SELECTED_CHUNKS = [2, 5]; // which chunk columns are "top-K"
+
+  let mode = 'std';   // 'std' or 'pfill'
+  let currentStep = 0;
+  let rafId = null;
+  let playing = false;
+  let lastTime = 0;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function drawPanel(ox, oy, step, isPrefill) {
+    // Background
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.beginPath();
+    ctx.roundRect(ox, oy, PANEL_W, PANEL_H, 6);
+    ctx.fill();
+
+    const totalRows = T;
+    for (let r = 0; r < totalRows; r++) {
+      const isActive = r < step;
+      const isCurrent = r === step - 1;
+      for (let c = 0; c < TOTAL_COLS; c++) {
+        const x = ox + CELL_PAD + c * (CELL_W + CELL_PAD);
+        const y = oy + CELL_PAD + r * (CELL_H + CELL_PAD);
+        const isResp = c >= N_CHUNKS;
+        const isSelected = SELECTED_CHUNKS.includes(c);
+
+        let fillColor;
+        if (!isActive) {
+          fillColor = 'rgba(255,255,255,0.04)';
+        } else if (isResp) {
+          // Response tokens: transition from masked (purple-dim) to revealed (bright purple)
+          const revealFrac = r / (totalRows - 1);
+          const alpha = lerp(0.25, 0.85, revealFrac);
+          fillColor = `rgba(139,92,246,${alpha.toFixed(2)})`;
+        } else if (isPrefill) {
+          // Prefilling mode: only selected chunks are teal
+          if (isSelected) {
+            fillColor = isCurrent ? '#06b6d4' : 'rgba(6,182,212,0.45)';
+          } else {
+            // Non-selected prefix: dark (cached but not accessed)
+            fillColor = 'rgba(255,255,255,0.06)';
+          }
+        } else {
+          // Standard mode: all prefix cells are red (expensive recompute)
+          fillColor = isCurrent ? '#f87171' : 'rgba(239,68,68,0.40)';
+        }
+
+        ctx.fillStyle = fillColor;
+        ctx.beginPath();
+        ctx.roundRect(x, y, CELL_W, CELL_H, 2);
+        ctx.fill();
+
+        // Glow on current row
+        if (isCurrent && isActive) {
+          ctx.shadowColor = isResp ? '#8b5cf6' : isPrefill && isSelected ? '#06b6d4' : '#ef4444';
+          ctx.shadowBlur = 6;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+    }
+
+    // Column group labels at bottom
+    const labelY = oy + PANEL_H + 13;
+    ctx.font = `600 ${Math.floor(CELL_W * 0.9)}px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    for (let c = 0; c < N_CHUNKS; c++) {
+      const x = ox + CELL_PAD + c * (CELL_W + CELL_PAD) + CELL_W / 2;
+      if (isPrefill && SELECTED_CHUNKS.includes(c)) {
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillText('●', x, labelY);
+      } else if (!isPrefill) {
+        ctx.fillStyle = 'rgba(239,68,68,0.6)';
+        ctx.fillText('▪', x, labelY);
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fillText('▪', x, labelY);
+      }
+    }
+  }
+
+  function drawLabels() {
+    // Panel titles
+    ctx.font = '600 11px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    // Standard dLLM label
+    ctx.fillStyle = mode === 'std' ? '#ef4444' : 'rgba(255,255,255,0.35)';
+    ctx.fillText('Standard dLLM — full prefix at every step', PAD + PANEL_W / 2, 14);
+    // Prefilling label
+    ctx.fillStyle = mode === 'pfill' ? '#06b6d4' : 'rgba(255,255,255,0.35)';
+    ctx.fillText('Prefilling-dLLM — K=2 chunks only', PAD * 2 + PANEL_W + PANEL_W / 2, 14);
+
+    // Legend
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(239,68,68,0.7)'; ctx.fillText('■', PAD, H - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillText(' prefix (recomputed)', PAD + 10, H - 6);
+    ctx.fillStyle = '#06b6d4'; ctx.fillText('■', PAD + 160, H - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillText(' cached chunk', PAD + 170, H - 6);
+    ctx.fillStyle = 'rgba(139,92,246,0.8)'; ctx.fillText('■', PAD + 300, H - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillText(' response', PAD + 310, H - 6);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const step = currentStep;
+
+    if (mode === 'std') {
+      drawPanel(PAD, 20, step, false);
+      drawPanel(PAD * 2 + PANEL_W, 20, step, true);
+    } else {
+      drawPanel(PAD, 20, step, false);
+      drawPanel(PAD * 2 + PANEL_W, 20, step, true);
+    }
+    drawLabels();
+
+    // Highlight active panel
+    const ox = mode === 'std' ? PAD : PAD * 2 + PANEL_W;
+    ctx.strokeStyle = mode === 'std' ? 'rgba(239,68,68,0.5)' : 'rgba(6,182,212,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(ox, 20, PANEL_W, PANEL_H, 6);
+    ctx.stroke();
+  }
+
+  function tick(ts) {
+    if (!playing) return;
+    if (ts - lastTime > 500) {
+      lastTime = ts;
+      currentStep = Math.min(currentStep + 1, T);
+      draw();
+      document.getElementById('bot-counter').textContent = `step ${currentStep} / ${T}`;
+      if (currentStep >= T) { playing = false; }
+    }
+    if (playing) rafId = requestAnimationFrame(tick);
+  }
+
+  // Buttons
+  document.getElementById('btn-std').addEventListener('click', () => {
+    mode = 'std';
+    document.getElementById('btn-std').classList.add('active');
+    document.getElementById('btn-pfill').classList.remove('active');
+    draw();
+  });
+  document.getElementById('btn-pfill').addEventListener('click', () => {
+    mode = 'pfill';
+    document.getElementById('btn-pfill').classList.add('active');
+    document.getElementById('btn-std').classList.remove('active');
+    draw();
+  });
+  document.getElementById('btn-bot-play').addEventListener('click', () => {
+    if (currentStep >= T) currentStep = 0;
+    playing = true;
+    lastTime = performance.now() - 600;
+    rafId = requestAnimationFrame(tick);
+  });
+  document.getElementById('btn-bot-reset').addEventListener('click', () => {
+    playing = false;
+    cancelAnimationFrame(rafId);
+    currentStep = 0;
+    draw();
+    document.getElementById('bot-counter').textContent = 'step 0 / 10';
+  });
+
+  draw();
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+// §02 — ATTENTION DECAY CANVAS
+// ══════════════════════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-decay');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 240;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD_L = 44, PAD_R = 16, PAD_T = 16, PAD_B = 32;
+  const PW = W - PAD_L - PAD_R;
+  const PH = H - PAD_T - PAD_B;
+
+  // Approximate decay curves from paper Figure 2
+  // Y is log10 of attention weight, mapped to canvas
+  // Curves decay from a baseline at distance=0 downward
+  const MAX_DIST = 2000;
+  const LOG_MAX = -1.8;  // log10(~0.016) near response
+  const LOG_MIN = -4.5;  // log10(~0.00003) at distance 2000
+
+  function logAttn(dist, halfLife) {
+    // Exponential decay in log space
+    return LOG_MAX - (LOG_MAX - LOG_MIN) * (1 - Math.exp(-dist / halfLife));
+  }
+
+  const curves = [
+    { label: 'step 0 (t=1.0)', halfLife: 1200, color: '#60a5fa', alpha: 1 },  // broad
+    { label: 'step 8 (t=0.5)', halfLife:  400, color: '#f59e0b', alpha: 1 },  // moderate
+    { label: 'step 15 (t≈0)', halfLife:  120, color: '#f472b6', alpha: 1 },  // steep
+  ];
+
+  let shownCurves = [0, 1, 2]; // indices of visible curves
+
+  function drawDecay() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD_T + (i / 4) * PH;
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(PAD_L + PW, y); ctx.stroke();
+    }
+    for (let i = 0; i <= 5; i++) {
+      const x = PAD_L + (i / 5) * PW;
+      ctx.beginPath(); ctx.moveTo(x, PAD_T); ctx.lineTo(x, PAD_T + PH); ctx.stroke();
+    }
+
+    // X axis labels
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 5; i++) {
+      const x = PAD_L + (i / 5) * PW;
+      ctx.fillText(String(Math.round(i * MAX_DIST / 5)), x, H - 4);
+    }
+
+    // Y axis labels (log scale)
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const logVal = LOG_MIN + (i / 4) * (LOG_MAX - LOG_MIN);
+      const y = PAD_T + ((LOG_MAX - logVal) / (LOG_MAX - LOG_MIN)) * PH;
+      ctx.fillText(`10^${logVal.toFixed(1)}`, PAD_L - 4, y + 3);
+    }
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.textAlign = 'center';
+    ctx.font = '11px var(--ff-mono, monospace)';
+    ctx.fillText('Distance from response (tokens)', PAD_L + PW / 2, H - 18 + 12);
+    ctx.save();
+    ctx.translate(10, PAD_T + PH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Attn weight (log)', 0, 0);
+    ctx.restore();
+
+    // Draw curves
+    const N_POINTS = 200;
+    curves.forEach((curve, idx) => {
+      if (!shownCurves.includes(idx)) return;
+      ctx.strokeStyle = curve.color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = curve.alpha;
+      ctx.beginPath();
+      for (let i = 0; i <= N_POINTS; i++) {
+        const dist = (i / N_POINTS) * MAX_DIST;
+        const logW = logAttn(dist, curve.halfLife);
+        const x = PAD_L + (dist / MAX_DIST) * PW;
+        const y = PAD_T + ((LOG_MAX - logW) / (LOG_MAX - LOG_MIN)) * PH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      // Label at end of curve
+      const labelDist = MAX_DIST * 0.92;
+      const labelLogW = logAttn(labelDist, curve.halfLife);
+      const lx = PAD_L + (labelDist / MAX_DIST) * PW + 2;
+      const ly = PAD_T + ((LOG_MAX - labelLogW) / (LOG_MAX - LOG_MIN)) * PH;
+      ctx.font = '600 10px var(--ff-mono, monospace)';
+      ctx.fillStyle = curve.color;
+      ctx.textAlign = 'left';
+      ctx.fillText(curve.label, lx, ly - 3);
+      ctx.globalAlpha = 1;
+    });
+
+    // Vertical shaded region: "effective chunk range" at K=4, C=512
+    const chunkEnd = 4 * 512;
+    const shadeX = PAD_L + (chunkEnd / MAX_DIST) * PW;
+    ctx.fillStyle = 'rgba(139,92,246,0.06)';
+    ctx.fillRect(PAD_L, PAD_T, shadeX - PAD_L, PH);
+    ctx.fillStyle = 'rgba(139,92,246,0.6)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('K=4 chunks selected', PAD_L + (shadeX - PAD_L) / 2, PAD_T + 14);
+  }
+
+  drawDecay();
+
+  function setDecayCurves(indices) {
+    shownCurves = indices;
+    drawDecay();
+  }
+
+  document.getElementById('decay-all').addEventListener('click', () => {
+    setDecayCurves([0, 1, 2]);
+    document.querySelectorAll('[id^="decay-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('decay-all').classList.add('active');
+  });
+  document.getElementById('decay-early').addEventListener('click', () => {
+    setDecayCurves([0]);
+    document.querySelectorAll('[id^="decay-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('decay-early').classList.add('active');
+  });
+  document.getElementById('decay-mid').addEventListener('click', () => {
+    setDecayCurves([1]);
+    document.querySelectorAll('[id^="decay-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('decay-mid').classList.add('active');
+  });
+  document.getElementById('decay-late').addEventListener('click', () => {
+    setDecayCurves([2]);
+    document.querySelectorAll('[id^="decay-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('decay-late').classList.add('active');
+  });
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+// §04 — BOS ANCHOR CANVAS
+// ══════════════════════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-bos');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 260;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  let showBOS = false;
+  const N_POSITIONS = 60;
+  const PAD_L = 30, PAD_R = 16, PAD_T = 26, PAD_B = 56;
+  const PW = W - PAD_L - PAD_R;
+  const PH = H - PAD_T - PAD_B;
+  const N_CHUNKS = 6;
+  const BAR_H = PH * 0.55;
+  const EM_H = PH * 0.35;
+  const EM_Y = PAD_T + BAR_H + 16;
+
+  // Seeded PRNG for reproducible noise
+  function seeded(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  function drawBOS() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Section label
+    ctx.font = '600 11px var(--ff-mono, monospace)';
+    ctx.fillStyle = showBOS ? '#06b6d4' : 'rgba(239,68,68,0.8)';
+    ctx.textAlign = 'center';
+    ctx.fillText(showBOS ? 'With chunk-level BOS tokens — periodic attention anchors' : 'Without BOS — attention sink at token 0', W / 2, 14);
+
+    // Attention weight bars
+    const barW = Math.max(2, Math.floor(PW / N_POSITIONS) - 1);
+
+    for (let i = 0; i < N_POSITIONS; i++) {
+      const x = PAD_L + (i / N_POSITIONS) * PW;
+      const chunkIdx = Math.floor(i / (N_POSITIONS / N_CHUNKS));
+      const localPos = i % (N_POSITIONS / N_CHUNKS);
+      const isBOSPos = localPos === 0;
+      const isFirst = i === 0;
+
+      let weight;
+      if (!showBOS) {
+        // Without BOS: steep locality + attention sink at 0
+        const dist = N_POSITIONS - 1 - i;  // distance from response (end)
+        weight = Math.exp(-dist / 4) * (1 + seeded(i) * 0.3);
+        if (isFirst) weight += 0.6;  // attention sink at start
+        weight = Math.min(weight, 1.0);
+      } else {
+        // With BOS: periodic spikes at chunk boundaries + locality
+        const dist = N_POSITIONS - 1 - i;
+        weight = Math.exp(-dist / 5) * (0.3 + seeded(i) * 0.25);
+        if (isBOSPos) weight = 0.3 + seeded(i * 3) * 0.15;  // anchor spike
+        weight = Math.min(weight, 1.0);
+      }
+
+      const barH = weight * BAR_H;
+      const barY = PAD_T + BAR_H - barH;
+
+      // Color based on type
+      let color;
+      if (!showBOS && isFirst) {
+        color = '#f87171';  // attention sink — red
+      } else if (showBOS && isBOSPos) {
+        color = '#06b6d4';  // BOS anchor — teal
+      } else {
+        const alpha = 0.2 + weight * 0.5;
+        color = showBOS ? `rgba(139,92,246,${alpha.toFixed(2)})` : `rgba(239,68,68,${alpha.toFixed(2)})`;
+      }
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x, barY, barW, barH);
+    }
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText('← start of prefix', PAD_L, PAD_T + BAR_H + 8);
+    ctx.textAlign = 'right';
+    ctx.fillText('end of prefix (near response) →', PAD_L + PW, PAD_T + BAR_H + 8);
+
+    // EM accuracy curve
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(PAD_L, EM_Y, PW, EM_H);
+
+    ctx.font = '600 9px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.textAlign = 'left';
+    ctx.fillText('Exact-Match accuracy by position', PAD_L, EM_Y - 4);
+
+    // Draw EM curve
+    ctx.strokeStyle = showBOS ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < N_POSITIONS; i++) {
+      const x = PAD_L + ((i + 0.5) / N_POSITIONS) * PW;
+      let em;
+      if (showBOS) {
+        // Flat high EM across positions
+        em = 0.88 + seeded(i * 7) * 0.08;
+      } else {
+        // Drops for early positions (far from response)
+        const frac = i / (N_POSITIONS - 1);
+        em = 0.15 + frac * 0.7 + seeded(i * 5) * 0.06;
+        em = Math.min(em, 0.92);
+      }
+      const y = EM_Y + EM_H - em * (EM_H - 4) - 2;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // EM axis
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    ctx.fillText('100%', PAD_L - 2, EM_Y + 4);
+    ctx.fillText('0%', PAD_L - 2, EM_Y + EM_H);
+  }
+
+  drawBOS();
+
+  document.getElementById('bos-off').addEventListener('click', () => {
+    showBOS = false;
+    document.getElementById('bos-off').classList.add('active');
+    document.getElementById('bos-on').classList.remove('active');
+    drawBOS();
+  });
+  document.getElementById('bos-on').addEventListener('click', () => {
+    showBOS = true;
+    document.getElementById('bos-on').classList.add('active');
+    document.getElementById('bos-off').classList.remove('active');
+    drawBOS();
+  });
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+// §05 — SPEEDUP CHART CANVAS
+// ══════════════════════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-speed');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = 260;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD_L = 48, PAD_R = 20, PAD_T = 20, PAD_B = 36;
+  const PW = W - PAD_L - PAD_R;
+  const PH = H - PAD_T - PAD_B;
+
+  // Data: [8K, 16K, 32K] speedup vs Transformers baseline
+  const methods = [
+    { label: 'dKV-Cache',        color: 'rgba(107,114,128,0.7)',  data: [3.2, 4.5,  5.8] },
+    { label: 'Fast-dLLM v2',     color: 'rgba(6,182,212,0.7)',    data: [5.3, 7.5,  9.0] },
+    { label: 'Sparse-dLLM',      color: 'rgba(245,158,11,0.8)',   data: [15.3, 11.9, 4.2] },
+    { label: 'Prefilling-dLLM',  color: '#8b5cf6',                data: [9.1, 16.1, 28.0], bold: true },
+  ];
+
+  const X_LABELS = ['8K', '16K', '32K'];
+  const MAX_Y = 32;
+  const MIN_Y = 0;
+
+  let animProgress = 0;
+  let rafId = null;
+
+  function xPos(i) { return PAD_L + (i / 2) * PW; }
+  function yPos(v) { return PAD_T + PH - ((v - MIN_Y) / (MAX_Y - MIN_Y)) * PH; }
+
+  function draw(progress) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    [0, 5, 10, 15, 20, 25, 30].forEach(v => {
+      const y = yPos(v);
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(PAD_L + PW, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.font = '10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText(v + '×', PAD_L - 4, y + 3);
+    });
+
+    // X axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '11px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    X_LABELS.forEach((lbl, i) => {
+      ctx.fillText(lbl, xPos(i), H - 4);
+    });
+
+    // Y axis title
+    ctx.save();
+    ctx.translate(12, PAD_T + PH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('speedup vs baseline', 0, 0);
+    ctx.restore();
+
+    // Baseline at 1×
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, yPos(1)); ctx.lineTo(PAD_L + PW, yPos(1));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText('1× (baseline)', PAD_L + 4, yPos(1) - 4);
+
+    // Draw method lines
+    methods.forEach((method) => {
+      const pts = method.data.length;
+      ctx.strokeStyle = method.color;
+      ctx.lineWidth = method.bold ? 2.5 : 1.8;
+      ctx.globalAlpha = method.bold ? 1.0 : 0.85;
+      ctx.beginPath();
+      for (let i = 0; i < pts; i++) {
+        const px = progress < (i + 1) / pts
+          ? xPos(i - 1) + (xPos(i) - xPos(i - 1)) * (progress - (i - 1) / pts) / (1 / pts)
+          : xPos(i);
+        const py = yPos(method.data[i]);
+        const drawX = i === 0 ? xPos(0) : Math.min(px, xPos(i));
+        const drawY = i === 0 ? yPos(method.data[0]) : py;
+        if (i === 0 || progress * pts < 0.1) {
+          ctx.moveTo(xPos(0), yPos(method.data[0]));
+        } else {
+          ctx.lineTo(Math.min(xPos(i), xPos(0) + progress * PW), drawY);
+        }
+      }
+      // Simpler: just draw all points when progress reached
+      ctx.beginPath();
+      method.data.forEach((v, i) => {
+        const frac = i / (method.data.length - 1);
+        if (progress < frac) return;
+        const x = xPos(i);
+        const y = yPos(v);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      // Interpolate last segment
+      const lastFull = Math.floor(progress * (pts - 1));
+      if (lastFull < pts - 1) {
+        const segFrac = (progress * (pts - 1)) - lastFull;
+        const x0 = xPos(lastFull), x1 = xPos(lastFull + 1);
+        const y0 = yPos(method.data[lastFull]), y1 = yPos(method.data[lastFull + 1]);
+        ctx.lineTo(x0 + (x1 - x0) * segFrac, y0 + (y1 - y0) * segFrac);
+      }
+      ctx.stroke();
+
+      // Data point dots
+      method.data.forEach((v, i) => {
+        if (progress < i / (pts - 1) - 0.05) return;
+        const x = xPos(i), y = yPos(v);
+        ctx.beginPath();
+        ctx.arc(x, y, method.bold ? 4.5 : 3, 0, Math.PI * 2);
+        ctx.fillStyle = method.color;
+        ctx.fill();
+        // Annotation for our method
+        if (method.bold) {
+          ctx.font = '600 11px var(--ff-mono, monospace)';
+          ctx.fillStyle = method.color;
+          ctx.textAlign = 'center';
+          ctx.fillText(v + '×', x, y - 10);
+        }
+      });
+      ctx.globalAlpha = 1;
+    });
+
+    // Legend
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    let lx = PAD_L + 4, ly = PAD_T + 8;
+    methods.slice().reverse().forEach((m) => {
+      ctx.fillStyle = m.color;
+      ctx.fillRect(lx, ly - 6, 18, 3);
+      ctx.fillStyle = m.bold ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)';
+      ctx.fillText(m.label, lx + 22, ly);
+      lx += ctx.measureText(m.label).width + 50;
+      if (lx > W - 100) { lx = PAD_L + 4; ly += 16; }
+    });
+  }
+
+  // Animate once when scrolled into view
+  let started = false;
+  function startAnim() {
+    if (started) return;
+    started = true;
+    const startTime = performance.now();
+    const DURATION = 1400;
+    function frame(ts) {
+      const t = Math.min(1, (ts - startTime) / DURATION);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      draw(ease);
+      if (t < 1) rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  const section5 = document.getElementById('s-speed');
+  if (section5) {
+    new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) startAnim(); });
+    }, { threshold: 0.3 }).observe(section5);
+  } else {
+    startAnim();
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+// §06 — ANIMATED BAR CHARTS
+// ══════════════════════════════════════════════════════════════════════════
+function triggerBars(containerEl) {
+  containerEl.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+    b.style.width = (parseFloat(b.dataset.w) / 100 * 100) + '%';
+  });
+}
+['results-bars-infinite', 'results-bars-long'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) triggerBars(el); });
+  }, { threshold: 0.25 }).observe(el);
+});
+</script>
+</BaseLayout>

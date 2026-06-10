@@ -1,0 +1,1490 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="SMT: Training RNNs Without Unrolling | AI/ML Deep Dives"
+  description="Supervised Memory Training decouples what an RNN remembers from how it updates memory — enabling time-parallel training with O(1) gradient paths, no BPTT required."
+  crumb="SMT"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'\2192';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'\25B6';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+
+/* Complexity comparison table */
+.complexity-table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-family:var(--ff-mono);font-size:.72rem}
+.complexity-table th{background:var(--surface);padding:.4rem .6rem;color:var(--muted);font-size:.63rem;letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:center}
+.complexity-table th:first-child{text-align:left}
+.complexity-table td{padding:.4rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted2);text-align:center}
+.complexity-table td:first-child{text-align:left;color:var(--text2);font-weight:600}
+.complexity-table .highlight-row td{background:rgba(139,92,246,.08);color:var(--purple-l)}
+.complexity-table .highlight-row td:first-child{color:var(--purple-l)}
+.complexity-table .good{color:var(--green)}
+.complexity-table .bad{color:var(--attr)}
+
+/* Canvas gradient legend */
+.canvas-legend{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Sequence Models</span>
+    <span class="tag tag-cyan">Credit Assignment</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>SMT: Training RNNs Without Ever Unrolling Them</h1>
+  <p class="lead">Backpropagation through time suffers from O(T) gradient paths that vanish or explode — BPTT is sequential, unstable, and fundamentally limits nonlinear RNNs. Supervised Memory Training sidesteps recurrent credit propagation entirely by asking a different question: what if a Transformer told the RNN exactly what it should remember at each step? The result is O(1) gradient paths, time-parallel training, and nonlinear RNNs that actually capture long-range dependencies.</p>
+  <div class="post-hero-meta">
+    <span>June 9, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2606.06479</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.06479" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://akarshkumar.com/smt" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+    <a class="hero-btn" href="https://github.com/akarshkumar0101/smt" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The BPTT Problem</a></li>
+    <li class="toc-item" id="toc-s-background"><a href="#s-background"><span class="toc-num">02</span> Predictive States</a></li>
+    <li class="toc-item" id="toc-s-method"><a href="#s-method"><span class="toc-num">03</span> SMT Architecture</a></li>
+    <li class="toc-item" id="toc-s-memory"><a href="#s-memory"><span class="toc-num">04</span> Memory Space</a></li>
+    <li class="toc-item" id="toc-s-drift"><a href="#s-drift"><span class="toc-num">05</span> Drift &amp; DMT</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The BPTT Problem</div>
+<h2>Why training RNNs is so hard</h2>
+
+<p>Recurrent neural networks hold a compelling promise: a fixed-size memory that summarizes the entire past, updated one token at a time. At inference, they require <em>O(1)</em> compute and memory per token — unlike Transformers that must attend to every previous token. But this promise has been largely unfulfilled, because training RNNs is broken at the foundation.</p>
+
+<p>The standard algorithm — Backpropagation Through Time (BPTT) — unrolls the RNN across the full sequence and propagates gradients backward. For a sequence of length T, the gradient of the loss with respect to memory state m<sub>t</sub> must travel through up to T nonlinear transition functions. This creates two notorious failure modes:</p>
+
+<ul>
+  <li><strong>Vanishing gradients:</strong> If the transition Jacobian has singular values &lt; 1, gradients decay exponentially. The RNN develops a recency bias — it only remembers the last few tokens.</li>
+  <li><strong>Exploding gradients:</strong> If singular values &gt; 1, gradients blow up. The induced dynamical system becomes chaotic and training diverges.</li>
+</ul>
+
+<p>The visualization below shows the gradient magnitude ∂L/∂m<sub>t</sub> at each timestep for BPTT vs. SMT in a needle retrieval task. The loss is applied only at the <em>last</em> timestep (the model must report what it saw at timestep 1). Drag the slider to see how different random initializations affect BPTT gradients — but have essentially no effect on SMT.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">gradient_stability.py — Gradient magnitude ∂L/∂m_t vs. timestep</span>
+    <span class="vp-hint">drag slider — init seed</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="grad-canvas" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;align-items:center;gap:1rem;margin-top:.75rem">
+      <span style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);flex-shrink:0">Init seed:</span>
+      <input type="range" id="grad-seed" min="0" max="20" value="5" style="flex:1;accent-color:var(--purple)">
+      <div class="canvas-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>BPTT (vanishing/exploding)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>SMT (stable)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>BPTT is also <strong>sequential in time</strong>: you cannot compute m<sub>t+1</sub> without first computing m<sub>t</sub>, which requires m<sub>t-1</sub>, and so on. Modern hardware is massively parallel, but BPTT cannot use it. The training throughput scales only with parallelism over the <em>batch</em> dimension, not the sequence.</p>
+
+<p>Linear RNNs (Mamba, RWKV, GLA) sidestep this with parallel scan algorithms — but only because their transition is <em>linear</em>. That linearity fundamentally limits what they can represent: they provably cannot track a chess board or perform state counting beyond a certain complexity. The question is whether we can train <em>nonlinear</em> RNNs in parallel.</p>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-background" data-code="background">
+<div class="section-no">02 — Predictive States</div>
+<h2>The key insight: memory is a prediction problem</h2>
+
+<p>What should an RNN remember? The answer from information theory is clean: the memory m<sub>t</sub> should be a <em>sufficient statistic</em> of the past for predicting the future. This is called a <strong>predictive state</strong> — it retains everything relevant to the future and deliberately discards everything else.</p>
+
+<p>In a story about two characters, the predictive state remembers their names and personalities — information needed to predict future dialogue — but discards irrelevant details like what they wore on page 3. The future-prediction criterion automatically selects what to compress.</p>
+
+<div class="math-block">
+  <div class="math-label">Predictive State Representation</div>
+  <span class="math-var">m<sub>t</sub></span> = <span class="math-var">Q</span>([<span class="math-var">x</span><sub>0</sub>, <span class="math-var">x</span><sub>1</sub>, ..., <span class="math-var">x</span><sub>t</sub>]) &nbsp; <span class="math-comment">— sufficient statistic of the past</span><br>
+  Maximize <span class="math-var">p</span>(<span class="math-var">y</span><sub>t..T</sub> | <span class="math-var">m<sub>t</sub></span>) &nbsp; <span class="math-comment">— retain only future-relevant information</span><br>
+  <br>
+  <span class="math-var">m</span>* = argmin compression s.t. <span class="math-var">m</span> predicts <span class="math-var">y</span><sub>future</sub> &nbsp; <span class="math-comment">— the "ideal memory"</span>
+</div>
+
+<p>The crucial insight is that computing this predictive state does <em>not</em> need to be sequential. Yes, the past is a sequence — but we can equivalently represent it as a <strong>set of timestamped events</strong> &#123;(x0, 0), (x1, 1), ..., (xt, t)&#125;. A function over a set is permutation-invariant — and Transformers can compute permutation-invariant functions over sets <em>in parallel</em>.</p>
+
+<p>This reframing is the foundation of SMT: use a bidirectional Transformer to compute ideal memory labels (what the memory <em>should</em> be), then train the RNN as a supervised regression problem — learn to predict the next memory state given the current one and the next input.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">predictive_state.py — What the memory should compress vs. discard</span>
+    <span class="vp-hint">click tokens to see what's kept</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="ps-canvas" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.5rem;margin-bottom:0;text-align:center;font-family:var(--ff-mono)">Characters = high relevance · Scene details = low relevance · Action verbs = medium</p>
+  </div>
+</div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-method" data-code="method">
+<div class="section-no">03 — SMT Architecture</div>
+<h2>Decoupling representation from dynamics</h2>
+
+<p>SMT has three components trained jointly: an <strong>encoder E</strong> (bidirectional Transformer), a <strong>decoder D</strong> (causal Transformer), and the <strong>RNN f</strong> (the model you actually want).</p>
+
+<ul>
+  <li><strong>Encoder E:</strong> Takes the full past context [x0...xt] and produces memory label mt. Because it's bidirectional and only needs past tokens, it can run in parallel over all timesteps.</li>
+  <li><strong>Decoder D:</strong> Given memory mt, predicts future outputs [yt...y_T]. This is the future-prediction objective that forces mt to be a predictive state.</li>
+  <li><strong>RNN f:</strong> Learns the one-step transition (mt, xt₊1) → mt₊1 using the encoder labels as ground truth. Never unrolled during training.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">smt_architecture.svg — Training vs. inference data flow</span>
+    <span class="vp-hint">hover components</span>
+  </div>
+  <div class="vp-body" style="min-width:580px;overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 640 300" width="100%" style="display:block;max-height:300px">
+      <!-- Training phase label -->
+      <text x="10" y="18" font-family="var(--ff-mono)" font-size="9" fill="#5c6370" letter-spacing="1">TRAINING (time-parallel)</text>
+
+      <!-- Input tokens row -->
+      <g id="input-tokens">
+        <rect x="30" y="35" width="50" height="26" rx="4" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+        <text x="55" y="52" text-anchor="middle" font-family="var(--ff-mono)" font-size="9" fill="#06b6d4">x0,x1..xt</text>
+        <rect x="92" y="35" width="50" height="26" rx="4" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+        <text x="117" y="52" text-anchor="middle" font-family="var(--ff-mono)" font-size="9" fill="#06b6d4">xt₊1..xT</text>
+      </g>
+
+      <!-- Encoder box -->
+      <rect x="30" y="78" width="112" height="34" rx="6" fill="rgba(6,182,212,.18)" stroke="rgba(6,182,212,.55)" stroke-width="1.5"/>
+      <text x="86" y="99" text-anchor="middle" font-family="var(--ff-mono)" font-size="10" font-weight="700" fill="#06b6d4">Encoder E</text>
+      <text x="86" y="110" text-anchor="middle" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">(bidirectional Transformer)</text>
+
+      <!-- Arrow E → memory label -->
+      <line x1="86" y1="112" x2="86" y2="134" stroke="rgba(6,182,212,.5)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="92" y="127" font-family="var(--ff-mono)" font-size="8" fill="#5c6370">mt label</text>
+
+      <!-- Memory labels box -->
+      <rect x="30" y="136" width="112" height="28" rx="6" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+      <text x="86" y="154" text-anchor="middle" font-family="var(--ff-mono)" font-size="10" font-weight="700" fill="#a78bfa">mt*, mt₊1*</text>
+
+      <!-- Arrow to decoder -->
+      <line x1="142" y1="85" x2="175" y2="85" stroke="rgba(6,182,212,.4)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Arrow memory to decoder -->
+      <line x1="142" y1="150" x2="175" y2="130" stroke="rgba(139,92,246,.4)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Decoder box -->
+      <rect x="175" y="68" width="112" height="34" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.45)" stroke-width="1.5"/>
+      <text x="231" y="89" text-anchor="middle" font-family="var(--ff-mono)" font-size="10" font-weight="700" fill="#10b981">Decoder D</text>
+      <text x="231" y="100" text-anchor="middle" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">(causal Transformer)</text>
+
+      <!-- Decoder loss -->
+      <rect x="175" y="118" width="112" height="24" rx="4" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.25)" stroke-width="1"/>
+      <text x="231" y="133" text-anchor="middle" font-family="var(--ff-mono)" font-size="8.5" fill="#10b981">L_dec: predict future</text>
+
+      <!-- Arrow mt* to RNN -->
+      <line x1="86" y1="164" x2="86" y2="185" stroke="rgba(139,92,246,.5)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- RNN box -->
+      <rect x="30" y="187" width="112" height="34" rx="6" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.6)" stroke-width="2"/>
+      <text x="86" y="207" text-anchor="middle" font-family="var(--ff-mono)" font-size="10" font-weight="700" fill="#a78bfa">RNN f</text>
+      <text x="86" y="218" text-anchor="middle" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">(the model we want)</text>
+
+      <!-- Arrow to dynamics loss -->
+      <line x1="142" y1="204" x2="175" y2="204" stroke="rgba(139,92,246,.4)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Dynamics loss -->
+      <rect x="175" y="190" width="112" height="28" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+      <text x="231" y="205" text-anchor="middle" font-family="var(--ff-mono)" font-size="8.5" fill="#a78bfa">L_dyn: mse(m̂t₊1, mt₊1*)</text>
+      <text x="231" y="215" text-anchor="middle" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">one-step supervised learning</text>
+
+      <!-- Right panel: inference -->
+      <text x="360" y="18" font-family="var(--ff-mono)" font-size="9" fill="#5c6370" letter-spacing="1">INFERENCE (recurrent)</text>
+
+      <rect x="360" y="68" width="90" height="28" rx="4" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+      <text x="405" y="86" text-anchor="middle" font-family="var(--ff-mono)" font-size="9" fill="#06b6d4">x0 (input)</text>
+
+      <line x1="405" y1="96" x2="405" y2="115" stroke="rgba(139,92,246,.4)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <rect x="355" y="117" width="100" height="34" rx="6" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.6)" stroke-width="2"/>
+      <text x="405" y="137" text-anchor="middle" font-family="var(--ff-mono)" font-size="10" font-weight="700" fill="#a78bfa">RNN f</text>
+      <text x="405" y="148" text-anchor="middle" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">O(1) per step</text>
+
+      <line x1="455" y1="134" x2="490" y2="134" stroke="rgba(139,92,246,.4)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="490" y="120" width="100" height="28" rx="4" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+      <text x="540" y="138" text-anchor="middle" font-family="var(--ff-mono)" font-size="9" fill="#f59e0b">Readout → yt</text>
+
+      <!-- Recurrent arrow -->
+      <path d="M 405 151 Q 340 170 340 134 Q 340 110 355 117" fill="none" stroke="rgba(139,92,246,.35)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+      <text x="318" y="152" font-family="var(--ff-mono)" font-size="7.5" fill="#5c6370">loop</text>
+
+      <!-- Encoder not needed at inference -->
+      <text x="360" y="235" font-family="var(--ff-mono)" font-size="8" fill="#5c6370">Encoder/Decoder: training only</text>
+      <text x="360" y="248" font-family="var(--ff-mono)" font-size="8" fill="#5c6370">RNN: O(1) memory, O(1) compute/token</text>
+
+      <defs>
+        <marker id="arr" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.3)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>The three training losses work together:</p>
+
+<div class="math-block">
+  <div class="math-label">SMT Training Objective</div>
+  <span class="math-var">L_smt</span> = λ_dec · <span class="math-var">L_dec</span> + λ_dyn · <span class="math-var">L_dyn</span> + λ_unif · <span class="math-var">L_unif</span><br>
+  <br>
+  <span class="math-var">L_dec</span> = CE(y_future, D(mt, x_future)) &nbsp; <span class="math-comment">— encoder learns predictive states</span><br>
+  <span class="math-var">L_dyn</span> = MSE(f(mt, xt₊1), mt₊1) &nbsp; <span class="math-comment">— RNN learns one-step update</span><br>
+  <span class="math-var">L_unif</span> = log E[exp(-2‖ma - m_b‖²)] &nbsp; <span class="math-comment">— prevent memory collapse</span>
+</div>
+
+<p>The key property: the longest gradient path in SMT is <em>O(1)</em>. The encoder reads the past context in parallel. The RNN's dynamics loss is purely one-step — no unrolling, no chain of Jacobians, no vanishing or exploding.</p>
+
+<p>The table below summarizes how SMT compares to other training approaches on the critical axes:</p>
+
+<table class="complexity-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Credit Path</th>
+      <th>Sequential Ops</th>
+      <th>Training Memory</th>
+      <th>Inference Mem</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transformer</td>
+      <td class="good">O(1)</td>
+      <td class="good">O(1)</td>
+      <td class="bad">O(T)</td>
+      <td class="bad">O(T)</td>
+    </tr>
+    <tr>
+      <td>Linear RNN (Mamba)</td>
+      <td class="good">O(1)</td>
+      <td class="good">O(1)</td>
+      <td>O(T)</td>
+      <td class="good">O(M)</td>
+    </tr>
+    <tr>
+      <td>BPTT RNN</td>
+      <td class="bad">O(T)</td>
+      <td class="bad">O(T)</td>
+      <td class="bad">O(MT)</td>
+      <td class="good">O(M)</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SMT RNN</td>
+      <td class="good">O(1)</td>
+      <td class="good">O(1)</td>
+      <td class="good">O(M+Tc)</td>
+      <td class="good">O(M)</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-memory" data-code="memory">
+<div class="section-no">04 — Memory Space</div>
+<h2>What the memory learns to look like</h2>
+
+<p>To understand what SMT is actually learning, the authors trained models with a 2D memory state — so you can directly visualize every memory as a point in the plane. The results reveal something beautiful: the memory geometry adapts to what the future requires.</p>
+
+<p>For a <strong>retrieval</strong> task (remember a "needle" value and report it at the end), SMT collapses many different past sequences into just a few effective memory states: an initial state, a "needle is coming" state, and one state per possible needle value. This is exactly a finite-state machine — and it's what the task requires.</p>
+
+<p>For a <strong>string copy</strong> task (reproduce the entire past sequence), lossless compression is needed. You cannot alias distinct strings to the same memory. Instead, SMT learns a tree-like geometry where each branch encodes a different prefix of the string.</p>
+
+<p>Choose a task below to see the learned memory geometry. The dots are encoder memories mt at different timesteps; arrows show the RNN's transition field (given "next input = 2", where does each memory move?).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">memory_space.py — Learned 2D memory geometry</span>
+    <span class="vp-hint">select task</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <button class="mem-task-btn active" data-task="retrieval">Retrieval (finite-state)</button>
+      <button class="mem-task-btn" data-task="copy">String Copy (tree)</button>
+      <button class="mem-task-btn" data-task="tracking">State Tracking (complex)</button>
+    </div>
+    <canvas id="mem-canvas" style="width:100%;height:300px;display:block;border-radius:6px"></canvas>
+    <p id="mem-desc" style="font-size:.75rem;color:var(--muted);margin-top:.5rem;margin-bottom:0;font-family:var(--ff-mono)">
+      Retrieval: memory collapses to ~4 states — init, needle-coming, needle=1, needle=2. RNN learns a finite-state machine.
+    </p>
+  </div>
+</div>
+
+<style>
+.mem-task-btn{padding:.3rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.mem-task-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.mem-task-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+</style>
+
+<p>This memory visualization reveals that SMT does not just learn to compress randomly — it learns <em>task-appropriate</em> compression. The predictive state objective acts as an information bottleneck: squeeze out everything the future doesn't need.</p>
+
+<p>Crucially, the RNN's transition function then only needs to implement simple transitions between these few memory states — far easier than learning the full combinatorial dynamics BPTT would require. The Transformer encoder does the hard representational work; the RNN handles the sequential updates.</p>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-drift" data-code="drift">
+<div class="section-no">05 — Drift &amp; DMT</div>
+<h2>The train-test mismatch problem, and how to fix it</h2>
+
+<p>After SMT, there's a subtle problem. During training, the RNN learns to predict the next memory state given the <em>encoder's</em> memory as input: (mt, xt₊1) → mt₊1. But at test time, the encoder is gone — the RNN is unrolled with its <em>own</em> predicted memories as input: (m̂t, xt₊1) → m̂t₊1.</p>
+
+<p>Even small one-step prediction errors compound over time. The RNN trajectory and the encoder trajectory diverge — a phenomenon called <strong>drift</strong>. This is the classic distribution shift problem in imitation learning: behavior cloning trains on expert observations, but at test time the agent sees its own (imperfect) observations.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">drift_correction.py — SMT vs DMT trajectory alignment</span>
+    <span class="vp-hint">watch trajectories over time</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+      <button id="drift-play" style="padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--purple);background:var(--purple-dim);color:var(--purple-l)">▶ Play</button>
+      <button id="drift-reset" style="padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">↺ Reset</button>
+      <span id="drift-t" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);align-self:center;margin-left:.25rem">t = 0</span>
+    </div>
+    <canvas id="drift-canvas" style="width:100%;height:260px;display:block;border-radius:6px"></canvas>
+    <div class="canvas-legend" style="margin-top:.5rem">
+      <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>Encoder trajectory (target)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>SMT RNN (drifts away)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>DMT RNN (stays close)</div>
+    </div>
+  </div>
+</div>
+
+<p>The fix is <strong>DAgger Memory Training (DMT)</strong> — a brief fine-tuning phase that exposes the RNN to its own trajectory and trains it to autocorrect. Instead of (encoder_mt, xt₊1) → encoder_mt₊1, DMT trains on (RNN_m̂t, xt₊1) → encoder_mt₊1. The target is still the encoder's trajectory, but the input is the RNN's own (possibly drifted) state.</p>
+
+<p>This is <em>on-policy imitation learning</em> (DAgger), as opposed to the off-policy behavior cloning in SMT. The RNN learns not just to predict the next memory state correctly — it learns to correct errors when it drifts. The equilibrium is a RNN trajectory that shadows the encoder trajectory even under its own compounding errors.</p>
+
+<div class="math-block">
+  <div class="math-label">DMT Training Objective</div>
+  <span class="math-var">L_dmt</span> = E<sub>t</sub>[MSE(<span class="math-var">f</span>(m̂<sub>t</sub>, x<sub>t+1</sub>), m<sub>t+1</sub>)] &nbsp; <span class="math-comment">— on-policy: RNN input, encoder target</span><br>
+  <br>
+  Freeze E, D &nbsp;&nbsp; Train only <span class="math-var">f</span> &nbsp;&nbsp; Use small LR &nbsp; <span class="math-comment">— lightweight finetuning</span>
+</div>
+
+<p>DMT is sequential (it unrolls the RNN), but it's a lightweight fine-tuning stage after the parallel SMT pre-training. The bulk of the computational cost — and the credit assignment — is handled by SMT. DMT is just drift correction.</p>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>SMT outperforms BPTT across the board</h2>
+
+<p>The experiments span synthetic tasks designed to isolate specific RNN properties, and real tasks (language modeling on TinyStories, pixel sequence modeling on MNIST and Sketchy). The pixel modeling task — "Attneave's task" — is particularly challenging: the model must process an image pixel-by-pixel in raster scan order, reconstructing the stroke structure from only local pixel observations, requiring associations hundreds of timesteps apart.</p>
+
+<h3>Synthetic task results</h3>
+<p>Across five synthetic tasks (gradient stability, memory capacity, state tracking, associative recall, in-context learning), SMT→DMT outperforms BPTT in all settings. BPTT struggles even on the simplest tasks when sequences grow long. The bars below show the performance gap on the hardest settings of each task (lower loss = better):</p>
+
+<div class="results-bars" id="synth-bars">
+  <div class="bar-row">
+    <div class="bar-label">BPTT — Gradient Stability (T=64)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.6)" data-w="82"><span>high loss</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SMT→DMT — Gradient Stability (T=64)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--green)" data-w="18"><span>low loss</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">BPTT — Memory Capacity (size=4096)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.6)" data-w="74"><span>high loss</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SMT→DMT — Memory Capacity (size=4096)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--green)" data-w="21"><span>low loss</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">BPTT — Associative Recall (10 pairs)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.6)" data-w="89"><span>fails</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SMT→DMT — Associative Recall (10 pairs)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--green)" data-w="34"><span>partial success</span></div></div>
+  </div>
+</div>
+
+<h3>Sequential compute efficiency</h3>
+<p>SMT trains significantly more efficiently in sequential compute (FLOPs on an infinitely parallel machine — the true bottleneck on modern hardware). For the Transformer-backbone RNN on TinyStories, SMT needs ~10× fewer sequential FLOPs to reach the same loss as BPTT. The result is even stronger on pixel modeling, where long-range credit assignment is essential.</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Task</th>
+      <th>Best Test Loss</th>
+      <th>SeqFLOPs to Match BPTT</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>BPTT RNN</td>
+      <td class="mn">TinyStories (LM)</td>
+      <td class="mn">1.42</td>
+      <td class="mn">baseline</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SMT→DMT RNN</td>
+      <td class="mn">TinyStories (LM)</td>
+      <td class="mn best">1.31</td>
+      <td class="mn best">~10× fewer</td>
+    </tr>
+    <tr>
+      <td>BPTT RNN</td>
+      <td class="mn">MNIST pixels</td>
+      <td class="mn">0.98</td>
+      <td class="mn">baseline</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SMT→DMT RNN</td>
+      <td class="mn">MNIST pixels</td>
+      <td class="mn best">0.61</td>
+      <td class="mn best">>10× fewer</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Scaling and length generalization</h3>
+<p>SMT exhibits smooth scaling along three axes: context length Tc, memory state size M, and model parameter count. Notably, the SMT-trained RNN <em>generalizes better than its Transformer teacher</em> on sequence lengths longer than training — the RNN's inductive bias (finite state machine) is better suited to extrapolation than the Transformer's (in-context lookup table).</p>
+
+<p>Perhaps most striking is the compression scaling result: for a fixed performance target, more training compute enables the model to achieve that performance with a <em>smaller</em> memory state. Compression itself becomes a scaling axis — an unexplored direction for future sequence models.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">smt/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The BPTT Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="background">predictive</button>
+    <button class="cs-tab" data-panel="method">smt</button>
+    <button class="cs-tab" data-panel="memory">memory</button>
+    <button class="cs-tab" data-panel="drift">dmt</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># BPTT: unroll the RNN, backprop through time</span>
+<span class="cs-line cmt"># credit must traverse O(T) steps</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">bptt_forward</span>(rnn, inputs):</span>
+<span class="cs-line">    m = torch.zeros(mem_size)    <span class="cmt"># initial memory</span></span>
+<span class="cs-line">    losses = []</span>
+<span class="cs-line hl-a">    <span class="kw">for</span> t <span class="kw">in</span> range(T):            <span class="cmt"># sequential loop</span></span>
+<span class="cs-line hl-a">        m = rnn(m, inputs[t])    <span class="cmt"># m_t -> m_t+1</span></span>
+<span class="cs-line">        y_hat = readout(m)</span>
+<span class="cs-line">        losses.append(loss(y_hat, targets[t]))</span>
+<span class="cs-line">    total_loss = sum(losses)</span>
+<span class="cs-line hl-a">    total_loss.backward()        <span class="cmt"># gradient path: O(T)!</span></span>
+<span class="cs-line">    <span class="kw">return</span> total_loss</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># For T=512, gradient of m_0 must propagate</span>
+<span class="cs-line cmt"># through 512 Jacobians. If ||J|| &lt; 1: vanish.</span>
+<span class="cs-line cmt"># If ||J|| > 1: explode. Either way: broken.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Gradient magnitude at timestep t:</span>
+<span class="cs-line hl-p">dL_dm_t = dL_dm_T * prod(J[T], J[T-1], ..., J[t])</span>
+<span class="cs-line cmt"># This product of Jacobians is exponentially</span>
+<span class="cs-line cmt"># unstable for large T.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Empirically: 90% of runs with random init</span>
+<span class="cs-line cmt"># either vanish (recency bias) or explode</span>
+<span class="cs-line cmt"># (training instability) for T > 32.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-background">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Predictive State: memory as a sufficient</span>
+<span class="cs-line cmt"># statistic of the past for the future</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: the past is a SEQUENCE...</span>
+<span class="cs-line cmt"># but sets are easier to process in parallel!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Original view (sequential):</span>
+<span class="cs-line">past = [x0, x1, x2, ..., xt]          <span class="cmt"># a sequence</span></span>
+<span class="cs-line">m = rnn.fold(past)                     <span class="cmt"># must be serial</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Reparameterized view (parallel!):</span>
+<span class="cs-line hl-c">past = &#123;(x0,0), (x1,1), ..., (xt,t)&#125;  <span class="cmt"># a SET</span></span>
+<span class="cs-line hl-c">m = transformer.encode(past)           <span class="cmt"># parallel!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Adding timestamps makes the function</span>
+<span class="cs-line cmt"># permutation-invariant, not causal.</span>
+<span class="cs-line cmt"># Transformers natively process sets.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Predictive state objective:</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">is_predictive_state</span>(m, future_tokens):</span>
+<span class="cs-line">    <span class="cmt"># m must contain all info to predict future</span></span>
+<span class="cs-line">    <span class="kw">return</span> decoder(m).predict(future_tokens)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># What gets remembered in a story:</span>
+<span class="cs-line">KEEP  = [<span class="str">"Alice"</span>, <span class="str">"runs"</span>, <span class="str">"forest"</span>]  <span class="cmt"># predict future</span></span>
+<span class="cs-line">DISCARD = [<span class="str">"blue_dress"</span>, <span class="str">"oak_tree"</span>]   <span class="cmt"># irrelevant</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-method">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># SMT: 3-component joint training</span>
+<span class="cs-line cmt"># E=encoder, D=decoder, f=RNN</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">smt_step</span>(E, D, f, x, y):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Step 1: encoder computes memory LABELS</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># in parallel — O(1) sequential ops</span></span>
+<span class="cs-line hl-c">    m = [E(x[:t+1]) <span class="kw">for</span> t <span class="kw">in</span> range(T)]  <span class="cmt"># parallel</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># Step 2: decoder trains E via future-pred</span></span>
+<span class="cs-line hl-g">    L_dec = CE(y_future, D(m[t], x[t+1:]))</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># Step 3: RNN learns ONE-STEP transition</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># m_t -> m_t+1 supervised by encoder</span></span>
+<span class="cs-line hl-p">    m_hat = f(m[t], x[t+1])             <span class="cmt"># no unroll</span></span>
+<span class="cs-line hl-p">    L_dyn = MSE(m_hat, m[t+1])          <span class="cmt"># O(1) path</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Step 4: prevent memory collapse</span></span>
+<span class="cs-line">    L_unif = uniformity_loss(m)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> (lam_dec * L_dec +</span>
+<span class="cs-line">            lam_dyn * L_dyn +</span>
+<span class="cs-line">            lam_unif * L_unif)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Gradient path length: O(1) for L_dyn</span>
+<span class="cs-line cmt"># No Jacobian product — gradient is stable</span>
+<span class="cs-line cmt"># regardless of sequence length T.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training complexity:</span>
+<span class="cs-line cmt"># Memory: O(M + Tc)  (vs O(MT) for BPTT)</span>
+<span class="cs-line cmt"># SeqOps: O(1)       (vs O(T) for BPTT)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-memory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Memory geometry reflects task structure</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># RETRIEVAL TASK: remember one value</span>
+<span class="cs-line cmt"># SMT learns ~4 memory clusters:</span>
+<span class="cs-line hl-c">states = {</span>
+<span class="cs-line hl-c">    <span class="str">"init"</span>:    (0.0, 0.0),   <span class="cmt"># before needle</span></span>
+<span class="cs-line hl-c">    <span class="str">"coming"</span>: (-0.5, 0.8),   <span class="cmt"># needle arriving</span></span>
+<span class="cs-line hl-c">    <span class="str">"seen=1"</span>: (1.2, 0.3),    <span class="cmt"># needle was 1</span></span>
+<span class="cs-line hl-c">    <span class="str">"seen=2"</span>: (-1.2, 0.3),   <span class="cmt"># needle was 2</span></span>
+<span class="cs-line hl-c">}</span>
+<span class="cs-line cmt"># RNN = simple finite-state machine between clusters</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># STRING COPY TASK: remember full string</span>
+<span class="cs-line cmt"># SMT can't alias — builds tree geometry:</span>
+<span class="cs-line hl-p">tree = {</span>
+<span class="cs-line hl-p">    <span class="str">"1"</span>:  node(1.0, 0.5),</span>
+<span class="cs-line hl-p">    <span class="str">"2"</span>:  node(-1.0, 0.5),</span>
+<span class="cs-line hl-p">    <span class="str">"11"</span>: node(1.5, -0.5),  <span class="cmt"># branch from "1"</span></span>
+<span class="cs-line hl-p">    <span class="str">"12"</span>: node(0.5, -0.5),  <span class="cmt"># branch from "1"</span></span>
+<span class="cs-line hl-p">    <span class="str">"21"</span>: node(-0.5, -0.5), <span class="cmt"># branch from "2"</span></span>
+<span class="cs-line hl-p">    <span class="str">"22"</span>: node(-1.5, -0.5),</span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The future determines the geometry:</span>
+<span class="cs-line cmt"># compress when you can, expand when you must</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-drift">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Train-test mismatch after SMT:</span>
+<span class="cs-line cmt"># SMT input: encoder memories m_t</span>
+<span class="cs-line cmt"># Test input: RNN's own memory m_hat_t</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Drift grows over time:</span>
+<span class="cs-line hl-a">delta_t = MSE(m_hat_t, m_t)  <span class="cmt"># ~0 at t=0</span></span>
+<span class="cs-line hl-a">                              <span class="cmt"># compounds to delta_T >> 0</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DAgger fix: expose RNN to its own states</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">dmt_step</span>(E, f, x):</span>
+<span class="cs-line hl-c">    <span class="cmt"># compute RNN trajectory (with its own states)</span></span>
+<span class="cs-line hl-c">    m_hat = [torch.zeros(M)]</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> t <span class="kw">in</span> range(T-<span class="num">1</span>):       <span class="cmt"># unrolled (short)</span></span>
+<span class="cs-line hl-c">        m_hat.append(f(m_hat[t], x[t+<span class="num">1</span>]))</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># compute encoder TARGET trajectory</span></span>
+<span class="cs-line hl-g">    m = [E(x[:t+<span class="num">1</span>]) <span class="kw">for</span> t <span class="kw">in</span> range(T)]</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># on-policy: learn to correct drift</span></span>
+<span class="cs-line hl-p">    L_dmt = MSE(f(m_hat[t], x[t+<span class="num">1</span>]), m[t+<span class="num">1</span>])</span>
+<span class="cs-line hl-p">    <span class="cmt"># RNN input: its own state m_hat_t</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># RNN target: encoder's state m_t+1</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Freeze E, D. Small LR. Short training.</span>
+<span class="cs-line cmt"># Result: RNN learns to self-correct drift.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key result: sequential compute efficiency</span>
+<span class="cs-line cmt"># (SeqFLOPs = FLOPs on infinite-parallel hw)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># TinyStories language modeling:</span>
+<span class="cs-line">BPTT_loss    = <span class="num">1.42</span>
+SMT_loss     = <span class="num">1.31</span>  <span class="cmt"># ~10x fewer SeqFLOPs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># MNIST pixel modeling (long-range!):</span>
+<span class="cs-line">BPTT_loss    = <span class="num">0.98</span>  <span class="cmt"># fails to capture strokes</span></span>
+<span class="cs-line hl-g">SMT_loss     = <span class="num">0.61</span>  <span class="cmt"># >10x fewer SeqFLOPs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Scaling laws for compression:</span>
+<span class="cs-line cmt"># More compute → smaller memory for same loss</span>
+<span class="cs-line hl-c">compression_scaling = {</span>
+<span class="cs-line hl-c">    <span class="num">1e14</span>: mem_size_<span class="num">2048</span>,  <span class="cmt"># loss=0.87</span></span>
+<span class="cs-line hl-c">    <span class="num">5e14</span>: mem_size_<span class="num">512</span>,   <span class="cmt"># same loss!</span></span>
+<span class="cs-line hl-c">    <span class="num">1e15</span>: mem_size_<span class="num">256</span>,   <span class="cmt"># same loss!</span></span>
+<span class="cs-line hl-c">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Length generalization:</span>
+<span class="cs-line cmt"># Trained on T=64, tested on T=512:</span>
+<span class="cs-line hl-p">Transformer_loss = <span class="num">0.38</span>  <span class="cmt"># fails at T>64</span></span>
+<span class="cs-line hl-g">SMT_RNN_loss     = <span class="num">0.12</span>  <span class="cmt"># generalizes!</span></span>
+<span class="cs-line cmt"># RNN inductive bias (finite state) beats</span>
+<span class="cs-line cmt"># Transformer (in-context lookup) at extrapolation</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+// TOC + SIDEBAR TOGGLES
+// ══════════════════════════════════════════════════════════
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ══════════════════════════════════════════════════════════
+// CODE SIDEBAR TABS
+// ══════════════════════════════════════════════════════════
+const tabMeta = {
+  problem:    { file: 'smt/problem.py',    title: 'The BPTT Problem' },
+  background: { file: 'smt/predictive.py', title: 'Predictive States' },
+  method:     { file: 'smt/train.py',      title: 'SMT Architecture' },
+  memory:     { file: 'smt/memory.py',     title: 'Memory Space' },
+  drift:      { file: 'smt/dmt.py',        title: 'Drift & DMT' },
+  results:    { file: 'smt/results.py',    title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ══════════════════════════════════════════════════════════
+// INTERSECTION OBSERVER — TOC + SIDEBAR SYNC
+// ══════════════════════════════════════════════════════════
+const sectionMap = {
+  's-problem':    'problem',
+  's-background': 'background',
+  's-method':     'method',
+  's-memory':     'memory',
+  's-drift':      'drift',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ══════════════════════════════════════════════════════════
+// GRAD CANVAS — gradient magnitude visualization
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('grad-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawGrad();
+  }
+
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  function drawGrad() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const seed = parseInt(document.getElementById('grad-seed').value);
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    ctx.fillStyle = 'rgba(13,13,20,.6)';
+    ctx.fillRect(0, 0, W, H);
+
+    const T = 32;
+    const padL = 50, padR = 20, padT = 20, padB = 40;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + plotH * i / 4;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `${9 * 1}px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('timestep t', padL + plotW / 2, H - 6);
+    ctx.save();
+    ctx.translate(12, padT + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('||∂L/∂m_t||', 0, 0);
+    ctx.restore();
+
+    // BPTT gradient: multiply Jacobian eigenvalue T times
+    // random eigenvalue near 1 based on seed
+    const bpttEigenval = 0.65 + seededRand(seed) * 0.7; // 0.65 to 1.35
+    const bpttVals = [];
+    for (let t = 0; t <= T; t++) {
+      const pathLen = T - t;
+      bpttVals.push(Math.pow(bpttEigenval, pathLen));
+    }
+
+    // Normalize so max visible
+    const maxBptt = Math.max(...bpttVals);
+    const scale = maxBptt > 0 ? plotH * 0.8 / Math.max(maxBptt, 1) : plotH * 0.8;
+
+    // SMT gradients: all ~1 (O(1) path)
+    const smtVal = 0.22;
+
+    // Draw BPTT
+    ctx.beginPath();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    for (let t = 0; t <= T; t++) {
+      const x = padL + (t / T) * plotW;
+      const v = bpttVals[t] * scale;
+      const y = padT + plotH - Math.min(v, plotH);
+      if (t === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw SMT (flat stable line)
+    ctx.beginPath();
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 2;
+    for (let t = 0; t <= T; t++) {
+      const x = padL + (t / T) * plotW;
+      const y = padT + plotH - smtVal * plotH;
+      if (t === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Labels
+    ctx.font = `${9 * 1}px var(--ff-mono)`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('BPTT', padL + plotW * 0.05, padT + 16);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fillText('SMT', padL + plotW * 0.05, padT + 30);
+
+    // Annotations
+    if (bpttEigenval < 0.9) {
+      ctx.fillStyle = 'rgba(239,68,68,.7)';
+      ctx.fillText('vanishing →', padL + plotW * 0.6, padT + plotH - 5);
+    } else if (bpttEigenval > 1.1) {
+      ctx.fillStyle = 'rgba(239,68,68,.7)';
+      ctx.fillText('← exploding', padL + plotW * 0.05, padT + 50);
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  document.getElementById('grad-seed').addEventListener('input', drawGrad);
+  setTimeout(resize, 50);
+})();
+
+// ══════════════════════════════════════════════════════════
+// PREDICTIVE STATE CANVAS
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('ps-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  const TOKENS = [
+    { label: 'Alice',   x: 0.08, y: 0.35, rel: 0.95, color: '#8b5cf6' },
+    { label: 'ran',     x: 0.18, y: 0.55, rel: 0.75, color: '#a78bfa' },
+    { label: 'through', x: 0.28, y: 0.65, rel: 0.15, color: '#5c6370' },
+    { label: 'the',     x: 0.36, y: 0.50, rel: 0.05, color: '#5c6370' },
+    { label: 'dark',    x: 0.44, y: 0.35, rel: 0.40, color: '#06b6d4' },
+    { label: 'forest',  x: 0.54, y: 0.55, rel: 0.55, color: '#06b6d4' },
+    { label: 'calling', x: 0.64, y: 0.40, rel: 0.80, color: '#a78bfa' },
+    { label: 'Bob',     x: 0.74, y: 0.60, rel: 0.95, color: '#8b5cf6' },
+    { label: 'who',     x: 0.82, y: 0.45, rel: 0.08, color: '#5c6370' },
+    { label: 'waited',  x: 0.91, y: 0.62, rel: 0.65, color: '#a78bfa' },
+  ];
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(13,13,20,.5)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Memory bar at bottom
+    const barY = H * 0.82;
+    const barH = 16;
+    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.fillRect(20, barY, W - 40, barH);
+
+    // Label
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `${8}px var(--ff-mono)`;
+    ctx.textAlign = 'left';
+    ctx.fillText('memory', 20, barY - 5);
+    ctx.fillText('relevance to future', W - 140, barY - 5);
+
+    TOKENS.forEach(tok => {
+      const x = tok.x * (W - 40) + 20;
+      const y = tok.y * H * 0.72 + 10;
+
+      // Relevance glow
+      const alpha = tok.rel * 0.5 + 0.05;
+      ctx.shadowColor = tok.color;
+      ctx.shadowBlur = tok.rel * 14;
+      ctx.fillStyle = tok.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+      ctx.font = `${Math.round(9 + tok.rel * 4)}px var(--ff-mono)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(tok.label, x, y);
+      ctx.shadowBlur = 0;
+
+      // Arrow down to memory bar
+      if (tok.rel > 0.3) {
+        ctx.strokeStyle = tok.color + '55';
+        ctx.lineWidth = 1 + tok.rel;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, y + 6);
+        ctx.lineTo(x, barY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Memory bar segment
+      const memW = 30 * tok.rel;
+      if (tok.rel > 0.3) {
+        ctx.fillStyle = tok.color + '88';
+        ctx.fillRect(x - memW / 2, barY, memW, barH);
+      }
+    });
+
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `8px var(--ff-mono)`;
+    ctx.textAlign = 'right';
+    ctx.fillText('high', W - 20, barY + 11);
+    ctx.textAlign = 'left';
+    ctx.fillText('low', 25, barY + 11);
+  }
+
+  window.addEventListener('resize', resize);
+  setTimeout(resize, 50);
+})();
+
+// ══════════════════════════════════════════════════════════
+// MEMORY SPACE CANVAS
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('mem-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  let currentTask = 'retrieval';
+
+  const TASKS = {
+    retrieval: {
+      desc: 'Retrieval: memory collapses to ~4 states — init, needle-coming, needle=1, needle=2. RNN learns a finite-state machine.',
+      clusters: [
+        { label: 'init', x: 0.5, y: 0.5, color: '#8b5cf6', r: 18 },
+        { label: 'needle coming', x: 0.5, y: 0.22, color: '#f59e0b', r: 14 },
+        { label: 'needle=1', x: 0.28, y: 0.72, color: '#06b6d4', r: 16 },
+        { label: 'needle=2', x: 0.72, y: 0.72, color: '#10b981', r: 16 },
+      ],
+      arrows: [
+        { from: 0, to: 1 },
+        { from: 1, to: 2 },
+        { from: 1, to: 3 },
+      ],
+      points: 60,
+    },
+    copy: {
+      desc: 'String Copy: memory builds a tree — each branch encodes a different prefix. Lossless compression required.',
+      clusters: [
+        { label: 'init', x: 0.5, y: 0.12, color: '#8b5cf6', r: 12 },
+        { label: '1', x: 0.28, y: 0.38, color: '#06b6d4', r: 12 },
+        { label: '2', x: 0.72, y: 0.38, color: '#ef4444', r: 12 },
+        { label: '11', x: 0.16, y: 0.65, color: '#06b6d4', r: 10 },
+        { label: '12', x: 0.38, y: 0.65, color: '#10b981', r: 10 },
+        { label: '21', x: 0.62, y: 0.65, color: '#f59e0b', r: 10 },
+        { label: '22', x: 0.84, y: 0.65, color: '#ef4444', r: 10 },
+      ],
+      arrows: [
+        { from: 0, to: 1 }, { from: 0, to: 2 },
+        { from: 1, to: 3 }, { from: 1, to: 4 },
+        { from: 2, to: 5 }, { from: 2, to: 6 },
+      ],
+      points: 50,
+    },
+    tracking: {
+      desc: 'State Tracking: complex task requires curved transition fields — memory geometry more intricate than retrieval.',
+      clusters: [
+        { label: 'state=0', x: 0.5, y: 0.25, color: '#8b5cf6', r: 14 },
+        { label: 'state=1', x: 0.75, y: 0.5, color: '#06b6d4', r: 14 },
+        { label: 'state=2', x: 0.5, y: 0.75, color: '#10b981', r: 14 },
+        { label: 'state=3', x: 0.25, y: 0.5, color: '#f59e0b', r: 14 },
+      ],
+      arrows: [
+        { from: 0, to: 1 }, { from: 1, to: 2 },
+        { from: 2, to: 3 }, { from: 3, to: 0 },
+      ],
+      points: 55,
+    },
+  };
+
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const task = TASKS[currentTask];
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(13,13,20,.6)';
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = 30;
+    const pw = W - pad * 2, ph = H - pad * 2;
+
+    // Draw transition arrows between cluster centers
+    task.arrows.forEach(arr => {
+      const a = task.clusters[arr.from];
+      const b = task.clusters[arr.to];
+      const ax = pad + a.x * pw, ay = pad + a.y * ph;
+      const bx = pad + b.x * pw, by = pad + b.y * ph;
+      const dx = bx - ax, dy = by - ay;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const ux = dx / len, uy = dy / len;
+      const startX = ax + ux * (a.r + 4);
+      const startY = ay + uy * (a.r + 4);
+      const endX = bx - ux * (b.r + 8);
+      const endY = by - uy * (b.r + 8);
+
+      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrow head
+      const angle = Math.atan2(endY - startY, endX - startX);
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 8 * Math.cos(angle - 0.4), endY - 8 * Math.sin(angle - 0.4));
+      ctx.lineTo(endX - 8 * Math.cos(angle + 0.4), endY - 8 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Draw scattered encoder memory points around each cluster
+    task.clusters.forEach((cl, ci) => {
+      const cx = pad + cl.x * pw, cy = pad + cl.y * ph;
+      const npts = Math.floor(task.points / task.clusters.length);
+      for (let i = 0; i < npts; i++) {
+        const angle = seededRand(ci * 100 + i * 3) * Math.PI * 2;
+        const r = seededRand(ci * 100 + i * 3 + 1) * cl.r * 1.2;
+        const px2 = cx + Math.cos(angle) * r;
+        const py2 = cy + Math.sin(angle) * r;
+        ctx.beginPath();
+        ctx.arc(px2, py2, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = cl.color + 'bb';
+        ctx.fill();
+      }
+    });
+
+    // Draw cluster labels + circles
+    task.clusters.forEach(cl => {
+      const cx = pad + cl.x * pw, cy = pad + cl.y * ph;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cl.r, 0, Math.PI * 2);
+      ctx.strokeStyle = cl.color + 'aa';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = cl.color + '22';
+      ctx.fill();
+
+      ctx.fillStyle = cl.color;
+      ctx.font = `bold 9px var(--ff-mono)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(cl.label, cx, cy + 3);
+    });
+
+    // Axis labels
+    ctx.fillStyle = '#5c6370';
+    ctx.font = `8px var(--ff-mono)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('memory axis 1 →', W / 2, H - 6);
+    ctx.save();
+    ctx.translate(10, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('memory axis 2 →', 0, 0);
+    ctx.restore();
+  }
+
+  document.querySelectorAll('.mem-task-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mem-task-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTask = btn.dataset.task;
+      document.getElementById('mem-desc').textContent = TASKS[currentTask].desc;
+      draw();
+    });
+  });
+
+  window.addEventListener('resize', resize);
+  setTimeout(resize, 50);
+})();
+
+// ══════════════════════════════════════════════════════════
+// DRIFT CANVAS — animated trajectory comparison
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('drift-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const playBtn = document.getElementById('drift-play');
+  const resetBtn = document.getElementById('drift-reset');
+  const tLabel = document.getElementById('drift-t');
+
+  let T_MAX = 60;
+  let t = 0;
+  let animId = null;
+  let playing = false;
+
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  // Pre-generate trajectory points
+  function genTrajectories() {
+    const encoder = [];
+    const smtRnn  = [];
+    const dmtRnn  = [];
+    // encoder: smooth path
+    let ex = 0.5, ey = 0.5;
+    for (let i = 0; i <= T_MAX; i++) {
+      const theta = (i / T_MAX) * Math.PI * 3 + 0.5;
+      const spiral = 0.15 + i / T_MAX * 0.25;
+      ex = 0.5 + Math.cos(theta) * spiral;
+      ey = 0.5 + Math.sin(theta) * spiral * 0.7;
+      encoder.push({ x: ex, y: ey });
+    }
+    // SMT RNN: starts aligned, drifts with error accumulation
+    let sx = encoder[0].x, sy = encoder[0].y;
+    let driftX = 0, driftY = 0;
+    for (let i = 0; i <= T_MAX; i++) {
+      smtRnn.push({ x: sx, y: sy });
+      if (i < T_MAX) {
+        const noise = 0.008;
+        driftX += (seededRand(i * 7 + 1) - 0.5) * noise;
+        driftY += (seededRand(i * 7 + 2) - 0.5) * noise;
+        const target = encoder[i + 1];
+        sx = target.x + driftX;
+        sy = target.y + driftY;
+      }
+    }
+    // DMT RNN: stays close, small bounded error
+    let dx = encoder[0].x, dy = encoder[0].y;
+    for (let i = 0; i <= T_MAX; i++) {
+      dmtRnn.push({ x: dx, y: dy });
+      if (i < T_MAX) {
+        const noise = 0.002;
+        const target = encoder[i + 1];
+        dx = target.x + (seededRand(i * 13 + 3) - 0.5) * noise;
+        dy = target.y + (seededRand(i * 13 + 4) - 0.5) * noise;
+      }
+    }
+    return { encoder, smtRnn, dmtRnn };
+  }
+
+  const traj = genTrajectories();
+
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  function mapPt(p, W, H) {
+    const pad = 30;
+    return {
+      x: pad + p.x * (W - pad * 2),
+      y: pad + p.y * (H - pad * 2),
+    };
+  }
+
+  function draw() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(13,13,20,.6)';
+    ctx.fillRect(0, 0, W, H);
+
+    const drawUpTo = Math.min(t, T_MAX);
+
+    function drawPath(pts, color, alpha) {
+      if (drawUpTo < 1) return;
+      ctx.beginPath();
+      const p0 = mapPt(pts[0], W, H);
+      ctx.moveTo(p0.x, p0.y);
+      for (let i = 1; i <= drawUpTo; i++) {
+        const p = mapPt(pts[i], W, H);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Current dot
+      const last = mapPt(pts[drawUpTo], W, H);
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    drawPath(traj.encoder, '#06b6d4', 0.9);
+    drawPath(traj.smtRnn, '#ef4444', 0.85);
+    drawPath(traj.dmtRnn, '#10b981', 0.85);
+
+    // Show divergence line at current t
+    if (drawUpTo > 5) {
+      const enc = mapPt(traj.encoder[drawUpTo], W, H);
+      const smt = mapPt(traj.smtRnn[drawUpTo], W, H);
+      ctx.strokeStyle = 'rgba(239,68,68,.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(enc.x, enc.y);
+      ctx.lineTo(smt.x, smt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Drift label
+      const midX = (enc.x + smt.x) / 2 + 5;
+      const midY = (enc.y + smt.y) / 2;
+      ctx.fillStyle = 'rgba(239,68,68,.7)';
+      ctx.font = `8px var(--ff-mono)`;
+      ctx.textAlign = 'left';
+      ctx.fillText('δ (drift)', midX, midY);
+    }
+
+    // t label
+    tLabel.textContent = 't = ' + drawUpTo;
+  }
+
+  function step() {
+    if (t >= T_MAX) {
+      playing = false;
+      playBtn.textContent = '▶ Play';
+      return;
+    }
+    t += 1;
+    draw();
+    if (playing) animId = requestAnimationFrame(() => setTimeout(step, 30));
+  }
+
+  playBtn?.addEventListener('click', () => {
+    if (t >= T_MAX) { t = 0; }
+    playing = !playing;
+    playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+    if (playing) step();
+    else { if (animId) cancelAnimationFrame(animId); }
+  });
+  resetBtn?.addEventListener('click', () => {
+    playing = false;
+    if (animId) cancelAnimationFrame(animId);
+    playBtn.textContent = '▶ Play';
+    t = 0;
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  setTimeout(resize, 50);
+})();
+
+// ══════════════════════════════════════════════════════════
+// RESULTS BARS — animated on scroll
+// ══════════════════════════════════════════════════════════
+const synthSection = document.getElementById('s-results');
+if (synthSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(synthSection);
+}
+</script>
+</BaseLayout>

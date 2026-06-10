@@ -686,10 +686,9 @@ pkill -f "astro dev"
 
 ---
 
-## Phase 7 — Generate summary video (HyperFrames) *(optional)*
+## Phase 7 — Generate summary video (HyperFrames)
 
-Run this phase when the user explicitly asks for a video, or when the post has a
-particularly strong visual insight worth a 60–90 second social clip.
+**This phase runs for every post — always generate the video.** The bulk of the visualization work is already done in the blog post; the video is a lightweight linear adaptation of the hero viz that doubles as social content. Skip only if the user explicitly says not to.
 
 ### Prerequisites
 
@@ -701,35 +700,64 @@ brew install ffmpeg     # if missing
 
 GSAP is loaded from the CDN at render time — no local install needed.
 
+### Common lint errors to fix before rendering
+
+Run `npx hyperframes@latest lint .` from the composition directory and fix all errors (warnings are fine to leave):
+
+- **`media_missing_id`** — every `<audio>` element needs a unique `id` attribute or it will be **silent** in the rendered video. Always write `<audio id="audio-s1" data-start="0" ...>`.
+- **`multiple_root_compositions`** — the composition must be named `index.html`, not `composition.html`. HyperFrames discovers the entry point by filename; a second HTML file causes duplicate audio playback.
+- **`overlapping_gsap_tweens`** — when two tweens animate the same property on the same element (e.g. a `fromTo` entrance + a `to` ambient loop both animating `scale`), add `overwrite: 'auto'` to the later tween so GSAP resolves the conflict deterministically.
+- **`gsap_css_transform_conflict`** — if an element has a CSS `transform: translateX(-50%)` and a GSAP tween also animates `x`/`y`/`scale`, GSAP overwrites the CSS transform entirely. Fix by removing the CSS transform and using GSAP properties exclusively: `xPercent: -50` instead of `transform: translateX(-50%)`.
+
 ### What goes in the video
 
-A **60-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts):
+A **72-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts).
 
-| Scene | Window | Voiceover (~165 wpm) | Content |
+**Every video always opens with the branded "Today's AI/ML Deep Dive" card.** This is non-negotiable — it is scene 0, always present, always first.
+
+| Scene | Window | Voiceover | Content |
 |---|---|---|---|
-| Title    | 0–8s   | ~20 words | Post title + one-line insight + blog URL |
-| Core viz | 8–35s  | ~70 words | Hero visualization as a linear GSAP-driven animation |
-| Key result | 35–52s | ~45 words | Headline metric vs baselines (animated bars) |
-| CTA      | 52–60s | ~20 words | "Full interactive post at yourblog.com/posts/…" |
+| **0 — Opening** | 0–5s   | ~5 words  | "Today's AI/ML Deep Dive" branded card — eyebrow, animated line, brand name |
+| **1 — Title**   | 5–17s  | ~25 words | Paper title + one-line hook (what problem it solves) + subtitle + blog URL |
+| **2 — Explain** | 17–49s | ~90 words | **Explain the mechanism/concept** — how does it work, what's the key insight. The viz *is* the explanation. Voiceover narrates *why/how*, not benchmark numbers. |
+| **3 — Results** | 49–63s | ~35 words | Brief flash of 2–3 key numbers only. Kept short — the concept is the story, not the leaderboard. |
+| **4 — CTA**     | 63–72s | ~18 words | "Full interactive post at [url]. [what you can do there]" |
+
+**Scene 2 is the heart of the video.** The visualization and voiceover must explain the paper's core insight — not the results. Ask: *can a viewer understand why this matters just from watching this scene?* Good: "BPTT gradients vanish/explode as path length grows — SMT's path is always O(1)". Bad: "SMT achieves 10× better efficiency than BPTT".
+
+**Also generate a Chinese version** for every post:
+```
+social-media/posts/<post-id>-zh/
+  index.html        ← Chinese composition (same viz, Chinese text + voiceover)
+  summary-zh.mp4    ← rendered output
+  audio/
+    scene-0.mp3  scene-1.mp3  scene-2.mp3  scene-3.mp3  scene-4.mp3
+```
+Chinese voiceover: `say -v Tingting -r 155` (macOS). Chinese scene 2 tends to run ~25–30s at natural Mandarin pace (~4.5 chars/sec), so extend the scene window if needed.
 
 ### File locations
 
 ```
 social-media/posts/<post-id>/
-  composition.html     ← HyperFrames composition (git-ignored)
-  summary.mp4          ← rendered output (git-ignored)
+  index.html           ← English HyperFrames composition (git-ignored; must be index.html)
+  summary.mp4          ← rendered English output (git-ignored)
   audio/
-    scene-1.mp3        ← title voiceover        (0–8s)
-    scene-2.mp3        ← core viz voiceover     (8–35s)
-    scene-3.mp3        ← results voiceover      (35–52s)
-    scene-4.mp3        ← CTA voiceover          (52–60s)
+    scene-0.mp3        ← opening voiceover       (0–5s)
+    scene-1.mp3        ← title voiceover         (5–17s)
+    scene-2.mp3        ← explanation voiceover   (17–49s)
+    scene-3.mp3        ← results voiceover       (49–63s)
+    scene-4.mp3        ← CTA voiceover           (63–72s)
+social-media/posts/<post-id>-zh/
+  index.html           ← Chinese composition (git-ignored)
+  summary-zh.mp4       ← rendered Chinese output (git-ignored)
+  audio/               ← same structure, Chinese scripts
 ```
 
 `social-media/` lives at the repo root and is listed in `.gitignore` — videos and audio are never committed.
 
 ### Composition template
 
-Create `social-media/posts/<post-id>/composition.html`:
+Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.html` as the entry point — `composition.html` will not be discovered by lint or render):
 
 ```html
 <!DOCTYPE html>
@@ -794,190 +822,224 @@ Create `social-media/posts/<post-id>/composition.html`:
 </head>
 <body>
 
-<!-- Single root clip — total composition duration = 60s, 9:16 vertical -->
+<!-- Total: 72s, 5 scenes, 9:16 vertical -->
 <div id="stage"
-     data-composition-id="summary"
+     data-composition-id="POST-SLUG"
      data-start="0"
-     data-duration="60"
+     data-duration="72"
      data-width="1080"
      data-height="1920">
 
-  <!-- Scene 1: Title (0–8s) -->
+  <!-- Scene 0: Opening card (0–5s) — ALWAYS PRESENT, NEVER SKIP -->
+  <div class="scene" id="scene-open">
+    <div id="open-glow"></div>
+    <div id="open-eyebrow">Today's AI/ML Deep Dive</div>
+    <div id="open-line"></div>
+    <div id="open-brand">AI/ML Deep Dives</div>
+    <div id="open-url">aideepd.ives</div>
+  </div>
+
+  <!-- Scene 1: Title (5–17s) -->
   <div class="scene" id="scene-title">
     <div id="title-tags">
       <span class="tag">REPLACE WITH PRIMARY TOPIC</span>
       <span class="tag tag-c">REPLACE WITH SECONDARY TOPIC</span>
     </div>
-    <div id="title-text">Post Title Goes Here</div>
-    <div id="title-sub">One-sentence insight that makes the reader want more.</div>
-    <div id="title-url">yourblog.com</div>
+    <div id="title-text">Post Title</div>
+    <div id="title-hook">One-line hook: what problem it solves</div>
+    <div id="title-sub">One sentence expanding the hook with concrete context.</div>
+    <div id="title-url">aideepd.ives/posts/POST-SLUG</div>
   </div>
 
-  <!-- Scene 2: Core visualization (8–35s) -->
+  <!-- Scene 2: Core viz — EXPLAINS THE MECHANISM (17–49s) -->
+  <!-- Voiceover: narrate how/why, not benchmark numbers -->
   <div class="scene" id="scene-viz">
-    <div id="viz-label">REPLACE WITH VIZ LABEL</div>
+    <div id="viz-label">REPLACE WITH VIZ LABEL — what the animation shows</div>
     <canvas id="viz-canvas" width="960" height="800"></canvas>
   </div>
 
-  <!-- Scene 3: Key result (35–52s) — replace rows with real paper numbers -->
+  <!-- Scene 3: Brief results flash (49–63s) — 2–3 numbers max -->
   <div class="scene" id="scene-result">
-    <div id="result-title">Results — REPLACE WITH BENCHMARK NAME</div>
+    <div id="result-title">Results — BENCHMARK NAME</div>
+    <div id="result-sub">context line</div>
     <div class="r-row">
-      <div class="r-label">Baseline A</div>
-      <div class="r-track">
-        <div class="r-fill" id="bar-0" style="background:rgba(107,114,128,.5)" data-w="54">
-          <span>54%</span></div></div></div>
-    <div class="r-row">
-      <div class="r-label">Baseline B</div>
-      <div class="r-track">
-        <div class="r-fill" id="bar-1" style="background:rgba(107,114,128,.5)" data-w="67">
-          <span>67%</span></div></div></div>
+      <div class="r-label">Baseline</div>
+      <div class="r-track"><div class="r-fill" id="bar-0" style="background:rgba(107,114,128,.5)" data-w="54"><span>54%</span></div></div></div>
     <div class="r-row">
       <div class="r-label" style="color:var(--purple)">This Paper</div>
-      <div class="r-track">
-        <div class="r-fill" id="bar-2" style="background:var(--purple)" data-w="91">
-          <span>91%</span></div></div></div>
+      <div class="r-track"><div class="r-fill" id="bar-1" style="background:var(--purple)" data-w="91"><span>91%</span></div></div></div>
   </div>
 
-  <!-- Scene 4: CTA (52–60s) -->
+  <!-- Scene 4: CTA (63–72s) -->
   <div class="scene" id="scene-cta">
     <div id="cta-label">Full interactive post</div>
-    <div id="cta-url">yourblog.com/posts/POST-SLUG</div>
-    <div id="cta-hint">Visualizations you can interact with →</div>
+    <div id="cta-url">aideepd.ives/posts/POST-SLUG</div>
+    <div id="cta-hint">What you can do interactively →</div>
   </div>
 
-  <!-- Voiceover audio — one track per scene, generated by Phase 7 voiceover step -->
-  <audio data-start="0"  data-duration="8"  data-track-index="1" data-volume="1.0" src="audio/scene-1.mp3"></audio>
-  <audio data-start="8"  data-duration="27" data-track-index="1" data-volume="1.0" src="audio/scene-2.mp3"></audio>
-  <audio data-start="35" data-duration="17" data-track-index="1" data-volume="1.0" src="audio/scene-3.mp3"></audio>
-  <audio data-start="52" data-duration="8"  data-track-index="1" data-volume="1.0" src="audio/scene-4.mp3"></audio>
+  <!-- IMPORTANT: every <audio> must have a unique id or the renderer will make it SILENT -->
+  <audio id="audio-s0" data-start="0"  data-duration="5"  data-track-index="1" data-volume="1.0" src="audio/scene-0.mp3"></audio>
+  <audio id="audio-s1" data-start="5"  data-duration="12" data-track-index="1" data-volume="1.0" src="audio/scene-1.mp3"></audio>
+  <audio id="audio-s2" data-start="17" data-duration="32" data-track-index="1" data-volume="1.0" src="audio/scene-2.mp3"></audio>
+  <audio id="audio-s3" data-start="49" data-duration="14" data-track-index="1" data-volume="1.0" src="audio/scene-3.mp3"></audio>
+  <audio id="audio-s4" data-start="63" data-duration="9"  data-track-index="1" data-volume="1.0" src="audio/scene-4.mp3"></audio>
 
 </div><!-- /#stage -->
 
 <script>
-// ── Canvas: Scene 2 ──────────────────────────────────────────────────────
 const vizCanvas = document.getElementById('viz-canvas');
-const vCtx      = vizCanvas ? vizCanvas.getContext('2d') : null;
+const vCtx = vizCanvas ? vizCanvas.getContext('2d') : null;
 const VW = 960, VH = 800;
-
-// GSAP proxy — its `t` value (0→1) drives every canvas draw call.
-// Replace the body of drawViz() with the post's core visualization,
-// expressed as a pure function of t ∈ [0, 1].
 const proxy = { t: 0 };
+
+// drawViz(t) — pure function of t ∈ [0,1], no Math.random()
+// Use seededRand(n) for deterministic particle positions
+function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
 
 function drawViz(t) {
   if (!vCtx) return;
   vCtx.clearRect(0, 0, VW, VH);
-
-  // ── REPLACE THIS BLOCK with the post's core "before→after" ───────────
-  // Example: a dot sliding from the "bad" zone (left) to "good" zone (right)
-  const ease = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // ease-in-out
-  const x = 80 + ease * (VW - 160);
-  const y = VH / 2;
-
-  // background zones
-  vCtx.fillStyle = 'rgba(239,68,68,.12)';
-  vCtx.fillRect(0, 0, VW/2, VH);
-  vCtx.fillStyle = 'rgba(16,185,129,.12)';
-  vCtx.fillRect(VW/2, 0, VW/2, VH);
-
-  // zone labels
-  vCtx.font = 'bold 18px "JetBrains Mono",monospace';
-  vCtx.fillStyle = 'rgba(239,68,68,.7)';
-  vCtx.fillText('before', 28, VH - 32);
-  vCtx.fillStyle = 'rgba(16,185,129,.7)';
-  vCtx.fillText('after', VW - 90, VH - 32);
-
-  // moving dot
-  vCtx.beginPath();
-  vCtx.arc(x, y, 18, 0, Math.PI * 2);
-  vCtx.fillStyle = '#8b5cf6';
-  vCtx.shadowColor = '#8b5cf6';
-  vCtx.shadowBlur  = 24;
-  vCtx.fill();
-  vCtx.shadowBlur  = 0;
-  // ── END REPLACE ───────────────────────────────────────────────────────
+  // REPLACE: draw the paper's core concept as a function of t
+  // t=0: "before" state (problem / old approach)
+  // t=1: "after" state (solution / new approach)
 }
 
-// ── GSAP master timeline (paused — HyperFrames seeks it per frame) ───────
-// Total duration must cover the full composition (60s).
 const tl = gsap.timeline({ paused: true });
 
-// Scene 1: Title elements fade/slide in (0–8s)
-tl.to('#scene-title', { opacity: 1, duration: 0.01 }, 0)
-  .from('#title-tags',  { opacity: 0, y: 20, duration: 0.8,  ease: 'power2.out' }, 0.2)
-  .from('#title-text',  { opacity: 0, y: 40, duration: 1.2,  ease: 'power3.out' }, 0.4)
-  .from('#title-sub',   { opacity: 0, y: 26, duration: 1.0,  ease: 'power2.out' }, 0.9)
-  .from('#title-url',   { opacity: 0,        duration: 0.6                      }, 1.6)
-  .to('#scene-title',   { opacity: 0,        duration: 0.7                      }, 7.3);
+// Scene 0: Opening (0–5s)
+tl.to('#scene-open', { opacity: 1, duration: 0.01 }, 0)
+  .from('#open-eyebrow', { opacity: 0, y: 20, duration: 0.7, ease: 'power2.out' }, 0.3)
+  .from('#open-line',    { scaleX: 0, duration: 0.6, ease: 'expo.out', transformOrigin: 'left' }, 0.7)
+  .from('#open-brand',   { opacity: 0, y: 36, duration: 1.0, ease: 'power3.out' }, 0.9)
+  .from('#open-url',     { opacity: 0, duration: 0.5 }, 1.8)
+  .to('#scene-open',     { opacity: 0, duration: 0.5 }, 4.5);
 
-// Scene 2: Core viz — proxy.t drives drawViz() (8–35s)
-tl.to('#scene-viz', { opacity: 1, duration: 0.01 }, 8)
-  .from('#viz-label', { opacity: 0, duration: 0.6 }, 8.3)
-  .to(proxy, {
-    t: 1, duration: 27, ease: 'none',   // linear — drawViz() controls its own easing
+// Scene 1: Title (5–17s)
+tl.to('#scene-title', { opacity: 1, duration: 0.01 }, 5)
+  .from('#title-tags', { opacity: 0, y: 20, duration: 0.7, ease: 'power2.out' }, 5.3)
+  .from('#title-text', { opacity: 0, y: 40, duration: 1.0, ease: 'power3.out' }, 5.7)
+  .from('#title-hook', { opacity: 0, y: 28, duration: 0.9, ease: 'power2.out' }, 6.4)
+  .from('#title-sub',  { opacity: 0, y: 24, duration: 0.8, ease: 'power2.out' }, 7.2)
+  .from('#title-url',  { opacity: 0, duration: 0.5 }, 8.2)
+  .to('#scene-title',  { opacity: 0, duration: 0.5 }, 16.5);
+
+// Scene 2: Explanation viz (17–49s)
+tl.to('#scene-viz', { opacity: 1, duration: 0.01 }, 17)
+  .from('#viz-label', { opacity: 0, duration: 0.7, ease: 'power2.out' }, 17.4)
+  .to(proxy, { t: 1, duration: 30, ease: 'none',
     onUpdate() { drawViz(proxy.t); }
-  }, 8)
-  .to('#scene-viz', { opacity: 0, duration: 0.7 }, 34.3);
+  }, 18)
+  .to('#scene-viz', { opacity: 0, duration: 0.5 }, 48.5);
 
-// Scene 3: Results — bars animate from width:0 to data-w% (35–52s)
-tl.to('#scene-result', { opacity: 1, duration: 0.01 }, 35)
-  .from('#result-title', { opacity: 0, y: 20, duration: 0.8 }, 35.3);
+// Scene 3: Results (49–63s)
+tl.to('#scene-result', { opacity: 1, duration: 0.01 }, 49)
+  .from('#result-title', { opacity: 0, y: 20, duration: 0.8, ease: 'power2.out' }, 49.3)
+  .from('#result-sub',   { opacity: 0, duration: 0.5 }, 49.9);
 document.querySelectorAll('.r-fill').forEach((bar, i) => {
-  tl.to(bar, { width: bar.dataset.w + '%', duration: 1.3, ease: 'power2.out' }, 36 + i * 0.35);
+  tl.to(bar, { width: bar.dataset.w + '%', duration: 1.3, ease: 'power2.out' }, 50.5 + i * 0.35);
 });
-tl.to('#scene-result', { opacity: 0, duration: 0.7 }, 51.3);
+tl.to('#scene-result', { opacity: 0, duration: 0.5 }, 62.5);
 
-// Scene 4: CTA (52–60s)
-tl.to('#scene-cta', { opacity: 1, duration: 0.01 }, 52)
-  .from('#cta-label', { opacity: 0, duration: 0.7 }, 52.4)
-  .from('#cta-url',   { opacity: 0, scale: 0.92, duration: 1.0 }, 53.0)
-  .from('#cta-hint',  { opacity: 0, duration: 0.7 }, 54.3);
+// Scene 4: CTA (63–72s)
+tl.to('#scene-cta',   { opacity: 1, duration: 0.01 }, 63)
+  .from('#cta-label', { opacity: 0, duration: 0.6 }, 63.4)
+  .from('#cta-url',   { opacity: 0, scale: 0.92, duration: 1.0, ease: 'power2.out' }, 64.1)
+  .from('#cta-hint',  { opacity: 0, duration: 0.6 }, 65.2)
+  .to('#scene-cta',   { opacity: 0, duration: 0.8 }, 71.2);
 
-// Register — HyperFrames looks for window.__timelines[compositionId]
+drawViz(0);
 window.__timelines = window.__timelines || {};
-window.__timelines.summary = tl;
+window.__timelines['POST-SLUG'] = tl;
 </script>
 </body>
 </html>
 ```
 
+### Also add to CSS (scene-open styles):
+```css
+/* ── Scene 0: Opening card ── */
+#scene-open { gap:36px; text-align:center; background:#0d0d14 }
+#open-eyebrow { font-size:18px; font-weight:700; letter-spacing:.18em;
+                text-transform:uppercase; color:var(--muted) }
+#open-line { width:120px; height:2px; background:linear-gradient(90deg,var(--purple),var(--cyan));
+             border-radius:2px; margin:0 auto }
+#open-brand { font-size:62px; font-weight:900; letter-spacing:-.02em; line-height:1.1;
+              background:linear-gradient(135deg,var(--purple) 30%,var(--cyan));
+              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+              background-clip:text }
+#open-url { font-size:20px; color:var(--muted); letter-spacing:.06em;
+            position:absolute; bottom:72px }
+#open-glow { position:absolute; width:700px; height:700px; border-radius:50%;
+             background:radial-gradient(circle,rgba(139,92,246,.15) 0%,rgba(0,0,0,0) 70%);
+             top:50%; left:50%; margin:-350px 0 0 -350px; pointer-events:none }
+
+/* ── Scene 1: Title — now has hook line ── */
+#title-hook { font-size:36px; font-weight:700; color:var(--purple-l,#a78bfa);
+              line-height:1.25; max-width:920px }
+```
+
 ### Voiceover generation
 
-Write a spoken script for each scene, then generate the audio files **before** running the render (HyperFrames mixes them during encode).
+Write a spoken script for each scene, then generate the audio files **before** running the render.
 
-**Script guide — word counts match ~165 wpm conversational pace:**
+**Script guide:**
 
-| Scene | Target | Example |
+| Scene | Target | Tone |
 |---|---|---|
-| 1 — Title | ~20 words | *"Researchers just cracked [problem]. Here's how [Paper Name] makes [key claim] possible — in 60 seconds."* |
-| 2 — Core viz | ~70 words | *"The old approach [failure mode]. Watch what happens when [new method] kicks in. [Describe the animation beat by beat, narrating what's visually changing and why it matters.]"* |
-| 3 — Results | ~45 words | *"On [Benchmark], the best prior method hits [N]%. This paper reaches [M]% — a [delta]-point jump. Even more striking: [secondary insight from the paper's table]."* |
-| 4 — CTA | ~20 words | *"The full interactive post lets you control the variables yourself. Link in bio, or search [post title]."* |
+| 0 — Opening | ~5 words | Just "Today's AI/ML Deep Dive." — short, punchy |
+| 1 — Title   | ~25 words | Name the paper. State the problem it solves. One concrete number if possible. |
+| 2 — Explain | ~90 words | **Explain the mechanism.** Narrate what's happening in the animation — why the old approach fails, what the new approach does differently, step by step. No benchmark numbers. |
+| 3 — Results | ~35 words | 1–2 headline numbers. Brief. "On X, this method scores Y — Z times better than the baseline." |
+| 4 — CTA     | ~18 words | "Full interactive post at [url]. [One thing you can do there]." |
 
-**Generate with macOS `say` (free, no API key):**
+**Generate with Kokoro (free, open-source, runs locally — recommended default):**
+
+Kokoro is a neural TTS model (82M params) built into HyperFrames. First-run downloads ~300 MB of model weights (cached forever after). Requires `kokoro-onnx` Python package:
+
+```bash
+# One-time setup (only needed once per machine):
+pip3 install kokoro-onnx soundfile --break-system-packages
+# OR if using uv:
+uv pip install kokoro-onnx soundfile
+
+mkdir -p audio
+
+# English voices: af_heart, af_nova (warmer), af_sky, am_adam, am_michael, bf_emma, bm_george
+# Chinese voice:  zf_xiaobei  (requires espeak-ng with zh support — see fallback below)
+# -s: speed multiplier (0.9–1.0 sounds most natural)
+
+npx hyperframes tts "Today's AI slash ML Deep Dive." -v af_nova -s 0.95 -o audio/scene-0.wav
+npx hyperframes tts "SCENE 1 TITLE SCRIPT" -v af_nova -s 0.95 -o audio/scene-1.wav
+npx hyperframes tts "SCENE 2 EXPLANATION SCRIPT" -v af_nova -s 0.95 -o audio/scene-2.wav
+npx hyperframes tts "SCENE 3 RESULTS SCRIPT" -v af_nova -s 0.95 -o audio/scene-3.wav
+npx hyperframes tts "SCENE 4 CTA SCRIPT" -v af_nova -s 0.95 -o audio/scene-4.wav
+
+# Convert WAV → MP3
+for i in 0 1 2 3 4; do
+  ffmpeg -y -i audio/scene-${i}.wav -acodec libmp3lame -q:a 2 audio/scene-${i}.mp3 \
+    && rm audio/scene-${i}.wav
+done
+```
+
+**Chinese voiceover — macOS `say` fallback (Kokoro's zf_xiaobei requires espeak-ng zh support):**
 
 ```bash
 mkdir -p audio
 
-# -v: voice  -r: words per minute  -o: output file
-# Check available voices: say -v ?
-# Best English options: Ava (US), Allison (US), Samantha (US), Karen (AU), Serena (UK)
-# Use the "(Enhanced)" or "(Premium)" variant when available — noticeably clearer
+# Best Mandarin voices on macOS: Tingting (zh_CN), Meijia (zh_TW)
+say -v "Tingting" -r 155 "今日AI/ML深度解析。" -o audio/scene-0.aiff
+say -v "Tingting" -r 155 "场景1脚本" -o audio/scene-1.aiff
+say -v "Tingting" -r 155 "场景2脚本" -o audio/scene-2.aiff
+say -v "Tingting" -r 155 "场景3脚本" -o audio/scene-3.aiff
+say -v "Tingting" -r 155 "场景4脚本" -o audio/scene-4.aiff
 
-say -v "Ava (Enhanced)"    -r 165 "SCENE 1 SCRIPT" -o audio/scene-1.aiff
-say -v "Ava (Enhanced)"    -r 165 "SCENE 2 SCRIPT" -o audio/scene-2.aiff
-say -v "Ava (Enhanced)"    -r 165 "SCENE 3 SCRIPT" -o audio/scene-3.aiff
-say -v "Ava (Enhanced)"    -r 165 "SCENE 4 SCRIPT" -o audio/scene-4.aiff
-
-# Convert AIFF → MP3 (HyperFrames works with both, but MP3 is smaller)
 for i in 1 2 3 4; do
   ffmpeg -y -i audio/scene-${i}.aiff -acodec libmp3lame -q:a 2 audio/scene-${i}.mp3 \
     && rm audio/scene-${i}.aiff
 done
 ```
 
-**For production-quality voice (ElevenLabs):**
+**For production-quality voice (ElevenLabs — paid, not required):**
 
 ```bash
 # Set your key: export ELEVENLABS_API_KEY=sk_...
@@ -1001,10 +1063,11 @@ Save each scene's script as `audio/scene-N-script.txt` before running the loop.
 **Listen back before rendering** — play each MP3 and check it finishes before the scene ends:
 
 ```bash
-afplay audio/scene-1.mp3   # should finish within 8s
-afplay audio/scene-2.mp3   # should finish within 27s
-afplay audio/scene-3.mp3   # should finish within 17s
-afplay audio/scene-4.mp3   # should finish within 8s
+afplay audio/scene-0.mp3   # should finish within 5s
+afplay audio/scene-1.mp3   # should finish within 12s
+afplay audio/scene-2.mp3   # should finish within 32s
+afplay audio/scene-3.mp3   # should finish within 14s
+afplay audio/scene-4.mp3   # should finish within 9s
 ```
 
 If a clip runs long, either trim the script or extend the scene's `data-duration` (and adjust all subsequent `data-start` values and GSAP positions accordingly).
@@ -1053,7 +1116,7 @@ function drawViz(t) {
 
 ### Preview without rendering
 
-Open `composition.html` in Chrome. The timeline is paused by default. Run in the DevTools console:
+Open `index.html` in Chrome. The timeline is paused by default. Run in the DevTools console:
 
 ```js
 window.__timelines.summary.play();       // play from current position
@@ -1067,7 +1130,7 @@ window.__timelines.summary.seek(0);      // back to start
 
 ```bash
 cd social-media/posts/<post-id>
-npx hyperframes@latest render ./composition.html -o ./summary.mp4
+npx hyperframes@latest render . -o ./summary.mp4
 ```
 
 Output: `social-media/posts/<post-id>/summary.mp4` — ready to upload directly to LinkedIn, Twitter/X, or Instagram. Git-ignored, never committed.
@@ -1135,13 +1198,16 @@ Add to the post CSS:
 **Index**
 - [ ] Index entry added with `★ Latest` badge, previous post's badge removed
 
-**Video (Phase 7 — only if requested)**
-- [ ] `social-media/posts/<post-id>/composition.html` created (git-ignored)
-- [ ] All placeholder text replaced (title, tags, insight, benchmark rows, CTA URL)
-- [ ] `drawViz(t)` implements the post's hero visualization as a pure `t ∈ [0,1]` function
+**Video (Phase 7 — always run, both EN and ZH)**
+- [ ] `social-media/posts/<post-id>/index.html` created (lint requires `index.html`)
+- [ ] `social-media/posts/<post-id>-zh/index.html` created (Chinese version)
+- [ ] Scene 0 opening card present in both — "Today's AI/ML Deep Dive" / "今日AI/ML深度解析"
+- [ ] Scene 2 voiceover explains the *mechanism*, not the benchmark numbers
+- [ ] All placeholder text replaced (title, hook, tags, bar labels, CTA URL)
+- [ ] `drawViz(t)` implements the post's core concept as a pure `t ∈ [0,1]` function
 - [ ] Seeded PRNG used for any particle/dot positions (no `Math.random()`)
-- [ ] Voiceover scripts written — ~20 / ~70 / ~45 / ~20 words for scenes 1–4
-- [ ] `audio/scene-N.mp3` generated and each clip fits within its scene window (`afplay` check)
-- [ ] Previewed in Chrome DevTools (`window.__timelines.summary.seek(N)`)
-- [ ] `npx hyperframes@latest render ./composition.html -o ./summary.mp4` exits 0
-- [ ] If embedded in post: copied to `apps/blog/public/posts/<slug>/summary.mp4` and committed; `<video>` tag + hero-links button added
+- [ ] `audio/scene-0.mp3` through `audio/scene-4.mp3` generated for both EN and ZH
+- [ ] Each clip fits within its scene window: 5 / 12 / 32 / 14 / 9s (`afplay` check)
+- [ ] `npx hyperframes@latest render . -o ./summary.mp4` exits 0 (EN)
+- [ ] `npx hyperframes@latest render . -o ./summary-zh.mp4` exits 0 (ZH)
+- [ ] If embedded in post: copied to `apps/blog/public/posts/<slug>/summary.mp4` and committed

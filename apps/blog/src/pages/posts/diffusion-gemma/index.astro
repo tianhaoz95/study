@@ -1,0 +1,1262 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="DiffusionGemma: 4× Faster Text Generation with Canvas Diffusion | AI/ML Deep Dives"
+  description="Google's DiffusionGemma generates 256 tokens simultaneously instead of one at a time, hitting 1,100+ tokens/sec on H100 by moving LLM inference from memory-bandwidth-bound to compute-bound."
+  crumb="DiffusionGemma"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Canvas controls */
+.canvas-controls{display:flex;align-items:center;gap:.625rem;margin-top:.875rem;flex-wrap:wrap}
+.canvas-btn{padding:.3rem .875rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Use-case matrix */
+.use-matrix{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;margin:1.5rem 0}
+.use-card{padding:.875rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.use-card h4{font-size:.78rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.use-card.diff-wins h4{color:var(--green)}
+.use-card.ar-wins h4{color:var(--amber)}
+.use-card ul{list-style:none;margin:0}
+.use-card ul li{font-size:.72rem;color:var(--muted);padding:.2rem 0 .2rem 1rem;position:relative}
+.use-card ul li::before{content:'•';position:absolute;left:0;color:inherit}
+@media(max-width:580px){.use-matrix{grid-template-columns:1fr}}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LMs</span>
+    <span class="tag tag-cyan">Google / Gemma</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>DiffusionGemma: 4× Faster Text Generation with Canvas Diffusion</h1>
+  <p class="lead">Autoregressive LLMs are bottlenecked by memory bandwidth — they generate one token per forward pass, leaving 90% of GPU compute idle. DiffusionGemma breaks this by generating an entire 256-token "canvas" simultaneously using discrete diffusion, hitting 1,100+ tokens/sec on a single H100 — a 4× speedup with no model size increase.</p>
+  <div class="post-hero-meta">
+    <span>June 10, 2026</span>
+    <span>~14 min read</span>
+    <span>Model: <code>google/diffusiongemma-26B-A4B-it</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://huggingface.co/google/diffusiongemma-26B-A4B-it" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      HuggingFace
+    </a>
+    <a class="hero-btn" href="https://blog.google/innovation-and-ai/technology/developers-tools/diffusion-gemma-faster-text-generation/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Google Blog
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Sequential Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-diffusion"><a href="#s-diffusion"><span class="toc-num">02</span> Discrete Diffusion for Text</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Canvas Architecture</a></li>
+    <li class="toc-item" id="toc-s-eb"><a href="#s-eb"><span class="toc-num">04</span> Entropy-Bounded Denoising</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Benchmarks & Trade-offs</a></li>
+    <li class="toc-item" id="toc-s-usecases"><a href="#s-usecases"><span class="toc-num">06</span> When Diffusion Wins</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════ §01 -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Sequential Bottleneck</div>
+<h2>Why Autoregressive LLMs Are Slow</h2>
+<p>Every mainstream LLM — GPT-4, Gemma, LLaMA — generates text the same way: one token at a time, left to right. To generate the word "Paris" in the sentence "The capital of France is Paris", the model runs a full forward pass over all prior tokens. Then it runs another full pass to generate "and". Then another for "the". Each new token requires its own GPU round-trip.</p>
+<p>This creates a fundamental bottleneck: <strong>memory bandwidth, not compute</strong>. On each forward pass, the GPU must load the model weights (dozens of gigabytes for a large model) from HBM into compute units — but it only uses them to produce a handful of numbers (the logits for the next token). The GPU is <em>compute-starved</em>: its thousands of tensor cores sit idle while memory loads shuffle weights around. Peak GPU utilization for AR inference at small batch sizes is typically under 10%.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">ar-vs-diffusion-throughput</span>
+    <span class="vp-hint">click ▶ Play to animate</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cv-ar" style="width:100%;border-radius:6px;display:block"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="ar-play">▶ Play</button>
+      <button class="canvas-btn" id="ar-reset">↺ Reset</button>
+      <span class="canvas-label" id="ar-step-label">Step: 0 / 16</span>
+    </div>
+  </div>
+</div>
+
+<p>The animation above shows the contrast. The <strong>autoregressive row</strong> lights up one token at a time, and the GPU utilization bar (bottom right) stays low — the chip is mostly waiting for memory. The <strong>diffusion row</strong> lights up all 16 tokens at once in iterative passes; the GPU bar maxes out. Both rows produce the same 16-token output, but diffusion takes 1–3 passes instead of 16 sequential ones.</p>
+
+<p>DiffusionGemma is Google's attempt to break this bottleneck at scale. It's a 26B Mixture-of-Experts model (only 3.8B parameters active during inference) that generates text in 256-token parallel blocks using discrete diffusion — and achieves <strong>1,100+ tokens/sec</strong> on a single H100 at low batch sizes.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §02 -->
+<section id="s-diffusion" data-code="diffusion">
+<div class="section-no">02 — Discrete Diffusion for Text</div>
+<h2>Masking Forward, Denoising Back</h2>
+<p>Diffusion models for images work by adding Gaussian noise to a pixel image, then learning to reverse that process. Text is different — tokens are discrete symbols, not continuous values. You can't add "a little noise" to the word "Paris". Instead, <strong>discrete diffusion</strong> uses <em>masking</em> as noise: the forward process randomly replaces tokens with a special <code>[MASK]</code> token, and the model learns to predict what the masked tokens should be.</p>
+
+<div class="math-block">
+  <div class="math-label">Forward Process (masking)</div>
+  <span class="math-var">q</span>(x<sub>t</sub> | x<sub>0</sub>) = mask each token independently with prob <span class="math-var">m</span>(t)
+  <br>
+  <span class="math-var">m</span>(t) increases from 0 → 1 as <span class="math-var">t</span>: 0 → T
+  <span class="math-comment">  // t=0: no masking (original text); t=T: all tokens masked</span>
+  <br><br>
+  <div class="math-label">Reverse Process (denoising)</div>
+  <span class="math-var">p</span><sub>θ</sub>(x<sub>0</sub> | x<sub>t</sub>) = predict original tokens from masked input
+  <span class="math-comment">  // model sees context on both sides — bidirectional attention</span>
+</div>
+
+<p>The key difference from image diffusion: a text diffusion model sees the <em>entire partially-masked sequence at once</em> and uses <strong>bidirectional attention</strong> — it can look both left and right to predict masked tokens. An AR model only ever sees the tokens to its left. This bidirectionality is what makes tasks like code infilling, Sudoku, and constraint-heavy generation natural fits for diffusion.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">discrete-diffusion-denoising</span>
+    <span class="vp-hint">click ▶ Play — watch tokens emerge step by step</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cv-denoise" style="width:100%;border-radius:6px;display:block"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="dn-play">▶ Play</button>
+      <button class="canvas-btn" id="dn-reset">↺ Reset</button>
+      <span class="canvas-label" id="dn-step-label">Step: 0 / 8</span>
+    </div>
+  </div>
+</div>
+
+<p>Watch the sentence <em>"The capital of France is Paris and the Eiffel Tower stands at 330 metres"</em> emerge from a fully-masked canvas. High-confidence tokens (common words, proper nouns with unambiguous context) resolve first; uncertain positions keep iterating. By step 4–6 most tokens are settled; by step 8 the canvas is complete.</p>
+
+<h3>Why 256 tokens at once?</h3>
+<p>DiffusionGemma generates in <strong>256-token "canvases"</strong>. Each canvas runs its denoising loop independently, using bidirectional attention over the 256-token block. Once the canvas is complete, it's appended to the KV cache and the next canvas begins — a pattern called <strong>block-autoregressive generation</strong>. Within each canvas, all 256 tokens are generated in parallel; across canvases, generation is still sequential (each canvas depends on the previous). This is the key design choice: big enough blocks to amortize GPU utilization, small enough to maintain quality through bidirectional context.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §03 -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — Canvas Architecture</div>
+<h2>Encoder + Bidirectional Decoder</h2>
+<p>DiffusionGemma is built on Gemma 4's 26B MoE backbone but uses an <strong>encoder-decoder design</strong> — a significant departure from standard decoder-only LLMs. The encoder prefills the prompt using standard causal attention, building a KV cache. The decoder then operates on each 256-token canvas using <em>bidirectional</em> (non-causal) attention.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">diffusion-gemma-architecture</span>
+    <span class="vp-hint">data flow from prompt → final output</span>
+  </div>
+  <div class="vp-body" style="min-height:360px;position:relative">
+    <svg id="arch-svg" viewBox="0 0 640 320" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+      <!-- Encoder -->
+      <rect x="10" y="80" width="130" height="56" rx="8" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <text x="75" y="104" text-anchor="middle" font-size="11" fill="#06b6d4" font-family="monospace" font-weight="700">ENCODER</text>
+      <text x="75" y="120" text-anchor="middle" font-size="9.5" fill="#6b7280" font-family="monospace">causal attn</text>
+      <text x="75" y="134" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">prompt → KV cache</text>
+
+      <!-- Arrow: Encoder → KV cache -->
+      <line x1="140" y1="108" x2="178" y2="108" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- KV Cache box -->
+      <rect x="180" y="84" width="90" height="48" rx="6" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+      <text x="225" y="106" text-anchor="middle" font-size="10" fill="#f59e0b" font-family="monospace" font-weight="700">KV Cache</text>
+      <text x="225" y="122" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">256K ctx</text>
+
+      <!-- Arrow: KV cache → Canvas decoder -->
+      <line x1="270" y1="108" x2="308" y2="108" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Canvas decoder -->
+      <rect x="310" y="60" width="150" height="96" rx="8" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.5)" stroke-width="1.5"/>
+      <text x="385" y="84" text-anchor="middle" font-size="11" fill="#8b5cf6" font-family="monospace" font-weight="700">CANVAS DECODER</text>
+      <text x="385" y="100" text-anchor="middle" font-size="9.5" fill="#6b7280" font-family="monospace">bidirectional attn</text>
+      <text x="385" y="116" text-anchor="middle" font-size="9.5" fill="#6b7280" font-family="monospace">256 tokens parallel</text>
+      <text x="385" y="132" text-anchor="middle" font-size="9" fill="#a78bfa" font-family="monospace">EB denoising × 1–48</text>
+
+      <!-- Arrow: Canvas decoder → Output -->
+      <line x1="460" y1="108" x2="498" y2="108" stroke="rgba(255,255,255,.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Output canvas -->
+      <rect x="500" y="80" width="120" height="56" rx="8" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.45)" stroke-width="1.5"/>
+      <text x="560" y="104" text-anchor="middle" font-size="10.5" fill="#10b981" font-family="monospace" font-weight="700">Canvas N done</text>
+      <text x="560" y="120" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">256 tokens locked</text>
+      <text x="560" y="133" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">→ appended to KV</text>
+
+      <!-- Loop back arrow: Output → KV cache (next canvas) -->
+      <path d="M560 136 Q560 200 225 190 Q180 190 175 136" stroke="rgba(139,92,246,.3)" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arr-p)"/>
+      <text x="390" y="215" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">next canvas begins</text>
+
+      <!-- Prompt label above encoder -->
+      <text x="75" y="68" text-anchor="middle" font-size="9" fill="#6b7280" font-family="monospace">user prompt</text>
+      <line x1="75" y1="70" x2="75" y2="78" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+
+      <!-- MoE badge -->
+      <rect x="305" y="168" width="160" height="22" rx="4" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.2)" stroke-width="1"/>
+      <text x="385" y="183" text-anchor="middle" font-size="8.5" fill="#a78bfa" font-family="monospace">26B MoE · 3.8B active · 30 layers · 8/128 experts</text>
+
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(255,255,255,.2)"/>
+        </marker>
+        <marker id="arr-p" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(139,92,246,.3)"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<h3>Block-Autoregressive Generation Loop</h3>
+<div class="step-list" id="arch-steps">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Encoder prefill</div>
+      <div class="step-desc">The user prompt is processed by the encoder with standard causal attention. Output: KV cache entries for each prompt token.</div>
+      <div class="step-code">kv = encoder(prompt_tokens)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Initialize canvas with [MASK]</div>
+      <div class="step-desc">A 256-token canvas is filled with [MASK] tokens. The decoder attends to both the canvas tokens (bidirectionally) and the KV cache (cross-attention).</div>
+      <div class="step-code">canvas = [MASK] × 256</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Entropy-Bounded denoising (repeat 1–48×)</div>
+      <div class="step-desc">At each step, the decoder predicts logits for every canvas position. The lowest-entropy (most confident) tokens are locked in; the rest are re-masked for the next step.</div>
+      <div class="step-code">canvas = eb_denoise_step(canvas, kv, step)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Canvas complete → append to KV cache</div>
+      <div class="step-desc">Once early stopping triggers (low avg entropy), the canvas is finalized and its representations are appended to the KV cache for subsequent canvases.</div>
+      <div class="step-code">kv = kv + encoder(canvas)</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Next canvas or stop</div>
+      <div class="step-desc">If the model hasn't emitted an EOS token, a new 256-token canvas begins. Each canvas is conditioned on all prior output through the KV cache.</div>
+      <div class="step-code">if not eos: goto step 2</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="arch-prev" disabled>← Prev</button>
+  <span id="arch-prog" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="arch-next">Next →</button>
+</div>
+
+<h3>Architecture specs</h3>
+<table class="results-table">
+  <thead><tr><th>Component</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>Foundation</td><td class="mn">Gemma 4 26B MoE</td></tr>
+    <tr><td>Active parameters</td><td class="mn">3.8B (of 25.2B total)</td></tr>
+    <tr><td>Layers</td><td class="mn">30</td></tr>
+    <tr><td>Expert routing</td><td class="mn">8 active / 128 total + 1 shared</td></tr>
+    <tr><td>Context window</td><td class="mn">256K tokens</td></tr>
+    <tr><td>Canvas size</td><td class="mn">256 tokens (bidirectional)</td></tr>
+    <tr><td>Vision encoder</td><td class="mn">~550M params (multimodal)</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §04 -->
+<section id="s-eb" data-code="eb">
+<div class="section-no">04 — Entropy-Bounded Denoising</div>
+<h2>Tokens Lock In by Confidence</h2>
+<p>The denoising sampler is the heart of DiffusionGemma. At each step, the decoder predicts a full distribution over the vocabulary for every masked canvas position. The question is: which tokens should be <em>committed</em> (locked) and which should be <em>re-masked</em> for the next iteration?</p>
+
+<p>DiffusionGemma uses <strong>Entropy-Bounded (EB) denoising</strong>: at each step, only tokens whose predicted distribution has sufficiently low entropy (high confidence) are locked in. Specifically, the sampler selects the lowest-entropy positions where the mutual information bound remains below an entropy threshold of 0.1. All other tokens are fully re-masked — not partially noised, but completely reset to [MASK].</p>
+
+<div class="math-block">
+  <div class="math-label">EB Denoising Decision Rule</div>
+  lock token <span class="math-var">i</span> if: <span class="math-var">H</span>(p<sub>i</sub>) &lt; ε <span class="math-comment">  // entropy below bound ε = 0.1</span>
+  <br>
+  re-mask token <span class="math-var">i</span> if: <span class="math-var">H</span>(p<sub>i</sub>) ≥ ε <span class="math-comment">  // uncertain → try again</span>
+  <br><br>
+  temperature: linear decay <span class="math-var">τ</span>: 0.8 → 0.4 over denoising steps
+  <br>
+  early stop if: avg_entropy &lt; 0.005 <strong>and</strong> top-1 tokens stable for 2 steps
+</div>
+
+<p>This creates a natural "easy tokens first" curriculum: common words in unambiguous positions (articles, punctuation, proper nouns with clear context) lock in immediately; structurally constrained tokens (the middle of a long word, a number that must satisfy a constraint) may take many steps. Simpler tasks like structured code generation can complete in far fewer than 48 steps, giving DiffusionGemma <em>dynamic throughput</em> — easy requests are proportionally faster.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">entropy-bounded-denoising — interactive</span>
+    <span class="vp-hint">drag slider — watch tokens lock in by confidence</span>
+  </div>
+  <div class="vp-body">
+    <div style="margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <label style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">Denoising step:</label>
+      <input type="range" id="eb-slider" min="0" max="48" value="0" style="flex:1;min-width:120px;accent-color:var(--purple)">
+      <span id="eb-step-disp" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--text2);width:48px">t = 0</span>
+    </div>
+    <canvas id="cv-eb" style="width:100%;border-radius:6px;display:block"></canvas>
+    <div style="display:flex;gap:1.25rem;margin-top:.75rem;flex-wrap:wrap">
+      <span style="font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);display:flex;align-items:center;gap:.3rem"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981"></span>locked (low entropy)</span>
+      <span style="font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);display:flex;align-items:center;gap:.3rem"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b"></span>uncertain (high entropy)</span>
+      <span style="font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);display:flex;align-items:center;gap:.3rem"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#374151;border:1px solid #6b7280"></span>[MASK]</span>
+    </div>
+  </div>
+</div>
+
+<p>The grid above shows a 16×16 block (256 tokens). At step 0, everything is [MASK] (grey). As you drag the slider forward, the model progressively commits tokens — green cells show locked tokens, amber shows high-confidence-but-not-yet-committed positions, grey shows tokens still being re-masked. By step 15–20, most common-context tokens are green; only the genuinely ambiguous ones keep iterating until step 48 or early stopping.</p>
+
+<h3>15–20 tokens per forward pass</h3>
+<p>Because only a fraction of the 256 canvas positions are committed per step, each forward pass effectively contributes 15–20 new tokens to the final output. Compared to AR's 1 token per pass, this is the source of the 15–20× reduction in forward passes — even if each pass is somewhat more expensive (bidirectional attention over 256 tokens).</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §05 -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Benchmarks & Trade-offs</div>
+<h2>4× Faster — With a Quality Gap</h2>
+<p>Google is transparent about DiffusionGemma's position: it's an experimental model, and the output quality is lower than standard Gemma 4 on most benchmarks. The pitch is explicitly for <strong>latency-sensitive, single-accelerator deployments</strong> — not for maximum accuracy applications.</p>
+
+<h3>Speed</h3>
+<table class="results-table">
+  <thead><tr><th>Hardware</th><th>Precision</th><th>Tokens / sec</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row"><td>NVIDIA H100</td><td>FP8</td><td class="mn best">1,100+</td></tr>
+    <tr><td>NVIDIA RTX 5090</td><td>FP16</td><td class="mn">700+</td></tr>
+    <tr><td>Standard AR (26B)</td><td>FP16</td><td class="mn">~275</td></tr>
+  </tbody>
+</table>
+
+<h3>Quality vs Gemma 4 (instruction-tuned, EB sampler)</h3>
+<div class="results-bars" id="results-bars">
+  <!-- Section header: DiffusionGemma -->
+  <div class="bar-row"><div class="bar-label" style="color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em">DiffusionGemma 26B A4B</div><div class="bar-track" style="background:transparent"></div></div>
+  <div class="bar-row">
+    <div class="bar-label">MMLU Pro</div>
+    <div class="bar-track"><div class="bar-fill" data-w="77.6" style="background:rgba(139,92,246,.6)"><span>77.6%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GPQA Diamond</div>
+    <div class="bar-track"><div class="bar-fill" data-w="73.2" style="background:rgba(139,92,246,.6)"><span>73.2%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LiveCodeBench v6</div>
+    <div class="bar-track"><div class="bar-fill" data-w="69.1" style="background:rgba(139,92,246,.6)"><span>69.1%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">HLE (no tools) ★</div>
+    <div class="bar-track"><div class="bar-fill" data-w="11.0" style="background:rgba(16,185,129,.7)"><span>11.0%</span></div></div>
+  </div>
+  <!-- Section header: Gemma 4 -->
+  <div class="bar-row" style="margin-top:.625rem"><div class="bar-label" style="color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em">Gemma 4 26B A4B (AR)</div><div class="bar-track" style="background:transparent"></div></div>
+  <div class="bar-row">
+    <div class="bar-label">MMLU Pro</div>
+    <div class="bar-track"><div class="bar-fill" data-w="82.6" style="background:rgba(107,114,128,.45)"><span>82.6%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GPQA Diamond</div>
+    <div class="bar-track"><div class="bar-fill" data-w="82.3" style="background:rgba(107,114,128,.45)"><span>82.3%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LiveCodeBench v6</div>
+    <div class="bar-track"><div class="bar-fill" data-w="77.1" style="background:rgba(107,114,128,.45)"><span>77.1%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">HLE (no tools)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="8.7" style="background:rgba(107,114,128,.45)"><span>8.7%</span></div></div>
+  </div>
+</div>
+
+<p>The HLE (Humanity's Last Exam, no tools) result stands out: DiffusionGemma <em>outperforms</em> Gemma 4 at 11.0% vs 8.7%. HLE is a benchmark specifically designed for questions where even frontier models struggle — many require multi-step reasoning over obscure domains. The bidirectionality of diffusion may help here: when solving a difficult problem, being able to "plan" the full answer structure before committing individual tokens gives a meaningful advantage over strict left-to-right generation.</p>
+
+<h3>The batch size cliff</h3>
+<p>DiffusionGemma's throughput advantage is strongest at <strong>low batch sizes (batch=1 or small)</strong> — the typical scenario for local or single-user inference. At large batch sizes (typical for cloud API serving), autoregressive models use batching to keep their GPUs busy, and the advantage narrows. Google explicitly notes that standard Gemma 4 remains preferred for cloud deployments.</p>
+
+<table class="results-table">
+  <thead><tr><th>Full benchmark table</th><th>DiffusionGemma 26B</th><th>Gemma 4 26B (AR)</th></tr></thead>
+  <tbody>
+    <tr><td>MMLU Pro</td><td class="mn">77.6%</td><td class="mn">82.6%</td></tr>
+    <tr><td>AIME 2026 (no tools)</td><td class="mn">69.1%</td><td class="mn">88.3%</td></tr>
+    <tr><td>LiveCodeBench v6</td><td class="mn">69.1%</td><td class="mn">77.1%</td></tr>
+    <tr><td>Codeforces ELO</td><td class="mn">1429</td><td class="mn">1718</td></tr>
+    <tr><td>GPQA Diamond</td><td class="mn">73.2%</td><td class="mn">82.3%</td></tr>
+    <tr class="highlight-row"><td><strong>HLE (no tools)</strong></td><td class="mn best">11.0%</td><td class="mn">8.7%</td></tr>
+    <tr><td>BigBench Extra Hard</td><td class="mn">47.6%</td><td class="mn">64.8%</td></tr>
+    <tr><td>MMMLU</td><td class="mn">81.5%</td><td class="mn">86.3%</td></tr>
+    <tr><td>MMMU Pro (vision)</td><td class="mn">54.3%</td><td class="mn">73.8%</td></tr>
+    <tr><td>MATH-Vision</td><td class="mn">70.5%</td><td class="mn">82.4%</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §06 -->
+<section id="s-usecases" data-code="usecases">
+<div class="section-no">06 — When Diffusion Wins</div>
+<h2>Right Tool for the Right Task</h2>
+<p>DiffusionGemma isn't a universal replacement for autoregressive models — it's a tool with a specific performance profile. Understanding when to reach for it requires thinking about both the <em>task structure</em> and the <em>deployment context</em>.</p>
+
+<h3>Task structure</h3>
+<p>Diffusion's bidirectionality gives it an inherent advantage on tasks where the answer constraints are distributed across the output — not just left-to-right. A few key examples:</p>
+
+<div class="use-matrix">
+  <div class="use-card diff-wins">
+    <h4>✓ Diffusion wins</h4>
+    <ul>
+      <li>Code infilling (fill in the middle given before + after)</li>
+      <li>Constraint-satisfaction (Sudoku, crosswords, structured generation)</li>
+      <li>In-line editing (modify text while preserving surrounding context)</li>
+      <li>Amino acid sequence design (mutual constraints throughout)</li>
+      <li>Short-form generation under real-time latency budgets</li>
+    </ul>
+  </div>
+  <div class="use-card ar-wins">
+    <h4>⚠ Autoregressive wins</h4>
+    <ul>
+      <li>Long chain-of-thought reasoning (each step depends on previous)</li>
+      <li>High-accuracy math / coding competitions (AIME gap is large)</li>
+      <li>Cloud API serving at high throughput (large batch sizes)</li>
+      <li>Vision-heavy tasks (vision benchmarks show a significant gap)</li>
+      <li>Applications where output quality is non-negotiable</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Deployment context</h3>
+<p>The 4× speedup is hardware-specific. DiffusionGemma moves the bottleneck from <em>memory bandwidth</em> to <em>compute</em>. On architectures with unified memory (Apple Silicon M-series, where memory bandwidth and compute are more balanced), the advantage shrinks. On discrete GPUs with high compute-to-bandwidth ratios (H100, RTX 5090), the advantage is strongest.</p>
+
+<p>The model fits within 18 GB VRAM when quantized — accessible on a consumer RTX 4090 or 5090 — and the 3.8B active parameter footprint means each forward pass is relatively cheap despite the large total parameter count.</p>
+
+<h3>Thinking mode</h3>
+<p>DiffusionGemma supports a <code>&lt;|think|&gt;</code> prefix for extended reasoning. When enabled, the model emits a <code>&lt;|channel&gt;thought</code> block before the final answer — structurally similar to chain-of-thought prompting. Interestingly, this thinking happens within the same canvas-diffusion framework, so even the reasoning tokens are generated in parallel blocks rather than left-to-right. Whether this gives a systematic advantage over AR thinking is an open question.</p>
+
+<h3>Apache 2.0 and what it signals</h3>
+<p>Google released DiffusionGemma under Apache 2.0 — the same permissive license as Gemma 4. This is a clear signal: diffusion-based LLMs are ready for production experimentation, and Google wants to accelerate the ecosystem's exploration of this space. The explicit "experimental" framing and the honest benchmarking (DiffusionGemma is behind on most standard metrics) suggest this is the beginning of a research direction rather than a production flagship. Future versions, trained with more diffusion-specific data and larger canvas sizes, may close the quality gap while keeping the speed advantage.</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">diffusion_gemma/bottleneck.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Sequential Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="diffusion">diffusion</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="eb">eb-denoise</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="usecases">usage</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Autoregressive generation — the sequential bottleneck</span>
+<span class="cs-line cmt"># Each token needs its own GPU forward pass.</span>
+<span class="cs-line cmt"># GPU utilization ≈ 5–10% at batch_size=1</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">ar_generate</span>(model, prompt, max_tokens):</span>
+<span class="cs-line">    tokens = prompt</span>
+<span class="cs-line">    <span class="kw">for</span> _ <span class="kw">in</span> range(max_tokens):</span>
+<span class="cs-line hl-c">        <span class="cmt"># One forward pass per token — memory-bandwidth bound</span></span>
+<span class="cs-line hl-c">        <span class="cmt"># Loads ALL model weights for just ONE output token</span></span>
+<span class="cs-line">        logits = model(tokens)  <span class="cmt"># expensive: loads ~18GB weights</span></span>
+<span class="cs-line">        next_tok = sample(logits[-<span class="num">1</span>])  <span class="cmt"># use only last logit</span></span>
+<span class="cs-line">        tokens = tokens + [next_tok]</span>
+<span class="cs-line">        <span class="kw">if</span> next_tok == EOS: <span class="kw">break</span></span>
+<span class="cs-line">    <span class="kw">return</span> tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why this is slow:</span>
+<span class="cs-line cmt">#  - Weights (18GB) must be read from HBM each step</span>
+<span class="cs-line cmt">#  - At batch=1, only 1 output used per weight load</span>
+<span class="cs-line cmt">#  - FLOP/byte ratio ≈ 0.01 (ideal compute GPU: 100+)</span>
+<span class="cs-line cmt">#  - H100 can do 3.35TB/s HBM bandwidth → ~275 tok/s</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DiffusionGemma solution:</span>
+<span class="cs-line hl-g"><span class="cmt"># Generate 256 tokens per forward pass instead of 1</span></span>
+<span class="cs-line hl-g"><span class="cmt"># FLOP/byte ratio jumps → compute-bound → GPU maxed</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Result: 1,100+ tok/s on H100 (4× speedup)</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-diffusion">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Discrete diffusion for text: mask → denoise</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Forward process: add noise (masking)</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">forward_mask</span>(tokens, t, T):</span>
+<span class="cs-line hl-c">    <span class="cmt"># mask probability increases with t</span></span>
+<span class="cs-line">    mask_prob = t / T  <span class="cmt"># 0 at t=0, 1 at t=T</span></span>
+<span class="cs-line">    masked = []</span>
+<span class="cs-line">    <span class="kw">for</span> tok <span class="kw">in</span> tokens:</span>
+<span class="cs-line">        <span class="kw">if</span> rand() &lt; mask_prob:</span>
+<span class="cs-line">            masked.append(MASK_ID)  <span class="cmt"># token replaced</span></span>
+<span class="cs-line">        <span class="kw">else</span>:</span>
+<span class="cs-line">            masked.append(tok)  <span class="cmt"># kept</span></span>
+<span class="cs-line">    <span class="kw">return</span> masked</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Reverse process: denoise (learned)</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">denoise_step</span>(model, masked_tokens, kv_cache):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Bidirectional attention — can see future tokens!</span></span>
+<span class="cs-line">    logits = model(masked_tokens, kv_cache,</span>
+<span class="cs-line">                   attention=<span class="str">"bidirectional"</span>)</span>
+<span class="cs-line">    <span class="cmt"># predict distribution at every masked position</span></span>
+<span class="cs-line">    preds = softmax(logits)  <span class="cmt"># shape: [256, vocab_size]</span></span>
+<span class="cs-line">    <span class="kw">return</span> preds</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key difference from AR:</span>
+<span class="cs-line hl-g"><span class="cmt"># AR: sees only LEFT context when predicting token i</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Diffusion: sees LEFT + RIGHT context simultaneously</span></span>
+<span class="cs-line hl-g"><span class="cmt"># → infilling, constraints, and long-range deps easier</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Block-autoregressive multi-canvas generation</span>
+<span class="cs-line cmt"># from transformers import DiffusionGemmaForBlockDiffusion</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">canvas_generate</span>(model, prompt, max_canvases=<span class="num">10</span>):</span>
+<span class="cs-line">    <span class="cmt"># Step 1: Encoder prefill</span></span>
+<span class="cs-line hl-c">    kv = model.encoder(prompt_tokens)</span>
+<span class="cs-line">    output = []</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">for</span> canvas_idx <span class="kw">in</span> range(max_canvases):</span>
+<span class="cs-line">        <span class="cmt"># Step 2: Init canvas with [MASK]</span></span>
+<span class="cs-line">        canvas = [MASK_ID] * <span class="num">256</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">        <span class="cmt"># Step 3: EB denoising loop</span></span>
+<span class="cs-line">        <span class="kw">for</span> step <span class="kw">in</span> range(<span class="num">48</span>):  <span class="cmt"># max 48 steps</span></span>
+<span class="cs-line hl-p">            canvas = eb_denoise_step(model, canvas, kv)</span>
+<span class="cs-line">            <span class="kw">if</span> early_stop(canvas): <span class="kw">break</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">        <span class="cmt"># Step 4: Append canvas to KV cache</span></span>
+<span class="cs-line hl-g">        kv = kv + model.encoder(canvas)</span>
+<span class="cs-line">        output.extend(canvas)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">        <span class="cmt"># Step 5: Check for EOS</span></span>
+<span class="cs-line">        <span class="kw">if</span> EOS_ID <span class="kw">in</span> canvas: <span class="kw">break</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> output</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Model spec:</span>
+<span class="cs-line cmt">#   Total params: 25.2B MoE</span>
+<span class="cs-line cmt">#   Active params: 3.8B (8/128 experts)</span>
+<span class="cs-line cmt">#   Canvas size: 256 tokens (bidirectional)</span>
+<span class="cs-line cmt">#   Context: 256K tokens (KV cache)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-eb">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Entropy-Bounded (EB) denoising step</span>
+<span class="cs-line cmt"># Locks low-entropy tokens; re-masks high-entropy ones</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">eb_denoise_step</span>(model, canvas, kv, step, max_steps=<span class="num">48</span>):</span>
+<span class="cs-line">    <span class="cmt"># Temperature decays linearly: 0.8 → 0.4</span></span>
+<span class="cs-line">    tau = <span class="num">0.8</span> - (<span class="num">0.4</span> * step / max_steps)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Forward pass: predict all 256 positions at once</span></span>
+<span class="cs-line">    logits = model(canvas, kv, attn=<span class="str">"bidirectional"</span>)</span>
+<span class="cs-line">    probs = softmax(logits / tau)  <span class="cmt"># [256, vocab_size]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Compute entropy for each masked position</span></span>
+<span class="cs-line hl-c">    entropy = -sum(p * log(p) for p in probs)  <span class="cmt"># [256]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    new_canvas = canvas.copy()</span>
+<span class="cs-line">    <span class="kw">for</span> i, (tok, H) <span class="kw">in</span> enumerate(zip(canvas, entropy)):</span>
+<span class="cs-line hl-g">        <span class="kw">if</span> tok == MASK_ID:  <span class="cmt"># only update masked positions</span></span>
+<span class="cs-line hl-g">            <span class="kw">if</span> H &lt; <span class="num">0.1</span>:  <span class="cmt"># entropy bound ε = 0.1</span></span>
+<span class="cs-line hl-g">                new_canvas[i] = argmax(probs[i])  <span class="cmt"># LOCK</span></span>
+<span class="cs-line">            <span class="kw">else</span>:</span>
+<span class="cs-line">                new_canvas[i] = MASK_ID  <span class="cmt"># re-mask</span></span>
+<span class="cs-line">    <span class="kw">return</span> new_canvas</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">early_stop</span>(canvas, prev_canvas):</span>
+<span class="cs-line hl-a">    avg_H = mean_entropy(canvas)</span>
+<span class="cs-line hl-a">    stable = (canvas == prev_canvas)</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> avg_H &lt; <span class="num">0.005</span> <span class="kw">and</span> stable</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Effective throughput: 15–20 tokens committed/step</span>
+<span class="cs-line cmt"># Simple tasks (structured code): fewer steps → faster</span>
+<span class="cs-line cmt"># Hard tasks (ambiguous text): all 48 steps used</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DiffusionGemma vs Gemma 4 — benchmark comparison</span>
+<span class="cs-line cmt"># EB sampler, instruction-tuned models</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Speed (H100, FP8, batch=1)</span>
+<span class="cs-line hl-g">DiffusionGemma: <span class="num">1100</span>+ tok/s  <span class="cmt"># 4× faster</span></span>
+<span class="cs-line">Gemma 4 (AR):   ~<span class="num">275</span>  tok/s  <span class="cmt"># memory-bandwidth bound</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Quality benchmarks</span>
+<span class="cs-line cmt">#                  DiffGemma  Gemma4</span>
+<span class="cs-line">MMLU_Pro        =  <span class="num">77.6</span>,      <span class="num">82.6</span>  <span class="cmt"># -5.0</span></span>
+<span class="cs-line">AIME_2026       =  <span class="num">69.1</span>,      <span class="num">88.3</span>  <span class="cmt"># -19.2 ← biggest gap</span></span>
+<span class="cs-line">LiveCodeBench   =  <span class="num">69.1</span>,      <span class="num">77.1</span>  <span class="cmt"># -8.0</span></span>
+<span class="cs-line">Codeforces_ELO  = <span class="num">1429</span>,      <span class="num">1718</span>  <span class="cmt"># -289</span></span>
+<span class="cs-line">GPQA_Diamond    =  <span class="num">73.2</span>,      <span class="num">82.3</span>  <span class="cmt"># -9.1</span></span>
+<span class="cs-line hl-g">HLE_no_tools    =  <span class="num">11.0</span>,       <span class="num">8.7</span>  <span class="cmt"># +2.3 ← DIFFUSION WINS</span></span>
+<span class="cs-line">BigBench_Extra  =  <span class="num">47.6</span>,      <span class="num">64.8</span>  <span class="cmt"># -17.2</span></span>
+<span class="cs-line">MMMLU           =  <span class="num">81.5</span>,      <span class="num">86.3</span>  <span class="cmt"># -4.8</span></span>
+<span class="cs-line">MATH_Vision     =  <span class="num">70.5</span>,      <span class="num">82.4</span>  <span class="cmt"># -11.9</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Hardware requirements</span>
+<span class="cs-line">VRAM_quantized = <span class="str">"18GB"</span>  <span class="cmt"># fits RTX 4090 / 5090</span></span>
+<span class="cs-line">best_hardware  = [<span class="str">"H100"</span>, <span class="str">"A100"</span>, <span class="str">"RTX 5090"</span>]</span>
+<span class="cs-line">poor_hardware  = [<span class="str">"Apple Silicon"</span>]  <span class="cmt"># unified mem</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-usecases">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Loading DiffusionGemma via transformers</span>
+<span class="cs-line cmt"># requires: pip install transformers accelerate</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">from</span> transformers <span class="kw">import</span> (</span>
+<span class="cs-line hl-p">    DiffusionGemmaForBlockDiffusion,</span>
+<span class="cs-line hl-p">    AutoProcessor</span>
+<span class="cs-line hl-p">)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">model = DiffusionGemmaForBlockDiffusion</span>
+<span class="cs-line">    .from_pretrained(</span>
+<span class="cs-line">        <span class="str">"google/diffusiongemma-26B-A4B-it"</span>,</span>
+<span class="cs-line">        dtype=<span class="str">"auto"</span>,</span>
+<span class="cs-line">        device_map=<span class="str">"auto"</span>  <span class="cmt"># auto GPU placement</span></span>
+<span class="cs-line">    )</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Thinking mode (extended reasoning)</span>
+<span class="cs-line hl-c">system_prompt = <span class="str">"&lt;|think|&gt;"</span>  <span class="cmt"># enable reasoning</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Output format:</span></span>
+<span class="cs-line hl-c"><span class="cmt"># &lt;|channel&gt;thought\n[...reasoning...]</span></span>
+<span class="cs-line hl-c"><span class="cmt"># &lt;channel|&gt;[final answer]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># vLLM / SGLang (OpenAI-compatible API)</span>
+<span class="cs-line">python -m vllm.entrypoints.openai.api_server \</span>
+<span class="cs-line hl-g">    --model google/diffusiongemma-26B-A4B-it \</span>
+<span class="cs-line hl-g">    --dtype auto --max-model-len <span class="num">8192</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Optimal for: infilling, constraint tasks,</span>
+<span class="cs-line cmt"># local real-time inference, batch_size=1–4</span>
+<span class="cs-line cmt"># Avoid for: long CoT math, large-batch serving</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ─────────────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'diffusion_gemma/bottleneck.py',   title: 'The Sequential Bottleneck' },
+  diffusion:  { file: 'diffusion_gemma/discrete_diff.py', title: 'Discrete Diffusion for Text' },
+  arch:       { file: 'diffusion_gemma/architecture.py',  title: 'Canvas Architecture' },
+  eb:         { file: 'diffusion_gemma/eb_denoise.py',    title: 'Entropy-Bounded Denoising' },
+  results:    { file: 'diffusion_gemma/benchmarks.py',    title: 'Benchmarks & Trade-offs' },
+  usecases:   { file: 'diffusion_gemma/usage.py',         title: 'When Diffusion Wins' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — sync TOC + sidebar tab ──────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-diffusion':  'diffusion',
+  's-arch':       'arch',
+  's-eb':         'eb',
+  's-results':    'results',
+  's-usecases':   'usecases',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── Canvas 1: AR vs Diffusion throughput animation ─────────────────────
+(function() {
+  const canvas = document.getElementById('cv-ar');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const N = 16; // tokens per row
+  const cellW = (W - 80) / N;
+  const cellH = 28;
+  const padX = 40, rowY1 = 40, rowY2 = 120;
+
+  let arStep = 0, diffStep = 0;
+  let animId = null, playing = false;
+  let diffPassTokens = []; // which tokens are lit per pass
+
+  function initDiffPass() {
+    // Diffusion: 3 passes. Each pass lights up many tokens at once
+    diffPassTokens = [
+      Array.from({length: 16}, (_, i) => i < 8 ? 0.3 : 0), // pass 0: partial
+      Array.from({length: 16}, (_, i) => i < 14 ? 0.7 : 0), // pass 1: most
+      Array.from({length: 16}, () => 1.0), // pass 2: all
+    ];
+  }
+  initDiffPass();
+
+  function draw(arS, diffS) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Row labels
+    ctx.font = `600 11px var(--ff-mono, monospace)`;
+    ctx.fillStyle = 'rgba(107,114,128,.9)';
+    ctx.fillText('Autoregressive', padX, rowY1 - 12);
+    ctx.fillText('Diffusion (canvas)', padX, rowY2 - 12);
+
+    // AR: sequential token cells
+    for (let i = 0; i < N; i++) {
+      const x = padX + i * cellW;
+      const lit = i < arS;
+      const isCurrent = i === arS - 1;
+      ctx.fillStyle = lit
+        ? (isCurrent ? 'rgba(139,92,246,.95)' : 'rgba(139,92,246,.35)')
+        : 'rgba(55,65,81,.5)';
+      ctx.beginPath();
+      roundRect(ctx, x + 2, rowY1, cellW - 4, cellH, 4);
+      ctx.fill();
+      if (isCurrent) {
+        ctx.shadowColor = '#8b5cf6';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // AR GPU bar (low)
+    const arUtil = Math.min(arS / N, 1) * 0.1; // max 10%
+    drawGpuBar(ctx, W - 30, rowY1, 16, cellH, arUtil, '#8b5cf6');
+
+    // Diffusion: 3 passes (each pass lights up multiple tokens simultaneously)
+    const passIdx = Math.min(Math.floor(diffS / (N / 3)), 2);
+    const passProgress = diffS > 0 ? (diffS % (N / 3)) / (N / 3) : 0;
+    const passAlpha = diffPassTokens[Math.min(passIdx, 2)];
+
+    for (let i = 0; i < N; i++) {
+      const x = padX + i * cellW;
+      const alpha = diffS >= N ? 1.0 : passAlpha[i] * Math.min(diffS / (N / 3), 1);
+      const locked = diffS >= N / 2;
+      ctx.fillStyle = locked && alpha > 0.5
+        ? `rgba(16,185,129,${alpha * 0.9})`
+        : alpha > 0
+          ? `rgba(6,182,212,${alpha * 0.8})`
+          : 'rgba(55,65,81,.5)';
+      ctx.beginPath();
+      roundRect(ctx, x + 2, rowY2, cellW - 4, cellH, 4);
+      ctx.fill();
+      if (alpha > 0.5 && diffS < N) {
+        ctx.shadowColor = '#06b6d4';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // Diffusion GPU bar (high)
+    const diffUtil = diffS > 0 ? Math.min(diffS / N, 1) * 0.95 : 0;
+    drawGpuBar(ctx, W - 30, rowY2, 16, cellH, diffUtil, '#10b981');
+
+    // GPU label
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(107,114,128,.7)';
+    ctx.save(); ctx.translate(W - 22, rowY1 - 14); ctx.fillText('GPU util', 0, 0); ctx.restore();
+
+    // Step labels
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(107,114,128,.7)';
+    ctx.fillText(`tokens: ${Math.min(arS, N)}/16  (${arS} passes)`, padX, rowY1 + cellH + 18);
+    const diffPasses = diffS >= N ? 3 : (passIdx + 1);
+    ctx.fillText(`tokens: ${Math.min(diffS, N)}/16  (${diffPasses} passes)`, padX, rowY2 + cellH + 18);
+  }
+
+  function drawGpuBar(ctx, x, y, w, h, frac, color) {
+    ctx.fillStyle = 'rgba(55,65,81,.4)';
+    roundRect(ctx, x, y, w, h, 3); ctx.fill();
+    const fillH = h * frac;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.8;
+    roundRect(ctx, x, y + h - fillH, w, fillH, 3); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  draw(0, 0);
+
+  let frame = 0;
+  function animate() {
+    if (!playing) return;
+    frame++;
+    if (frame % 12 === 0) {
+      arStep = Math.min(arStep + 1, N);
+      // Diffusion: each "step" advances 5 tokens at once
+      diffStep = Math.min(diffStep + 5, N);
+      document.getElementById('ar-step-label').textContent =
+        `Step: ${arStep} / ${N}`;
+    }
+    draw(arStep, diffStep);
+    if (arStep < N) animId = requestAnimationFrame(animate);
+    else { playing = false; document.getElementById('ar-play').textContent = '▶ Play'; }
+  }
+
+  document.getElementById('ar-play').addEventListener('click', () => {
+    if (playing) { playing = false; cancelAnimationFrame(animId); document.getElementById('ar-play').textContent = '▶ Play'; }
+    else { if (arStep >= N) { arStep = 0; diffStep = 0; } playing = true; document.getElementById('ar-play').textContent = '⏸ Pause'; animate(); }
+  });
+  document.getElementById('ar-reset').addEventListener('click', () => {
+    playing = false; cancelAnimationFrame(animId);
+    arStep = 0; diffStep = 0; frame = 0;
+    document.getElementById('ar-step-label').textContent = 'Step: 0 / 16';
+    document.getElementById('ar-play').textContent = '▶ Play';
+    draw(0, 0);
+  });
+})();
+
+// ─── Canvas 2: Discrete diffusion denoising ─────────────────────────────
+(function() {
+  const canvas = document.getElementById('cv-denoise');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 180;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // Sentence to denoise: 18 tokens
+  const TOKENS = ['The','capital','of','France','is','Paris','and','the',
+                  'Eiffel','Tower','stands','at','330','metres','tall','.','<EOS>',''];
+  // How many steps until each token resolves (0-indexed, 8 total steps)
+  const LOCK_STEP = [0,2,0,1,0,1,3,0,2,3,4,0,5,4,5,1,7,8];
+  const STEPS = 8;
+
+  let curStep = 0, animId = null, playing = false;
+
+  function drawDenoising(step) {
+    ctx.clearRect(0, 0, W, H);
+    const totalTokens = TOKENS.length - 1;
+    const cellW = Math.min((W - 24) / 9, 70);
+    const cellH = 28;
+    const rows = 2;
+    const tokensPerRow = 9;
+
+    for (let i = 0; i < totalTokens; i++) {
+      const row = Math.floor(i / tokensPerRow);
+      const col = i % tokensPerRow;
+      const x = 12 + col * cellW;
+      const y = 24 + row * (cellH + 20);
+      const locked = step >= LOCK_STEP[i];
+
+      if (locked) {
+        ctx.fillStyle = 'rgba(16,185,129,.2)';
+        ctx.strokeStyle = 'rgba(16,185,129,.6)';
+      } else if (step > 0 && LOCK_STEP[i] <= step + 2) {
+        ctx.fillStyle = 'rgba(245,158,11,.12)';
+        ctx.strokeStyle = 'rgba(245,158,11,.5)';
+      } else {
+        ctx.fillStyle = 'rgba(55,65,81,.3)';
+        ctx.strokeStyle = 'rgba(107,114,128,.3)';
+      }
+
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      roundRect2(ctx, x, y, cellW - 4, cellH, 4);
+      ctx.fill(); ctx.stroke();
+
+      ctx.font = `${locked ? '600' : '500'} 10px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      if (locked) {
+        ctx.fillStyle = '#10b981';
+        ctx.fillText(TOKENS[i], x + (cellW - 4) / 2, y + 18);
+      } else {
+        ctx.fillStyle = step > 0 && LOCK_STEP[i] <= step + 2 ? '#f59e0b' : 'rgba(107,114,128,.6)';
+        ctx.fillText('[MASK]', x + (cellW - 4) / 2, y + 18);
+      }
+      ctx.textAlign = 'left';
+    }
+
+    // Step label
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(107,114,128,.7)';
+    ctx.fillText(`Denoising step ${step} / ${STEPS} — ${countLocked(step)} / ${totalTokens} tokens resolved`, 12, H - 8);
+  }
+
+  function countLocked(step) {
+    return LOCK_STEP.slice(0, TOKENS.length - 1).filter(s => step >= s).length;
+  }
+
+  function roundRect2(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
+  }
+
+  drawDenoising(0);
+
+  let frame2 = 0;
+  function animate2() {
+    if (!playing) return;
+    frame2++;
+    if (frame2 % 28 === 0) {
+      curStep = Math.min(curStep + 1, STEPS);
+      document.getElementById('dn-step-label').textContent = `Step: ${curStep} / ${STEPS}`;
+    }
+    drawDenoising(curStep);
+    if (curStep < STEPS) animId = requestAnimationFrame(animate2);
+    else { playing = false; document.getElementById('dn-play').textContent = '▶ Play'; }
+  }
+
+  document.getElementById('dn-play').addEventListener('click', () => {
+    if (playing) { playing = false; cancelAnimationFrame(animId); document.getElementById('dn-play').textContent = '▶ Play'; }
+    else { if (curStep >= STEPS) { curStep = 0; } playing = true; document.getElementById('dn-play').textContent = '⏸ Pause'; animate2(); }
+  });
+  document.getElementById('dn-reset').addEventListener('click', () => {
+    playing = false; cancelAnimationFrame(animId); curStep = 0; frame2 = 0;
+    document.getElementById('dn-step-label').textContent = 'Step: 0 / 8';
+    document.getElementById('dn-play').textContent = '▶ Play';
+    drawDenoising(0);
+  });
+})();
+
+// ─── Canvas 3: Entropy-Bounded denoising grid ────────────────────────────
+(function() {
+  const canvas = document.getElementById('cv-eb');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // Seeded PRNG for reproducible lock-step values
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  const COLS = 16, ROWS = 16, N = 256;
+  // Assign each token a "lock step" — the denoising step at which it locks
+  // Low-entropy tokens lock early (step 1–8), high-entropy tokens lock later (step 20–48)
+  // Use a biased distribution: most tokens lock before step 20
+  const lockSteps = Array.from({length: N}, (_, i) => {
+    const r = seededRand(i * 7 + 3);
+    // Distribution: 40% lock in steps 1-8, 35% in 8-20, 25% in 20-48
+    if (r < 0.4) return Math.floor(seededRand(i) * 8) + 1;
+    if (r < 0.75) return Math.floor(seededRand(i + 300) * 12) + 8;
+    return Math.floor(seededRand(i + 700) * 28) + 20;
+  });
+
+  function drawGrid(step) {
+    ctx.clearRect(0, 0, W, H);
+    const cellSize = Math.min((W - 16) / COLS, (H - 30) / ROWS);
+    const offX = (W - cellSize * COLS) / 2;
+    const offY = 14;
+
+    let locked = 0, uncertain = 0;
+
+    for (let i = 0; i < N; i++) {
+      const row = Math.floor(i / COLS);
+      const col = i % COLS;
+      const x = offX + col * cellSize;
+      const y = offY + row * cellSize;
+      const isLocked = step >= lockSteps[i];
+      const isNearLock = !isLocked && lockSteps[i] <= step + 6;
+      const r = cellSize * 0.38;
+
+      if (isLocked) {
+        locked++;
+        ctx.fillStyle = 'rgba(16,185,129,.75)';
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 4;
+      } else if (isNearLock) {
+        uncertain++;
+        ctx.fillStyle = 'rgba(245,158,11,.65)';
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = 'rgba(55,65,81,.5)';
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.beginPath();
+      ctx.arc(x + cellSize / 2, y + cellSize / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Stats
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(107,114,128,.8)';
+    const statsY = offY + ROWS * cellSize + 16;
+    ctx.fillStyle = '#10b981';
+    ctx.fillText(`● locked: ${locked}`, offX, statsY);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText(`● uncertain: ${uncertain}`, offX + 100, statsY);
+    ctx.fillStyle = 'rgba(107,114,128,.7)';
+    ctx.fillText(`○ masked: ${N - locked - uncertain}`, offX + 210, statsY);
+  }
+
+  const slider = document.getElementById('eb-slider');
+  const disp   = document.getElementById('eb-step-disp');
+
+  drawGrid(0);
+
+  slider?.addEventListener('input', () => {
+    const v = parseInt(slider.value);
+    disp.textContent = `t = ${v}`;
+    drawGrid(v);
+  });
+})();
+
+// ─── Architecture step navigator ────────────────────────────────────────
+(function() {
+  let archStep = 0;
+  const boxes  = document.querySelectorAll('#arch-steps .step-box');
+  const prevBtn = document.getElementById('arch-prev');
+  const nextBtn = document.getElementById('arch-next');
+  const progEl  = document.getElementById('arch-prog');
+
+  function updateArchSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active','done');
+      if (i === archStep) b.classList.add('active');
+      else if (i < archStep) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = archStep === 0;
+    if (nextBtn) nextBtn.disabled = archStep === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${archStep + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < archStep ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (archStep > 0) { archStep--; updateArchSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (archStep < boxes.length - 1) { archStep++; updateArchSteps(); } });
+  updateArchSteps();
+})();
+
+// ─── Animated bar chart (IntersectionObserver) ───────────────────────────
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+</BaseLayout>
