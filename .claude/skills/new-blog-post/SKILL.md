@@ -733,7 +733,7 @@ social-media/posts/<post-id>-zh/
   audio/
     scene-0.mp3  scene-1.mp3  scene-2.mp3  scene-3.mp3  scene-4.mp3
 ```
-Chinese voiceover: `say -v Tingting -r 155` (macOS). Chinese scene 2 tends to run ~25–30s at natural Mandarin pace (~4.5 chars/sec), so extend the scene window if needed.
+Chinese voiceover: `edge-tts --voice zh-CN-XiaoyiNeural --rate="-10%"` (free, neural, human-sounding). Chinese scene 2 runs 30–55s depending on script length — always check actual MP3 durations and patch `data-duration` + GSAP timestamps to match. Fallback: `say -v Tingting -r 155` (macOS, robotic but offline).
 
 ### File locations
 
@@ -1021,19 +1021,51 @@ for i in 0 1 2 3 4; do
 done
 ```
 
-**Chinese voiceover — macOS `say` fallback (Kokoro's zf_xiaobei requires espeak-ng zh support):**
+**Chinese voiceover — `edge-tts` with XiaoyiNeural (recommended, free, no API key):**
+
+Microsoft Edge TTS uses Microsoft's online neural voices — significantly more natural than macOS `say`. No API key, no sign-up. Requires internet.
 
 ```bash
+# One-time setup:
+pip3 install edge-tts --break-system-packages
+
 mkdir -p audio
 
-# Best Mandarin voices on macOS: Tingting (zh_CN), Meijia (zh_TW)
-say -v "Tingting" -r 155 "今日AI/ML深度解析。" -o audio/scene-0.aiff
-say -v "Tingting" -r 155 "场景1脚本" -o audio/scene-1.aiff
-say -v "Tingting" -r 155 "场景2脚本" -o audio/scene-2.aiff
-say -v "Tingting" -r 155 "场景3脚本" -o audio/scene-3.aiff
-say -v "Tingting" -r 155 "场景4脚本" -o audio/scene-4.aiff
+# zh-CN-XiaoyiNeural = female, bright/warm, natural intonation (recommended)
+# Other good options: zh-CN-XiaoxiaoNeural (female, warmer), zh-CN-YunxiNeural (male)
+# --rate="-10%" slows slightly for clarity; adjust to taste
 
-for i in 1 2 3 4; do
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "今日AI/ML深度解析。" --write-media audio/scene-0.mp3
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景1脚本" --write-media audio/scene-1.mp3
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景2脚本" --write-media audio/scene-2.mp3
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景3脚本" --write-media audio/scene-3.mp3
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景4脚本" --write-media audio/scene-4.mp3
+```
+
+edge-tts writes MP3 directly — no AIFF conversion step needed.
+
+**Important — Chinese audio runs longer than the base scene windows.** At -10% speed, Chinese narration generates ~4–6 chars/sec. The scene-2 window (base 32s) often needs extending to 37–51s depending on script length. After generating all clips, check durations and recompute scene boundaries:
+
+```bash
+# Check all clip durations
+for i in 0 1 2 3 4; do
+  dur=$(ffprobe -i audio/scene-${i}.mp3 -show_entries format=duration -v quiet -of csv="p=0" 2>/dev/null)
+  echo "scene-${i}: ${dur}s"
+done
+
+# Then set audio data-start/data-duration in index.html to match actual durations:
+# s0_start=0, s1_start=5, s2_start=17, s3_start=17+ceil(s2_dur), s4_start=s3_start+ceil(s3_dur)
+# Set root data-duration = s4_start + ceil(s4_dur)
+# Set data-duration on each <audio> element = ceil of that clip's actual duration
+# Adjust GSAP scene boundary timestamps accordingly
+```
+
+**macOS `say` fallback (if offline / no internet):**
+
+```bash
+say -v "Tingting" -r 155 "场景脚本" -o audio/scene-0.aiff
+# ... repeat for all scenes ...
+for i in 0 1 2 3 4; do
   ffmpeg -y -i audio/scene-${i}.aiff -acodec libmp3lame -q:a 2 audio/scene-${i}.mp3 \
     && rm audio/scene-${i}.aiff
 done
