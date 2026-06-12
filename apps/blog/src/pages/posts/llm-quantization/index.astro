@@ -1,0 +1,1381 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="LLM Quantization in 2025: W4A4, FP8, FP4 and the Full Landscape | AI/ML Deep Dives"
+  description="A complete guide to LLM quantization — INT8, FP8, FP4, W4A4, W4A8, W8A8, nvfp4, QAT, and more. With interactive visualizations showing how each format trades off precision, speed, and memory."
+  crumb="LLM Quantization"
+>
+
+<style is:global>
+/* ── Post base ────────────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'\2192';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'\25B6';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+/* ── TOC sidebar ────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+/* ── Memory bars ────────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:100px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:24px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;padding-left:.5rem;width:0%;min-width:0}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9);white-space:nowrap}
+.bar-sub{font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);width:110px;flex-shrink:0;line-height:1.3}
+/* ── Bit explorer ───────────────────────────────────────── */
+.fmt-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.875rem}
+.fmt-btn{padding:.3rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.fmt-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.fmt-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+#bit-canvas{display:block;width:100%;border-radius:8px;background:var(--card2)}
+.bit-legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem;padding:0}
+.bit-leg{display:flex;align-items:center;gap:.4rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+.bit-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* ── Quant error canvas ─────────────────────────────────── */
+.qbits-btns{display:flex;gap:.4rem;margin-bottom:.875rem}
+.qbits-btn{padding:.3rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.qbits-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.qbits-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+#quant-canvas{display:block;width:100%;border-radius:8px;background:var(--card2)}
+/* ── Transformer arch SVG ───────────────────────────────── */
+.arch-scheme-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.875rem}
+.arch-btn{padding:.3rem .7rem;border-radius:5px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.arch-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.arch-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.arch-wrap{overflow-x:auto}
+#arch-svg{min-width:580px;width:100%;height:auto}
+/* ── QAT step navigator ─────────────────────────────────── */
+.pipe-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.25rem 0}
+@media(max-width:680px){.pipe-cols{grid-template-columns:1fr}}
+.pipe-col-head{font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;font-family:var(--ff-mono);margin-bottom:.625rem}
+.pipe-step{padding:.6rem .8rem;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:.78rem;color:var(--muted2);margin-bottom:.4rem;display:flex;gap:.6rem;align-items:flex-start}
+.pipe-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted)}
+.pipe-step.pipe-p .pipe-num{background:var(--purple);color:#fff}
+.pipe-step.pipe-c .pipe-num{background:rgba(6,182,212,.3);color:var(--cyan)}
+.pipe-step.pipe-g .pipe-num{background:rgba(16,185,129,.3);color:var(--green)}
+.pipe-text b{color:var(--text2)}
+/* ── Throughput canvas ──────────────────────────────────── */
+#throughput-canvas{display:block;width:100%;border-radius:8px;background:var(--card2)}
+/* ── Results table ──────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .warn{color:var(--amber)}
+/* ── Math block ─────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+/* ── Callout ────────────────────────────────────────────── */
+.callout{border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0;border-left:3px solid var(--purple);background:var(--purple-dim)}
+.callout p{margin:0;font-size:.85rem;color:var(--muted2)}
+.callout strong{color:var(--purple-l)}
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════ -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Quantization</span>
+    <span class="tag tag-cyan">LLM Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>LLM Quantization in 2025:<br>W4A4, FP8, FP4, and the Full Landscape</h1>
+  <p class="lead">From storing every weight in 32 bits to squeezing 70B parameters onto a single GPU — quantization is the most impactful optimization in production LLM deployment today. This post gives you a complete, ground-up tour: the bit-level math, the major PTQ and QAT methods, NVIDIA's FP8 and FP4 hardware standards, and a practical guide to choosing the right format for your use case.</p>
+  <div class="post-hero-meta">
+    <span>June 11, 2025</span>
+    <span>~22 min read</span>
+  </div>
+</header>
+
+<!-- ══ THREE-COLUMN GRID ════════════════════════════════════════ -->
+<div class="post-grid" id="post-grid">
+
+<!-- ── TOC ──────────────────────────────────────────────────── -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#x2039;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-memory"><a href="#s-memory"><span class="toc-num">01</span> Memory Wall</a></li>
+    <li class="toc-item" id="toc-s-formats"><a href="#s-formats"><span class="toc-num">02</span> Bit Anatomy</a></li>
+    <li class="toc-item" id="toc-s-taxonomy"><a href="#s-taxonomy"><span class="toc-num">03</span> WXaY Taxonomy</a></li>
+    <li class="toc-item" id="toc-s-ptq"><a href="#s-ptq"><span class="toc-num">04</span> PTQ Methods</a></li>
+    <li class="toc-item" id="toc-s-qat"><a href="#s-qat"><span class="toc-num">05</span> QAT</a></li>
+    <li class="toc-item" id="toc-s-hardware"><a href="#s-hardware"><span class="toc-num">06</span> Hardware &amp; Standards</a></li>
+    <li class="toc-item" id="toc-s-deploy"><a href="#s-deploy"><span class="toc-num">07</span> Production Guide</a></li>
+  </ol>
+</nav>
+
+<!-- ── ARTICLE ──────────────────────────────────────────────── -->
+<article class="post-body">
+
+<!-- ══════════════════════════════════════════════════════════════
+     §01  THE MEMORY WALL
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-memory" data-code="memory">
+<div class="section-no">01 — The Memory Wall</div>
+<h2>Why Quantization Exists: Fitting the Model</h2>
+<p>A single parameter in a neural network is typically stored as a 32-bit float — 4 bytes. Llama-3.1-70B has 70.6 billion parameters. That's <strong>282 GB of raw weight storage</strong> — more than three NVIDIA H100 80 GB GPUs can hold, before even counting activations, KV-cache, or optimizer states.</p>
+<p>Quantization replaces each 32-bit float with a lower-precision representation. Cut from 32 bits to 16 bits and the model fits on 2 H100s. Go to 8 bits and it fits on one. Go to 4 bits and a single A100 40 GB can run it. The same model, 8× smaller — with surprisingly small quality loss when done right.</p>
+<p>The chart below shows exact numbers for Llama-3.1-70B. Each bar is the total weight storage; the label on the right is how many H100 80 GB GPUs are needed (weights only, excluding activations).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">llama-3.1-70b — weight storage by precision</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="s-memory-bars">
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">FP32</div>
+        <div class="bar-track"><div class="bar-fill" id="bf-fp32" style="background:rgba(139,92,246,.55)" data-w="100"><span>282 GB</span></div></div>
+        <div class="bar-sub" style="color:var(--muted)">4× H100 80 GB</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">BF16 / FP16</div>
+        <div class="bar-track"><div class="bar-fill" id="bf-bf16" style="background:rgba(139,92,246,.65)" data-w="50"><span>141 GB</span></div></div>
+        <div class="bar-sub" style="color:var(--muted)">2× H100 80 GB</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">FP8 / INT8</div>
+        <div class="bar-track"><div class="bar-fill" id="bf-fp8" style="background:rgba(6,182,212,.6)" data-w="25"><span>70.6 GB</span></div></div>
+        <div class="bar-sub" style="color:var(--cyan)">1× H100 80 GB</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">INT4 / FP4</div>
+        <div class="bar-track"><div class="bar-fill" id="bf-int4" style="background:rgba(16,185,129,.6)" data-w="12.5"><span>35.3 GB</span></div></div>
+        <div class="bar-sub" style="color:var(--green)">0.5× H100 80 GB</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">INT2</div>
+        <div class="bar-track"><div class="bar-fill" id="bf-int2" style="background:rgba(245,158,11,.5)" data-w="6.25"><span>17.6 GB</span></div></div>
+        <div class="bar-sub" style="color:var(--amber)">~experimental</div>
+      </div>
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin:.75rem 0 0;font-family:var(--ff-mono)">
+      Weights only (70.6 B params × bytes/param). Actual GPU memory includes activations, KV cache, and overhead.
+    </p>
+  </div>
+</div>
+
+<p>Quantization operates on three axes: <strong>what gets quantized</strong> (weights only, or weights + activations), <strong>how many bits</strong>, and <strong>when</strong> (during training, or after). The rest of this post maps out the full landscape.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §02  BIT ANATOMY
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-formats" data-code="formats">
+<div class="section-no">02 — Bit Anatomy</div>
+<h2>Understanding Precision Formats</h2>
+<p>Every numerical format makes a fundamental tradeoff: more bits in the <em>exponent</em> gives a wider dynamic range (can represent very large and very small numbers), while more bits in the <em>mantissa</em> (significand) gives finer precision (more decimal digits of accuracy). Integer formats give up the exponent entirely — they cover a fixed range uniformly.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">bit-field explorer — click a format to inspect it</span>
+    <span class="vp-hint">click any button</span>
+  </div>
+  <div class="vp-body">
+    <div class="fmt-btns">
+      <button class="fmt-btn active" data-fmt="fp32">FP32</button>
+      <button class="fmt-btn" data-fmt="bf16">BF16</button>
+      <button class="fmt-btn" data-fmt="fp16">FP16</button>
+      <button class="fmt-btn" data-fmt="fp8e4m3">FP8 E4M3</button>
+      <button class="fmt-btn" data-fmt="fp8e5m2">FP8 E5M2</button>
+      <button class="fmt-btn" data-fmt="int8">INT8</button>
+      <button class="fmt-btn" data-fmt="int4">INT4</button>
+      <button class="fmt-btn" data-fmt="fp4e2m1">FP4 E2M1</button>
+    </div>
+    <canvas id="bit-canvas" height="130"></canvas>
+    <div class="bit-legend">
+      <div class="bit-leg"><div class="bit-swatch" style="background:rgba(245,158,11,0.85)"></div>Sign (1 bit)</div>
+      <div class="bit-leg"><div class="bit-swatch" style="background:rgba(139,92,246,0.8)"></div>Exponent</div>
+      <div class="bit-leg"><div class="bit-swatch" style="background:rgba(6,182,212,0.75)"></div>Mantissa</div>
+      <div class="bit-leg"><div class="bit-swatch" style="background:rgba(107,114,128,0.7)"></div>Integer magnitude</div>
+    </div>
+  </div>
+</div>
+
+<h3>The formats in detail</h3>
+<p><strong>FP32 (single precision)</strong> — the training default since the 1980s. One sign bit, 8 exponent bits (range ~±3.4×10³⁸), 23 mantissa bits (~7 significant decimal digits). Every intermediate activation, gradient, and master weight traditionally lives here.</p>
+<p><strong>BF16 (bfloat16)</strong> — Google Brain's answer to mixed-precision training. Keeps FP32's 8-bit exponent (same dynamic range, so gradients don't overflow) but cuts the mantissa to 7 bits (~3 significant digits). Easy to cast between FP32 and BF16 without clipping; hardware support on A100, H100, Apple M-series.</p>
+<p><strong>FP16 (half precision)</strong> — 5 exponent bits (range ±65,504), 10 mantissa bits. More decimal precision than BF16 but much smaller range — gradient overflow is common in FP16 training without loss scaling. Widely used in inference.</p>
+<p><strong>FP8 E4M3</strong> — 4 exponent bits (range ±448), 3 mantissa bits. Used for <em>weights and forward activations</em> in NVIDIA Transformer Engine: the precision is prioritized over range because activations are already clipped to a bounded region after LayerNorm.</p>
+<p><strong>FP8 E5M2</strong> — 5 exponent bits (range ±57,344), 2 mantissa bits. Used for <em>gradients</em> during FP8 training: gradients can be very small or very large, so wider range matters more than precision.</p>
+<p><strong>INT8</strong> — a signed 8-bit integer, range −128 to +127. Uniform step size: every representable value is equally spaced. Fast on all modern hardware (dedicated INT8 tensor cores on A100+). The dominant format for post-training quantization from 2020–2023.</p>
+<p><strong>INT4</strong> — 4-bit signed integer, range −8 to +7 (16 levels). Very coarse, but surprisingly effective for weight-only quantization when combined with per-group scaling. Used by GPTQ, AWQ, and the GGUF ecosystem.</p>
+<p><strong>FP4 E2M1</strong> — NVIDIA Blackwell's native format: 1 sign + 2 exponent + 1 mantissa = 4 bits, range ±6.0. The float layout recovers more accuracy than INT4 at the same bit budget because the non-uniform spacing mimics real weight distributions.</p>
+
+<div class="callout">
+  <p><strong>NF4 (NormalFloat-4)</strong> — used by QLoRA. Not a hardware type; it's a quantization <em>codebook</em> designed so that each of the 16 representable values covers an equal share of a unit normal distribution. Information-theoretically optimal for Gaussian weights, but requires a lookup table.</p>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §03  WXaY TAXONOMY
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-taxonomy" data-code="taxonomy">
+<div class="section-no">03 — The WXaY Taxonomy</div>
+<h2>Decoding the Notation: W4A8, FP8, W4A4</h2>
+<p>The shorthand <code>WXaY</code> tells you the bit-width of <em>W</em>eights (stored on disk, loaded for each matmul) and <em>A</em>ctivations (computed at runtime). Together they determine which kind of matrix-multiply the hardware will execute.</p>
+
+<div class="math-block">
+  <div class="math-label">WXaY — the two axes of quantization</div>
+  <div><span class="math-var">W</span> = weight bits &nbsp;(how weights are <em>stored</em> and loaded)</div>
+  <div><span class="math-var">A</span> = activation bits &nbsp;(how inputs to each layer are <em>represented</em>)</div>
+  <div style="margin-top:.5rem">
+    <span class="math-var">W4A16</span> — 4-bit weights, 16-bit activations &nbsp;<span class="math-comment">← weight-only; saves memory bandwidth</span>
+  </div>
+  <div><span class="math-var">W8A8</span> &nbsp; — 8-bit weights &amp; activations &nbsp;<span class="math-comment">← runs INT8 GEMM; saves both memory &amp; compute</span></div>
+  <div><span class="math-var">W4A8</span> &nbsp; — 4-bit weights, 8-bit activations &nbsp;<span class="math-comment">← dequantize weights at runtime, run INT8 GEMM</span></div>
+  <div><span class="math-var">W4A4</span> &nbsp; — 4-bit weights &amp; activations &nbsp;<span class="math-comment">← requires specialized INT4 GEMM kernel</span></div>
+</div>
+
+<p><strong>Weight-only quantization (W4A16)</strong> is the most common deployment format today. Weights live in INT4; they are dequantized back to FP16 on-the-fly before the matrix multiply. This cuts <em>memory bandwidth</em> (the bottleneck in auto-regressive decoding) but doesn't reduce FLOPs — the GEMM itself still runs in FP16.</p>
+<p><strong>Weight + activation quantization (W8A8, W4A8, W4A4)</strong> runs the GEMM in lower precision, which also reduces compute. This is the regime for hardware-accelerated inference (H100's FP8 tensor cores, Blackwell's FP4 units). However, quantizing activations is harder because they often contain <em>outliers</em> — a few channels with magnitudes 100× larger than the rest — which make naive uniform quantization lossy.</p>
+
+<h3>Quantization mechanics: scale and zero-point</h3>
+<p>Every quantization scheme maps a real-valued tensor to discrete levels and back. The standard affine (asymmetric) formula is:</p>
+
+<div class="math-block">
+  <div class="math-label">affine quantization</div>
+  <div><span class="math-var">x_q</span> = round( <span class="math-var">x</span> / <span class="math-var">s</span> ) + <span class="math-var">z</span> &nbsp;&nbsp; where &nbsp; <span class="math-var">s</span> = (x_max − x_min) / (2<sup>b</sup> − 1)</div>
+  <div style="margin-top:.3rem"><span class="math-var">x̂</span> = (<span class="math-var">x_q</span> − <span class="math-var">z</span>) × <span class="math-var">s</span> &nbsp;&nbsp;<span class="math-comment">← dequantization (reconstruction)</span></div>
+  <div style="margin-top:.3rem"><span class="math-var">s</span> = scale, &nbsp;<span class="math-var">z</span> = zero-point &nbsp;<span class="math-comment">← stored alongside quantized weights</span></div>
+</div>
+
+<p>For <em>symmetric</em> quantization (z = 0, used for weights), the formula simplifies to <code>x_q = round(x / s)</code>. The scale <code>s</code> is typically stored per-channel (one scale per output channel) or per-group (one scale per 128-weight block).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">quantization error vs bit-width — click to compare</span>
+    <span class="vp-hint">click INT8 / INT4 / INT2</span>
+  </div>
+  <div class="vp-body">
+    <div class="qbits-btns">
+      <button class="qbits-btn" data-bits="8">INT8</button>
+      <button class="qbits-btn active" data-bits="4">INT4</button>
+      <button class="qbits-btn" data-bits="2">INT2</button>
+    </div>
+    <canvas id="quant-canvas" height="180"></canvas>
+    <p style="font-size:.7rem;color:var(--muted);margin:.5rem 0 0;font-family:var(--ff-mono)">
+      Left half: original signal. Right half: quantized reconstruction. Each &ldquo;step&rdquo; is one quantization level.
+    </p>
+  </div>
+</div>
+
+<h3>Granularity: per-tensor, per-channel, per-group</h3>
+<p>The granularity of the scale factor dramatically affects accuracy. A single scale for the whole tensor forces all weights to share one range — outliers push the scale large and crush small-magnitude weights to zero. Per-channel scales (one per output neuron) are standard for weight quantization. Per-group (e.g., one scale per 128 contiguous weights) is the sweet spot for aggressive INT4 quantization, used by GPTQ and AWQ.</p>
+
+<h3>KV-cache quantization</h3>
+<p>The key-value cache in transformer attention grows linearly with sequence length and batch size. At long contexts with large batches it dominates memory. Quantizing the KV cache to INT8 or even INT4 (with per-head scales) is now standard practice in frameworks like vLLM and TGI, giving 2–4× memory relief with minimal quality impact.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §04  PTQ METHODS
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-ptq" data-code="ptq">
+<div class="section-no">04 — Post-Training Quantization</div>
+<h2>PTQ: Quantize a Finished Model</h2>
+<p>Post-training quantization (PTQ) compresses a fully-trained model without re-training. It's fast (minutes to hours on a 70B model), requires only a small calibration dataset, and is the dominant approach in production deployments today. The key challenge: how to minimize the accuracy loss from discarding precision that was baked into the weights during expensive training.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">transformer layer — color = quantization format by scheme</span>
+    <span class="vp-hint">click a scheme button</span>
+  </div>
+  <div class="vp-body">
+    <div class="arch-scheme-btns">
+      <button class="arch-btn active" data-scheme="fp8">FP8 (H100)</button>
+      <button class="arch-btn" data-scheme="w4a8">W4A8</button>
+      <button class="arch-btn" data-scheme="w8a8">W8A8</button>
+      <button class="arch-btn" data-scheme="w4a16">W4A16</button>
+    </div>
+    <div class="arch-wrap">
+      <svg id="arch-svg" viewBox="0 0 660 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Legend -->
+        <rect x="10" y="8" width="640" height="28" rx="5" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)"/>
+        <circle cx="30" cy="22" r="5" fill="rgba(6,182,212,0.75)"/>
+        <text x="40" y="26" font-family="monospace" font-size="10" fill="#6b7280">FP32/BF16</text>
+        <circle cx="115" cy="22" r="5" fill="rgba(16,185,129,0.75)"/>
+        <text x="125" y="26" font-family="monospace" font-size="10" fill="#6b7280">FP8</text>
+        <circle cx="160" cy="22" r="5" fill="rgba(139,92,246,0.75)"/>
+        <text x="170" y="26" font-family="monospace" font-size="10" fill="#6b7280">INT8/W8</text>
+        <circle cx="230" cy="22" r="5" fill="rgba(245,158,11,0.75)"/>
+        <text x="240" y="26" font-family="monospace" font-size="10" fill="#6b7280">INT4/W4</text>
+        <circle cx="290" cy="22" r="5" fill="rgba(236,72,153,0.75)"/>
+        <text x="300" y="26" font-family="monospace" font-size="10" fill="#6b7280">FP16 activ.</text>
+
+        <!-- Row 1: Input + LayerNorm -->
+        <rect x="240" y="48" width="180" height="30" rx="5" id="arch-input" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.4)"/>
+        <text x="330" y="67" font-family="monospace" font-size="10" fill="#06b6d4" text-anchor="middle">Input (BF16/FP32)</text>
+        <line x1="330" y1="78" x2="330" y2="95" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <rect x="240" y="95" width="180" height="30" rx="5" id="arch-ln1" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.4)"/>
+        <text x="330" y="114" font-family="monospace" font-size="10" fill="#06b6d4" text-anchor="middle">LayerNorm (BF16)</text>
+
+        <!-- Row 2: Attention projections Q K V -->
+        <line x1="330" y1="125" x2="330" y2="142" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <line x1="330" y1="142" x2="155" y2="142" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <line x1="330" y1="142" x2="505" y2="142" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <rect x="80" y="142" width="150" height="30" rx="5" class="arch-qkv" id="arch-q" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="155" y="161" font-family="monospace" font-size="10" class="arch-qkv-label" fill="#10b981" text-anchor="middle">Q proj</text>
+        <rect x="255" y="142" width="150" height="30" rx="5" class="arch-qkv" id="arch-k" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="330" y="161" font-family="monospace" font-size="10" class="arch-qkv-label" fill="#10b981" text-anchor="middle">K proj</text>
+        <rect x="430" y="142" width="150" height="30" rx="5" class="arch-qkv" id="arch-v" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="505" y="161" font-family="monospace" font-size="10" class="arch-qkv-label" fill="#10b981" text-anchor="middle">V proj</text>
+
+        <!-- Attention compute -->
+        <line x1="155" y1="172" x2="330" y2="200" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="330" y1="172" x2="330" y2="200" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="505" y1="172" x2="330" y2="200" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <rect x="210" y="200" width="240" height="30" rx="5" id="arch-attn" fill="rgba(6,182,212,0.12)" stroke="rgba(6,182,212,0.35)"/>
+        <text x="330" y="219" font-family="monospace" font-size="10" id="arch-attn-label" fill="#06b6d4" text-anchor="middle">Attention (softmax FP32)</text>
+
+        <!-- O proj -->
+        <line x1="330" y1="230" x2="330" y2="247" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <rect x="210" y="247" width="240" height="30" rx="5" class="arch-oproj" id="arch-o" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="330" y="266" font-family="monospace" font-size="10" class="arch-o-label" fill="#10b981" text-anchor="middle">O proj</text>
+
+        <!-- LayerNorm 2 -->
+        <line x1="330" y1="277" x2="330" y2="294" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <rect x="210" y="294" width="240" height="30" rx="5" id="arch-ln2" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.4)"/>
+        <text x="330" y="313" font-family="monospace" font-size="10" fill="#06b6d4" text-anchor="middle">LayerNorm (BF16)</text>
+
+        <!-- FFN up gate down -->
+        <line x1="330" y1="324" x2="330" y2="340" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <line x1="330" y1="340" x2="215" y2="340" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <line x1="330" y1="340" x2="445" y2="340" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        <rect x="110" y="340" width="130" height="30" rx="5" class="arch-ffn" id="arch-up" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="175" y="359" font-family="monospace" font-size="10" class="arch-ffn-label" fill="#10b981" text-anchor="middle">FFN Up</text>
+        <rect x="265" y="340" width="130" height="30" rx="5" class="arch-ffn" id="arch-gate" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="330" y="359" font-family="monospace" font-size="10" class="arch-ffn-label" fill="#10b981" text-anchor="middle">FFN Gate</text>
+        <rect x="420" y="340" width="130" height="30" rx="5" class="arch-ffn" id="arch-down" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)"/>
+        <text x="485" y="359" font-family="monospace" font-size="10" class="arch-ffn-label" fill="#10b981" text-anchor="middle">FFN Down</text>
+
+        <!-- Output -->
+        <line x1="175" y1="370" x2="330" y2="395" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="330" y1="370" x2="330" y2="395" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="485" y1="370" x2="330" y2="395" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <rect x="210" y="395" width="240" height="20" rx="4" fill="rgba(6,182,212,0.1)" stroke="rgba(6,182,212,0.3)"/>
+        <text x="330" y="409" font-family="monospace" font-size="9" fill="#6b7280" text-anchor="middle">Output + Residual (BF16)</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<h3>GPTQ — Second-Order Weight Quantization</h3>
+<p>GPTQ (Frantar et al., ICLR 2023) was the first method to make 4-bit PTQ practical at scale. It processes one layer at a time, using a small calibration batch to compute an approximate Hessian (second-order curvature information). Weights are quantized one column at a time; after each quantization, the remaining weights are nudged to compensate for the error — a block-coordinate descent in the OBQ framework. Result: a 175B model in ~4 GPU hours, at 3–4 bits with minimal perplexity loss. Typical speedup vs FP16: 3.25× on A100, 4.5× on A6000.</p>
+
+<h3>AWQ — Activation-Aware Weight Quantization</h3>
+<p>AWQ (Lin et al., MLSys 2024 Best Paper) makes the key observation that not all weight channels are equally important. Only ~1% of channels are "salient" — those whose input activations are largest. Instead of storing those channels at higher precision (which would be hardware-inefficient), AWQ applies a mathematically equivalent per-channel scaling transformation before quantization, so salient weights land in a more favorable range. No backpropagation; only offline activation statistics are needed. Paired with the TinyChat inference engine, AWQ delivers 3× speedup over HuggingFace FP16 on desktop and mobile GPUs.</p>
+
+<h3>SmoothQuant — W8A8 via Activation Migration</h3>
+<p>The obstacle to quantizing <em>activations</em> (not just weights) is outliers: in most LLMs, a handful of channels have activations 100× larger than others, making INT8 quantization of the full activation tensor very lossy. SmoothQuant (Xiao et al., ICML 2023) solves this with a mathematically equivalent transformation: scale down the problematic activation channels by a factor α, and scale up the corresponding weight channels by the same factor. Weights can absorb this offline; activations become smooth enough for INT8 GEMM. Result: 1.56× speedup, 2× memory reduction, runs a 530B model on a single node.</p>
+
+<h3>LLM.int8() / bitsandbytes</h3>
+<p>Dettmers et al. (2022) introduced a different strategy for outliers: handle them in <em>mixed precision</em>. They showed that emergent outliers are concentrated in a small subset of feature dimensions (usually fewer than 0.01%). Their solution: decompose each matrix multiply into two parts — the outlier dimensions computed in FP16, the rest in INT8 — and sum. This keeps INT8's memory savings while preserving accuracy. Integrated into HuggingFace as <code>load_in_8bit=True</code>.</p>
+
+<h3>QuaRot — Rotation-Based W4A4</h3>
+<p>QuaRot (Ashkboos et al., 2024) pushes all the way to true 4-bit weights AND 4-bit activations, including the KV cache. The trick: apply random rotation matrices to the hidden states (mathematically equivalent to multiplying by an orthogonal matrix). Rotations redistribute outliers so uniformly that standard INT4 quantization works without any channel being retained at higher precision. On LLaMA-2-70B in W4A4, WikiText-2 perplexity loss is ≤0.47 — remarkably small for fully 4-bit inference.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §05  QAT
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-qat" data-code="qat">
+<div class="section-no">05 — Quantization-Aware Training</div>
+<h2>QAT: Train the Model to Live at Low Precision</h2>
+<p>PTQ is fast but introduces error post-hoc. Quantization-aware training (QAT) instead <em>simulates</em> quantization during the forward pass while training, so the model learns to compensate for the precision loss. The result is usually better accuracy at the same bit-width — at the cost of a full or partial training run.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">PTQ vs QAT — the key workflow difference</span>
+  </div>
+  <div class="vp-body">
+    <div class="pipe-cols">
+      <div>
+        <div class="pipe-col-head" style="color:var(--cyan)">Post-Training Quantization (PTQ)</div>
+        <div class="pipe-step pipe-c"><div class="pipe-num">1</div><div class="pipe-text"><b>Pre-trained model</b> (FP32/BF16)</div></div>
+        <div class="pipe-step pipe-c"><div class="pipe-num">2</div><div class="pipe-text"><b>Calibration</b>: run ~128–512 samples through the model to gather activation statistics (per-channel amax, outlier channels)</div></div>
+        <div class="pipe-step pipe-c"><div class="pipe-num">3</div><div class="pipe-text"><b>Compute scales</b>: per-channel or per-group scale &amp; zero-point from calibration stats</div></div>
+        <div class="pipe-step pipe-c"><div class="pipe-num">4</div><div class="pipe-text"><b>Quantize weights</b>: optionally with Hessian compensation (GPTQ), activation smoothing (SmoothQuant), or channel scaling (AWQ)</div></div>
+        <div class="pipe-step pipe-c"><div class="pipe-num">5</div><div class="pipe-text"><b>Deploy</b>: quantized model, no further training needed. Hours total for 70B.</div></div>
+      </div>
+      <div>
+        <div class="pipe-col-head" style="color:var(--purple)">Quantization-Aware Training (QAT)</div>
+        <div class="pipe-step pipe-p"><div class="pipe-num">1</div><div class="pipe-text"><b>Pre-trained model</b> (optional: start from scratch for extreme precision)</div></div>
+        <div class="pipe-step pipe-p"><div class="pipe-num">2</div><div class="pipe-text"><b>Insert fake-quantize ops</b>: every weight and activation goes through <code>round(x/s)×s</code> in the forward pass</div></div>
+        <div class="pipe-step pipe-p"><div class="pipe-num">3</div><div class="pipe-text"><b>Train with STE</b>: the round() op has zero gradient; the Straight-Through Estimator (STE) passes gradients through as if round() = identity</div></div>
+        <div class="pipe-step pipe-p"><div class="pipe-num">4</div><div class="pipe-text"><b>Scale learning</b>: scales themselves are learned or updated via EMA of activation amaxes, co-adapting with the weights</div></div>
+        <div class="pipe-step pipe-p"><div class="pipe-num">5</div><div class="pipe-text"><b>Export</b>: remove fake-quant ops, quantize weights to target format. Training cost: typically 1–5% of full pre-training.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>LLM-QAT (Meta, 2023)</h3>
+<p>Meta's LLM-QAT applies QAT to LLaMA models using a data-free distillation approach: the original FP16 model generates synthetic training data (its own outputs), which is then used to fine-tune the quantized model. This sidesteps privacy concerns around training data access. They quantize weights, activations, and KV cache simultaneously, demonstrating competitive quality at W4A8KV4 and even W4A4KV4 on LLaMA-7B and 13B.</p>
+
+<h3>BitNet b1.58 — Ternary Weights from Scratch</h3>
+<p>BitNet b1.58 (Ma et al., 2024) takes QAT to the extreme: every weight in the network is constrained to &#123;&minus;1, 0, +1&#125; during training (1.58 bits per weight). The key insight is that the model must be trained from scratch in this constrained space — converting an FP32 model to ternary weights via PTQ doesn't work. The result is a model that can be served using 1-bit matrix multiplications (additions and sign flips only), enabling extreme energy efficiency on specialized hardware.</p>
+
+<h3>MXFP8 and MXFP4 — Microsoft's Microscaling Format</h3>
+<p>The OCP MX (Microscaling) specification, co-authored by Microsoft, NVIDIA, AMD and others, adds a shared exponent per block of 32 elements on top of individual FP8 or FP4 values. This block-level scaling dramatically increases the effective dynamic range without the overhead of per-element scaling. MXFP8 is supported in NVIDIA Hopper via Transformer Engine's block scaling recipe; MXFP4 is the format behind Blackwell's nvfp4. Training directly in MXFP8 has been shown to match BF16 quality across diverse model sizes.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §06  HARDWARE & STANDARDS
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-hardware" data-code="hardware">
+<div class="section-no">06 — Hardware &amp; Standards</div>
+<h2>FP8, FP4, and NVIDIA's Silicon Roadmap</h2>
+<p>Quantization doesn't happen in a vacuum — it's co-designed with the hardware that executes the matrix multiplications. The last two GPU generations have fundamentally changed what's practical at low precision.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">inference throughput on 1× H100 80 GB — Llama-3-8B, batch 32, single-node</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="s-hardware-bars">
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">BF16</div>
+        <div class="bar-track"><div class="bar-fill" id="th-bf16" style="background:rgba(107,114,128,.5)" data-w="28"><span>~2,800 tok/s</span></div></div>
+        <div class="bar-sub" style="color:var(--muted)">baseline</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">W8A8 INT8</div>
+        <div class="bar-track"><div class="bar-fill" id="th-int8" style="background:rgba(6,182,212,.5)" data-w="43"><span>~4,300 tok/s</span></div></div>
+        <div class="bar-sub" style="color:var(--muted)">1.5× BF16</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">W8A8 FP8</div>
+        <div class="bar-track"><div class="bar-fill" id="th-fp8" style="background:rgba(16,185,129,.6)" data-w="55"><span>~5,500 tok/s</span></div></div>
+        <div class="bar-sub" style="color:var(--cyan)">~2× BF16</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">W4A16 INT4</div>
+        <div class="bar-track"><div class="bar-fill" id="th-int4" style="background:rgba(139,92,246,.6)" data-w="70"><span>~7,000 tok/s</span></div></div>
+        <div class="bar-sub" style="color:var(--purple-l)">~2.5× BF16</div>
+      </div>
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin:.75rem 0 0;font-family:var(--ff-mono)">
+      Approximate numbers for decoding-mode inference. Prefill throughput ratios differ. FP4 (Blackwell) not shown — hardware not yet broadly deployed.
+    </p>
+  </div>
+</div>
+
+<h3>NVIDIA Hopper (H100) — FP8 with Transformer Engine</h3>
+<p>The H100 introduced native FP8 tensor cores (compute capability 9.0), capable of executing GEMMs in FP8 at 2× the throughput of FP16 and 4× BF16 FLOPS. To make this practical, NVIDIA shipped the <strong>Transformer Engine</strong> library: it wraps each transformer layer, choosing FP8 or BF16 automatically per-operation, maintaining per-tensor scaling factors (amaxes), and fusing the quantization/dequantization into the GEMM kernel itself.</p>
+<p>In Transformer Engine, the forward pass uses <strong>E4M3</strong> (higher precision, smaller range) for weights and activations. The backward pass uses <strong>E5M2</strong> (wider range) for gradients. Scaling factors are computed via <em>delayed scaling</em> — using the amax from the previous iteration — or <em>current scaling</em> with a synchronization barrier.</p>
+<p>DeepSeek V3, trained in early 2025, is notable for being the first widely-deployed frontier model whose <em>training</em> used FP8 (via a customized mixed-precision recipe), not just inference. At 671B parameters, the FP8 training reduced communication and compute overhead significantly versus BF16.</p>
+
+<h3>NVIDIA Blackwell (B200/B100) — FP4 Native Compute</h3>
+<p>Blackwell introduced the first GPU with native FP4 (nvfp4) tensor cores. The <strong>nvfp4</strong> format uses the E2M1 structure (1 sign + 2 exponent + 1 mantissa) together with MXFP4 microscaling: every 32-element block shares a single FP8 scaling exponent, providing enough dynamic range for practical use. NVIDIA claims ~2× the FP8 throughput on FP4 GEMMs — meaning a Blackwell GPU in FP4 mode can run at 4× the H100's FP8 throughput.</p>
+<p>Both TensorRT-LLM and NVIDIA's ModelOpt library support automatic W4A8FP4 (4-bit weights with FP4 quantization, 8-bit activations) for Llama, Mistral, Mixtral, and other popular architectures, with model quality within ~1% of FP16 baselines on standard benchmarks.</p>
+
+<h3>A100 and Older — INT8 Only</h3>
+<p>The A100 has INT8 tensor cores (introduced with Turing/A30 for INT8 inference) but no native FP8 compute. On A100, FP8 operations are emulated via FP16 with software scaling — you get memory savings but not compute speedup. For A100 deployments, W8A8 INT8 (SmoothQuant) or W4A16 INT4 (GPTQ/AWQ) are the practical choices.</p>
+
+<h3>The Scale Storage Overhead</h3>
+<p>One often-overlooked cost of quantization: the scale factors. A W4A8 quantized model with per-group-128 scales stores one BF16 scale per 128 INT4 weights. For a 70B model: 70.6B weights / 128 × 2 bytes ≈ 1.1 GB of scales. Small compared to the 35.3 GB of INT4 weights, but non-negligible. Per-tensor scaling (one scale per layer) has negligible overhead but worse accuracy; per-channel scaling is the practical middle ground.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     §07  PRODUCTION GUIDE
+═══════════════════════════════════════════════════════════════ -->
+<section id="s-deploy" data-code="deploy">
+<div class="section-no">07 — Production Guide</div>
+<h2>Choosing Your Format: Accuracy, Speed, and Memory</h2>
+<p>With dozens of quantization schemes available, which should you use? The answer depends on your hardware, latency target, and whether you can tolerate quality degradation. Here's a practical decision framework.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">accuracy retention vs memory compression — relative to BF16 baseline</span>
+    <span class="vp-hint">scroll into view to animate</span>
+  </div>
+  <div class="vp-body" id="s-deploy-bars">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div>
+        <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">ACCURACY RETENTION (%)</div>
+        <div class="results-bars">
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">FP8 W8A8</div>
+            <div class="bar-track"><div class="bar-fill" id="acc-fp8" style="background:rgba(16,185,129,.65)" data-w="99.5"><span>99.5%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">INT8 W8A8</div>
+            <div class="bar-track"><div class="bar-fill" id="acc-int8" style="background:rgba(6,182,212,.6)" data-w="99"><span>99%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A16 AWQ</div>
+            <div class="bar-track"><div class="bar-fill" id="acc-w4a16" style="background:rgba(139,92,246,.65)" data-w="97.5"><span>97.5%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A8</div>
+            <div class="bar-track"><div class="bar-fill" id="acc-w4a8" style="background:rgba(245,158,11,.6)" data-w="96.5"><span>96.5%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A4</div>
+            <div class="bar-track"><div class="bar-fill" id="acc-w4a4" style="background:rgba(239,68,68,.5)" data-w="94"><span>~94%</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">MEMORY VS BF16 (LOWER IS BETTER)</div>
+        <div class="results-bars">
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">FP8 W8A8</div>
+            <div class="bar-track"><div class="bar-fill" id="mem-fp8" style="background:rgba(16,185,129,.5)" data-w="50"><span>50%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">INT8 W8A8</div>
+            <div class="bar-track"><div class="bar-fill" id="mem-int8" style="background:rgba(6,182,212,.5)" data-w="50"><span>50%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A16 AWQ</div>
+            <div class="bar-track"><div class="bar-fill" id="mem-w4a16" style="background:rgba(139,92,246,.5)" data-w="25"><span>25%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A8</div>
+            <div class="bar-track"><div class="bar-fill" id="mem-w4a8" style="background:rgba(245,158,11,.5)" data-w="25"><span>25%</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="width:80px">W4A4</div>
+            <div class="bar-track"><div class="bar-fill" id="mem-w4a4" style="background:rgba(239,68,68,.4)" data-w="12.5"><span>12.5%</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin:.75rem 0 0;font-family:var(--ff-mono)">
+      Accuracy retention is approximate and task-dependent. Numbers reflect typical results on instruction-tuned 7B–70B models.
+    </p>
+  </div>
+</div>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Hardware</th>
+      <th>Best Tool</th>
+      <th>When to Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mn">W4A16 (GPTQ/AWQ)</td>
+      <td>Any GPU</td>
+      <td class="mn">AutoAWQ, AutoGPTQ</td>
+      <td>Consumer GPU or memory-limited deployment; best accuracy/GB for weight-only quantization</td>
+    </tr>
+    <tr>
+      <td class="mn">W8A8 INT8</td>
+      <td>A100+</td>
+      <td class="mn">bitsandbytes, SmoothQuant</td>
+      <td>High-throughput serving on A100; need compute speedup, not just memory savings</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn best">W8A8 FP8</td>
+      <td>H100, H200, RTX 4090+</td>
+      <td class="mn">vLLM, TGI, TensorRT-LLM</td>
+      <td><strong>Production default for H100.</strong> 2× BF16 throughput with ~0.5% quality loss. First choice for inference.</td>
+    </tr>
+    <tr>
+      <td class="mn">W4A8 FP8 (QServe)</td>
+      <td>H100</td>
+      <td class="mn">TensorRT-LLM, QServe</td>
+      <td>Push H100 further; best throughput on H100 with acceptable quality. 4-bit weights + 8-bit activations.</td>
+    </tr>
+    <tr>
+      <td class="mn">W4A4 (QuaRot)</td>
+      <td>Any with INT4 GEMM</td>
+      <td class="mn">QuaRot, custom kernels</td>
+      <td>Extreme compression; requires rotation preprocessing. Accuracy ~94% of BF16.</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn best">nvfp4 / FP4 E2M1</td>
+      <td>Blackwell (B200)</td>
+      <td class="mn">TensorRT-LLM, ModelOpt</td>
+      <td><strong>2× FP8 throughput.</strong> The future default for Blackwell deployments.</td>
+    </tr>
+    <tr>
+      <td class="mn">GGUF Q4_K_M</td>
+      <td>CPU / Apple Silicon</td>
+      <td class="mn">llama.cpp, Ollama</td>
+      <td>Local / edge inference on CPU or M-series Mac. Q4_K_M = good quality + small size.</td>
+    </tr>
+    <tr>
+      <td class="mn warn">QAT (any format)</td>
+      <td>GPU (training)</td>
+      <td class="mn">Transformer Engine, custom</td>
+      <td>When PTQ quality is insufficient; need to recover accuracy on highly-compressed format.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Real-World Examples</h3>
+<ul>
+  <li><strong>Meta Llama-3.1 405B (FP8)</strong> — Meta's official inference uses FP8, fitting the 405B model on 8× H100 vs 16× for BF16. Released as a pre-quantized HuggingFace checkpoint via NeuralMagic.</li>
+  <li><strong>DeepSeek V3 (FP8)</strong> — 671B MoE model trained and served in FP8 on H800 clusters. The custom FP8 training recipe kept accuracy within 0.1% of BF16 baseline.</li>
+  <li><strong>Mistral 7B (INT4 GGUF)</strong> — runs on a single 6 GB GPU via llama.cpp GGUF Q4_K_M quantization. The de facto format for local LLM inference on consumer hardware.</li>
+  <li><strong>Mixtral 8×7B (W4A16)</strong> — vLLM serves this at W4A16 AWQ with 2× throughput vs BF16, fitting the model on 2× A100 40 GB instead of 4×.</li>
+</ul>
+
+<h3>Practical Tips</h3>
+<ul>
+  <li><strong>Use FP8 if you have H100/H200.</strong> The accuracy loss is negligible (&lt;0.5%), the speedup is real, and every major framework (vLLM, TGI, TensorRT-LLM) supports it natively.</li>
+  <li><strong>First/last layers need higher precision.</strong> The embedding layer and the final LM head are highly sensitive to quantization. Most frameworks keep them in BF16 by default, even when all other layers are in FP8 or INT4.</li>
+  <li><strong>KV cache quantization is free money.</strong> Quantizing the KV cache to INT8 (or even INT4) often gives a 2× memory reduction at long sequences with minimal quality impact. Always try it before scaling out hardware.</li>
+  <li><strong>Per-group scaling beats per-tensor for INT4.</strong> Group size 128 is the standard — it adds ~3% overhead in scale storage but recovers most of the accuracy lost vs per-channel.</li>
+  <li><strong>Calibration data matters for W8A8.</strong> Use a diverse calibration set (200–512 examples from the actual deployment distribution). Using only short sequences when the deployment involves long contexts will produce bad activation statistics.</li>
+</ul>
+</section>
+
+</article>
+
+<!-- ── CODE SIDEBAR ─────────────────────────────────────────── -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">quant/model_size.py</div>
+      <div class="cs-section-title" id="cs-section-title">Memory Wall</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#x203A;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="memory">memory</button>
+    <button class="cs-tab" data-panel="formats">formats</button>
+    <button class="cs-tab" data-panel="taxonomy">taxonomy</button>
+    <button class="cs-tab" data-panel="ptq">ptq</button>
+    <button class="cs-tab" data-panel="qat">qat</button>
+    <button class="cs-tab" data-panel="hardware">hardware</button>
+    <button class="cs-tab" data-panel="deploy">deploy</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- memory -->
+    <div class="cs-panel active" id="panel-memory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Model weight memory by precision</span>
+<span class="cs-line cmt"># 70.6 B params = Llama-3.1-70B</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">model_gb</span>(params_b, dtype):</span>
+<span class="cs-line hl-c">    bytes_per = &#123;</span>
+<span class="cs-line hl-c">        <span class="str">'fp32'</span>:  <span class="num">4</span>,    <span class="cmt"># 32 bits / 8</span></span>
+<span class="cs-line hl-c">        <span class="str">'bf16'</span>:  <span class="num">2</span>,    <span class="cmt"># 16 bits / 8</span></span>
+<span class="cs-line hl-c">        <span class="str">'fp8'</span>:   <span class="num">1</span>,    <span class="cmt"># 8 bits  / 8</span></span>
+<span class="cs-line hl-c">        <span class="str">'int8'</span>:  <span class="num">1</span>,</span>
+<span class="cs-line hl-c">        <span class="str">'int4'</span>:  <span class="num">0.5</span>,  <span class="cmt"># 4 bits  / 8</span></span>
+<span class="cs-line hl-c">        <span class="str">'int2'</span>:  <span class="num">0.25</span>,</span>
+<span class="cs-line hl-c">    &#125;[dtype]</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> params_b * <span class="num">1e9</span> * bytes_per / <span class="num">1e9</span></span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">for</span> dt <span class="kw">in</span> [<span class="str">'fp32'</span>,<span class="str">'bf16'</span>,<span class="str">'fp8'</span>,<span class="str">'int4'</span>]:</span>
+<span class="cs-line">    gb = <span class="fn">model_gb</span>(<span class="num">70.6</span>, dt)</span>
+<span class="cs-line">    h100s = -(-<span class="fn">int</span>(gb) // <span class="num">80</span>)  <span class="cmt"># ceil</span></span>
+<span class="cs-line">    <span class="fn">print</span>(<span class="str">f"&#123;dt:&lt;6&#125; &#123;gb:.0f&#125; GB  &#123;h100s&#125;x H100"</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># fp32   282 GB  4x H100</span>
+<span class="cs-line cmt"># bf16   141 GB  2x H100</span>
+<span class="cs-line cmt"># fp8     71 GB  1x H100</span>
+<span class="cs-line cmt"># int4    35 GB  1x H100</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># IMPORTANT: this is weights only.</span>
+<span class="cs-line cmt"># Add activations (~GB) + KV cache</span>
+<span class="cs-line cmt"># (seq_len * layers * heads * d_head * 2</span>
+<span class="cs-line cmt">#  * dtype_bytes) for real GPU budget.</span>
+      </pre>
+    </div>
+
+    <!-- formats -->
+    <div class="cs-panel" id="panel-formats">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Exploring numeric formats in PyTorch</span>
+<span class="cs-line"><span class="kw">import</span> torch, struct</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># FP32 / BF16 / FP16 info</span>
+<span class="cs-line"><span class="kw">for</span> dt <span class="kw">in</span> [torch.float32, torch.bfloat16, torch.float16]:</span>
+<span class="cs-line">    fi = torch.<span class="fn">finfo</span>(dt)</span>
+<span class="cs-line">    <span class="fn">print</span>(<span class="str">f"&#123;dt&#125;: max=&#123;fi.max:.2e&#125;, eps=&#123;fi.eps:.2e&#125;"</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># torch.float32:  max=3.40e+38, eps=1.19e-07</span>
+<span class="cs-line cmt"># torch.bfloat16: max=3.39e+38, eps=7.81e-03</span>
+<span class="cs-line cmt"># torch.float16:  max=6.55e+04, eps=9.77e-04</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Cast BF16 &lt;--&gt; FP32 (lossless range)</span>
+<span class="cs-line hl-p">x = torch.<span class="fn">tensor</span>([<span class="num">1.23456789</span>])</span>
+<span class="cs-line hl-p">bf = x.<span class="fn">to</span>(torch.bfloat16)  <span class="cmt"># ~1.234</span></span>
+<span class="cs-line hl-p">fp = x.<span class="fn">to</span>(torch.float16)   <span class="cmt"># ~1.234</span></span>
+<span class="cs-line hl-p">back_bf = bf.<span class="fn">to</span>(torch.float32)</span>
+<span class="cs-line hl-p"><span class="cmt"># BF16 mantissa = 7 bits → 3 sig digits</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># FP8 E4M3 max = 448, min normal = 2^(-9)</span>
+<span class="cs-line cmt"># FP8 E5M2 max = 57344, min = 2^(-16)</span>
+<span class="cs-line cmt"># (TE uses E4M3 fwd, E5M2 grad)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># INT8 range: [-128, 127]</span>
+<span class="cs-line cmt"># INT4 range: [-8, 7]  (16 levels)</span>
+<span class="cs-line cmt"># FP4 E2M1:  ±6.0     (non-uniform)</span>
+      </pre>
+    </div>
+
+    <!-- taxonomy -->
+    <div class="cs-panel" id="panel-taxonomy">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Affine (asymmetric) quantization</span>
+<span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">quantize</span>(x: <span class="cls">torch.Tensor</span>, bits: <span class="cls">int</span>,</span>
+<span class="cs-line hl-c">             per_group: <span class="cls">int</span> = <span class="num">128</span>):</span>
+<span class="cs-line hl-c">    <span class="cmt"># per-group symmetric quantization</span></span>
+<span class="cs-line hl-c">    x = x.<span class="fn">reshape</span>(-<span class="num">1</span>, per_group)</span>
+<span class="cs-line hl-c">    absmax = x.<span class="fn">abs</span>().<span class="fn">max</span>(dim=-<span class="num">1</span>, keepdim=<span class="cls">True</span>).values</span>
+<span class="cs-line hl-c">    qmax = <span class="num">2</span> ** (bits - <span class="num">1</span>) - <span class="num">1</span>   <span class="cmt"># 127, 7, ...</span></span>
+<span class="cs-line hl-c">    scale = absmax / qmax           <span class="cmt"># per-group scale</span></span>
+<span class="cs-line hl-c">    x_q = (x / scale).<span class="fn">round</span>().<span class="fn">clamp</span>(-qmax-<span class="num">1</span>, qmax)</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> x_q.<span class="fn">to</span>(torch.int8), scale</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">dequantize</span>(x_q, scale):</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> (x_q.<span class="fn">float</span>() * scale).<span class="fn">reshape</span>(-<span class="num">1</span>)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Scale overhead (per-group 128)</span>
+<span class="cs-line cmt"># 70B model, INT4 g128:</span>
+<span class="cs-line cmt"># scale bytes = 70e9 / 128 * 2 = ~1.1 GB</span>
+<span class="cs-line cmt"># weight bytes = 70e9 * 0.5 = 35.3 GB</span>
+<span class="cs-line cmt"># ∴ overhead is ~3% — acceptable</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># KV cache size (per-token, per-layer):</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">kv_bytes</span>(seq, layers, heads, d_head, dtype_b):</span>
+<span class="cs-line">    <span class="kw">return</span> seq * layers * heads * d_head * <span class="num">2</span> * dtype_b</span>
+<span class="cs-line cmt"># Llama-3.1-70B, 4096 seq, BF16:</span>
+<span class="cs-line cmt"># kv_bytes(4096, 80, 8, 128, 2) ≈ 671 MB</span>
+<span class="cs-line cmt"># Same at INT8 (dtype_b=1):     ≈ 336 MB</span>
+      </pre>
+    </div>
+
+    <!-- ptq -->
+    <div class="cs-panel" id="panel-ptq">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># GPTQ — second-order PTQ (pseudocode)</span>
+<span class="cs-line cmt"># Processes one linear layer at a time</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">gptq_layer</span>(W, X_cal, bits=<span class="num">4</span>, group=<span class="num">128</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Compute approx. Hessian from calib data</span></span>
+<span class="cs-line hl-p">    H = (X_cal.T @ X_cal) / X_cal.<span class="fn">shape</span>[<span class="num">0</span>]</span>
+<span class="cs-line hl-p">    H += <span class="num">0.01</span> * torch.<span class="fn">eye</span>(H.<span class="fn">shape</span>[<span class="num">0</span>])  <span class="cmt"># damp</span></span>
+<span class="cs-line hl-p">    H_inv = torch.<span class="fn">linalg.inv</span>(H)</span>
+<span class="cs-line hl-p">    W_q = W.<span class="fn">clone</span>()</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(W.<span class="fn">shape</span>[<span class="num">1</span>]):  <span class="cmt"># column by column</span></span>
+<span class="cs-line hl-p">        q_i = <span class="fn">quantize_col</span>(W_q[:, i], bits, group)</span>
+<span class="cs-line hl-p">        err = W_q[:, i] - q_i           <span class="cmt"># quant error</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># Compensate remaining columns via H_inv</span></span>
+<span class="cs-line hl-p">        W_q[:, i+<span class="num">1</span>:] -= err[:, <span class="cls">None</span>] * \</span>
+<span class="cs-line hl-p">                H_inv[i, i+<span class="num">1</span>:] / H_inv[i, i]</span>
+<span class="cs-line hl-p">        W_q[:, i] = q_i</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> W_q</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AWQ — activation-aware scale search</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">awq_scale_search</span>(W, A_stats, bits=<span class="num">4</span>):</span>
+<span class="cs-line hl-c">    <span class="cmt"># A_stats = per-channel activation mean abs</span></span>
+<span class="cs-line hl-c">    best_s, best_loss = <span class="cls">None</span>, <span class="cls">float</span>(<span class="str">'inf'</span>)</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> alpha <span class="kw">in</span> [<span class="num">0.1</span>, <span class="num">0.3</span>, <span class="num">0.5</span>, <span class="num">0.7</span>, <span class="num">0.9</span>]:</span>
+<span class="cs-line hl-c">        s = A_stats ** alpha          <span class="cmt"># scale factor</span></span>
+<span class="cs-line hl-c">        W_scaled = W * s              <span class="cmt"># scale weights up</span></span>
+<span class="cs-line hl-c">        W_q = <span class="fn">quantize</span>(W_scaled, bits)</span>
+<span class="cs-line hl-c">        loss = ((W_scaled - W_q) ** <span class="num">2</span>).<span class="fn">mean</span>()</span>
+<span class="cs-line hl-c">        <span class="kw">if</span> loss &lt; best_loss:</span>
+<span class="cs-line hl-c">            best_loss, best_s = loss, s</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> best_s   <span class="cmt"># apply to W &amp; 1/A at runtime</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># SmoothQuant: offline migration</span>
+<span class="cs-line cmt"># x̃ = diag(s)^&#123;-1&#125; x  (smooth activation)</span>
+<span class="cs-line cmt"># W̃ = W diag(s)      (absorb into weight)</span>
+<span class="cs-line cmt"># s_i = max(|x_i|)^α / max(|w_i|)^&#123;1-α&#125;</span>
+      </pre>
+    </div>
+
+    <!-- qat -->
+    <div class="cs-panel" id="panel-qat">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Fake-quantize + Straight-Through Estimator</span>
+<span class="cs-line"><span class="kw">import</span> torch</span>
+<span class="cs-line"><span class="kw">from</span> torch <span class="kw">import</span> Tensor</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">FakeQuantize</span>(torch.autograd.<span class="cls">Function</span>):</span>
+<span class="cs-line hl-p">    @staticmethod</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">forward</span>(ctx, x: <span class="cls">Tensor</span>,</span>
+<span class="cs-line hl-p">                 scale, zero, bits):</span>
+<span class="cs-line hl-p">        qmax = <span class="num">2</span> ** (bits - <span class="num">1</span>) - <span class="num">1</span></span>
+<span class="cs-line hl-p">        x_q = (x / scale + zero).<span class="fn">round</span>()</span>
+<span class="cs-line hl-p">                  .<span class="fn">clamp</span>(-qmax - <span class="num">1</span>, qmax)</span>
+<span class="cs-line hl-p">        x_hat = (x_q - zero) * scale  <span class="cmt"># dequant</span></span>
+<span class="cs-line hl-p">        ctx.<span class="fn">save_for_backward</span>(x, x_hat)</span>
+<span class="cs-line hl-p">        ctx.scale = scale</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> x_hat</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">    @staticmethod</span>
+<span class="cs-line hl-g">    <span class="kw">def</span> <span class="fn">backward</span>(ctx, grad_output):</span>
+<span class="cs-line hl-g">        x, x_hat = ctx.saved_tensors</span>
+<span class="cs-line hl-g">        <span class="cmt"># STE: pass gradient straight through</span></span>
+<span class="cs-line hl-g">        <span class="cmt"># where |x| &lt;= scale * qmax</span></span>
+<span class="cs-line hl-g">        mask = (x.<span class="fn">abs</span>() &lt;= ctx.scale * <span class="num">127</span>)</span>
+<span class="cs-line hl-g">        grad_input = grad_output * mask.<span class="fn">float</span>()</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> grad_input, <span class="cls">None</span>, <span class="cls">None</span>, <span class="cls">None</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># QAT training loop (simplified)</span>
+<span class="cs-line hl-c"><span class="kw">for</span> step, batch <span class="kw">in</span> <span class="fn">enumerate</span>(loader):</span>
+<span class="cs-line hl-c">    logits = <span class="fn">model</span>(batch)    <span class="cmt"># fake-quant inside</span></span>
+<span class="cs-line hl-c">    loss = <span class="fn">cross_entropy</span>(logits, batch.labels)</span>
+<span class="cs-line hl-c">    loss.<span class="fn">backward</span>()           <span class="cmt"># STE passes grads</span></span>
+<span class="cs-line hl-c">    optimizer.<span class="fn">step</span>()          <span class="cmt"># real-valued update</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># scales updated via EMA of activation amaxes</span></span>
+      </pre>
+    </div>
+
+    <!-- hardware -->
+    <div class="cs-panel" id="panel-hardware">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># NVIDIA Transformer Engine — FP8 autocast</span>
+<span class="cs-line"><span class="kw">import</span> transformer_engine.pytorch <span class="kw">as</span> te</span>
+<span class="cs-line"><span class="kw">from</span> transformer_engine.common.recipe <span class="kw">import</span> \</span>
+<span class="cs-line">    DelayedScaling, Format</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Define FP8 recipe</span>
+<span class="cs-line hl-p">fp8_recipe = <span class="fn">DelayedScaling</span>(</span>
+<span class="cs-line hl-p">    margin=<span class="num">0</span>,</span>
+<span class="cs-line hl-p">    interval=<span class="num">1</span>,</span>
+<span class="cs-line hl-p">    fp8_format=Format.HYBRID,  <span class="cmt"># E4M3 fwd, E5M2 bwd</span></span>
+<span class="cs-line hl-p">    amax_history_len=<span class="num">16</span>,</span>
+<span class="cs-line hl-p">    amax_compute_algo=<span class="str">'max'</span>,</span>
+<span class="cs-line hl-p">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Wrap training step</span>
+<span class="cs-line hl-c"><span class="kw">with</span> te.<span class="fn">fp8_autocast</span>(enabled=<span class="cls">True</span>,</span>
+<span class="cs-line hl-c">                    fp8_recipe=fp8_recipe):</span>
+<span class="cs-line hl-c">    output = <span class="fn">model</span>(inputs)    <span class="cmt"># GEMMs run in FP8</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># FP8 format summary:</span>
+<span class="cs-line cmt"># E4M3: sign(1) + exp(4) + mantissa(3)</span>
+<span class="cs-line cmt">#        max=448, used for fwd weights/activ</span>
+<span class="cs-line cmt"># E5M2: sign(1) + exp(5) + mantissa(2)</span>
+<span class="cs-line cmt">#        max=57344, used for gradients</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Blackwell nvfp4 (MXFP4):</span>
+<span class="cs-line cmt"># E2M1: sign(1)+exp(2)+mantissa(1)=4 bits</span>
+<span class="cs-line cmt"># Each 32-element block shares 1 FP8 exponent</span>
+<span class="cs-line cmt"># → 4-bit weights + 8-bit block scale</span>
+<span class="cs-line cmt"># Throughput: ~2× H100 FP8 on B200</span>
+      </pre>
+    </div>
+
+    <!-- deploy -->
+    <div class="cs-panel" id="panel-deploy">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># vLLM — FP8 inference (H100)</span>
+<span class="cs-line"><span class="kw">from</span> vllm <span class="kw">import</span> LLM, SamplingParams</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">llm = <span class="fn">LLM</span>(</span>
+<span class="cs-line hl-p">    model=<span class="str">"meta-llama/Meta-Llama-3.1-70B"</span>,</span>
+<span class="cs-line hl-p">    quantization=<span class="str">"fp8"</span>,        <span class="cmt"># W8A8 FP8</span></span>
+<span class="cs-line hl-p">    kv_cache_dtype=<span class="str">"fp8"</span>,      <span class="cmt"># also quant KV</span></span>
+<span class="cs-line hl-p">    tensor_parallel_size=<span class="num">1</span>,</span>
+<span class="cs-line hl-p">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># bitsandbytes — INT4 load (any GPU)</span>
+<span class="cs-line hl-c"><span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM</span>
+<span class="cs-line hl-c">model = <span class="cls">AutoModelForCausalLM</span>.<span class="fn">from_pretrained</span>(</span>
+<span class="cs-line hl-c">    <span class="str">"meta-llama/Meta-Llama-3-8B-Instruct"</span>,</span>
+<span class="cs-line hl-c">    load_in_4bit=<span class="cls">True</span>,        <span class="cmt"># NF4 + dq</span></span>
+<span class="cs-line hl-c">    bnb_4bit_compute_dtype=torch.bfloat16,</span>
+<span class="cs-line hl-c">    bnb_4bit_use_double_quant=<span class="cls">True</span>,</span>
+<span class="cs-line hl-c">    device_map=<span class="str">"auto"</span>,</span>
+<span class="cs-line hl-c">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AWQ — pre-quantized model (W4A16)</span>
+<span class="cs-line hl-g"><span class="kw">from</span> awq <span class="kw">import</span> AutoAWQForCausalLM</span>
+<span class="cs-line hl-g">model = <span class="cls">AutoAWQForCausalLM</span>.<span class="fn">from_quantized</span>(</span>
+<span class="cs-line hl-g">    <span class="str">"TheBloke/Llama-2-70B-AWQ"</span>,</span>
+<span class="cs-line hl-g">    fuse_layers=<span class="cls">True</span>,</span>
+<span class="cs-line hl-g">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># llama.cpp (GGUF Q4_K_M) — CPU/Apple</span>
+<span class="cs-line cmt"># $ ollama run llama3.1:70b-instruct-q4_K_M</span>
+<span class="cs-line cmt"># → runs on 2× M2 Ultra (192 GB RAM)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ── TOC + sidebar toggles ────────────────────────────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '\u203A' : '\u2039';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '\u2039' : '\u203A';
+});
+
+/* ── Code sidebar tab switching ───────────────────────────────── */
+const tabMeta = {
+  memory:   { file: 'quant/model_size.py',   title: 'Memory Wall' },
+  formats:  { file: 'quant/formats.py',       title: 'Bit Anatomy' },
+  taxonomy: { file: 'quant/quant_math.py',    title: 'WXaY Taxonomy' },
+  ptq:      { file: 'quant/ptq_methods.py',   title: 'PTQ Methods' },
+  qat:      { file: 'quant/qat.py',           title: 'QAT' },
+  hardware: { file: 'quant/fp8_hardware.py',  title: 'Hardware' },
+  deploy:   { file: 'quant/deployment.py',    title: 'Production Guide' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t =>
+  t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ── IntersectionObserver: TOC highlight + sidebar sync ────────── */
+const sectionMap = {
+  's-memory': 'memory', 's-formats': 'formats', 's-taxonomy': 'taxonomy',
+  's-ptq': 'ptq', 's-qat': 'qat', 's-hardware': 'hardware', 's-deploy': 'deploy',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+/* ── Animated bar charts (IntersectionObserver) ─────────────────── */
+function animateBarsIn(containerEl) {
+  if (!containerEl) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(containerEl);
+}
+animateBarsIn(document.getElementById('s-memory-bars'));
+animateBarsIn(document.getElementById('s-hardware-bars'));
+animateBarsIn(document.getElementById('s-deploy-bars'));
+
+/* ── Bit Field Explorer ──────────────────────────────────────────── */
+const FORMATS = {
+  fp32:    { label:'FP32',     bits:32, sign:1, exp:8,  man:23, type:'f', range:'+/-3.4e38',   prec:'~7 sig. digits' },
+  bf16:    { label:'BF16',     bits:16, sign:1, exp:8,  man:7,  type:'f', range:'+/-3.4e38',   prec:'~3 sig. digits' },
+  fp16:    { label:'FP16',     bits:16, sign:1, exp:5,  man:10, type:'f', range:'+/-65504',     prec:'~3-4 sig. digits' },
+  fp8e4m3: { label:'FP8 E4M3', bits:8,  sign:1, exp:4,  man:3,  type:'f', range:'+/-448',      prec:'~2 sig. digits' },
+  fp8e5m2: { label:'FP8 E5M2', bits:8,  sign:1, exp:5,  man:2,  type:'f', range:'+/-57344',    prec:'~1 sig. digit' },
+  int8:    { label:'INT8',     bits:8,  sign:0, exp:0,  man:0,  type:'i', range:'[-128, 127]',  prec:'uniform steps' },
+  int4:    { label:'INT4',     bits:4,  sign:0, exp:0,  man:0,  type:'i', range:'[-8, 7]',      prec:'uniform steps' },
+  fp4e2m1: { label:'FP4 E2M1', bits:4,  sign:1, exp:2,  man:1,  type:'f', range:'+/-6.0',      prec:'~1 sig. digit' },
+};
+
+const bitCanvas = document.getElementById('bit-canvas');
+if (bitCanvas) {
+  const bCtx = bitCanvas.getContext('2d');
+  let curFmt = 'fp32';
+  const DPR = window.devicePixelRatio || 1;
+
+  function resizeBitCanvas() {
+    const W = bitCanvas.clientWidth;
+    const H = 130;
+    bitCanvas.width = W * DPR; bitCanvas.height = H * DPR;
+    bCtx.scale(DPR, DPR);
+    drawBits(W, H, FORMATS[curFmt]);
+  }
+
+  function drawBits(W, H, fmt) {
+    bCtx.clearRect(0, 0, W, H);
+    const GAP = 2;
+    const BIT_H = 40;
+    const maxBits = 32;
+    const cellW = Math.floor((W - 32) / maxBits) - GAP;
+    const totalW = fmt.bits * (cellW + GAP) - GAP;
+    const startX = Math.round((W - totalW) / 2);
+    const startY = 42;
+
+    bCtx.font = '600 10px monospace';
+    bCtx.textAlign = 'center';
+
+    if (fmt.type === 'f') {
+      // Sign group label
+      if (fmt.sign > 0) {
+        const sx = startX;
+        const ex = startX + fmt.sign * (cellW + GAP) - GAP;
+        bCtx.fillStyle = 'rgba(245,158,11,0.7)';
+        bCtx.fillRect(sx, startY - 18, ex - sx + 1, 2);
+        bCtx.fillStyle = 'rgba(245,158,11,0.8)';
+        bCtx.fillText('S', sx + (ex - sx) / 2, startY - 21);
+      }
+      // Exp group label
+      const expSx = startX + fmt.sign * (cellW + GAP);
+      const expEx = expSx + fmt.exp * (cellW + GAP) - GAP;
+      bCtx.fillStyle = 'rgba(139,92,246,0.7)';
+      bCtx.fillRect(expSx, startY - 18, expEx - expSx + 1, 2);
+      bCtx.fillStyle = 'rgba(139,92,246,0.8)';
+      bCtx.fillText('EXP (' + fmt.exp + 'b)', expSx + (expEx - expSx) / 2, startY - 21);
+      // Mantissa group label
+      const manSx = expEx + GAP;
+      const manEx = startX + totalW;
+      if (fmt.man > 0) {
+        bCtx.fillStyle = 'rgba(6,182,212,0.7)';
+        bCtx.fillRect(manSx, startY - 18, manEx - manSx + 1, 2);
+        bCtx.fillStyle = 'rgba(6,182,212,0.7)';
+        bCtx.fillText('MANTISSA (' + fmt.man + 'b)', manSx + (manEx - manSx) / 2, startY - 21);
+      }
+    } else {
+      bCtx.fillStyle = 'rgba(107,114,128,0.7)';
+      bCtx.fillRect(startX, startY - 18, totalW, 2);
+      bCtx.fillStyle = 'rgba(107,114,128,0.8)';
+      bCtx.fillText('INTEGER MAGNITUDE (' + fmt.bits + ' bits)', startX + totalW / 2, startY - 21);
+    }
+
+    // Draw individual bit boxes
+    for (let i = 0; i < fmt.bits; i++) {
+      const x = startX + i * (cellW + GAP);
+      let fill, stroke;
+      if (fmt.type === 'i') {
+        fill = i === 0 ? 'rgba(107,114,128,0.75)' : 'rgba(107,114,128,0.45)';
+        stroke = 'rgba(255,255,255,0.12)';
+      } else if (i < fmt.sign) {
+        fill = 'rgba(245,158,11,0.8)';
+        stroke = 'rgba(245,158,11,0.4)';
+      } else if (i < fmt.sign + fmt.exp) {
+        fill = 'rgba(139,92,246,0.7)';
+        stroke = 'rgba(139,92,246,0.4)';
+      } else {
+        fill = 'rgba(6,182,212,0.65)';
+        stroke = 'rgba(6,182,212,0.35)';
+      }
+      bCtx.fillStyle = fill;
+      bCtx.beginPath();
+      bCtx.roundRect(x, startY, cellW, BIT_H, 3);
+      bCtx.fill();
+      bCtx.strokeStyle = stroke;
+      bCtx.lineWidth = 1;
+      bCtx.stroke();
+    }
+
+    // Stats row
+    const statsY = startY + BIT_H + 18;
+    bCtx.font = '600 11px monospace';
+    bCtx.textAlign = 'center';
+    bCtx.fillStyle = '#f0f0f8';
+    bCtx.fillText(fmt.label, W / 2, statsY);
+    bCtx.font = '500 10px monospace';
+    bCtx.fillStyle = '#6b7280';
+    bCtx.fillText('Range: ' + fmt.range, W * 0.28, statsY + 16);
+    bCtx.fillText('Precision: ' + fmt.prec, W * 0.72, statsY + 16);
+  }
+
+  resizeBitCanvas();
+  window.addEventListener('resize', () => {
+    bitCanvas.style.width = '100%';
+    resizeBitCanvas();
+  });
+
+  document.querySelectorAll('.fmt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      curFmt = btn.dataset.fmt;
+      const W = bitCanvas.clientWidth;
+      bCtx.setTransform(1, 0, 0, 1, 0, 0);
+      const H = 130;
+      bitCanvas.width = W * DPR; bitCanvas.height = H * DPR;
+      bCtx.scale(DPR, DPR);
+      drawBits(W, H, FORMATS[curFmt]);
+    });
+  });
+}
+
+/* ── Quantization Error Canvas ────────────────────────────────── */
+const quantCanvas = document.getElementById('quant-canvas');
+if (quantCanvas) {
+  const qCtx = quantCanvas.getContext('2d');
+  let qBits = 4;
+  const DPR = window.devicePixelRatio || 1;
+
+  function resizeQuantCanvas() {
+    const W = quantCanvas.clientWidth;
+    const H = 180;
+    quantCanvas.width = W * DPR; quantCanvas.height = H * DPR;
+    qCtx.scale(DPR, DPR);
+    drawQuant(W, H, qBits);
+  }
+
+  function drawQuant(W, H, bits) {
+    qCtx.clearRect(0, 0, W, H);
+    const PAD = 20;
+    const DIVX = W / 2;
+    const yMid = H / 2;
+    const yAmp = (H - PAD * 2) / 2 - 6;
+    const N = 200;
+    const levels = Math.pow(2, bits) - 1;
+
+    // Background labels
+    qCtx.font = '600 10px monospace';
+    qCtx.textAlign = 'center';
+    qCtx.fillStyle = 'rgba(6,182,212,0.6)';
+    qCtx.fillText('ORIGINAL', DIVX / 2, PAD - 4);
+    qCtx.fillStyle = bits >= 6 ? 'rgba(16,185,129,0.7)' :
+                     bits >= 3 ? 'rgba(245,158,11,0.7)' : 'rgba(239,68,68,0.7)';
+    qCtx.fillText('QUANTIZED (INT' + bits + ')', DIVX + DIVX / 2, PAD - 4);
+
+    // Divider
+    qCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    qCtx.setLineDash([4, 4]);
+    qCtx.lineWidth = 1;
+    qCtx.beginPath(); qCtx.moveTo(DIVX, 8); qCtx.lineTo(DIVX, H - 8); qCtx.stroke();
+    qCtx.setLineDash([]);
+
+    // Draw original smooth curve (left half)
+    qCtx.strokeStyle = 'rgba(6,182,212,0.85)';
+    qCtx.lineWidth = 2;
+    qCtx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const x = PAD + t * (DIVX - PAD * 2);
+      const y = yMid - yAmp * Math.sin(t * Math.PI * 4);
+      i === 0 ? qCtx.moveTo(x, y) : qCtx.lineTo(x, y);
+    }
+    qCtx.stroke();
+
+    // Draw quantized staircase (right half)
+    const qColor = bits >= 6 ? 'rgba(16,185,129,0.85)' :
+                   bits >= 3 ? 'rgba(245,158,11,0.85)' : 'rgba(239,68,68,0.85)';
+    qCtx.strokeStyle = qColor;
+    qCtx.lineWidth = 2;
+    qCtx.beginPath();
+    let prevQy = null;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const x = DIVX + PAD + t * (DIVX - PAD * 2);
+      const rawVal = Math.sin(t * Math.PI * 4);
+      const qVal = Math.round(rawVal * levels / 2) / (levels / 2);
+      const y = yMid - yAmp * qVal;
+      if (i === 0) {
+        qCtx.moveTo(x, y);
+        prevQy = y;
+      } else {
+        qCtx.lineTo(x, prevQy);  // horizontal
+        qCtx.lineTo(x, y);       // vertical step
+        prevQy = y;
+      }
+    }
+    qCtx.stroke();
+
+    // Step count label
+    qCtx.font = '500 10px monospace';
+    qCtx.fillStyle = qColor;
+    qCtx.textAlign = 'center';
+    qCtx.fillText((levels + 1) + ' levels', DIVX + DIVX / 2, H - 6);
+  }
+
+  resizeQuantCanvas();
+  window.addEventListener('resize', () => {
+    quantCanvas.style.width = '100%';
+    resizeQuantCanvas();
+  });
+
+  document.querySelectorAll('.qbits-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.qbits-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qBits = parseInt(btn.dataset.bits);
+      const W = quantCanvas.clientWidth;
+      qCtx.setTransform(1, 0, 0, 1, 0, 0);
+      const H = 180;
+      quantCanvas.width = W * DPR; quantCanvas.height = H * DPR;
+      qCtx.scale(DPR, DPR);
+      drawQuant(W, H, qBits);
+    });
+  });
+}
+
+/* ── Architecture SVG scheme switcher ────────────────────────── */
+const archSchemes = {
+  fp8: {
+    qkv:  { fill: 'rgba(16,185,129,0.15)',  stroke: 'rgba(16,185,129,0.5)',  text: '#10b981', label: 'Q/K/V proj (FP8 E4M3)' },
+    ffn:  { fill: 'rgba(16,185,129,0.15)',  stroke: 'rgba(16,185,129,0.5)',  text: '#10b981', label: 'FFN (FP8 E4M3)' },
+    oproj:{ fill: 'rgba(16,185,129,0.15)',  stroke: 'rgba(16,185,129,0.5)',  text: '#10b981', label: 'O proj (FP8)' },
+    attn: { fill: 'rgba(6,182,212,0.12)',   stroke: 'rgba(6,182,212,0.35)',  text: '#06b6d4', label: 'Attn (softmax FP32)' },
+  },
+  w4a8: {
+    qkv:  { fill: 'rgba(245,158,11,0.15)',  stroke: 'rgba(245,158,11,0.5)',  text: '#f59e0b', label: 'Q/K/V proj (W4A8)' },
+    ffn:  { fill: 'rgba(245,158,11,0.15)',  stroke: 'rgba(245,158,11,0.5)',  text: '#f59e0b', label: 'FFN (W4A8)' },
+    oproj:{ fill: 'rgba(245,158,11,0.15)',  stroke: 'rgba(245,158,11,0.5)',  text: '#f59e0b', label: 'O proj (W4A8)' },
+    attn: { fill: 'rgba(6,182,212,0.12)',   stroke: 'rgba(6,182,212,0.35)',  text: '#06b6d4', label: 'Attn (FP16)' },
+  },
+  w8a8: {
+    qkv:  { fill: 'rgba(139,92,246,0.15)',  stroke: 'rgba(139,92,246,0.5)',  text: '#8b5cf6', label: 'Q/K/V proj (W8A8 INT8)' },
+    ffn:  { fill: 'rgba(139,92,246,0.15)',  stroke: 'rgba(139,92,246,0.5)',  text: '#8b5cf6', label: 'FFN (W8A8 INT8)' },
+    oproj:{ fill: 'rgba(139,92,246,0.15)',  stroke: 'rgba(139,92,246,0.5)',  text: '#8b5cf6', label: 'O proj (INT8)' },
+    attn: { fill: 'rgba(6,182,212,0.12)',   stroke: 'rgba(6,182,212,0.35)',  text: '#06b6d4', label: 'Attn (FP16)' },
+  },
+  w4a16: {
+    qkv:  { fill: 'rgba(236,72,153,0.15)',  stroke: 'rgba(236,72,153,0.5)',  text: '#ec4899', label: 'Q/K/V proj (W4A16)' },
+    ffn:  { fill: 'rgba(236,72,153,0.15)',  stroke: 'rgba(236,72,153,0.5)',  text: '#ec4899', label: 'FFN (W4A16)' },
+    oproj:{ fill: 'rgba(236,72,153,0.15)',  stroke: 'rgba(236,72,153,0.5)',  text: '#ec4899', label: 'O proj (W4A16)' },
+    attn: { fill: 'rgba(6,182,212,0.12)',   stroke: 'rgba(6,182,212,0.35)',  text: '#06b6d4', label: 'Attn (FP16)' },
+  },
+};
+
+function applyArchScheme(schemeName) {
+  const s = archSchemes[schemeName];
+  if (!s) return;
+
+  // Update QKV boxes
+  ['arch-q','arch-k','arch-v'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.setAttribute('fill', s.qkv.fill); el.setAttribute('stroke', s.qkv.stroke); }
+  });
+  document.querySelectorAll('.arch-qkv-label').forEach(el => {
+    el.setAttribute('fill', s.qkv.text);
+  });
+
+  // Update O proj
+  const archO = document.getElementById('arch-o');
+  if (archO) { archO.setAttribute('fill', s.oproj.fill); archO.setAttribute('stroke', s.oproj.stroke); }
+  document.querySelectorAll('.arch-o-label').forEach(el => el.setAttribute('fill', s.oproj.text));
+
+  // Update FFN
+  ['arch-up','arch-gate','arch-down'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.setAttribute('fill', s.ffn.fill); el.setAttribute('stroke', s.ffn.stroke); }
+  });
+  document.querySelectorAll('.arch-ffn-label').forEach(el => el.setAttribute('fill', s.ffn.text));
+
+  // Update attention label
+  const archAttn = document.getElementById('arch-attn');
+  const archAttnLbl = document.getElementById('arch-attn-label');
+  if (archAttn) { archAttn.setAttribute('fill', s.attn.fill); archAttn.setAttribute('stroke', s.attn.stroke); }
+  if (archAttnLbl) { archAttnLbl.setAttribute('fill', s.attn.text); archAttnLbl.textContent = s.attn.label; }
+}
+
+applyArchScheme('fp8');
+
+document.querySelectorAll('.arch-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.arch-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyArchScheme(btn.dataset.scheme);
+  });
+});
+</script>
+</BaseLayout>
