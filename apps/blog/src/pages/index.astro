@@ -16,8 +16,20 @@ interface Post {
 
 const latestPosts: Post[] = [
   {
-    href: '/posts/llm-sleep/',
+    href: '/posts/mfu-training/',
     badge: '★ Latest',
+    tags: [
+      { text: 'LLM Training', cls: 'tag-purple' },
+      { text: 'Performance', cls: 'tag-cyan' },
+      { text: 'Interactive', cls: 'tag-green' },
+    ],
+    title: 'Model FLOP Utilization (MFU) Explained',
+    desc: 'MFU measures what fraction of your GPU\'s peak compute is doing real model work. Learn the 6N rule for counting FLOPs per token, use an interactive calculator to compute MFU for any GPU/model combination, then follow a step-by-step Llama 2 7B example using Meta\'s actual published training numbers (38.8% MFU on A100 SXM4).',
+    date: 'June 12, 2026',
+    read: postReadTime('mfu-training'),
+  },
+  {
+    href: '/posts/llm-sleep/',
     tags: [
       { text: 'Continual Learning', cls: 'tag-purple' },
       { text: 'Memory Systems', cls: 'tag-cyan' },
@@ -1280,23 +1292,31 @@ const deferredPosts = latestPosts.slice(BATCH);
   <div id="search-status" class="search-status" hidden></div>
 
   <div id="posts-list">
-    {initialPosts.map(post => (
-      <a class="post-card" href={post.href}>
-        {post.badge && <div class="post-featured-badge" data-i18n="post-badge">{post.badge}</div>}
-        <div class="tags">
-          {post.tags.map(t => (
-            <span class={`tag ${t.cls}`}>{t.text}</span>
-          ))}
-        </div>
-        <h3>{post.title}</h3>
-        <p>{post.desc}</p>
-        <div class="post-meta">
-          <span>{post.date}</span>
-          <span data-i18n="post-read">{post.read}</span>
-          <span class="post-arrow">→</span>
-        </div>
-      </a>
-    ))}
+    {initialPosts.map(post => {
+      const slug = post.href.match(/\/posts\/([^/]+)/)?.[1] ?? '';
+      return (
+        <a class="post-card" href={post.href} data-slug={slug}>
+          {post.badge && <div class="post-featured-badge" data-i18n="post-badge">{post.badge}</div>}
+          <div class="tags">
+            {post.tags.map(t => (
+              <span class={`tag ${t.cls}`}>{t.text}</span>
+            ))}
+          </div>
+          <h3>{post.title}</h3>
+          <p>{post.desc}</p>
+          <div class="post-meta">
+            <span>{post.date}</span>
+            <span data-i18n="post-read">{post.read}</span>
+            <span class="post-arrow">→</span>
+          </div>
+          {slug && (
+            <button class="post-bookmark-btn" aria-label="Bookmark" aria-pressed="false" data-slug={slug} data-title={post.title} data-date={post.date} data-href={post.href} data-tags={JSON.stringify(post.tags)}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          )}
+        </a>
+      );
+    })}
     <div id="posts-sentinel"></div>
   </div>
 </section>
@@ -1368,7 +1388,11 @@ const deferredPosts = latestPosts.slice(BATCH);
       const tags = p.tags
         .map(t => `<span class="tag ${esc(t.cls)}">${esc(t.text)}</span>`)
         .join('');
-      return `<a class="post-card" href="${esc(p.href)}">
+      const slug = p.href.match(/\/posts\/([^/]+)/)?.[1] ?? '';
+      const bm = slug
+        ? `<button class="post-bookmark-btn" aria-label="Bookmark" aria-pressed="false" data-slug="${esc(slug)}" data-title="${esc(p.title)}" data-date="${esc(p.date)}" data-href="${esc(p.href)}" data-tags="${esc(JSON.stringify(p.tags))}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>`
+        : '';
+      return `<a class="post-card" href="${esc(p.href)}" data-slug="${esc(slug)}">
         ${badge}
         <div class="tags">${tags}</div>
         <h3>${esc(p.title)}</h3>
@@ -1378,6 +1402,7 @@ const deferredPosts = latestPosts.slice(BATCH);
           <span data-i18n="post-read">${esc(p.read)}</span>
           <span class="post-arrow">→</span>
         </div>
+        ${bm}
       </a>`;
     }
 
@@ -1407,6 +1432,7 @@ const deferredPosts = latestPosts.slice(BATCH);
       while (tmp.firstChild) frag.appendChild(tmp.firstChild);
       list.insertBefore(frag, sentinel);
       applyReadProgress();
+      (window as any).__hejiApplyBookmarks?.();
 
       if (idx >= posts.length) observer.disconnect();
     }, { rootMargin: '300px' });
@@ -1463,7 +1489,11 @@ const deferredPosts = latestPosts.slice(BATCH);
       const tags = p.tags
         .map(t => `<span class="tag ${escSearch(t.cls)}">${escSearch(t.text)}</span>`)
         .join('');
-      return `<a class="post-card" href="${escSearch(p.href)}">
+      const slug = p.href.match(/\/posts\/([^/]+)/)?.[1] ?? '';
+      const bm = slug
+        ? `<button class="post-bookmark-btn" aria-label="Bookmark" aria-pressed="false" data-slug="${escSearch(slug)}" data-title="${escSearch(p.title)}" data-date="${escSearch(p.date)}" data-href="${escSearch(p.href)}" data-tags="${escSearch(JSON.stringify(p.tags))}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>`
+        : '';
+      return `<a class="post-card" href="${escSearch(p.href)}" data-slug="${escSearch(slug)}">
         ${badge}
         <div class="tags">${tags}</div>
         <h3>${escSearch(p.title)}</h3>
@@ -1473,6 +1503,7 @@ const deferredPosts = latestPosts.slice(BATCH);
           <span>${escSearch(p.read)}</span>
           <span class="post-arrow">→</span>
         </div>
+        ${bm}
       </a>`;
     }
 
@@ -1524,6 +1555,7 @@ const deferredPosts = latestPosts.slice(BATCH);
       } else {
         resultsEl.innerHTML = matches.map(buildSearchCard).join('');
         applyReadProgressSearch(resultsEl);
+        (window as any).__hejiApplyBookmarks?.();
       }
 
       if (searchStatus) {

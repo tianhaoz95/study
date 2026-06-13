@@ -1,0 +1,1185 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Model FLOP Utilization (MFU) Explained | AI/ML Deep Dives"
+  description="MFU measures what fraction of your GPU's peak compute is doing real model work. Learn the 6N rule, use an interactive calculator, and follow a step-by-step Llama 2 7B example to compute MFU from scratch."
+  crumb="MFU Training"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math block ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem;background:rgba(6,182,212,.06);border-radius:4px;padding:.3rem .5rem;display:inline-block}
+.step-result{font-family:var(--ff-mono);font-size:.78rem;color:var(--green);font-weight:700;margin-top:.3rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.1)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.4rem}
+
+/* ── MFU calculator ── */
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:1rem 0}
+@media(max-width:680px){.calc-grid{grid-template-columns:1fr}}
+.calc-section{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem}
+.calc-label{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;font-family:var(--ff-mono);display:flex;align-items:center;gap:.4rem}
+.calc-btns{display:flex;flex-wrap:wrap;gap:.375rem}
+.calc-btn{padding:.22rem .6rem;border-radius:4px;font-size:.68rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.calc-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.calc-btn.sel{background:var(--purple-dim);border-color:var(--purple);color:var(--purple-l)}
+.calc-input-row{display:flex;align-items:center;gap:.625rem;margin-top:.5rem}
+.calc-input{background:var(--surface);border:1px solid var(--border-hi);border-radius:4px;color:var(--text2);font-size:.78rem;font-family:var(--ff-mono);padding:.3rem .6rem;width:100px}
+.calc-input:focus{outline:none;border-color:var(--purple)}
+.calc-range{flex:1;accent-color:var(--purple)}
+.mfu-output{display:flex;align-items:center;gap:1.5rem;margin-top:1rem;padding:1rem;background:var(--card2);border:1px solid var(--border);border-radius:8px}
+.mfu-gauge-wrap{flex-shrink:0}
+.mfu-numbers{flex:1}
+.mfu-pct{font-size:2rem;font-weight:800;font-family:var(--ff-mono);line-height:1}
+.mfu-rating{font-size:.72rem;font-family:var(--ff-mono);margin-top:.25rem}
+.mfu-detail{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.5rem;line-height:1.6}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:230px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">LLM Training</span>
+    <span class="tag tag-cyan">Performance</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Model FLOP Utilization (MFU)</h1>
+  <p class="lead"><strong>MFU</strong> answers the question: of all the floating-point operations your GPU is theoretically capable of, what fraction are actually doing useful model computation? It's the definitive measure of training efficiency — more informative than GPU utilization %, faster to compute than wall-clock benchmarks, and directly actionable. This post walks through the formula, the math behind it, and a real Llama 2 example from first principles.</p>
+  <div class="post-hero-meta">
+    <span>June 12, 2026</span>
+    <span>~10 min read</span>
+    <span>Reference: <code>PaLM arXiv:2204.02311</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2204.02311" target="_blank" rel="noopener">PaLM Paper</a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2205.05198" target="_blank" rel="noopener">Chinchilla</a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#8249;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-why"><a href="#s-why"><span class="toc-num">01</span> Why GPU% Isn't Enough</a></li>
+    <li class="toc-item" id="toc-s-flops"><a href="#s-flops"><span class="toc-num">02</span> The 6N Rule</a></li>
+    <li class="toc-item" id="toc-s-formula"><a href="#s-formula"><span class="toc-num">03</span> MFU Calculator</a></li>
+    <li class="toc-item" id="toc-s-walkthrough"><a href="#s-walkthrough"><span class="toc-num">04</span> Llama 2 Walk-Through</a></li>
+    <li class="toc-item" id="toc-s-overhead"><a href="#s-overhead"><span class="toc-num">05</span> What Steals Your MFU?</a></li>
+    <li class="toc-item" id="toc-s-numbers"><a href="#s-numbers"><span class="toc-num">06</span> Real Numbers</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─────────────── §01 ─────────────── -->
+<section id="s-why" data-code="why">
+<div class="section-no">01 — Why GPU% Isn't Enough</div>
+<h2>The Problem with nvidia-smi</h2>
+<p>When your training run shows "GPU utilization: 85%" in <code>nvidia-smi</code>, what does that actually mean? It means the GPU shader processors were <em>scheduled</em> for 85% of clock cycles — not that they were doing useful model computation. A GPU stuck in a data-loading stall, or waiting for activations to be read from HBM, can still report high "utilization."</p>
+<p>Two runs can both show 80% GPU utilization while one is 5× more efficient than the other. The canvas below shows this concretely: two training dashboards with near-identical GPU% but wildly different actual MFU.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">utilization-canvas — same GPU%, different MFU</span>
+    <span class="vp-hint">The gap is real</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="util-canvas" style="width:100%;height:210px;display:block"></canvas>
+  </div>
+</div>
+
+<p>MFU cuts through this ambiguity. It measures: of the GPU's <em>theoretical peak throughput</em>, how much is landing on actual weight × activation multiply-adds in your model? That's the number worth tracking.</p>
+
+<h3>The Definition</h3>
+<p>MFU was popularized by Google's PaLM paper (2022) as a clean efficiency ratio:</p>
+<div class="math-block">
+  <div class="math-label">Model FLOP Utilization</div>
+  <span class="math-var">MFU</span> = <span class="math-var">Observed FLOPs/s</span> / <span class="math-var">Peak Hardware FLOPs/s</span>
+  <br/>
+  <span class="math-comment">// = (tokens/s × FLOPs per token) / (num_GPUs × GPU peak FLOPs/s)</span>
+  <br/>
+  <span class="math-comment">// MFU = 1.0 means you're using every last FLOP of GPU capacity — theoretical max</span>
+</div>
+<p>In practice, top training stacks reach 40–50% MFU. Below 20% suggests a serious bottleneck: data loading, excessive communication, or a memory-bandwidth-bound configuration.</p>
+</section>
+
+<!-- ─────────────── §02 ─────────────── -->
+<section id="s-flops" data-code="flops">
+<div class="section-no">02 — The 6N Rule</div>
+<h2>How Many FLOPs Does One Token Cost?</h2>
+<p>To compute MFU, you need <strong>FLOPs per token</strong> — how many floating-point operations your model performs for each new token. For a transformer with <em>N</em> parameters, a remarkably clean approximation holds:</p>
+
+<div class="math-block">
+  <div class="math-label">FLOPs per token (training)</div>
+  FLOPs<sub>token</sub> ≈ <span class="math-var">6N</span>
+  <br/>
+  <span class="math-comment">// where N = total model parameters</span>
+  <br/><br/>
+  Derivation: each param participates in one multiply-add per token
+  <br/>
+  Forward pass: <span class="math-var">2N</span> FLOPs  (1 multiply + 1 add per param ≈ 2 FLOPs)
+  <br/>
+  Backward pass: <span class="math-var">4N</span> FLOPs  (gradient for weights + gradient for activations)
+  <br/>
+  Total: <span class="math-var">2N + 4N = 6N</span>
+</div>
+
+<p>This 6N approximation ignores attention's quadratic cost (O(T²·d) in sequence length T), which is accurate for short contexts but increasingly wrong for long ones. The chart below shows how the FLOPs breakdown shifts as sequence length grows — attention becomes dominant past ~8K tokens for a 7B model.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">flops-breakdown — Llama 2 7B forward-pass FLOPs by component</span>
+    <span class="vp-hint">Attention grows quadratically with context length</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="flops-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>For most training at ≤ 4K context, the 6N rule is accurate within 20%. For 32K+ contexts (like long-document fine-tuning), you should use the full formula below to avoid underestimating FLOPs — and therefore <em>overestimating</em> MFU:</p>
+
+<div class="math-block">
+  <div class="math-label">Full FLOPs per token (training, including attention)</div>
+  FLOPs<sub>token</sub> = 6N + 12 · <span class="math-var">L</span> · <span class="math-var">T</span> · <span class="math-var">d</span>
+  <br/>
+  <span class="math-comment">// L = number of transformer layers</span>
+  <br/>
+  <span class="math-comment">// T = sequence length (context window)</span>
+  <br/>
+  <span class="math-comment">// d = model hidden dimension</span>
+  <br/>
+  <span class="math-comment">// For Llama 2 7B: 6×6.7B + 12×32×2048×4096 = 40.2B + 3.2B ≈ 43.4B</span>
+</div>
+
+<h3>Concrete Numbers for Common Models</h3>
+<table class="results-table">
+  <thead><tr><th>Model</th><th>Parameters</th><th>6N FLOPs/token</th><th>At T=2048 (+attn)</th></tr></thead>
+  <tbody>
+    <tr><td>Llama 2 7B</td><td class="mn">6.7B</td><td class="mn">40.2 GFLOPs</td><td class="mn">43.4 GFLOPs</td></tr>
+    <tr><td>Llama 2 13B</td><td class="mn">13B</td><td class="mn">78 GFLOPs</td><td class="mn">83 GFLOPs</td></tr>
+    <tr><td>Llama 2 70B</td><td class="mn">70B</td><td class="mn">420 GFLOPs</td><td class="mn">436 GFLOPs</td></tr>
+    <tr><td>GPT-3 175B</td><td class="mn">175B</td><td class="mn">1,050 GFLOPs</td><td class="mn">1,090 GFLOPs</td></tr>
+    <tr class="highlight-row"><td>PaLM 540B</td><td class="mn">540B</td><td class="mn">3,240 GFLOPs</td><td class="mn">3,340 GFLOPs</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─────────────── §03 ─────────────── -->
+<section id="s-formula" data-code="formula">
+<div class="section-no">03 — MFU Calculator</div>
+<h2>The Formula — Interactive</h2>
+<p>With FLOPs per token in hand, computing MFU is straightforward. Choose your hardware and model below, enter your observed throughput, and the calculator computes MFU live:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">mfu-calculator — pick hardware + model + throughput</span>
+    <span class="vp-hint">Change values to see MFU update</span>
+  </div>
+  <div class="vp-body">
+    <div class="calc-grid">
+      <div class="calc-section">
+        <div class="calc-label">GPU Type (peak BF16 TFLOPS)</div>
+        <div class="calc-btns" id="gpu-btns">
+          <button class="calc-btn" data-gpu="125" data-name="V100 SXM2">V100 (125)</button>
+          <button class="calc-btn sel" data-gpu="312" data-name="A100 SXM4">A100 (312)</button>
+          <button class="calc-btn" data-gpu="77.6" data-name="A100 PCIe">A100 PCIe (77)</button>
+          <button class="calc-btn" data-gpu="989" data-name="H100 SXM">H100 (989)</button>
+          <button class="calc-btn" data-gpu="660" data-name="H100 PCIe">H100 PCIe (660)</button>
+        </div>
+      </div>
+      <div class="calc-section">
+        <div class="calc-label">Number of GPUs</div>
+        <div class="calc-btns" id="ngpu-btns">
+          <button class="calc-btn" data-n="1">1</button>
+          <button class="calc-btn" data-n="2">2</button>
+          <button class="calc-btn" data-n="4">4</button>
+          <button class="calc-btn sel" data-n="8">8</button>
+          <button class="calc-btn" data-n="16">16</button>
+          <button class="calc-btn" data-n="64">64</button>
+          <button class="calc-btn" data-n="256">256</button>
+        </div>
+      </div>
+      <div class="calc-section">
+        <div class="calc-label">Model Size (params)</div>
+        <div class="calc-btns" id="model-btns">
+          <button class="calc-btn sel" data-params="6.7" data-name="Llama 2 7B">7B (Llama 2)</button>
+          <button class="calc-btn" data-params="13" data-name="Llama 2 13B">13B</button>
+          <button class="calc-btn" data-params="70" data-name="Llama 2 70B">70B</button>
+          <button class="calc-btn" data-params="175" data-name="GPT-3">175B (GPT-3)</button>
+        </div>
+      </div>
+      <div class="calc-section">
+        <div class="calc-label">Observed throughput (tokens/s total)</div>
+        <div class="calc-input-row">
+          <input class="calc-input" id="toks-input" type="number" min="1" max="10000000" value="24000"/>
+          <input class="calc-range" id="toks-range" type="range" min="100" max="500000" value="24000" step="100"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="mfu-output">
+      <div class="mfu-gauge-wrap">
+        <canvas id="gauge-canvas" width="120" height="80"></canvas>
+      </div>
+      <div class="mfu-numbers">
+        <div class="mfu-pct" id="mfu-pct">38.7%</div>
+        <div class="mfu-rating" id="mfu-rating" style="color:var(--green)">&#10003; Good (35–50% typical)</div>
+        <div class="mfu-detail" id="mfu-detail">
+          FLOPs/token: 40.2 GFLOPs (6N)<br/>
+          Actual FLOPs/s: 964.8 TFLOPs/s<br/>
+          Peak FLOPs/s: 2,496 TFLOPs/s (8 × 312 T)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The gauge reads:</p>
+<ul>
+  <li><strong style="color:var(--red,#ef4444)">0–20%</strong> — poor: severe bottleneck. Suspect data loading, batch size too small, or excessive communication.</li>
+  <li><strong style="color:var(--amber)">20–35%</strong> — fair: room for improvement. Check NVLink/InfiniBand topology, tensor parallelism degree.</li>
+  <li><strong style="color:var(--green)">35–50%</strong> — good: typical for well-configured production training. A100/H100 with Megatron-LM or NeMo.</li>
+  <li><strong style="color:var(--cyan)">50%+</strong> — excellent: FlashAttention + optimized kernels + high interconnect bandwidth.</li>
+</ul>
+</section>
+
+<!-- ─────────────── §04 ─────────────── -->
+<section id="s-walkthrough" data-code="walkthrough">
+<div class="section-no">04 — Llama 2 7B Walk-Through</div>
+<h2>Computing MFU Step by Step</h2>
+<p>Let's compute MFU from scratch for Meta's actual Llama 2 7B training run — no black boxes. Meta released the compute budget in their paper: <strong>184,320 GPU-hours on 2048 A100s to process 2 trillion tokens</strong>. Walk through the four steps below:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">mfu-steps — Llama 2 7B on A100 80GB SXM4</span>
+    <span class="vp-hint">Use Prev / Next to step through</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="wt-steps">
+      <div class="step-box" id="wt-s0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Count model parameters (N)</div>
+          <div class="step-desc">Llama 2 7B has 6.74 billion parameters across 32 transformer layers (d=4096, 32 heads, FFN width 11,008). Vocabulary embedding and un-embedding layers add ~1B — we typically count these too since they participate in every token's forward pass.</div>
+          <div class="step-code">N = 6.74 × 10⁹ ≈ 6.7B params</div>
+        </div>
+      </div>
+      <div class="step-box" id="wt-s1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Estimate FLOPs per token using 6N</div>
+          <div class="step-desc">Training = forward (2N) + backward (4N) = 6N per token. This excludes attention FLOPs (small at T=2048: +3.2B, about 7%), so 6N is a conservative estimate that slightly under-counts real work.</div>
+          <div class="step-code">FLOPs/token = 6 × 6.7B = 40.2 × 10⁹ = 40.2 GFLOPs</div>
+        </div>
+      </div>
+      <div class="step-box" id="wt-s2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Measure observed throughput</div>
+          <div class="step-desc">From Meta's numbers: 184,320 GPU-hours × 3,600 s/hr = 663.6M GPU-seconds. Total tokens = 2T. Throughput = 2T / 663.6M ≈ 3,014 tokens/GPU/s. For 2048 GPUs in parallel: global = 3,014 × 2048 ≈ 6.17M tokens/s.</div>
+          <div class="step-code">T = 2T tokens / 663.6M GPU-s = 3,014 tok/GPU/s</div>
+        </div>
+      </div>
+      <div class="step-box" id="wt-s3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Divide by peak hardware throughput</div>
+          <div class="step-desc">A100 SXM4 peak BF16 = 312 TFLOPs/s. Actual FLOPs/GPU/s = 3,014 × 40.2G = 121.2 TFLOPs/s. MFU = 121.2 / 312 = <strong>38.8%</strong> — squarely in the "good" range for production training.</div>
+          <div class="step-code">MFU = 121.2 TFLOPs / 312 TFLOPs = 38.8%</div>
+          <div class="step-result">&#10003; MFU = 38.8% — consistent with Meta's reported efficiency</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="wt-prev" disabled>&#8592; Prev</button>
+      <button id="wt-next">Next &#8594;</button>
+      <span class="step-prog" id="wt-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<h3>Cross-check: Compute Budget Consistency</h3>
+<p>You can verify this a different way: Chinchilla-optimal for 6.7B params suggests 134B training tokens (20× params). Llama 2 uses 2T — about 15× more, intentionally compute-over-trained for inference efficiency. That's reflected in the lower-than-optimal MFU (well-utilized hardware but more passes over the data than the "optimal" Chinchilla budget).</p>
+</section>
+
+<!-- ─────────────── §05 ─────────────── -->
+<section id="s-overhead" data-code="overhead">
+<div class="section-no">05 — What Steals Your MFU?</div>
+<h2>The MFU Budget: Where Does Compute Go?</h2>
+<p>If the theoretical max is 100% and typical runs hit 35–50%, where does the rest go? The four main culprits:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">overhead-canvas — MFU efficiency budget breakdown</span>
+    <span class="vp-hint">A good run at ~40% MFU</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="overhead-canvas" style="width:100%;height:240px;display:block"></canvas>
+  </div>
+</div>
+
+<ul>
+  <li><strong>Communication overhead (~15–25%)</strong> — AllReduce for gradient synchronization across GPUs eats bandwidth. NVLink (A100–A100: 600 GB/s) helps but pipeline stalls still occur with pipeline parallelism. Large tensor-parallel groups increase communication volume quadratically.</li>
+  <li><strong>Memory bandwidth bottleneck (~10–20%)</strong> — Attention's KV cache, optimizer states (Adam = 12 bytes/param), and gradient accumulation buffers all live in HBM. When the compute-to-memory-access ratio is too low (small batch, short sequence), the GPU stalls waiting for data — not running compute.</li>
+  <li><strong>Kernel launch overhead (~5–10%)</strong> — Each PyTorch op dispatches a CUDA kernel. With gradient checkpointing, the number of kernels doubles. Fusing ops (FlashAttention, fused layer norms) reduces this significantly.</li>
+  <li><strong>Data loading &amp; pipeline bubbles (~3–8%)</strong> — CPU-side tokenization and batching, pipeline parallel bubbles (the "startup tax" at beginning and end of each micro-batch pipeline). Larger micro-batches amortize the bubble cost.</li>
+</ul>
+
+<h3>MFU vs HFU</h3>
+<p>There's a related metric: <strong>Hardware FLOP Utilization (HFU)</strong>. The difference is whether you count gradient checkpointing recomputation:</p>
+<ul>
+  <li><strong>MFU</strong> counts only the "useful" model FLOPs (6N per token) — no recompute.</li>
+  <li><strong>HFU</strong> adds the recompute cost. With selective activation recompute (~1/3 of layers), FLOPs increase by ~1.33×, so HFU ≈ MFU × 1.33.</li>
+</ul>
+<p>PaLM reports "hardware FLOP utilization" of 46.2% using the 6N counting — which is effectively MFU by today's terminology. When comparing numbers across papers, always check which definition they use.</p>
+</section>
+
+<!-- ─────────────── §06 ─────────────── -->
+<section id="s-numbers" data-code="numbers">
+<div class="section-no">06 — Real Published Numbers</div>
+<h2>MFU Across Major Training Runs</h2>
+<p>These are MFU values computed or reported from real published training runs (all use the 6N counting, i.e., model FLOPs only, no recompute overhead):</p>
+
+<div class="results-bars">
+  <div class="bar-row">
+    <div class="bar-label">GPT-NeoX 20B (2022, A100)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="21"><span>21%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Llama 2 7B (Meta, A100)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="38.8"><span>38.8%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">PaLM 540B (Google, TPU v4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.55)" data-w="46.2"><span>46.2%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Megatron-LM (NVIDIA, A100)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.55)" data-w="47"><span>~47%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l,#a78bfa)">+FlashAttention-2 (A100)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="52"><span>~52%</span></div></div>
+  </div>
+</div>
+
+<p>GPT-NeoX at 21% reflects an early A100 cluster without optimized interconnect. Llama 2 at 38.8% is solid but not exceptional — Meta traded some efficiency for simple infrastructure. PaLM's 46.2% is noteworthy given the 540B scale, achieved through TPU v4's high-bandwidth ICI interconnect and Google's optimized XLA compilation. FlashAttention-2 pushes into the 50s by dramatically reducing HBM traffic for attention, unlocking larger effective batch sizes and better compute-to-memory ratio.</p>
+
+<h3>What to Target</h3>
+<p>For most teams on A100/H100 hardware with model sizes from 7B–70B:</p>
+<ul>
+  <li>A fresh baseline without optimization: <strong>15–25% MFU</strong> is typical</li>
+  <li>With FlashAttention, fused kernels, and proper batch sizing: <strong>35–45%</strong></li>
+  <li>With NVLink-optimized tensor parallelism (Megatron-style): <strong>45–55%</strong></li>
+  <li>H100 with FP8 training and well-tuned pipeline: pushing <strong>50–60%+</strong></li>
+</ul>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">mfu/basics.py</div>
+      <div class="cs-section-title" id="cs-section-title">Why GPU% Isn't Enough</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#8250;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="why">why</button>
+    <button class="cs-tab" data-panel="flops">flops</button>
+    <button class="cs-tab" data-panel="formula">formula</button>
+    <button class="cs-tab" data-panel="walkthrough">walk</button>
+    <button class="cs-tab" data-panel="overhead">overhead</button>
+    <button class="cs-tab" data-panel="numbers">numbers</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-why">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># nvidia-smi GPU% vs MFU — why they differ</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GPU utilization (nvidia-smi) = % of time</span>
+<span class="cs-line cmt"># GPU SMs are "active" (any kernel running)</span>
+<span class="cs-line cmt"># Does NOT mean compute is happening!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Common causes of high GPU% but low MFU:</span>
+<span class="cs-line hl-a"><span class="cmt"># 1. Memory-bandwidth bound (reading weights)</span></span>
+<span class="cs-line hl-a"><span class="cmt"># 2. Tiny batch → GPU has nothing to vectorize</span></span>
+<span class="cs-line hl-a"><span class="cmt"># 3. Many small kernels (overhead dominates)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">import</span> subprocess</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">watch_nvidia_smi</span>():</span>
+<span class="cs-line">    <span class="cmt"># Shows "GPU-Util" — misleading proxy</span></span>
+<span class="cs-line">    <span class="fn">subprocess</span>.<span class="fn">run</span>([<span class="str">'nvidia-smi'</span>, <span class="str">'dmon'</span>, <span class="str">'-s'</span>, <span class="str">'u'</span>])</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">compute_mfu</span>(toks_per_s, N, gpu_peak_tf, n_gpus):</span>
+<span class="cs-line hl-p">    flops_per_tok = <span class="num">6</span> * N          <span class="cmt"># 6N rule</span></span>
+<span class="cs-line hl-p">    actual_tf = toks_per_s * flops_per_tok / <span class="num">1e12</span></span>
+<span class="cs-line hl-p">    peak_tf   = n_gpus * gpu_peak_tf</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> actual_tf / peak_tf     <span class="cmt"># MFU in [0,1]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Example: high nvidia-smi, low MFU (memory bound)</span>
+<span class="cs-line"><span class="cmt"># batch=1, seq=2048, 7B model, 1× A100</span></span>
+<span class="cs-line"><span class="fn">compute_mfu</span>(<span class="num">20</span>, <span class="num">6.7e9</span>, <span class="num">312</span>, <span class="num">1</span>)  <span class="cmt"># → 0.13%!</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-flops">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># FLOPs counting for a transformer</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">flops_per_token</span>(N, L, T, d, include_attn=<span class="cls">True</span>):</span>
+<span class="cs-line">    <span class="str">"""</span></span>
+<span class="cs-line">    <span class="str">N: number of parameters</span></span>
+<span class="cs-line">    <span class="str">L: number of transformer layers</span></span>
+<span class="cs-line">    <span class="str">T: sequence length (context)</span></span>
+<span class="cs-line">    <span class="str">d: model hidden dimension</span></span>
+<span class="cs-line">    <span class="str">"""</span></span>
+<span class="cs-line hl-c">    linear_flops = <span class="num">6</span> * N          <span class="cmt"># 6N rule (fwd+bwd)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">if</span> include_attn:</span>
+<span class="cs-line">        <span class="cmt"># 12 = 2(fwd QK) + 2(fwd AV) + 4(bwd×2)</span></span>
+<span class="cs-line hl-a">        attn_flops = <span class="num">12</span> * L * T * d</span>
+<span class="cs-line">        <span class="kw">return</span> linear_flops + attn_flops</span>
+<span class="cs-line">    <span class="kw">return</span> linear_flops</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Llama 2 7B examples</span>
+<span class="cs-line">llama7b = <span class="fn">flops_per_token</span>(</span>
+<span class="cs-line">    N=<span class="num">6.7e9</span>, L=<span class="num">32</span>, T=<span class="num">2048</span>, d=<span class="num">4096</span></span>
+<span class="cs-line">)  <span class="cmt"># → 43.4 GFLOPs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">llama7b_long = <span class="fn">flops_per_token</span>(</span>
+<span class="cs-line">    N=<span class="num">6.7e9</span>, L=<span class="num">32</span>, T=<span class="num">32768</span>, d=<span class="num">4096</span></span>
+<span class="cs-line">)  <span class="cmt"># → 57.5 GFLOPs (+43% from attention!)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Breakdown at T=2048:</span>
+<span class="cs-line cmt"># Linear (6N):  40.2 GFLOPs = 92.6%</span>
+<span class="cs-line cmt"># Attention:     3.2 GFLOPs =  7.4%</span>
+<span class="cs-line cmt"># At T=32768: attention = 42% of total!</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-formula">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MFU formula — the full calculation</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">mfu</span>(</span>
+<span class="cs-line">    tokens_per_sec,   <span class="cmt"># observed global throughput</span></span>
+<span class="cs-line">    N,                <span class="cmt"># model parameters</span></span>
+<span class="cs-line">    n_gpus,           <span class="cmt"># number of training GPUs</span></span>
+<span class="cs-line">    gpu_peak_tflops,  <span class="cmt"># e.g. 312 for A100 SXM BF16</span></span>
+<span class="cs-line">    include_attn=<span class="cls">False</span>, L=<span class="num">0</span>, T=<span class="num">0</span>, d=<span class="num">0</span></span>
+<span class="cs-line">):</span>
+<span class="cs-line hl-p">    flops_tok = <span class="num">6</span> * N</span>
+<span class="cs-line">    <span class="kw">if</span> include_attn:</span>
+<span class="cs-line">        flops_tok += <span class="num">12</span> * L * T * d</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">    actual_tflops  = tokens_per_sec * flops_tok / <span class="num">1e12</span></span>
+<span class="cs-line hl-c">    peak_tflops    = n_gpus * gpu_peak_tflops</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="kw">return</span> actual_tflops / peak_tflops  <span class="cmt"># ∈ [0, 1]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GPU peak BF16 TFLOPS (dense, no sparsity)</span>
+<span class="cs-line">GPU_PEAK = &#123;</span>
+<span class="cs-line">    <span class="str">'V100 SXM2'</span>:  <span class="num">125</span>,   <span class="cmt"># FP16</span></span>
+<span class="cs-line">    <span class="str">'A100 SXM4'</span>:  <span class="num">312</span>,   <span class="cmt"># BF16</span></span>
+<span class="cs-line">    <span class="str">'A100 PCIe'</span>:  <span class="num">77.6</span>,  <span class="cmt"># BF16</span></span>
+<span class="cs-line">    <span class="str">'H100 SXM'</span>:   <span class="num">989</span>,   <span class="cmt"># BF16</span></span>
+<span class="cs-line">    <span class="str">'H100 PCIe'</span>:  <span class="num">660</span>,   <span class="cmt"># BF16</span></span>
+<span class="cs-line">&#125;</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-walkthrough">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Llama 2 7B MFU calculation</span>
+<span class="cs-line cmt"># Source: Meta AI paper (arXiv:2307.09288)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 1: count parameters</span>
+<span class="cs-line hl-p">N = <span class="num">6.74e9</span>           <span class="cmt"># 6.74 billion</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 2: FLOPs per token (6N rule)</span>
+<span class="cs-line hl-c">flops_tok = <span class="num">6</span> * N     <span class="cmt"># 40.44 GFLOPs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 3: measure throughput</span>
+<span class="cs-line cmt"># Meta: 184,320 A100-hours for 2T tokens</span>
+<span class="cs-line">total_gpu_secs = <span class="num">184320</span> * <span class="num">3600</span>  <span class="cmt"># 663.6M</span></span>
+<span class="cs-line">total_tokens   = <span class="num">2e12</span>           <span class="cmt"># 2 trillion</span></span>
+<span class="cs-line hl-a">tok_per_gpu_s  = total_tokens / total_gpu_secs</span>
+<span class="cs-line hl-a">                               <span class="cmt"># ≈ 3,014 tok/GPU/s</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Step 4: compute MFU</span>
+<span class="cs-line">GPU_PEAK_BF16 = <span class="num">312e12</span>  <span class="cmt"># A100 SXM4</span></span>
+<span class="cs-line">actual = tok_per_gpu_s * flops_tok</span>
+<span class="cs-line">         <span class="cmt"># = 3014 × 40.44e9 = 121.9 TF/s</span></span>
+<span class="cs-line hl-g">mfu = actual / GPU_PEAK_BF16</span>
+<span class="cs-line hl-g">      <span class="cmt"># = 121.9 / 312 = 39.1% ≈ 38.8%</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Small discrepancy from rounding N to 6.7B</span>
+<span class="cs-line cmt"># Result: MFU ≈ 38–39% — "good" tier</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-overhead">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Where does compute go? (100% budget)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Typical "good" A100 training run at ~40% MFU</span>
+<span class="cs-line hl-g"><span class="cmt"># Model compute (MFU):          40%  ← goal</span></span>
+<span class="cs-line hl-a"><span class="cmt"># GPU-GPU communication:        22%  ← AllReduce</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Memory bandwidth overhead:   16%  ← HBM reads</span></span>
+<span class="cs-line cmt"># Kernel launch &amp; misc:         14%</span>
+<span class="cs-line cmt"># Data loading + bubbles:        8%</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># HFU vs MFU (gradient checkpointing)</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">hfu</span>(mfu_val, ckpt_frac=<span class="num">1.0</span>):</span>
+<span class="cs-line">    <span class="str">"""</span></span>
+<span class="cs-line">    <span class="str">ckpt_frac: fraction of layers recomputed</span></span>
+<span class="cs-line">    <span class="str">  0.0 = no checkpointing (HFU = MFU)</span></span>
+<span class="cs-line">    <span class="str">  1.0 = full recompute (+33% FLOPs)</span></span>
+<span class="cs-line">    <span class="str">  1/3 = selective recompute (common)</span></span>
+<span class="cs-line">    <span class="str">"""</span></span>
+<span class="cs-line">    recompute_factor = <span class="num">1</span> + ckpt_frac / <span class="num">3</span></span>
+<span class="cs-line">    <span class="kw">return</span> mfu_val * recompute_factor</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># If MFU=38.8% with selective recompute (1/3)</span>
+<span class="cs-line"><span class="fn">hfu</span>(<span class="num">0.388</span>, ckpt_frac=<span class="num">1</span>/<span class="num">3</span>)  <span class="cmt"># → 51.7%</span></span>
+<span class="cs-line cmt"># PaLM uses this definition = "Hardware FLU"</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-numbers">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Published MFU across major training runs</span>
+<span class="cs-line cmt"># (all using 6N counting = model FLOPs only)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">RUNS = [</span>
+<span class="cs-line">  &#123;<span class="str">"name"</span>: <span class="str">"GPT-NeoX 20B"</span>,</span>
+<span class="cs-line">   <span class="str">"hw"</span>: <span class="str">"96 A100, NVLink"</span>,</span>
+<span class="cs-line hl-a">   <span class="str">"mfu"</span>: <span class="num">0.21</span>&#125;,  <span class="cmt"># early cluster, no NVSwitch</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">  &#123;<span class="str">"name"</span>: <span class="str">"Llama 2 7B"</span>,</span>
+<span class="cs-line">   <span class="str">"hw"</span>: <span class="str">"2048 A100 SXM4"</span>,</span>
+<span class="cs-line hl-c">   <span class="str">"mfu"</span>: <span class="num">0.388</span>&#125;,  <span class="cmt"># derived from Meta's numbers</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">  &#123;<span class="str">"name"</span>: <span class="str">"PaLM 540B"</span>,</span>
+<span class="cs-line">   <span class="str">"hw"</span>: <span class="str">"6144 TPU v4"</span>,</span>
+<span class="cs-line hl-c">   <span class="str">"mfu"</span>: <span class="num">0.462</span>&#125;,  <span class="cmt"># explicitly reported</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">  &#123;<span class="str">"name"</span>: <span class="str">"Megatron-LM"</span>,</span>
+<span class="cs-line">   <span class="str">"hw"</span>: <span class="str">"512 A100 SXM4"</span>,</span>
+<span class="cs-line hl-g">   <span class="str">"mfu"</span>: <span class="num">0.47</span>&#125;,  <span class="cmt"># NVIDIA optimized stack</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">  &#123;<span class="str">"name"</span>: <span class="str">"+FlashAttention-2"</span>,</span>
+<span class="cs-line">   <span class="str">"hw"</span>: <span class="str">"A100, FA2 kernels"</span>,</span>
+<span class="cs-line hl-g">   <span class="str">"mfu"</span>: <span class="num">0.52</span>&#125;,  <span class="cmt"># FA2 enables larger batches</span></span>
+<span class="cs-line">]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># H100 FP8 training: pushing 55–65%+ MFU</span>
+<span class="cs-line cmt"># (FP8 = 1,979 TFLOPs/s peak on H100 SXM)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────
+const tabMeta = {
+  why:         { file: 'mfu/basics.py',      title: "Why GPU% Isn't Enough" },
+  flops:       { file: 'mfu/flops.py',       title: 'The 6N Rule' },
+  formula:     { file: 'mfu/formula.py',     title: 'MFU Calculator' },
+  walkthrough: { file: 'mfu/llama2_7b.py',   title: 'Llama 2 Walk-Through' },
+  overhead:    { file: 'mfu/overhead.py',    title: 'What Steals Your MFU?' },
+  numbers:     { file: 'mfu/benchmarks.py',  title: 'Real Published Numbers' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver ─────────────────────────────────────
+const sectionMap = {
+  's-why':        'why',
+  's-flops':      'flops',
+  's-formula':    'formula',
+  's-walkthrough':'walkthrough',
+  's-overhead':   'overhead',
+  's-numbers':    'numbers',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── §01 Utilization Contrast Canvas ────────────────────────
+(function() {
+  const c = document.getElementById('util-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = c.clientWidth;
+    c.width = W * DPR; c.height = 210 * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  function draw() {
+    const W = c.clientWidth, H = 210;
+    ctx.clearRect(0, 0, W, H);
+    const hw = W * 0.47;
+    const gap = W * 0.06;
+
+    function panel(ox, title, gpuPct, mfu, gpuColor, mfuColor) {
+      ctx.fillStyle = 'rgba(26,26,46,.5)';
+      ctx.strokeStyle = 'rgba(107,114,128,.2)';
+      ctx.lineWidth = 1;
+      roundRect(ctx, ox, 10, hw, H - 20, 8);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 11px Inter,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, ox + hw/2, 30);
+
+      const barY = 50, barH = 28, barW = hw * 0.7, barX = ox + (hw - barW)/2;
+
+      // GPU%
+      ctx.fillStyle = 'rgba(107,114,128,.2)';
+      roundRect(ctx, barX, barY, barW, barH, 4); ctx.fill();
+      ctx.fillStyle = gpuColor;
+      roundRect(ctx, barX, barY, barW * gpuPct/100, barH, 4); ctx.fill();
+      ctx.fillStyle = '#e2e8f0'; ctx.font = '700 10px Inter,sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('GPU%  ' + gpuPct + '%', barX + 6, barY + 18);
+
+      // MFU
+      const mfuY = barY + barH + 12;
+      ctx.fillStyle = 'rgba(107,114,128,.2)';
+      roundRect(ctx, barX, mfuY, barW, barH, 4); ctx.fill();
+      ctx.fillStyle = mfuColor;
+      roundRect(ctx, barX, mfuY, barW * mfu/100, barH, 4); ctx.fill();
+      ctx.fillStyle = '#e2e8f0'; ctx.font = '700 10px Inter,sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('MFU   ' + mfu + '%', barX + 6, mfuY + 18);
+
+      // Label
+      ctx.font = '500 9px Inter,sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center';
+      ctx.fillText(mfu < 20 ? '⚠ Memory-bound' : '✓ Compute-bound', ox + hw/2, mfuY + barH + 16);
+    }
+
+    panel(gap/2,          'Run A — Batch=1',   82, 8,  'rgba(239,68,68,.7)',  'rgba(239,68,68,.85)');
+    panel(hw + gap * 1.5, 'Run B — Batch=512', 80, 43, 'rgba(107,114,128,.6)','rgba(16,185,129,.75)');
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 9px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Both show ~80% GPU utilization in nvidia-smi', W/2, H - 6);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ─── §02 FLOPs Breakdown Canvas ──────────────────────────────
+(function() {
+  const c = document.getElementById('flops-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = c.clientWidth;
+    c.width = W * DPR; c.height = 220 * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  function draw() {
+    const W = c.clientWidth, H = 220;
+    ctx.clearRect(0, 0, W, H);
+
+    const seqLens = [512, 1024, 2048, 4096, 8192, 16384, 32768];
+    const N = 6.7e9, L = 32, d = 4096;
+    const linearFlops = 6 * N;
+
+    const pad = { l: 50, r: 20, t: 20, b: 40 };
+    const cw = W - pad.l - pad.r;
+    const ch = H - pad.t - pad.b;
+
+    const maxFlops = seqLens.map(T => linearFlops + 12 * L * T * d).reduce((a,b) => Math.max(a,b));
+
+    // Axes
+    ctx.strokeStyle = 'rgba(107,114,128,.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch);
+    ctx.lineTo(pad.l + cw, pad.t + ch);
+    ctx.stroke();
+
+    // Y-axis labels
+    ctx.fillStyle = '#64748b'; ctx.font = '9px Inter,sans-serif'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const v = maxFlops * i / 4;
+      const y = pad.t + ch - (v / maxFlops) * ch;
+      ctx.fillText((v/1e9).toFixed(0) + 'G', pad.l - 4, y + 3);
+      ctx.strokeStyle = 'rgba(107,114,128,.1)';
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    }
+
+    // Bars
+    const bw = cw / seqLens.length * 0.7;
+    seqLens.forEach((T, i) => {
+      const x = pad.l + (i + 0.5) * cw / seqLens.length - bw/2;
+      const totalFlops = linearFlops + 12 * L * T * d;
+      const attnFlops = 12 * L * T * d;
+      const totalH = (totalFlops / maxFlops) * ch;
+      const attnH = (attnFlops / maxFlops) * ch;
+
+      // Linear part
+      ctx.fillStyle = 'rgba(139,92,246,.6)';
+      ctx.fillRect(x, pad.t + ch - totalH, bw, totalH - attnH);
+
+      // Attention part
+      ctx.fillStyle = 'rgba(6,182,212,.7)';
+      ctx.fillRect(x, pad.t + ch - attnH, bw, attnH);
+
+      // X label
+      ctx.fillStyle = '#64748b'; ctx.font = '8px Inter,sans-serif'; ctx.textAlign = 'center';
+      const label = T >= 1024 ? (T/1024) + 'K' : T;
+      ctx.fillText(label, x + bw/2, pad.t + ch + 14);
+    });
+
+    // Legend
+    ctx.fillStyle = 'rgba(139,92,246,.6)'; ctx.fillRect(pad.l, H - 12, 10, 8);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '9px Inter,sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('Linear (6N)', pad.l + 13, H - 5);
+    ctx.fillStyle = 'rgba(6,182,212,.7)'; ctx.fillRect(pad.l + 90, H - 12, 10, 8);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Attention (12LTd)', pad.l + 103, H - 5);
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = '9px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sequence length', pad.l + cw/2, H - 26);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ─── §03 MFU Calculator ──────────────────────────────────────
+(function() {
+  let gpuPeak = 312, nGpus = 8, params = 6.7e9;
+
+  function selBtn(container, btn) {
+    container.querySelectorAll('.calc-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+  }
+
+  document.getElementById('gpu-btns')?.querySelectorAll('.calc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      gpuPeak = parseFloat(btn.dataset.gpu);
+      selBtn(btn.closest('.calc-btns'), btn);
+      update();
+    });
+  });
+
+  document.getElementById('ngpu-btns')?.querySelectorAll('.calc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      nGpus = parseInt(btn.dataset.n);
+      selBtn(btn.closest('.calc-btns'), btn);
+      update();
+    });
+  });
+
+  document.getElementById('model-btns')?.querySelectorAll('.calc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      params = parseFloat(btn.dataset.params) * 1e9;
+      selBtn(btn.closest('.calc-btns'), btn);
+      update();
+    });
+  });
+
+  const toksInput = document.getElementById('toks-input');
+  const toksRange = document.getElementById('toks-range');
+  toksInput?.addEventListener('input', () => { toksRange.value = toksInput.value; update(); });
+  toksRange?.addEventListener('input', () => { toksInput.value = toksRange.value; update(); });
+
+  function update() {
+    const toks = parseFloat(toksInput?.value || 24000);
+    const flopsPerTok = 6 * params;
+    const actualTF = toks * flopsPerTok / 1e12;
+    const peakTF = nGpus * gpuPeak;
+    const mfu = actualTF / peakTF;
+
+    const pctEl = document.getElementById('mfu-pct');
+    const rateEl = document.getElementById('mfu-rating');
+    const detailEl = document.getElementById('mfu-detail');
+
+    if (pctEl) pctEl.textContent = (mfu * 100).toFixed(1) + '%';
+
+    let rating, color;
+    if (mfu < 0.2)      { rating = '✗ Poor (< 20% — check bottlenecks)';    color = 'var(--red,#ef4444)'; }
+    else if (mfu < 0.35){ rating = '~ Fair (20–35% — room to improve)';     color = 'var(--amber)'; }
+    else if (mfu < 0.5) { rating = '✓ Good (35–50% typical)';               color = 'var(--green)'; }
+    else                { rating = '★ Excellent (50%+ — optimized stack)';  color = 'var(--cyan)'; }
+
+    if (pctEl) pctEl.style.color = color;
+    if (rateEl) { rateEl.textContent = rating; rateEl.style.color = color; }
+
+    if (detailEl) {
+      const flopsG = (flopsPerTok / 1e9).toFixed(1);
+      const actualStr = (actualTF).toFixed(1);
+      const peakStr = peakTF.toLocaleString();
+      detailEl.innerHTML = `FLOPs/token: ${flopsG} GFLOPs (6N)<br/>Actual FLOPs/s: ${actualStr} TFLOPs/s<br/>Peak FLOPs/s: ${peakStr} TFLOPs/s (${nGpus} × ${gpuPeak} T)`;
+    }
+
+    drawGauge(mfu);
+  }
+
+  function drawGauge(mfu) {
+    const c = document.getElementById('gauge-canvas');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const W = 120, H = 80;
+    ctx.clearRect(0, 0, W, H);
+
+    const cx = W/2, cy = H - 10, r = 55;
+    const startA = Math.PI, endA = 0;
+
+    // Background arc
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startA, endA);
+    ctx.strokeStyle = 'rgba(107,114,128,.2)';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // Colored arc
+    const mfuA = startA + mfu * Math.PI;
+    let color;
+    if (mfu < 0.2)       color = '#ef4444';
+    else if (mfu < 0.35) color = '#f59e0b';
+    else if (mfu < 0.5)  color = '#10b981';
+    else                 color = '#06b6d4';
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startA, Math.min(mfuA, endA + 0.01));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // Needle
+    const needleA = startA + mfu * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + (r - 15) * Math.cos(needleA), cy + (r - 15) * Math.sin(needleA));
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fill();
+
+    // Labels
+    ctx.fillStyle = '#64748b'; ctx.font = '8px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('0%', cx - r + 5, cy + 14);
+    ctx.fillText('100%', cx + r - 5, cy + 14);
+  }
+
+  update();
+})();
+
+// ─── §04 Step Navigator ──────────────────────────────────────
+(function() {
+  const steps = ['wt-s0','wt-s1','wt-s2','wt-s3'];
+  let cur = 0;
+
+  function render() {
+    steps.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('active','done');
+      if (i === cur) el.classList.add('active');
+      else if (i < cur) el.classList.add('done');
+    });
+    const prev = document.getElementById('wt-prev');
+    const next = document.getElementById('wt-next');
+    const prog = document.getElementById('wt-prog');
+    if (prev) prev.disabled = cur === 0;
+    if (next) next.disabled = cur === steps.length - 1;
+    if (prog) prog.textContent = `Step ${cur + 1} of ${steps.length}`;
+  }
+
+  document.getElementById('wt-prev')?.addEventListener('click', () => { if (cur > 0) { cur--; render(); } });
+  document.getElementById('wt-next')?.addEventListener('click', () => { if (cur < steps.length - 1) { cur++; render(); } });
+  render();
+})();
+
+// ─── §05 Overhead Canvas ─────────────────────────────────────
+(function() {
+  const c = document.getElementById('overhead-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = c.clientWidth;
+    c.width = W * DPR; c.height = 240 * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  function draw() {
+    const W = c.clientWidth, H = 240;
+    ctx.clearRect(0, 0, W, H);
+
+    const segments = [
+      { label: 'Model compute (MFU)', pct: 40, color: 'rgba(16,185,129,.75)' },
+      { label: 'GPU-GPU comm.', pct: 22, color: 'rgba(239,68,68,.6)' },
+      { label: 'Memory bandwidth', pct: 16, color: 'rgba(245,158,11,.65)' },
+      { label: 'Kernel launch', pct: 14, color: 'rgba(107,114,128,.55)' },
+      { label: 'Data + bubbles', pct: 8, color: 'rgba(107,114,128,.35)' },
+    ];
+
+    const cx = W * 0.32, cy = H * 0.5, r = Math.min(cx, cy) * 0.75;
+    let startA = -Math.PI / 2;
+
+    segments.forEach(seg => {
+      const sweep = (seg.pct / 100) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, startA, startA + sweep);
+      ctx.closePath();
+      ctx.fillStyle = seg.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(9,9,15,.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      startA += sweep;
+    });
+
+    // Legend
+    const lx = cx + r + 20, ly = H * 0.15;
+    segments.forEach((seg, i) => {
+      const y = ly + i * 34;
+      ctx.fillStyle = seg.color;
+      ctx.fillRect(lx, y, 14, 14);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '600 10px Inter,sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(seg.pct + '%', lx + 18, y + 11);
+      ctx.fillStyle = '#64748b'; ctx.font = '9px Inter,sans-serif';
+      ctx.fillText(seg.label, lx + 18, y + 23);
+    });
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = '700 11px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('~40% MFU run', cx, cy - 8);
+    ctx.fillStyle = '#64748b'; ctx.font = '9px Inter,sans-serif';
+    ctx.fillText('100% GPU budget', cx, cy + 8);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ─── §06 Bar chart animation ─────────────────────────────────
+(function() {
+  const fills = document.querySelectorAll('.bar-fill');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const w = e.target.dataset.w;
+        e.target.style.width = w + '%';
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  fills.forEach(f => observer.observe(f));
+})();
+</script>
+
+</BaseLayout>
