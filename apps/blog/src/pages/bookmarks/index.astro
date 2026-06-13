@@ -1,0 +1,357 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Bookmarks | AI/ML Deep Dives" crumb="Bookmarks">
+
+<style is:global>
+/* ── Bookmarks page layout ── */
+.bookmarks-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 6.5rem 2rem 4rem;
+  min-height: 80vh;
+}
+.bookmarks-page h1 {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 0.4rem;
+  background: linear-gradient(150deg, var(--text) 35%, var(--muted2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.bookmarks-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--purple);
+  font-family: var(--ff-mono);
+  margin-bottom: 0.6rem;
+}
+.bookmarks-lead {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 2.5rem;
+}
+.bookmarks-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+.bookmarks-count-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.6rem;
+  display: none;
+}
+.bookmarks-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+/* Bookmark card — reuses .post-card styling but with remove button */
+.bm-card {
+  position: relative;
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.25rem 1rem;
+  text-decoration: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+.bm-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(139,92,246,.04) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.bm-card:hover {
+  border-color: rgba(139,92,246,.4);
+  box-shadow: 0 4px 20px rgba(139,92,246,.08);
+}
+.bm-card:hover::before { opacity: 1; }
+.bm-card .tags { margin-bottom: 0.75rem; }
+.bm-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  line-height: 1.35;
+}
+.bm-card .post-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.bm-card .post-arrow {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  color: var(--muted2);
+}
+.bm-card:hover .post-arrow { transform: translateX(4px); }
+.bm-remove-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+  z-index: 2;
+  padding: 0;
+}
+.bm-card:hover .bm-remove-btn { opacity: 1; }
+.bm-remove-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+}
+/* States */
+.bookmarks-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  display: none;
+}
+.bookmarks-state.is-active { display: block; }
+.bookmarks-state svg {
+  margin: 0 auto 1.25rem;
+  display: block;
+  opacity: 0.35;
+}
+.bookmarks-state h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 0.5rem;
+}
+.bookmarks-state p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 400px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.6;
+}
+.bookmarks-state .btn-signin-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 7px;
+  border: 1px solid var(--border-hi);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.bookmarks-state .btn-signin-large:hover {
+  border-color: var(--purple-l);
+  box-shadow: 0 0 12px rgba(139,92,246,.25);
+  transform: translateY(-1px);
+}
+.bookmarks-state a.browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-hi);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bookmarks-state a.browse-btn:hover {
+  border-color: var(--purple-l);
+  color: var(--purple-l);
+}
+</style>
+
+<div class="bookmarks-page">
+  <div class="bookmarks-header">
+    <div class="bookmarks-eyebrow">Your Reading List</div>
+    <h1>Bookmarks</h1>
+    <p class="bookmarks-count-label" id="bm-count-label"></p>
+  </div>
+
+  <!-- Loading -->
+  <div class="bookmarks-state is-active" id="bm-loading">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    <h2>Loading…</h2>
+  </div>
+
+  <!-- Not signed in -->
+  <div class="bookmarks-state" id="bm-signed-out">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    <h2>Sign in to see your bookmarks</h2>
+    <p>Save posts to your reading list and access them from any device.</p>
+    <button class="btn-signin-large" id="bm-signin-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Empty state (signed in, no bookmarks) -->
+  <div class="bookmarks-state" id="bm-empty">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    <h2>No bookmarks yet</h2>
+    <p>Browse posts and click the bookmark icon to save them to your reading list.</p>
+    <a href="/" class="browse-btn">Browse posts →</a>
+  </div>
+
+  <!-- Bookmark list -->
+  <div class="bookmarks-grid" id="bm-grid" style="display:none"></div>
+</div>
+
+<script>
+  import { auth } from '../../lib/firebase';
+  import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User } from 'firebase/auth';
+  import { getBookmarkDocs, toggleBookmark, type BookmarkMeta } from '../../lib/bookmarks';
+
+  const elLoading   = document.getElementById('bm-loading')!;
+  const elSignedOut = document.getElementById('bm-signed-out')!;
+  const elEmpty     = document.getElementById('bm-empty')!;
+  const elGrid      = document.getElementById('bm-grid')!;
+  const elCount     = document.getElementById('bm-count-label')!;
+
+  function showState(which: 'loading' | 'signed-out' | 'empty' | 'grid') {
+    elLoading.classList.toggle('is-active',   which === 'loading');
+    elSignedOut.classList.toggle('is-active', which === 'signed-out');
+    elEmpty.classList.toggle('is-active',     which === 'empty');
+    elGrid.style.display = which === 'grid' ? '' : 'none';
+  }
+
+  function esc(s: string) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function buildCard(bm: BookmarkMeta): string {
+    const tags = (bm.tags ?? [])
+      .map(t => `<span class="tag ${esc(t.cls)}">${esc(t.text)}</span>`)
+      .join('');
+    return `<div class="bm-card-wrapper" data-slug="${esc(bm.slug)}">
+      <a class="bm-card" href="${esc(bm.href)}">
+        <div class="tags">${tags}</div>
+        <h3>${esc(bm.title)}</h3>
+        <div class="post-meta">
+          <span>${esc(bm.date)}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>
+      <button class="bm-remove-btn" aria-label="Remove bookmark" data-slug="${esc(bm.slug)}" title="Remove bookmark">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }
+
+  function renderBookmarks(bookmarks: BookmarkMeta[]) {
+    if (bookmarks.length === 0) {
+      showState('empty');
+      elCount.style.display = 'none';
+      return;
+    }
+    elGrid.innerHTML = bookmarks.map(buildCard).join('');
+    elCount.textContent = `${bookmarks.length} saved post${bookmarks.length === 1 ? '' : 's'}`;
+    elCount.style.display = '';
+    showState('grid');
+  }
+
+  let currentUser: User | null = null;
+  let currentBookmarks: BookmarkMeta[] = [];
+
+  // Remove button handler
+  elGrid.addEventListener('click', async (e: MouseEvent) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('.bm-remove-btn');
+    if (!btn || !currentUser) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const slug = btn.dataset.slug ?? '';
+    if (!slug) return;
+
+    // Optimistic remove
+    currentBookmarks = currentBookmarks.filter(b => b.slug !== slug);
+    renderBookmarks(currentBookmarks);
+
+    // Sync global bookmark state if present
+    const globalSet: Set<string> | undefined = (window as any).__hejiBookmarks;
+    if (globalSet) {
+      globalSet.delete(slug);
+      (window as any).__hejiApplyBookmarks?.();
+      const countEl = document.getElementById('dropdown-bookmarks-count');
+      if (countEl) {
+        const n = globalSet.size;
+        if (n === 0) {
+          countEl.style.display = 'none';
+        } else {
+          countEl.textContent = String(n);
+          countEl.style.display = '';
+        }
+      }
+    }
+
+    try {
+      const bm = currentBookmarks.find(b => b.slug === slug) ?? { slug, title: '', date: '', href: '', tags: [] };
+      await toggleBookmark(currentUser.uid, slug, bm, true);
+    } catch (err) {
+      console.error('Remove bookmark failed:', err);
+    }
+  });
+
+  // Sign-in button on this page
+  document.getElementById('bm-signin-btn')?.addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      console.error('Sign in failed:', err);
+    }
+  });
+
+  onAuthStateChanged(auth, async (user: User | null) => {
+    currentUser = user;
+    if (!user) {
+      showState('signed-out');
+      elCount.style.display = 'none';
+      return;
+    }
+    showState('loading');
+    try {
+      currentBookmarks = await getBookmarkDocs(user.uid);
+      renderBookmarks(currentBookmarks);
+    } catch (err) {
+      console.error('Failed to load bookmarks:', err);
+      showState('empty');
+    }
+  });
+</script>
+
+</BaseLayout>

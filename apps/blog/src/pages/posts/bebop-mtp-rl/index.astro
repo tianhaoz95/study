@@ -1,0 +1,1341 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Bebop: Breaking Entropy Bounds in RL-Training MTP | AI/ML Deep Dives"
+  description="MTP acceptance rates collapse during RL training because policy entropy rises. Bebop fixes this with rejection sampling + a TV loss that makes gradients probability-proportional — delivering 95% less entropy sensitivity and 1.5–1.8× RL speedup."
+  crumb="Bebop MTP-RL"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math block ── */
+.math-block{background:var(--card2,var(--card));border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2,var(--card));border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.08)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* ── Viz control buttons ── */
+.viz-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.viz-btn{padding:.3rem .7rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.viz-btn:hover{border-color:var(--purple);color:var(--purple-l)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Stat chips ── */
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
+.stat-chip{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.6rem 1rem;min-width:110px;text-align:center}
+.stat-val{font-size:1.4rem;font-weight:800;font-family:var(--ff-mono);background:linear-gradient(135deg,var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.2}
+.stat-val.good{background:linear-gradient(135deg,var(--green),var(--cyan));-webkit-background-clip:text;background-clip:text}
+.stat-lbl{font-size:.65rem;color:var(--muted);font-family:var(--ff-mono);text-transform:uppercase;letter-spacing:.07em;margin-top:.2rem}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden;font-size:.8rem}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .delta-good{color:var(--green);font-family:var(--ff-mono)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">RL Training</span>
+    <span class="tag tag-cyan">Speculative Decoding</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Bebop: Breaking Entropy Bounds in RL-Training MTP</h1>
+  <p class="lead">
+    During RL training, LLM entropy rises for exploration — and it quietly kills speculative decoding.
+    MTP acceptance rates drop 3.5% per step, compounding across multi-step verification.
+    Bebop fixes this with two ideas: rejection sampling (acceptance = distributional overlap, not just max probability)
+    and a TV loss that makes gradients probability-proportional, achieving 95% less entropy sensitivity
+    and 1.5–1.8× end-to-end RL speedup.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 11, 2026</span>
+    <span>~14 min read</span>
+    <span>Paper: <code>arXiv:2606.12370</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.12370" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/sgl-project/sglang/pull/26312" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      SGLang Implementation
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The RL Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-entropy"><a href="#s-entropy"><span class="toc-num">02</span> The Entropy Bound</a></li>
+    <li class="toc-item" id="toc-s-rs"><a href="#s-rs"><span class="toc-num">03</span> Rejection Sampling</a></li>
+    <li class="toc-item" id="toc-s-tvloss"><a href="#s-tvloss"><span class="toc-num">04</span> TV Loss</a></li>
+    <li class="toc-item" id="toc-s-slope"><a href="#s-slope"><span class="toc-num">05</span> Entropy Invariance</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════ §01 -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The RL Bottleneck</div>
+<h2>The Rollout Stage is Killing RL Training</h2>
+<p>
+  Reinforcement learning has become the core driver of LLM capability — GRPO, PPO, and async RL pipelines
+  now underpin every frontier model from Qwen to DeepSeek. But the training loop has a brutal bottleneck:
+  <strong>rollout</strong>. Generating trajectories token-by-token is slow, memory-bandwidth-bound, and
+  constitutes 60–80% of total RL training time.
+</p>
+<p>
+  Multi-Token Prediction (MTP) offers the natural fix: attach lightweight draft heads to the main model,
+  propose 3–4 tokens simultaneously, verify them all in one forward pass. In standard inference, this
+  yields 1.5–2× speedup. But in RL training — a very different regime — something goes wrong.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">MTP Acceptance Rate During RL Training (SWE-bench, Qwen3.5-3.6-Plus)</span>
+    <span class="vp-hint">acceptance rate per RL step, 3 MTP heads</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-degradation" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  The chart above shows what actually happens during an RL run: all three MTP draft steps degrade
+  continuously. Step 1 drops 1.2%, step 2 drops 2.6%, step 3 drops 3.5% — and because expected
+  acceptance length is a <em>product</em> of per-step rates
+  (E[L] = α₁ + α₁α₂ + α₁α₂α₃), the degradation compounds. By the end of training, the throughput
+  gain from MTP has evaporated.
+</p>
+
+<p>
+  The conventional explanation points to <strong>distribution mismatch</strong>: as RL weight updates move the
+  backbone, the frozen draft heads fall behind. But Bebop's key finding is that this is <em>not</em>
+  the dominant factor. The real culprit is <strong>policy entropy</strong>.
+</p>
+
+<div class="stat-row">
+  <div class="stat-chip">
+    <div class="stat-val">−3.5%</div>
+    <div class="stat-lbl">Step-3 drop</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val">≈ 0</div>
+    <div class="stat-lbl">Mismatch share</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val">&gt;95%</div>
+    <div class="stat-lbl">Entropy-driven</div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §02 -->
+<section id="s-entropy" data-code="entropy">
+<div class="section-no">02 — The Entropy Bound</div>
+<h2>High Entropy Makes Target-Only Sampling Impossible</h2>
+<p>
+  Under <strong>target-only sampling</strong> — the common default — a draft token is selected greedily
+  as ŷ = argmax q(y), then accepted with probability p(ŷ). This seems reasonable: just check whether
+  the draft's top choice is indeed likely under the target. But there's a hard bound:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Target-only acceptance rate</div>
+  α<sub>TO</sub> = p(argmax<sub>y</sub> q(y))  ≈  max<sub>y</sub> p(y)  ≥  exp(−<span class="math-var">H</span>(p))
+  <br>
+  <span class="math-comment">&nbsp;&nbsp;where H(p) = −Σ p(v) log p(v) is the target entropy</span>
+</div>
+
+<p>
+  When the model is confident (low entropy), one token dominates — max p(y) is large, acceptance is
+  high. When the model is uncertain (high entropy, as it is during RL exploration), probability spreads
+  across many tokens — max p(y) plummets, acceptance falls linearly.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Target Distribution at Different Entropy Levels (12 vocabulary slots)</span>
+    <span class="vp-hint">click to change entropy level</span>
+  </div>
+  <div class="vp-body">
+    <div class="viz-btns" id="entropy-btns">
+      <button class="viz-btn active" data-entropy="low">Low H ≈ 0.3 (confident)</button>
+      <button class="viz-btn" data-entropy="mid">Medium H ≈ 0.8</button>
+      <button class="viz-btn" data-entropy="high">High H ≈ 1.5 (exploring)</button>
+    </div>
+    <canvas id="canvas-entropy" style="width:100%;height:220px;display:block"></canvas>
+    <div style="display:flex;gap:1.5rem;margin-top:.75rem;font-family:var(--ff-mono);font-size:.72rem;">
+      <div>α<sub>TO</sub> = max p(y) = <strong id="ato-val" style="color:var(--purple-l)">—</strong></div>
+      <div style="color:var(--muted)">← this is the ceiling for target-only acceptance</div>
+    </div>
+  </div>
+</div>
+
+<p>
+  During RL, the policy entropy naturally rises: the model must explore to discover better completions.
+  The paper shows a <strong>clear negative linear relationship</strong> between entropy and acceptance rate
+  across all model sizes and tasks. Crucially, this is not a draft quality problem — it's a fundamental
+  ceiling imposed by the target distribution's shape.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §03 -->
+<section id="s-rs" data-code="rs">
+<div class="section-no">03 — Rejection Sampling</div>
+<h2>Acceptance as Distributional Overlap</h2>
+<p>
+  The fix is conceptually elegant: switch from target-only to <strong>rejection sampling</strong>.
+  Under rejection sampling, a draft token ŷ ~ q(·) is accepted with probability min(1, p(ŷ)/q(ŷ)).
+  The expected acceptance rate is:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Rejection sampling acceptance rate</div>
+  α<sub>RS</sub> = E<sub>ŷ~q</sub>[min(1, p(ŷ)/q(ŷ))]
+  = <strong>Σ<sub>v</sub> min(p(v), q(v))</strong> = 1 − d<sub>TV</sub>(p, q)
+  <br>
+  <span class="math-comment">&nbsp;&nbsp;This is exactly the distributional overlap (shaded green below)</span>
+</div>
+
+<p>
+  The key difference: rejection sampling acceptance equals the <em>total overlap area</em> between
+  p and q. When both distributions are uncertain (high entropy), both flatten together — and as long as
+  the draft head tracks the target well, the overlap area stays large. The acceptance rate is no longer
+  capped by entropy.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Target p (blue) vs Draft q (orange) — overlap (green) = acceptance rate</span>
+    <span class="vp-hint">change entropy or draft training objective</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <div class="viz-btns" id="rs-entropy-btns">
+        <button class="viz-btn active" data-rs-entropy="low">Low entropy</button>
+        <button class="viz-btn" data-rs-entropy="high">High entropy</button>
+      </div>
+      <div style="width:1px;background:var(--border);margin:0 .25rem"></div>
+      <div class="viz-btns" id="rs-mode-btns">
+        <button class="viz-btn active" data-rs-mode="ce">CE-trained q</button>
+        <button class="viz-btn" data-rs-mode="tv">TV-trained q</button>
+      </div>
+    </div>
+    <canvas id="canvas-rs" style="width:100%;height:220px;display:block"></canvas>
+    <div style="display:flex;gap:2rem;margin-top:.75rem;font-family:var(--ff-mono);font-size:.72rem;">
+      <div>α<sub>TO</sub> = <strong id="ato2-val" style="color:var(--amber)">—</strong></div>
+      <div>α<sub>RS</sub> = <strong id="ars-val" style="color:var(--green)">—</strong></div>
+      <div style="margin-left:auto;color:var(--muted)">green area = accepted tokens</div>
+    </div>
+  </div>
+</div>
+
+<p>
+  But there's a catch: CE/KL-trained draft models still show entropy-dependent acceptance under
+  rejection sampling. Even though the formula doesn't directly involve max p(y), the CE/KL training
+  objective produces <strong>uniform per-token mismatch</strong> — errors spread evenly across the
+  vocabulary. When entropy is high (large effective vocabulary size), these small errors accumulate
+  proportionally to exp(H(p)), increasing the TV distance. This motivates the TV loss.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §04 -->
+<section id="s-tvloss" data-code="tvloss">
+<div class="section-no">04 — TV Loss</div>
+<h2>Gradient Concentration: The Key to Entropy Invariance</h2>
+<p>
+  The root cause of CE/KL's entropy sensitivity: their gradients are <em>uniform</em> across the vocabulary.
+  CE loss gradient at token j: ∂L_CE/∂z_j = q_j − p_j — this applies equal optimization pressure
+  regardless of whether token j is high-probability or an irrelevant tail token.
+</p>
+<p>
+  A capacity-limited draft model can only reduce a fixed total error budget. CE spreads this budget
+  uniformly across all ~150,000 vocabulary tokens, including the vast tail of near-zero-probability
+  tokens. As entropy rises, the effective vocabulary size grows as exp(H(p)), so the budget per
+  relevant token shrinks — and TV distance grows proportionally.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">TV Loss vs CE Loss: Where Does the Gradient Go?</span>
+    <span class="vp-hint">step through the mechanism</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="tvloss-steps">
+      <div class="step-box active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">CE/KL: Uniform Gradient Spread</div>
+          <div class="step-desc">CE gradient ∂L/∂z_j = q_j − p_j spreads across all vocabulary tokens equally. A low-probability token "swim" (p=0.001) gets nearly the same update magnitude as "the" (p=0.35). 99% of the optimization budget is wasted on the long tail.</div>
+          <div class="step-code">grad_CE[j] = q[j] - p[j]  ← uniform |error|, ignores p[j]</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">TV Distance = 1 − Acceptance Rate</div>
+          <div class="step-desc">Rejection sampling acceptance rate exactly equals the distributional overlap. Minimizing TV distance directly maximizes acceptance rate — unlike KL divergence, which provides only an upper bound via Pinsker's inequality (d_TV ≤ √(D_KL/2)).</div>
+          <div class="step-code">α_RS = Σ min(p(v), q(v)) = 1 - d_TV(p, q)</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">TV Gradient: Probability-Proportional</div>
+          <div class="step-desc">TV loss gradient ∂L_TV/∂z_j = −q_j·[1(q_j≤p_j) − S] is proportional to q_j. High-probability tokens get large updates; tail tokens get near-zero gradient automatically. The gradient is also bounded (|∂L/∂z_j| ≤ 1), ensuring stable training.</div>
+          <div class="step-code">grad_TV[j] = -q[j] * (1[q[j] &lt;= p[j]] - S)  ← ∝ q[j]</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Probability-Proportional Mismatch → Entropy Invariance</div>
+          <div class="step-desc">When gradient ∝ q_j, the resulting per-token mismatch also scales with p(v): |q*(v) − p(v)| ≲ δ·p(v). The total TV distance then sums to δ/2 — independent of entropy! Even if the vocabulary explodes to 10,000 relevant tokens, each error is tiny relative to its probability weight.</div>
+          <div class="step-code">d_TV(p, q*) ≤ δ/2·Σ p(v) = δ/2  ← entropy-invariant!</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <button id="step-next">Next →</button>
+      <span class="step-prog" id="step-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  For multi-step MTP with γ heads, Bebop proposes the <strong>end-to-end TV loss</strong> that directly
+  optimizes the expected acceptance length — accounting for the multiplicative structure:
+</p>
+
+<div class="math-block">
+  <div class="math-label">End-to-end multi-step TV loss</div>
+  L<sub>e2e</sub> = 1 − <span class="math-var">1/γ</span> Σ<sub>j=1</sub><sup>γ</sup> Π<sub>i=1</sub><sup>j</sup> (1 − d<sub>TV</sub>(p<sub>i</sub>, q<sub>i</sub>))
+  <br>
+  <span class="math-comment">&nbsp;&nbsp;Earlier steps appear in more product terms → naturally weighted more heavily</span>
+</div>
+
+<p>
+  This is a <em>dynamic</em> weighting: since each α_i depends on current training state, the loss
+  automatically shifts emphasis toward whichever step currently limits acceptance — no fixed decay
+  factors or hand-tuned weights needed.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §05 -->
+<section id="s-slope" data-code="slope">
+<div class="section-no">05 — Entropy Invariance</div>
+<h2>95% Less Entropy Sensitivity</h2>
+<p>
+  The paper validates the entropy–acceptance relationship across all Qwen3.5, 3.6, and 3.7 training runs
+  on reasoning, code, and agentic tasks. The result is a clean linear law in both cases:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Entropy-acceptance linear relationship</div>
+  CE/KL-trained:  α ≈ a<sub>CE</sub> − <span class="math-var">b<sub>CE</sub></span> · H(p)  &nbsp;&nbsp;  slope b<sub>CE</sub> ≈ −1.68
+  <br>
+  TV-trained:     α ≈ a<sub>TV</sub> − <span class="math-var">b<sub>TV</sub></span> · H(p)  &nbsp;&nbsp;  slope b<sub>TV</sub> ≈ −0.06  &nbsp; (95% reduction)
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Entropy vs Accept Length — CE Loss vs TV Loss</span>
+    <span class="vp-hint">toggle to compare training objectives</span>
+  </div>
+  <div class="vp-body">
+    <div class="viz-btns" id="slope-btns">
+      <button class="viz-btn active" data-slope="both">Both</button>
+      <button class="viz-btn" data-slope="ce">CE/KL only</button>
+      <button class="viz-btn" data-slope="tv">TV only</button>
+    </div>
+    <canvas id="canvas-slope" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  Each dot in the chart represents the mean entropy and accept length at one RL training step, pooled
+  across model sizes and tasks. The TV line is nearly horizontal — the draft model has been made
+  entropy-invariant by design. This is the key insight that makes pre-RL training sufficient: the TV-trained
+  model doesn't need to be retrained as RL pushes entropy higher.
+</p>
+<p>
+  Bebop's <strong>pre-RL strategy</strong>: train MTP heads once before RL with e2e TV loss and rejection
+  sampling, then freeze them for the entire RL run. The decomposition analysis (Fig. 3 in the paper) shows
+  that weight drift during RL (distribution mismatch) is negligible — under rejection sampling, the
+  backbone's weight updates don't meaningfully change the TV overlap between draft and target.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>1.5–1.8× RL Speedup, No Online MTP Updates</h2>
+
+<p>
+  The acceptance rate improvements translate directly to throughput: every extra accepted token per
+  verification step reduces the total number of backbone forward passes needed to generate a trajectory.
+</p>
+
+<div class="stat-row">
+  <div class="stat-chip">
+    <div class="stat-val good">1.8×</div>
+    <div class="stat-lbl">Max RL speedup</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val good">2.4×</div>
+    <div class="stat-lbl">Agentic rollout</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val">99%</div>
+    <div class="stat-lbl">Agent acceptance</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val">+8%</div>
+    <div class="stat-lbl">SWE-bench gain</div>
+  </div>
+</div>
+
+<h3>Acceptance Rate by Task (Qwen3.5-35A3B, γ=3, rejection sampling)</h3>
+<div class="results-bars" id="results-bars">
+  <div class="bar-row">
+    <div class="bar-label">Math — CE (baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="75.0" style="background:rgba(107,114,128,.4)"><span>75.0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">Math — e2e TV loss</div>
+    <div class="bar-track"><div class="bar-fill" data-w="78.0" style="background:var(--purple)"><span>78.0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Code — CE (baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="71.3" style="background:rgba(107,114,128,.4)"><span>71.3%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">Code — e2e TV loss</div>
+    <div class="bar-track"><div class="bar-fill" data-w="74.6" style="background:var(--purple)"><span>74.6%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SWE-bench — CE (baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="75.1" style="background:rgba(107,114,128,.4)"><span>75.1%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">SWE-bench — e2e TV loss</div>
+    <div class="bar-track"><div class="bar-fill" data-w="83.1" style="background:var(--purple)"><span>83.1%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Agent — CE (baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="90.3" style="background:rgba(107,114,128,.4)"><span>90.3%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--green)">Agent — e2e TV loss</div>
+    <div class="bar-track"><div class="bar-fill" data-w="97.0" style="background:var(--green)"><span>97.0%</span></div></div>
+  </div>
+</div>
+
+<h3>Acceptance Rate by Model Size (e2e TV loss, rejection sampling, γ=3)</h3>
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>Math</th><th>Code</th><th>SWE</th><th>Agent</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Qwen3.7-Max</td><td class="mn">87.6%</td><td class="mn">87.7%</td><td class="mn">81.9%</td><td class="mn best">94.6%</td></tr>
+    <tr><td>Qwen3.7-Plus</td><td class="mn">87.4%</td><td class="mn">85.7%</td><td class="mn">79.2%</td><td class="mn best">98.6%</td></tr>
+    <tr class="highlight-row"><td>Qwen3.6-Plus (TV)</td><td class="mn">82.2%</td><td class="mn">78.7%</td><td class="mn">75.2%</td><td class="mn best">99.1%</td></tr>
+    <tr><td>Qwen3.6-27B</td><td class="mn">79.9%</td><td class="mn">76.7%</td><td class="mn">72.3%</td><td class="mn best">96.3%</td></tr>
+    <tr><td>Qwen3.6-35A3B</td><td class="mn">78.3%</td><td class="mn">74.4%</td><td class="mn">71.3%</td><td class="mn best">97.1%</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Agentic tasks see the largest gains because agent trajectories involve multi-turn interactions
+  with tool calls, where the model often generates high-entropy "thinking" tokens interspersed with
+  deterministic structured outputs. The high-entropy tokens that previously dragged down target-only
+  acceptance are exactly where rejection sampling + TV loss shines — the draft tracks the target
+  distribution well regardless of how spread-out it is.
+</p>
+<p>
+  The key practical result: <strong>one pre-RL training phase with e2e TV loss</strong> is sufficient.
+  No online MTP updating during RL. No extra memory for MTP optimizer states. No gradient interference
+  with the backbone policy. The MTP module is frozen during all of RL training, yet acceptance rates
+  remain stable throughout — because TV training has already made the draft entropy-invariant.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">bebop/rl_loop.py</div>
+      <div class="cs-section-title" id="cs-section-title">The RL Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="entropy">entropy</button>
+    <button class="cs-tab" data-panel="rs">rejection</button>
+    <button class="cs-tab" data-panel="tvloss">tv loss</button>
+    <button class="cs-tab" data-panel="slope">invariance</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># RL training loop with MTP speculative decoding</span>
+<span class="cs-line cmt"># MTP acceptance length compounds multiplicatively:</span>
+<span class="cs-line cmt">#   E[L] = α₁ + α₁α₂ + α₁α₂α₃  (γ=3 heads)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">rl_rollout</span>(policy, prompt):</span>
+<span class="cs-line">    tokens = []</span>
+<span class="cs-line">    <span class="kw">while</span> <span class="kw">not</span> done:</span>
+<span class="cs-line cmt">        # Draft γ=3 candidate tokens</span>
+<span class="cs-line hl-c">        drafts = policy.mtp_heads(hidden)</span>
+<span class="cs-line cmt">        # Verify in single backbone forward pass</span>
+<span class="cs-line hl-g">        logits = policy.backbone(tokens + drafts)</span>
+<span class="cs-line cmt">        # Accept/reject each draft token</span>
+<span class="cs-line">        accepted = verify(drafts, logits)</span>
+<span class="cs-line">        tokens.extend(accepted)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Problem: as RL raises entropy, acceptance drops</span>
+<span class="cs-line cmt"># Step 1: 0.960 → 0.948  (-1.2%)</span>
+<span class="cs-line cmt"># Step 2: 0.895 → 0.869  (-2.6%)</span>
+<span class="cs-line cmt"># Step 3: 0.810 → 0.775  (-3.5%) ← compounds!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GRPO objective (policy gradient)</span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">grpo_loss</span>(theta, prompts, rewards):</span>
+<span class="cs-line">    r = pi_theta / pi_theta_old  <span class="cmt"># ratio</span></span>
+<span class="cs-line">    A = (R - mu_G) / sigma_G     <span class="cmt"># advantage</span></span>
+<span class="cs-line">    <span class="kw">return</span> -<span class="fn">mean</span>(<span class="fn">clip</span>(r*A, 1-eps, 1+eps)*A)</span>
+      </pre>
+    </div>
+
+    <!-- panel: entropy -->
+    <div class="cs-panel" id="panel-entropy">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Target entropy bounds target-only acceptance</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Shannon entropy of target distribution</span>
+<span class="cs-line hl-p">H = -<span class="fn">sum</span>(p[v] * <span class="fn">log</span>(p[v]) <span class="kw">for</span> v <span class="kw">in</span> V)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Target-only acceptance: greedy draft, accepted</span>
+<span class="cs-line cmt"># with probability p(argmax q)</span>
+<span class="cs-line hl-c">y_hat = <span class="fn">argmax</span>(q)  <span class="cmt"># draft's top-1 choice</span></span>
+<span class="cs-line hl-c">alpha_TO = p[y_hat]  <span class="cmt"># probability of that token</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Hard lower bound (Jensen's inequality):</span>
+<span class="cs-line cmt">#   max p(y) ≥ exp(-H(p))</span>
+<span class="cs-line cmt"># So acceptance rate is BOUNDED BY entropy:</span>
+<span class="cs-line hl-a">alpha_TO &lt;= <span class="fn">max</span>(p)  ≈  <span class="fn">exp</span>(-H(p))</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Linear approximation (from paper, Fig. 1a):</span>
+<span class="cs-line">alpha_TO ≈ a_TO - b_TO * H(p)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># At H=0.3: alpha_TO ≈ 0.70 (confident)</span>
+<span class="cs-line cmt"># At H=0.8: alpha_TO ≈ 0.42 (medium)</span>
+<span class="cs-line cmt"># At H=1.5: alpha_TO ≈ 0.22 (exploring)</span>
+      </pre>
+    </div>
+
+    <!-- panel: rs -->
+    <div class="cs-panel" id="panel-rs">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Rejection sampling: token ŷ ~ q(·)</span>
+<span class="cs-line cmt"># accepted with prob min(1, p(ŷ)/q(ŷ))</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">reject_sample</span>(p, q):</span>
+<span class="cs-line">    y = <span class="fn">sample</span>(q)              <span class="cmt"># draw from draft</span></span>
+<span class="cs-line hl-c">    accept_prob = <span class="fn">min</span>(1, p[y]/q[y])</span>
+<span class="cs-line">    <span class="kw">if</span> <span class="fn">rand</span>() &lt; accept_prob:</span>
+<span class="cs-line">        <span class="kw">return</span> y               <span class="cmt"># accepted!</span></span>
+<span class="cs-line">    <span class="kw">else</span>:                      <span class="cmt"># resample from residual</span></span>
+<span class="cs-line">        <span class="kw">return</span> <span class="fn">sample</span>(p_resid)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Expected acceptance rate:</span>
+<span class="cs-line hl-g">alpha_RS = <span class="fn">sum</span>(<span class="fn">min</span>(p[v], q[v]) <span class="kw">for</span> v <span class="kw">in</span> V)</span>
+<span class="cs-line">         = 1 - d_TV(p, q)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># This is the OVERLAP AREA between p and q</span>
+<span class="cs-line cmt"># Not bounded by max p(y)!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># But CE-trained q still shows entropy dependence:</span>
+<span class="cs-line cmt"># uniform mismatch accumulates over exp(H(p)) tokens</span>
+<span class="cs-line cmt"># → CE slope: α_RS ≈ a - 1.68·H(p)  (still steep!)</span>
+<span class="cs-line cmt"># → TV slope: α_RS ≈ a - 0.06·H(p)  (nearly flat)</span>
+      </pre>
+    </div>
+
+    <!-- panel: tvloss -->
+    <div class="cs-panel" id="panel-tvloss">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># TV Loss: directly minimize TV distance</span>
+<span class="cs-line cmt"># L_TV = d_TV(p, q) = 1 - Σ min(p(v), q(v))</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">tv_loss</span>(logits_q, p):</span>
+<span class="cs-line cmt">    # p is detached (no grad through target)</span>
+<span class="cs-line">    q = <span class="fn">softmax</span>(logits_q)</span>
+<span class="cs-line hl-c">    overlap = <span class="fn">sum</span>(<span class="fn">min</span>(p_v, q_v) <span class="kw">for</span> p_v, q_v <span class="kw">in</span> <span class="fn">zip</span>(p, q))</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> 1 - overlap  <span class="cmt"># = d_TV(p, q)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Gradient: ∂L_TV/∂z_j = -q_j·(1[q_j≤p_j] - S)</span>
+<span class="cs-line cmt"># where S = Σ_v 1[q_v≤p_v]·q_v</span>
+<span class="cs-line cmt"># Key: gradient ∝ q_j  (probability-proportional!)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">e2e_tv_loss</span>(logits_list, p_list, gamma=3):</span>
+<span class="cs-line cmt">    # End-to-end multi-step loss</span>
+<span class="cs-line">    total = 0</span>
+<span class="cs-line">    <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(gamma):</span>
+<span class="cs-line">        prod = 1.0</span>
+<span class="cs-line">        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(j+1):</span>
+<span class="cs-line">            tv_i = <span class="fn">tv_loss</span>(logits_list[i], p_list[i])</span>
+<span class="cs-line">            prod *= (1 - tv_i)</span>
+<span class="cs-line">        total += prod</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> 1 - total / gamma  <span class="cmt"># minimize</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Pre-RL training: run e2e TV loss on SFT data</span>
+<span class="cs-line cmt"># Freeze MTP heads during all of RL</span>
+<span class="cs-line cmt"># Result: stable acceptance throughout RL</span>
+      </pre>
+    </div>
+
+    <!-- panel: slope -->
+    <div class="cs-panel" id="panel-slope">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Entropy-acceptance slope comparison</span>
+<span class="cs-line cmt"># CE/KL training (from paper, Fig. 1a):</span>
+<span class="cs-line hl-a">slope_CE = -1.68  <span class="cmt"># steep negative correlation</span></span>
+<span class="cs-line cmt"># TV training:</span>
+<span class="cs-line hl-g">slope_TV = -0.06  <span class="cmt"># 95% flatter (nearly 0!)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Decomposition: what drives acceptance change?</span>
+<span class="cs-line cmt"># Δα = entropy component + mismatch component</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">delta_alpha_entropy = b * (H_t - H_0)</span>
+<span class="cs-line hl-c">delta_alpha_mismatch = delta_alpha - delta_alpha_entropy</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Finding (Fig. 3 in paper):</span>
+<span class="cs-line cmt"># Target-only: BOTH entropy + mismatch contribute</span>
+<span class="cs-line cmt"># RS + CE: mismatch ≈ 0, entropy dominates</span>
+<span class="cs-line cmt"># RS + TV: BOTH ≈ 0  ← fully stable!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why mismatch ≈ 0 under rejection sampling:</span>
+<span class="cs-line cmt"># RL weight updates → small Δθ (learning rate 1e-6)</span>
+<span class="cs-line cmt"># → TV overlap barely changes per step</span>
+<span class="cs-line cmt"># → draft doesn't need to chase backbone during RL</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Pre-RL + freeze strategy is sufficient!</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Bebop results: Qwen3.5-35A3B, γ=3, RS</span>
+<span class="cs-line cmt"># Acceptance rate improvement over CE baseline</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Task     CE%   TV%   Delta</span>
+<span class="cs-line cmt"># ──────────────────────────</span>
+<span class="cs-line hl-g">RESULTS = &#123;</span>
+<span class="cs-line hl-g">    <span class="str">"Math"</span>:    (75.0, 78.0, <span class="str">"+3.0%"</span>),</span>
+<span class="cs-line hl-g">    <span class="str">"Code"</span>:    (71.3, 74.6, <span class="str">"+3.3%"</span>),</span>
+<span class="cs-line hl-g">    <span class="str">"SWE"</span>:     (75.1, 83.1, <span class="str">"+8.0%"</span>),</span>
+<span class="cs-line hl-g">    <span class="str">"Agent"</span>:   (90.3, 97.0, <span class="str">"+6.7%"</span>),</span>
+<span class="cs-line hl-g">    <span class="str">"MT-Bench"</span>:(65.3, 67.6, <span class="str">"+2.3%"</span>), <span class="cmt"># OOD!</span></span>
+<span class="cs-line hl-g">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># RL speedup (latency reduction per training step):</span>
+<span class="cs-line hl-p">speedup_reasoning = <span class="str">"1.5–1.8×"</span></span>
+<span class="cs-line hl-p">speedup_agentic   = <span class="str">"up to 2.4×"</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Models with TV loss show acceptance rates</span>
+<span class="cs-line cmt"># scale with model size (Table 3 in paper):</span>
+<span class="cs-line cmt"># Qwen3.7-Plus agent: 98.6%!</span>
+<span class="cs-line cmt"># Qwen3.6-Plus agent: 99.1%!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Online MTP updates: not needed</span>
+<span class="cs-line cmt"># Memory overhead: none (heads frozen in RL)</span>
+<span class="cs-line cmt"># Compute overhead: none (no MTP gradient in RL)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Seeded PRNG ──────────────────────────────────────────────
+function seededRand(n) {
+  return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff;
+}
+
+// ── Sidebar toggles ─────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Tab switching ────────────────────────────────────────────
+const tabMeta = {
+  problem:    { file: 'bebop/rl_loop.py',    title: 'The RL Bottleneck' },
+  entropy:    { file: 'bebop/entropy.py',    title: 'The Entropy Bound' },
+  rs:         { file: 'bebop/rejection.py',  title: 'Rejection Sampling' },
+  tvloss:     { file: 'bebop/tv_loss.py',    title: 'TV Loss' },
+  slope:      { file: 'bebop/invariance.py', title: 'Entropy Invariance' },
+  results:    { file: 'bebop/results.py',    title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel===name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id==='panel-'+name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar ─────────────────
+const sectionMap = {
+  's-problem':'problem','s-entropy':'entropy','s-rs':'rs',
+  's-tvloss':'tvloss','s-slope':'slope','s-results':'results'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id==='toc-'+e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ══════════════════════════════════════════════════════════
+// §01 — Acceptance Rate Degradation Chart
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-degradation');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    draw(W, H);
+  }
+  function draw(W, H) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { l:52, r:20, t:20, b:36 };
+    const pw = W - pad.l - pad.r;
+    const ph = H - pad.t - pad.b;
+
+    // Data: acceptance rates for 3 MTP steps over RL training (from paper Fig.2)
+    const STEPS = 350;
+    const lines = [
+      { label:'MTP Step 1', color:'#8b5cf6', start:0.960, end:0.948, yMin:0.94, yMax:0.965 },
+      { label:'MTP Step 2', color:'#f59e0b', start:0.895, end:0.869, yMin:0.86, yMax:0.90 },
+      { label:'MTP Step 3', color:'#ef4444', start:0.810, end:0.775, yMin:0.77, yMax:0.82 },
+    ];
+
+    const globalMin = 0.75, globalMax = 0.975;
+    function yPos(v) { return pad.t + ph - (v - globalMin)/(globalMax-globalMin)*ph; }
+    function xPos(s) { return pad.l + (s/STEPS)*pw; }
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    [0.78, 0.82, 0.86, 0.90, 0.94, 0.96].forEach(v => {
+      ctx.beginPath(); ctx.moveTo(pad.l, yPos(v)); ctx.lineTo(pad.l+pw, yPos(v)); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
+
+    // Y labels
+    ctx.fillStyle = 'rgba(107,114,128,0.9)'; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'right';
+    [0.78, 0.85, 0.90, 0.95].forEach(v => {
+      ctx.fillText((v*100).toFixed(0)+'%', pad.l-6, yPos(v)+4);
+    });
+
+    // X axis label
+    ctx.fillStyle = 'rgba(107,114,128,0.7)'; ctx.textAlign = 'center';
+    ctx.fillText('RL Training Step', pad.l + pw/2, H - 4);
+    [0, 100, 200, 300].forEach(s => {
+      ctx.fillText(String(s), xPos(s), pad.t+ph+14);
+    });
+
+    // Draw lines with gentle noise for realism
+    lines.forEach((line, li) => {
+      ctx.strokeStyle = line.color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const N = 60;
+      for (let i = 0; i <= N; i++) {
+        const s = (i/N)*STEPS;
+        const frac = i/N;
+        // Smooth ease: start flat, gradually decline
+        const ease = frac * frac;
+        const base = line.start + (line.end - line.start)*ease;
+        // Add tiny seeded noise for realism
+        const noise = (seededRand(li*1000+i) - 0.5) * 0.004;
+        const v = Math.max(line.end-0.003, Math.min(line.start+0.003, base + noise));
+        if (i===0) ctx.moveTo(xPos(s), yPos(v));
+        else ctx.lineTo(xPos(s), yPos(v));
+      }
+      ctx.stroke();
+
+      // Label at right end
+      const endV = line.end + (seededRand(li*1000+60)-0.5)*0.002;
+      ctx.fillStyle = line.color;
+      ctx.textAlign = 'left';
+      ctx.font = `bold ${10}px monospace`;
+      ctx.fillText(line.label, pad.l+pw+4, yPos(endV)+4);
+    });
+  }
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ══════════════════════════════════════════════════════════
+// §02 — Entropy Histogram
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-entropy');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  // 12 vocabulary tokens
+  const TOKENS = ['the','a','is','of','in','to','was','that','cat','run','love','swim'];
+
+  // Pre-defined distributions for each entropy level
+  // Sorted descending, then shuffled with seeded positions
+  const DISTRIBS = {
+    low:  [0.68, 0.12, 0.06, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.003, 0.002, 0.005],
+    mid:  [0.40, 0.18, 0.12, 0.09, 0.07, 0.055, 0.04, 0.03, 0.02, 0.015, 0.01, 0.01],
+    high: [0.20, 0.16, 0.13, 0.11, 0.09, 0.08, 0.065, 0.05, 0.04, 0.035, 0.025, 0.015],
+  };
+  // Normalize
+  function normalize(arr) {
+    const s = arr.reduce((a,b)=>a+b,0);
+    return arr.map(v=>v/s);
+  }
+  Object.keys(DISTRIBS).forEach(k => { DISTRIBS[k] = normalize(DISTRIBS[k]); });
+
+  let currentEntropy = 'low';
+
+  function resize() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    draw(W, H);
+  }
+
+  function draw(W, H) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const p = DISTRIBS[currentEntropy];
+    const maxP = Math.max(...p);
+    const atoVal = document.getElementById('ato-val');
+    if (atoVal) atoVal.textContent = (maxP*100).toFixed(1)+'%';
+
+    const pad = { l:10, r:10, t:30, b:30 };
+    const pw = W - pad.l - pad.r;
+    const ph = H - pad.t - pad.b;
+    const barW = pw/p.length * 0.7;
+    const gap = pw/p.length;
+
+    p.forEach((pv, i) => {
+      const x = pad.l + i*gap + gap*0.15;
+      const barH = (pv/maxP) * ph * 0.92;
+      const y = pad.t + ph - barH;
+      const isMax = pv === maxP;
+
+      if (isMax) {
+        // Highlighted bar: purple gradient
+        const grad = ctx.createLinearGradient(0, y, 0, y+barH);
+        grad.addColorStop(0, '#8b5cf6');
+        grad.addColorStop(1, 'rgba(139,92,246,0.3)');
+        ctx.fillStyle = grad;
+        // Glow effect
+        ctx.shadowBlur = 12; ctx.shadowColor = '#8b5cf6';
+      } else {
+        ctx.fillStyle = 'rgba(99,102,241,0.35)';
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillRect(x, y, barW, barH);
+      ctx.shadowBlur = 0;
+
+      // Token label
+      ctx.fillStyle = isMax ? 'rgba(200,190,255,0.9)' : 'rgba(107,114,128,0.7)';
+      ctx.font = `${isMax?'bold ':''}9px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('"'+TOKENS[i]+'"', x + barW/2, H - 4);
+    });
+
+    // Arrow + label on max bar
+    const maxIdx = p.indexOf(maxP);
+    const maxX = pad.l + maxIdx*gap + gap*0.15 + barW/2;
+    const maxY = pad.t + ph - (maxP/maxP)*ph*0.92;
+    ctx.fillStyle = 'rgba(167,139,250,0.9)';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('α_TO = ' + (maxP*100).toFixed(1)+'%', maxX, maxY - 8);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Entropy buttons
+  document.querySelectorAll('#entropy-btns .viz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentEntropy = btn.dataset.entropy;
+      document.querySelectorAll('#entropy-btns .viz-btn').forEach(b => b.classList.toggle('active', b===btn));
+      draw(canvas.clientWidth, 220);
+    });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// §03 — Rejection Sampling Overlap Chart
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-rs');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  const TOKENS = ['the','a','is','of','in','to','was','that','cat','run','love','swim'];
+
+  // Target distributions
+  const P = {
+    low:  [0.68, 0.12, 0.06, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.003, 0.002, 0.005],
+    high: [0.20, 0.16, 0.13, 0.11, 0.09, 0.08, 0.065, 0.05, 0.04,  0.035, 0.025, 0.015],
+  };
+  function normalize(arr) { const s=arr.reduce((a,b)=>a+b,0); return arr.map(v=>v/s); }
+  Object.keys(P).forEach(k => { P[k] = normalize(P[k]); });
+
+  // Draft distributions — CE vs TV. TV is closer to P (higher overlap).
+  // CE: adds noise uniformly; TV: noise proportional to p (closer to target)
+  function makeDraft(p, mode) {
+    const N = p.length;
+    const q = p.map((pv, i) => {
+      const noise = (seededRand(i * 17 + (mode==='ce'?500:700)) - 0.5);
+      const scale = mode === 'ce' ? 0.12 : 0.045;
+      return Math.max(0.002, pv + noise * scale);
+    });
+    return normalize(q);
+  }
+
+  let rsEntropy = 'low', rsMode = 'ce';
+
+  function resize() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    draw(W, H);
+  }
+
+  function draw(W, H) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const p = P[rsEntropy];
+    const q = makeDraft(p, rsMode);
+    const maxV = Math.max(...p, ...q);
+
+    const alphaRS = p.reduce((acc, pv, i) => acc + Math.min(pv, q[i]), 0);
+    const maxP = Math.max(...p);
+
+    // Update displays
+    const ato2 = document.getElementById('ato2-val');
+    const ars  = document.getElementById('ars-val');
+    if (ato2) ato2.textContent = (maxP*100).toFixed(1)+'%';
+    if (ars)  ars.textContent  = (alphaRS*100).toFixed(1)+'%';
+
+    const pad = { l:8, r:8, t:20, b:28 };
+    const pw = W - pad.l - pad.r;
+    const ph = H - pad.t - pad.b;
+    const barW  = pw/p.length * 0.3;
+    const gap   = pw/p.length;
+    const shift = gap * 0.25;
+
+    p.forEach((pv, i) => {
+      const x = pad.l + i*gap + gap*0.05;
+      const qv = q[i];
+      const overlapH = (Math.min(pv,qv)/maxV)*ph*0.9;
+      const pH = (pv/maxV)*ph*0.9;
+      const qH = (qv/maxV)*ph*0.9;
+
+      // p bar (blue)
+      ctx.fillStyle = 'rgba(99,102,241,0.55)';
+      ctx.fillRect(x, pad.t+ph-pH, barW, pH);
+
+      // q bar (orange, offset)
+      ctx.fillStyle = 'rgba(245,158,11,0.55)';
+      ctx.fillRect(x+shift, pad.t+ph-qH, barW, qH);
+
+      // Overlap (green)
+      ctx.fillStyle = 'rgba(16,185,129,0.65)';
+      ctx.fillRect(x+shift/2, pad.t+ph-overlapH, barW, overlapH);
+
+      // Token label
+      ctx.fillStyle = 'rgba(107,114,128,0.6)';
+      ctx.font = '8px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('"'+TOKENS[i]+'"', x + barW/2 + shift/2, H - 4);
+    });
+
+    // Legend
+    const lx = pad.l + 4, ly = pad.t + 6;
+    [['rgba(99,102,241,0.7)','target p'],['rgba(245,158,11,0.7)','draft q'],['rgba(16,185,129,0.7)','overlap = α_RS']].forEach(([c,lbl],i) => {
+      ctx.fillStyle = c; ctx.fillRect(lx + i*120, ly, 12, 12);
+      ctx.fillStyle = 'rgba(156,163,175,0.8)'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(lbl, lx + i*120 + 16, ly + 10);
+    });
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.querySelectorAll('#rs-entropy-btns .viz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rsEntropy = btn.dataset.rsEntropy;
+      document.querySelectorAll('#rs-entropy-btns .viz-btn').forEach(b => b.classList.toggle('active', b===btn));
+      draw(canvas.clientWidth, 220);
+    });
+  });
+  document.querySelectorAll('#rs-mode-btns .viz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rsMode = btn.dataset.rsMode;
+      document.querySelectorAll('#rs-mode-btns .viz-btn').forEach(b => b.classList.toggle('active', b===btn));
+      draw(canvas.clientWidth, 220);
+    });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// §04 — TV Loss Step Navigator
+// ══════════════════════════════════════════════════════════
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#tvloss-steps .step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active','done');
+      if (i===step) b.classList.add('active');
+      else if (i<step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step===0;
+    if (nextBtn) nextBtn.disabled = step===boxes.length-1;
+    if (progEl)  progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i<step ? '✓' : String(i+1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step>0){step--;updateSteps();} });
+  nextBtn?.addEventListener('click', () => { if (step<boxes.length-1){step++;updateSteps();} });
+  updateSteps();
+})();
+
+// ══════════════════════════════════════════════════════════
+// §05 — Entropy vs Acceptance Scatter Plot
+// ══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('canvas-slope');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  let slopeMode = 'both';
+
+  // Generate simulated scatter data
+  // CE line: AL = 3.8 - 2.4*(H - 0.1) for H in [0.1, 0.65]
+  // TV line: AL = 3.22 - 0.12*(H - 0.1)
+  function genPoints(lineType, N, seed) {
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const r1 = seededRand(seed*100+i*3);
+      const r2 = seededRand(seed*100+i*3+1);
+      const H = 0.1 + r1 * 0.55;
+      let AL;
+      if (lineType === 'ce') {
+        AL = 3.8 - 2.4*(H-0.1) + (r2-0.5)*0.14;
+      } else {
+        AL = 3.22 - 0.12*(H-0.1) + (r2-0.5)*0.10;
+      }
+      pts.push({ H: Math.max(0.08, H), AL: Math.max(2.3, Math.min(3.95, AL)) });
+    }
+    return pts;
+  }
+
+  const cePts = genPoints('ce', 45, 1);
+  const tvPts = genPoints('tv', 45, 3);
+
+  function resize() {
+    const W = canvas.clientWidth, H = 260;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    draw(W, H);
+  }
+
+  function draw(W, H) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { l:54, r:22, t:20, b:44 };
+    const pw = W - pad.l - pad.r;
+    const ph = H - pad.t - pad.b;
+
+    const xMin=0.05, xMax=0.70, yMin=2.2, yMax=4.0;
+    function xp(H) { return pad.l + (H-xMin)/(xMax-xMin)*pw; }
+    function yp(AL){ return pad.t + ph - (AL-yMin)/(yMax-yMin)*ph; }
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    [2.5,3.0,3.5,4.0].forEach(v=>{ ctx.beginPath();ctx.moveTo(pad.l,yp(v));ctx.lineTo(pad.l+pw,yp(v));ctx.stroke(); });
+    [0.1,0.2,0.3,0.4,0.5,0.6].forEach(v=>{ ctx.beginPath();ctx.moveTo(xp(v),pad.t);ctx.lineTo(xp(v),pad.t+ph);ctx.stroke(); });
+
+    // Axes
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ph); ctx.lineTo(pad.l+pw,pad.t+ph); ctx.stroke();
+
+    // Labels
+    ctx.fillStyle='rgba(107,114,128,0.8)'; ctx.font='10px monospace';
+    ctx.textAlign='right';
+    [2.5,3.0,3.5,4.0].forEach(v=>ctx.fillText(v.toFixed(1), pad.l-6, yp(v)+4));
+    ctx.textAlign='center';
+    [0.1,0.2,0.3,0.4,0.5,0.6].forEach(v=>ctx.fillText(v.toFixed(1), xp(v), pad.t+ph+14));
+
+    // Axis titles
+    ctx.fillStyle='rgba(156,163,175,0.6)'; ctx.font='10px monospace';
+    ctx.textAlign='center';
+    ctx.fillText('Entropy H(p)', pad.l+pw/2, H-4);
+    ctx.save(); ctx.translate(14, pad.t+ph/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('Accept Length', 0, 0); ctx.restore();
+
+    // Draw CE scatter + trend line
+    if (slopeMode==='both' || slopeMode==='ce') {
+      // Scatter points
+      ctx.fillStyle='rgba(245,158,11,0.5)';
+      cePts.forEach(pt => {
+        ctx.beginPath(); ctx.arc(xp(pt.H), yp(pt.AL), 3, 0, Math.PI*2); ctx.fill();
+      });
+      // Trend line
+      ctx.strokeStyle='rgba(245,158,11,0.85)'; ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.moveTo(xp(0.08), yp(3.8-2.4*(0.08-0.1)));
+      ctx.lineTo(xp(0.67), yp(3.8-2.4*(0.67-0.1)));
+      ctx.stroke();
+      // Label
+      ctx.fillStyle='rgba(245,158,11,0.9)'; ctx.font='bold 10px monospace'; ctx.textAlign='left';
+      ctx.fillText('CE/KL  slope = −1.68', xp(0.08)+4, yp(3.8-2.4*(0.08-0.1))-8);
+    }
+
+    // Draw TV scatter + trend line
+    if (slopeMode==='both' || slopeMode==='tv') {
+      ctx.fillStyle='rgba(16,185,129,0.5)';
+      tvPts.forEach(pt => {
+        ctx.beginPath(); ctx.arc(xp(pt.H), yp(pt.AL), 3, 0, Math.PI*2); ctx.fill();
+      });
+      ctx.strokeStyle='rgba(16,185,129,0.85)'; ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.moveTo(xp(0.08), yp(3.22-0.12*(0.08-0.1)));
+      ctx.lineTo(xp(0.67), yp(3.22-0.12*(0.67-0.1)));
+      ctx.stroke();
+      ctx.fillStyle='rgba(16,185,129,0.9)'; ctx.font='bold 10px monospace'; ctx.textAlign='left';
+      ctx.fillText('TV loss  slope = −0.06', xp(0.08)+4, yp(3.22-0.12*(0.08-0.1))+16);
+    }
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.querySelectorAll('#slope-btns .viz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      slopeMode = btn.dataset.slope;
+      document.querySelectorAll('#slope-btns .viz-btn').forEach(b => b.classList.toggle('active', b===btn));
+      draw(canvas.clientWidth, 260);
+    });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// §06 — Animated Results Bar Chart
+// ══════════════════════════════════════════════════════════
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w+'%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+
+</BaseLayout>

@@ -91,6 +91,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 <div id="mobile-menu" class="mobile-menu" aria-hidden="true">
   <a class="mobile-menu-link" href="/" data-i18n="nav-posts">Posts</a>
   <a class="mobile-menu-link" href="/about" data-i18n="nav-about">About</a>
+  <a class="mobile-menu-link" href="/bookmarks" id="mobile-bookmarks-link" style="display:none" data-i18n="nav-bookmarks">Bookmarks</a>
   <a class="mobile-menu-link" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
   <button class="mobile-menu-link mobile-menu-suggest" id="suggest-btn-mobile" data-i18n="nav-suggest">Suggest Topic</button>
 </div>
@@ -272,6 +273,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-brand':    'AI/ML Deep Dives',
       'nav-posts':    'Posts',
       'nav-about':    'About',
+      'nav-bookmarks': 'Bookmarks',
       'nav-subscribe': 'Subscribe',
       'nav-suggest':  'Suggest Topic',
       'hero-eyebrow': 'Personal Research Blog',
@@ -293,6 +295,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-brand':    'AI/ML 深度解析',
       'nav-posts':    '文章',
       'nav-about':    '关于',
+      'nav-bookmarks': '书签',
       'nav-subscribe': '订阅',
       'nav-suggest':  '建议主题',
       'hero-eyebrow': '个人研究博客',
@@ -480,6 +483,11 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
                 <span class="dropdown-user-name">${name}</span>
                 <span class="dropdown-user-email">${email}</span>
               </div>
+              <a href="/bookmarks" class="dropdown-bookmarks-link" id="dropdown-bookmarks-link">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                Bookmarks
+                <span class="dropdown-bookmarks-count" id="dropdown-bookmarks-count" style="display:none">0</span>
+              </a>
               <button class="btn-signout" id="auth-signout-btn">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Sign Out
@@ -533,6 +541,173 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       }
     });
   }
+</script>
+
+<script>
+  import { auth } from '../lib/firebase';
+  import { onAuthStateChanged, type User } from 'firebase/auth';
+  import { loadBookmarks, toggleBookmark } from '../lib/bookmarks';
+
+  // Per-page post slug (null if not on a post page)
+  const _pathParts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+  const _pageSlug = _pathParts[0] === 'posts' && _pathParts[1] ? _pathParts[1] : null;
+
+  let _currentUid: string | null = null;
+
+  function _bmSvg(pressed: boolean): string {
+    return `<svg width="11" height="11" viewBox="0 0 24 24" fill="${pressed ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+  }
+
+  function _applyBookmarkStates(set: Set<string> | null) {
+    document.querySelectorAll<HTMLButtonElement>('.post-bookmark-btn').forEach(btn => {
+      const slug = btn.dataset.slug;
+      if (!slug) return;
+      const pressed = set != null && set.has(slug);
+      btn.setAttribute('aria-pressed', String(pressed));
+      const svgEl = btn.querySelector('svg');
+      if (svgEl) svgEl.setAttribute('fill', pressed ? 'currentColor' : 'none');
+    });
+  }
+
+  function _updateDropdownCount(n: number | null) {
+    const countEl = document.getElementById('dropdown-bookmarks-count');
+    if (!countEl) return;
+    if (n === null || n === 0) {
+      countEl.style.display = 'none';
+    } else {
+      countEl.textContent = String(n);
+      countEl.style.display = '';
+    }
+  }
+
+  function _initPostPageBmBtn(set: Set<string>) {
+    if (!_pageSlug) return;
+    if (document.getElementById('post-hero-bookmark')) return;
+    const heroMeta = document.querySelector<HTMLElement>('.post-hero-meta');
+    if (!heroMeta) return;
+
+    const titleEl = document.querySelector<HTMLElement>('.post-hero h1');
+    const tagEls  = document.querySelectorAll<HTMLElement>('.post-hero .tag');
+    const dateEl  = heroMeta.querySelector<HTMLElement>('span');
+    const title   = titleEl?.textContent?.trim() ?? '';
+    const date    = dateEl?.textContent?.trim() ?? '';
+    const href    = window.location.pathname;
+    const tags: { text: string; cls: string }[] = [];
+    tagEls.forEach(el => {
+      const cls = Array.from(el.classList).find(c => c.startsWith('tag-')) ?? '';
+      tags.push({ text: el.textContent?.trim() ?? '', cls: `tag ${cls}` });
+    });
+
+    const pressed = set.has(_pageSlug);
+    const btn = document.createElement('button');
+    btn.id = 'post-hero-bookmark';
+    btn.className = 'post-bookmark-btn post-bookmark-hero';
+    btn.setAttribute('aria-label', pressed ? 'Remove bookmark' : 'Bookmark this post');
+    btn.setAttribute('aria-pressed', String(pressed));
+    btn.dataset.slug  = _pageSlug;
+    btn.dataset.title = title;
+    btn.dataset.date  = date;
+    btn.dataset.href  = href;
+    btn.dataset.tags  = JSON.stringify(tags);
+    btn.innerHTML = `${_bmSvg(pressed)}<span>${pressed ? 'Saved' : 'Bookmark'}</span>`;
+    heroMeta.appendChild(btn);
+  }
+
+  function _removePostPageBmBtn() {
+    document.getElementById('post-hero-bookmark')?.remove();
+  }
+
+  // Delegate bookmark-button clicks across the whole page.
+  // Use capture phase so we intercept clicks before the parent <a> card can navigate.
+  document.addEventListener('click', async (e: MouseEvent) => {
+    const target = (e.target as Element).closest<HTMLButtonElement>('.post-bookmark-btn');
+    if (!target) return; // not a bookmark button — let click propagate normally
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!_currentUid) {
+      // Not signed in — flash the button red briefly as a hint
+      target.style.color = 'var(--red)';
+      target.style.borderColor = 'var(--red)';
+      setTimeout(() => { target.style.color = ''; target.style.borderColor = ''; }, 800);
+      return;
+    }
+
+    const slug = target.dataset.slug ?? '';
+    if (!slug) return;
+
+    const set: Set<string> = (window as any).__hejiBookmarks ?? new Set();
+    const wasBookmarked = set.has(slug);
+
+    // Optimistic update
+    wasBookmarked ? set.delete(slug) : set.add(slug);
+    (window as any).__hejiBookmarks = set;
+    _applyBookmarkStates(set);
+    _updateDropdownCount(set.size);
+
+    // Sync hero button label
+    const heroBtn = document.getElementById('post-hero-bookmark') as HTMLButtonElement | null;
+    if (heroBtn && heroBtn.dataset.slug === slug) {
+      const newPressed = !wasBookmarked;
+      heroBtn.setAttribute('aria-pressed', String(newPressed));
+      heroBtn.setAttribute('aria-label', newPressed ? 'Remove bookmark' : 'Bookmark this post');
+      heroBtn.innerHTML = `${_bmSvg(newPressed)}<span>${newPressed ? 'Saved' : 'Bookmark'}</span>`;
+    }
+
+    try {
+      const parseTags = () => { try { return JSON.parse(target.dataset.tags ?? '[]'); } catch { return []; } };
+      await toggleBookmark(_currentUid, slug, {
+        slug,
+        title: target.dataset.title ?? '',
+        date:  target.dataset.date  ?? '',
+        href:  target.dataset.href  ?? '',
+        tags:  parseTags(),
+      }, wasBookmarked);
+    } catch (err) {
+      // Revert on error
+      wasBookmarked ? set.add(slug) : set.delete(slug);
+      (window as any).__hejiBookmarks = set;
+      _applyBookmarkStates(set);
+      _updateDropdownCount(set.size);
+      console.error('Bookmark toggle failed:', err);
+    }
+  }, true); // capture phase: fires before <a> card can follow its link
+
+  // Called by index.astro after lazy-load or search re-render
+  (window as any).__hejiApplyBookmarks = () => {
+    _applyBookmarkStates((window as any).__hejiBookmarks ?? null);
+  };
+
+  function _setMobileBookmarksVisible(visible: boolean) {
+    const el = document.getElementById('mobile-bookmarks-link') as HTMLElement | null;
+    if (el) el.style.display = visible ? '' : 'none';
+  }
+
+  onAuthStateChanged(auth, async (user: User | null) => {
+    if (user) {
+      _currentUid = user.uid;
+      // loadBookmarks may fail if Firestore rules aren't deployed yet — use empty
+      // Set as fallback so the rest of auth initialization always completes.
+      let set = new Set<string>();
+      try {
+        set = await loadBookmarks(user.uid);
+      } catch (err) {
+        console.warn('[bookmarks] loadBookmarks failed (check Firestore rules):', err);
+      }
+      (window as any).__hejiBookmarks = set;
+      _applyBookmarkStates(set);
+      _updateDropdownCount(set.size);
+      _initPostPageBmBtn(set);
+      _setMobileBookmarksVisible(true);
+    } else {
+      _currentUid = null;
+      (window as any).__hejiBookmarks = null;
+      _applyBookmarkStates(null);
+      _updateDropdownCount(null);
+      _removePostPageBmBtn();
+      _setMobileBookmarksVisible(false);
+    }
+  });
 </script>
 
 <script>
