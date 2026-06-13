@@ -32,5 +32,30 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 5000
         && request.resource.data.createdAt == request.time;
     }
+
+    // Feedback messages: public write-only, validated inputs, no public reads
+    match /feedback/{id} {
+      allow create: if request.resource.data.keys().hasAll(['message', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['message', 'createdAt', 'email', 'rating', 'path'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 5000
+        && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 254))
+        && (!('rating' in request.resource.data) || (request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5))
+        && (!('path' in request.resource.data) || (request.resource.data.path is string && request.resource.data.path.size() <= 1000))
+        && request.resource.data.createdAt == request.time;
+    }
+
+
+    // Upvotes: anyone can read; anyone can create (count > 0) or update (count > resource.data.count)
+    match /upvotes/{slug} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count is int
+        && request.resource.data.count > 0;
+      allow update: if request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count is int
+        && request.resource.data.count > resource.data.count;
+    }
   }
 }
