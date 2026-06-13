@@ -1,0 +1,1389 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Liquid Foundation Models (LFM2) | AI/ML Deep Dives"
+  description="How Liquid AI built foundation models without attention — gated short convolutions beat transformers 2× on edge CPUs while delivering genuinely usable 32k context."
+  crumb="Liquid Foundation Models"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem;white-space:pre;overflow-x:auto}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Animated bar chart ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:180px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .4rem;font-family:var(--ff-mono)}
+
+/* ── Control buttons ── */
+.viz-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.viz-btn{padding:.3rem .75rem;border-radius:5px;font-size:.71rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.viz-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Arch SVG wrappers ── */
+.arch-svg-wrap{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem;margin:1.25rem 0;overflow-x:auto}
+.arch-svg-wrap svg{display:block;margin:0 auto}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">SSM / Recurrent</span>
+    <span class="tag tag-cyan">Edge Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Liquid Foundation Models: Beyond the Transformer</h1>
+  <p class="lead">
+    Transformers pay an O(n) memory tax per token of context — their KV cache grows linearly until edge devices run out of RAM.
+    Liquid AI built a new family of foundation models (LFM1 &amp; LFM2) rooted in dynamical systems theory: gated short convolutions
+    plus sparse attention, designed by hardware-in-the-loop search, delivering 2× faster inference and genuinely usable 32k context on mobile CPUs.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 13, 2026</span>
+    <span>~18 min read</span>
+    <span>Report: <code>arXiv:2511.23404</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2511.23404" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      LFM2 Report
+    </a>
+    <a class="hero-btn" href="https://huggingface.co/LiquidAI" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      HuggingFace
+    </a>
+    <a class="hero-btn" href="https://www.liquid.ai" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Liquid AI
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-kvcache"><a href="#s-kvcache"><span class="toc-num">01</span> KV Cache Problem</a></li>
+    <li class="toc-item" id="toc-s-origins"><a href="#s-origins"><span class="toc-num">02</span> LTC → CfC Origins</a></li>
+    <li class="toc-item" id="toc-s-designspace"><a href="#s-designspace"><span class="toc-num">03</span> LFM Design Space</a></li>
+    <li class="toc-item" id="toc-s-lfm2arch"><a href="#s-lfm2arch"><span class="toc-num">04</span> LFM2 Architecture</a></li>
+    <li class="toc-item" id="toc-s-context"><a href="#s-context"><span class="toc-num">05</span> Effective Context</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════════ §01 -->
+<section id="s-kvcache" data-code="kvcache">
+<div class="section-no">01 — The KV Cache Problem</div>
+<h2>Why Transformers Can't Scale to Long Contexts on Edge</h2>
+
+<p>
+  Every transformer-based LLM carries a silent memory cost that compounds with every token you feed it.
+  For each new token in the prompt, the model must store a <strong>key</strong> and <strong>value</strong> vector
+  for every layer — the KV cache. This cache is how attention "remembers" past tokens without re-computing them.
+</p>
+
+<p>
+  The problem: KV cache memory is strictly <strong>O(n)</strong> in sequence length. Double the context, double the RAM.
+  For Llama 3.2 3B with 28 layers, 8 KV heads, and head dim 128, the formula is exact:
+</p>
+
+<div class="math-block">
+  <div class="math-label">KV Cache Size Formula</div>
+  KV&nbsp;bytes&nbsp;=&nbsp;2&nbsp;×&nbsp;<span class="math-var">L</span>&nbsp;×&nbsp;<span class="math-var">n_layers</span>&nbsp;×&nbsp;<span class="math-var">n_kv_heads</span>&nbsp;×&nbsp;<span class="math-var">head_dim</span>&nbsp;×&nbsp;dtype_bytes<br>
+  <span class="math-comment">— factor 2: one K tensor + one V tensor per layer</span><br><br>
+  Llama&nbsp;3.2&nbsp;3B&nbsp;@&nbsp;32k&nbsp;tokens:&nbsp;2&nbsp;×&nbsp;32768&nbsp;×&nbsp;28&nbsp;×&nbsp;8&nbsp;×&nbsp;128&nbsp;×&nbsp;2&nbsp;≈&nbsp;<strong>3.6&nbsp;GB</strong><br>
+  <span class="math-comment">— for KV cache alone, before weights (6 GB) or activations</span><br>
+  LFM-3B&nbsp;@&nbsp;32k&nbsp;tokens:&nbsp;fixed&nbsp;recurrent&nbsp;state&nbsp;≈&nbsp;<strong>~2&nbsp;MB</strong><br>
+  <span class="math-comment">— constant regardless of sequence length</span>
+</div>
+
+<p>
+  At 32k context, Llama 3.2 3B needs 3.6 GB just for key/value tensors — far exceeding the RAM budget of any mobile phone.
+  This is why "128k context window" claims for 3B transformers are largely theoretical: models physically cannot
+  store that context on the device they're supposed to run on.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">KV Cache Growth: Transformer vs LFM</span>
+    <span class="vp-hint">drag the slider to change context length</span>
+  </div>
+  <div class="vp-body">
+    <div style="margin-bottom:.75rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <label style="font-size:.75rem;color:var(--muted2);font-family:var(--ff-mono)">
+        Context length: <strong id="ctx-len-label" style="color:var(--text)">8 192</strong> tokens
+      </label>
+      <input type="range" id="ctx-slider" min="1" max="128" value="32"
+             style="flex:1;min-width:160px;accent-color:var(--purple)">
+    </div>
+    <canvas id="kv-canvas" style="width:100%;height:240px;border-radius:6px"></canvas>
+    <div style="display:flex;gap:1.25rem;margin-top:.75rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)">
+        <span style="width:12px;height:3px;background:#e06c75;display:inline-block;border-radius:2px"></span>
+        Transformer KV cache (linear)
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)">
+        <span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px"></span>
+        LFM recurrent state (constant)
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The green line stays flat because LFMs maintain a <em>fixed-size recurrent state</em> — they compress context
+  into a bounded representation instead of storing every past token. When new input arrives, the state is
+  <em>updated in place</em>, not extended. This is the architectural bet Liquid AI made from day one.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §02 -->
+<section id="s-origins" data-code="origins">
+<div class="section-no">02 — Origins: From LTC to CfC</div>
+<h2>Liquid Neural Networks: The Mathematical Lineage</h2>
+
+<p>
+  Liquid Foundation Models didn't emerge from nowhere. They trace their roots to a decade of MIT research
+  on <strong>continuous-time recurrent neural networks</strong> — neural ODEs whose dynamics literally adapt to their inputs.
+</p>
+
+<p>
+  The progression moves from biological inspiration through ODE solvers to the efficient closed-form that
+  makes foundation model training feasible. Step through each generation below:
+</p>
+
+<div class="step-list" id="evo-steps">
+  <div class="step-box active" data-step="0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Standard RNN — static dynamics</div>
+      <div class="step-desc">Hidden state updates via a fixed nonlinear mapping. Time constants are learned parameters, fixed at inference. The network cannot adapt its memory timescale to input speed or complexity.</div>
+      <div class="step-code">h(t+1) = tanh(W_h · h(t) + W_u · u(t) + b)
+τ = fixed parameter    # same for every input</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">LTC Networks (2020) — input-varying time constant</div>
+      <div class="step-desc">The hidden state follows a continuous-time ODE. The effective decay rate τ(t) changes dynamically with the current input — fast inputs drive rapid state change; slow or absent inputs allow state to persist. Outputs require an ODE solver at every step.</div>
+      <div class="step-code">dh/dt = -[1/τ + f(h,I)] · h + g(h,I) · I
+# τ is now a function of (h, I) — it's "liquid"
+# requires numerical ODE integration at runtime</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">CfC Networks (2022) — closed-form, no ODE solver</div>
+      <div class="step-desc">Hasani et al. derived a closed-form approximation of the LTC ODE by solving the formerly intractable integral analytically. Time t enters <em>explicitly</em> as a parameter — no iterative solver needed. Training/inference is up to 10⁵× faster than the ODE version.</div>
+      <div class="step-code">x(t) = σ(f(x,I)) · exp(-t · g(x,I)) + σ(h(x,I))
+# f, g, h are learned networks (small MLPs)
+# t is explicit — evaluated in one forward pass
+# Nature Machine Intelligence 4, 992–1003 (2022)</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">LFM Design Space (2024) — generalised operators</div>
+      <div class="step-desc">Liquid AI abstracted CfC into a broader family: any "adaptive linear operator whose action is determined by inputs." This unifies attention, SSMs (S4, Mamba), and CfC into a single design space searchable along three axes: token-mixing, channel-mixing, and featurization.</div>
+      <div class="step-code">y = A(x) · x        # where A(x) is input-dependent
+# attention:  A(x) = softmax(QK^T/√d)
+# CfC/SSM:    A(x) = diag(exp(-t · g(x)))
+# gated conv: A(x) = Convk, gated by B(x), C(x)</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="evo-prev" disabled>← Prev</button>
+  <button id="evo-next">Next →</button>
+  <span class="step-prog" id="evo-prog">Step 1 of 4</span>
+</div>
+
+<p>
+  The CfC insight is fundamental: by expressing the LTC update as a <em>closed-form function of elapsed time t</em>,
+  you get the expressive dynamics of liquid neural networks at the cost of a single feed-forward pass.
+  This is what made scaling to foundation model territory tractable.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §03 -->
+<section id="s-designspace" data-code="designspace">
+<div class="section-no">03 — LFM Design Space</div>
+<h2>Three Structural Dimensions</h2>
+
+<p>
+  LFM1 (released September 2024) defined a design space that subsumes transformers, SSMs, and liquid networks
+  under a single framework. Every LFM block sits at a point in three-dimensional space:
+</p>
+
+<ul>
+  <li><strong>Token-mixing structure</strong> — how sequence positions interact (global via attention, recurrent via SSM/CfC, local via convolution)</li>
+  <li><strong>Channel-mixing structure</strong> — how feature dimensions are combined (MLP, gated MLP, cross-channel operations)</li>
+  <li><strong>Featurization</strong> — how much the block's computation adapts to the current input context (language needs heavy featurization; audio/time-series can use lighter modulation)</li>
+</ul>
+
+<div class="arch-svg-wrap">
+<svg width="600" height="340" viewBox="0 0 600 340" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--ff-mono)">
+  <!-- Background -->
+  <rect width="600" height="340" fill="var(--card2,#111)" rx="8"/>
+
+  <!-- Title -->
+  <text x="300" y="28" text-anchor="middle" fill="#6b7280" font-size="11" font-weight="600" letter-spacing="2">LFM DESIGN SPACE</text>
+
+  <!-- Column 1: Token-Mixing -->
+  <rect x="30" y="45" width="160" height="26" rx="4" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.4)" stroke-width="1"/>
+  <text x="110" y="62" text-anchor="middle" fill="#8b5cf6" font-size="10" font-weight="700">TOKEN-MIXING</text>
+
+  <rect x="42" y="82" width="136" height="40" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+  <text x="110" y="98" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">Attention (Global)</text>
+  <text x="110" y="114" text-anchor="middle" fill="#6b7280" font-size="9">O(n²) — exact retrieval</text>
+
+  <rect x="42" y="132" width="136" height="40" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+  <text x="110" y="148" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">SSM / CfC (Recurrent)</text>
+  <text x="110" y="164" text-anchor="middle" fill="#6b7280" font-size="9">O(n) — compressed state</text>
+
+  <rect x="42" y="182" width="136" height="40" rx="5" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+  <text x="110" y="198" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">Conv (Local)</text>
+  <text x="110" y="214" text-anchor="middle" fill="#6b7280" font-size="9">O(n·k) — kernel k window</text>
+
+  <!-- Column 2: Channel-Mixing -->
+  <rect x="220" y="45" width="160" height="26" rx="4" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.4)" stroke-width="1"/>
+  <text x="300" y="62" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700">CHANNEL-MIXING</text>
+
+  <rect x="232" y="82" width="136" height="40" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+  <text x="300" y="98" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">SwiGLU MLP</text>
+  <text x="300" y="114" text-anchor="middle" fill="#6b7280" font-size="9">σ(Wx) ⊙ Vx — gated</text>
+
+  <rect x="232" y="132" width="136" height="40" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+  <text x="300" y="148" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">Dense MLP</text>
+  <text x="300" y="164" text-anchor="middle" fill="#6b7280" font-size="9">standard FFN block</text>
+
+  <rect x="232" y="182" width="136" height="40" rx="5" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.25)" stroke-width="1"/>
+  <text x="300" y="198" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">MoE FFN</text>
+  <text x="300" y="214" text-anchor="middle" fill="#6b7280" font-size="9">sparse expert routing</text>
+
+  <!-- Column 3: Featurization -->
+  <rect x="410" y="45" width="160" height="26" rx="4" fill="rgba(245,158,11,.15)" stroke="rgba(245,158,11,.4)" stroke-width="1"/>
+  <text x="490" y="62" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700">FEATURIZATION</text>
+
+  <rect x="422" y="82" width="136" height="40" rx="5" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.25)" stroke-width="1"/>
+  <text x="490" y="98" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">Heavy (Language)</text>
+  <text x="490" y="114" text-anchor="middle" fill="#6b7280" font-size="9">full context modulation</text>
+
+  <rect x="422" y="132" width="136" height="40" rx="5" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.25)" stroke-width="1"/>
+  <text x="490" y="148" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">Medium (Multimodal)</text>
+  <text x="490" y="164" text-anchor="middle" fill="#6b7280" font-size="9">selective modulation</text>
+
+  <rect x="422" y="182" width="136" height="40" rx="5" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.25)" stroke-width="1"/>
+  <text x="490" y="198" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">Light (Audio/TS)</text>
+  <text x="490" y="214" text-anchor="middle" fill="#6b7280" font-size="9">minimal adaptation</text>
+
+  <!-- Horizontal connector arrows -->
+  <line x1="190" y1="164" x2="230" y2="164" stroke="#374151" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="380" y1="164" x2="420" y2="164" stroke="#374151" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- Bottom: depth groups + featurizer interconnections -->
+  <rect x="60" y="248" width="480" height="36" rx="6" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+  <text x="300" y="261" text-anchor="middle" fill="#10b981" font-size="10" font-weight="700">DEPTH GROUPS</text>
+  <text x="300" y="277" text-anchor="middle" fill="#6b7280" font-size="9">targeted weight sharing across layer depths  +  featurizer interconnections</text>
+
+  <!-- Bottom explanation -->
+  <text x="300" y="320" text-anchor="middle" fill="#4b5563" font-size="9">Each LFM block = one choice per column + depth group assignment</text>
+</svg>
+</div>
+
+<p>
+  The key insight from Liquid AI's architecture studies: different modalities benefit from different featurization levels.
+  Language processing benefits from heavy input-dependent modulation because semantic meaning varies wildly between tokens.
+  Time-series and audio have more regular structure and need less computational adaptation per step.
+</p>
+
+<p>
+  The LFM1 models (1B, 3B, 40B) explored this design space and found operators that consistently outperformed
+  transformers of the same size on language benchmarks — "the first time a non-GPT architecture significantly
+  outperformed transformer-based models" at scale, according to Liquid AI.
+</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §04 -->
+<section id="s-lfm2arch" data-code="lfm2arch">
+<div class="section-no">04 — LFM2 Architecture</div>
+<h2>Hardware-in-the-Loop Hybrid Architecture</h2>
+
+<p>
+  LFM2 (November 2025) represents a key pivot: instead of theoretically motivated architecture choices,
+  the team ran a <strong>hardware-in-the-loop search</strong> that directly optimized for downstream quality
+  <em>and</em> on-device latency simultaneously. The search space covered SSMs (S4, Mamba, Mamba2, CfC),
+  linear attention variants, and convolution blocks, and evaluated each candidate on actual mobile CPU hardware.
+</p>
+
+<p>
+  The surprising outcome: when measured on real devices under real latency budgets, the winning architecture
+  was much simpler than expected — <strong>gated short convolutions</strong> for most layers, with just a handful
+  of standard GQA attention blocks:
+</p>
+
+<div class="arch-svg-wrap">
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--ff-mono)">
+  <rect width="600" height="400" fill="var(--card2,#111)" rx="8"/>
+
+  <text x="300" y="28" text-anchor="middle" fill="#6b7280" font-size="11" font-weight="600" letter-spacing="2">LFM2 DENSE BACKBONE (e.g. LFM2-2.6B: 30 layers)</text>
+
+  <!-- Input -->
+  <rect x="230" y="42" width="140" height="28" rx="5" fill="rgba(107,114,128,.2)" stroke="rgba(107,114,128,.4)" stroke-width="1"/>
+  <text x="300" y="61" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="600">Token Embeddings</text>
+  <line x1="300" y1="70" x2="300" y2="86" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Repeating blocks annotation -->
+  <text x="26" y="170" fill="#6b7280" font-size="9" font-style="italic">22× Conv</text>
+  <text x="26" y="183" fill="#6b7280" font-size="9" font-style="italic">+ SwiGLU</text>
+  <text x="530" y="170" fill="#a78bfa" font-size="9" font-style="italic">8× GQA</text>
+  <text x="530" y="183" fill="#a78bfa" font-size="9" font-style="italic">+ SwiGLU</text>
+
+  <!-- Gated Conv Block -->
+  <rect x="80" y="86" width="200" height="88" rx="7" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.4)" stroke-width="1.5"/>
+  <text x="180" y="104" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700">Gated Short Conv Block</text>
+
+  <!-- Inner conv block details -->
+  <rect x="96" y="112" width="168" height="20" rx="3" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.2)" stroke-width="1"/>
+  <text x="180" y="125" text-anchor="middle" fill="#67e8f9" font-size="9">(B, C, h̃) = Linear(h)</text>
+
+  <rect x="96" y="137" width="168" height="20" rx="3" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.2)" stroke-width="1"/>
+  <text x="180" y="150" text-anchor="middle" fill="#67e8f9" font-size="9">y = B ⊙ h̃  →  z = Conv_k(y)  →  C ⊙ z</text>
+
+  <!-- Conv kernel size label -->
+  <text x="180" y="170" text-anchor="middle" fill="#374151" font-size="8">kernel k = 3, depthwise 1D conv</text>
+
+  <!-- GQA Block -->
+  <rect x="320" y="86" width="200" height="88" rx="7" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+  <text x="420" y="104" text-anchor="middle" fill="#8b5cf6" font-size="10" font-weight="700">GQA Attention Block</text>
+
+  <rect x="336" y="112" width="168" height="20" rx="3" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.2)" stroke-width="1"/>
+  <text x="420" y="125" text-anchor="middle" fill="#a78bfa" font-size="9">Q = Linear_Q(h)  [full heads]</text>
+
+  <rect x="336" y="137" width="168" height="20" rx="3" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.2)" stroke-width="1"/>
+  <text x="420" y="150" text-anchor="middle" fill="#a78bfa" font-size="9">K, V = Linear_KV(h)  [grouped]</text>
+
+  <text x="420" y="170" text-anchor="middle" fill="#374151" font-size="8">32 Q heads / 8 KV groups — QK-Norm</text>
+
+  <!-- Arrows from input down to both blocks -->
+  <line x1="270" y1="70" x2="180" y2="86" stroke="#374151" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="330" y1="70" x2="420" y2="86" stroke="#374151" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- SwiGLU below both -->
+  <line x1="180" y1="174" x2="180" y2="196" stroke="#374151" stroke-width="1.5"/>
+  <line x1="420" y1="174" x2="420" y2="196" stroke="#374151" stroke-width="1.5"/>
+  <line x1="180" y1="196" x2="420" y2="196" stroke="#374151" stroke-width="1.5"/>
+  <line x1="300" y1="196" x2="300" y2="210" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="180" y="210" width="240" height="28" rx="5" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.35)" stroke-width="1.5"/>
+  <text x="300" y="228" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">SwiGLU FFN   (position-wise MLP)</text>
+  <line x1="300" y1="238" x2="300" y2="254" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- RMSNorm + residual brackets -->
+  <text x="100" y="264" fill="#374151" font-size="9" font-style="italic">pre-RMSNorm at each block input</text>
+
+  <!-- Output -->
+  <rect x="180" y="254" width="240" height="28" rx="5" fill="rgba(107,114,128,.12)" stroke="rgba(107,114,128,.3)" stroke-width="1"/>
+  <text x="300" y="272" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="600">→ next layer (×30)</text>
+  <line x1="300" y1="282" x2="300" y2="298" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Final output -->
+  <rect x="210" y="298" width="180" height="28" rx="5" fill="rgba(107,114,128,.2)" stroke="rgba(107,114,128,.4)" stroke-width="1"/>
+  <text x="300" y="316" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="600">RMSNorm + LM Head</text>
+
+  <!-- Ratio annotation -->
+  <rect x="50" y="340" width="500" height="44" rx="6" fill="rgba(245,158,11,.07)" stroke="rgba(245,158,11,.2)" stroke-width="1"/>
+  <text x="300" y="357" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700">Architecture Ratio (LFM2-2.6B): 22 Conv blocks + 8 GQA blocks = 30 layers</text>
+  <text x="300" y="375" text-anchor="middle" fill="#6b7280" font-size="9">Hardware search found: ~73% conv + ~27% attn is the Pareto-optimal edge deployment mix</text>
+
+  <!-- Arrow marker def -->
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#374151"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+
+<p>
+  The gated short convolution block is elegantly simple. Given hidden sequence <strong>h ∈ ℝ^(L×d)</strong>:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Gated Short Convolution</div>
+  (<span class="math-var">B</span>, <span class="math-var">C</span>, <span class="math-var">h̃</span>) = Linear(<span class="math-var">h</span>)
+  &nbsp;&nbsp;<span class="math-comment">— expand to 3d features, split into 3 equal parts</span><br>
+  <span class="math-var">y</span> = <span class="math-var">B</span> ⊙ <span class="math-var">h̃</span>
+  &nbsp;&nbsp;<span class="math-comment">— input-dependent gate B modulates signal h̃</span><br>
+  <span class="math-var">z</span> = Conv<sub>k</sub>(<span class="math-var">y</span>)
+  &nbsp;&nbsp;<span class="math-comment">— depthwise 1D convolution (k=3), local context</span><br>
+  <span class="math-var">o</span> = Linear<sub>out</sub>(<span class="math-var">C</span> ⊙ <span class="math-var">z</span>)
+  &nbsp;&nbsp;<span class="math-comment">— output gate C applied, projected back to d</span>
+</div>
+
+<p>
+  This block is cheap: the convolution is depthwise (no cross-channel mixing) with a tiny kernel (k=3).
+  No attention weights are computed. No KV cache is needed. The only memory overhead is 3 tokens of local state.
+  Given that a handful of GQA blocks handle the long-range retrieval tasks that pure-conv models struggle with,
+  this minimal hybrid delivers the best quality-per-latency-per-memory trade-off on CPUs.
+</p>
+
+<h3>Model Configurations</h3>
+<table class="results-table">
+  <thead><tr><th>Model</th><th>Params (Total / Active)</th><th>Layers</th><th>d_model</th><th>Attn Blocks</th><th>Conv k</th><th>Context</th></tr></thead>
+  <tbody>
+    <tr><td>LFM2-350M</td><td class="mn">350M / 350M</td><td class="mn">16</td><td class="mn">1024</td><td class="mn">6</td><td class="mn">3</td><td class="mn">32k</td></tr>
+    <tr><td>LFM2-700M</td><td class="mn">700M / 700M</td><td class="mn">16</td><td class="mn">1536</td><td class="mn">6</td><td class="mn">3</td><td class="mn">32k</td></tr>
+    <tr><td>LFM2-1.2B</td><td class="mn">1.2B / 1.2B</td><td class="mn">16</td><td class="mn">2048</td><td class="mn">6</td><td class="mn">3</td><td class="mn">32k</td></tr>
+    <tr class="highlight-row"><td>LFM2-2.6B</td><td class="mn">2.6B / 2.6B</td><td class="mn">30</td><td class="mn">2048</td><td class="mn">8</td><td class="mn">3</td><td class="mn">32k</td></tr>
+    <tr><td>LFM2-8B-A1B (MoE)</td><td class="mn"><span class="best">8.3B / 1.5B</span></td><td class="mn">24</td><td class="mn">2048</td><td class="mn">6</td><td class="mn">3</td><td class="mn">32k</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §05 -->
+<section id="s-context" data-code="context">
+<div class="section-no">05 — Effective Context Length</div>
+<h2>Claimed vs Actual: The RULER Benchmark</h2>
+
+<p>
+  "128k context window" has become a marketing number. The <strong>RULER benchmark</strong> tests whether a model
+  can actually <em>use</em> its context — retrieving specific facts buried in long documents, following multi-hop
+  references, tracking variable values. A score below 85.6 is considered "not effectively using that length."
+</p>
+
+<p>
+  The results are stark. Select a model below to see its RULER score curve:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">RULER Score vs Context Length</span>
+    <span class="vp-hint">threshold 85.6 = effective use</span>
+  </div>
+  <div class="vp-body">
+    <div class="viz-btns" id="ruler-btns">
+      <button class="viz-btn active" data-model="lfm">LFM-3B (32k)</button>
+      <button class="viz-btn" data-model="llama">Llama 3.2 3B (128k)</button>
+      <button class="viz-btn" data-model="gemma">Gemma 2 2B (8k)</button>
+      <button class="viz-btn" data-model="phi">Phi-3.5 3.8B (128k)</button>
+      <button class="viz-btn active" data-model="all">All</button>
+    </div>
+    <canvas id="ruler-canvas" style="width:100%;height:260px;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  Llama 3.2 3B <em>claims</em> 128k context but its RULER score drops to 74.1 at 32k — below the usable threshold.
+  Gemma 2 2B effectively collapses at 8k (score 0.6). Phi-3.5 3.8B actually achieves usable 32k despite being
+  a transformer, but requires 18.4% more parameters than LFM-3B to do so. LFM-3B maintains scores above 89.5
+  across its full claimed 32k window.
+</p>
+
+<table class="results-table" style="margin-top:1.25rem">
+  <thead><tr><th>Model</th><th>Claimed</th><th>Effective (RULER ≥85.6)</th><th>Score @ 32k</th></tr></thead>
+  <tbody>
+    <tr><td>Gemma 2 2B</td><td class="mn">8k</td><td class="mn"><span style="color:var(--amber)">4k</span></td><td class="mn">0.60</td></tr>
+    <tr><td>Llama 3.2 3B</td><td class="mn">128k</td><td class="mn"><span style="color:var(--amber)">4k</span></td><td class="mn">74.1</td></tr>
+    <tr><td>Phi-3.5 3.8B</td><td class="mn">128k</td><td class="mn"><span style="color:var(--green)">32k</span></td><td class="mn">87.0</td></tr>
+    <tr class="highlight-row"><td>LFM-3B</td><td class="mn">32k</td><td class="mn"><span class="best">32k</span></td><td class="mn best">89.5</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Benchmark Results</div>
+<h2>Performance vs Baselines</h2>
+
+<p>
+  LFM models consistently outperform same-size or larger transformer baselines on standard language benchmarks —
+  and more dramatically outperform on edge inference speed. Both matter equally for the stated goal of deploying
+  capable models on mobile hardware.
+</p>
+
+<h3>Inference Speed on Samsung Galaxy S25 (Qualcomm Snapdragon 8 Elite)</h3>
+<p>Prefill throughput in tokens/second at 1K context, all models run via llama.cpp Q4_0:</p>
+
+<div class="results-bars" id="speed-bars">
+  <div class="bar-section-label">350M class — prefill tokens/sec (1K prompt)</div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">LFM2-350M</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="79.2"><span>1,067</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Granite-4.0-H-350M</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="58.2"><span>784</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Granite-4.0-350M</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.4)" data-w="39.2"><span>528</span></div></div>
+  </div>
+
+  <div class="bar-section-label" style="margin-top:1rem">2–3B class — decode tokens/sec (1K prefix)</div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">LFM2-2.6B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="81.3"><span>33.8</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--cyan)">LFM2-8B-A1B (MoE)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--cyan)" data-w="100"><span>48.6</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SmolLM3-3B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="62.8"><span>26.1</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Llama-3.2-3B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.4)" data-w="58.2"><span>24.2</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-4B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="41.4"><span>17.2</span></div></div>
+  </div>
+</div>
+
+<p style="margin-top:1.25rem">
+  LFM2-350M achieves 2× higher prefill throughput than Granite-4.0-350M on real mobile hardware.
+  The 8B-A1B MoE model generates tokens faster than any same-size dense model despite having 8.3B total parameters —
+  because only 1.5B parameters are active per token.
+</p>
+
+<h3>Language Benchmark Quality</h3>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Model</th><th>MMLU (5-shot)</th><th>GSM8K</th><th>MMLU-Pro</th><th>ARC-C</th></tr>
+  </thead>
+  <tbody>
+    <!-- 1B class -->
+    <tr><td colspan="5" style="background:var(--surface);font-size:.67rem;color:var(--muted);padding:.35rem .75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase">~1B class</td></tr>
+    <tr class="highlight-row">
+      <td><strong>LFM-1B</strong></td>
+      <td class="mn best">58.55</td>
+      <td class="mn best">55.34</td>
+      <td class="mn best">30.65</td>
+      <td class="mn best">54.95</td>
+    </tr>
+    <tr>
+      <td>Llama 3.2 1.2B</td>
+      <td class="mn">45.46</td>
+      <td class="mn">33.36</td>
+      <td class="mn">19.41</td>
+      <td class="mn">41.30</td>
+    </tr>
+    <tr>
+      <td>Phi 1.5 1.4B</td>
+      <td class="mn">42.26</td>
+      <td class="mn">41.55</td>
+      <td class="mn">16.80</td>
+      <td class="mn">53.75</td>
+    </tr>
+    <!-- 3B class -->
+    <tr><td colspan="5" style="background:var(--surface);font-size:.67rem;color:var(--muted);padding:.35rem .75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase">~3B class</td></tr>
+    <tr class="highlight-row">
+      <td><strong>LFM-3B</strong></td>
+      <td class="mn">66.16</td>
+      <td class="mn">70.28</td>
+      <td class="mn best">38.41</td>
+      <td class="mn">63.99</td>
+    </tr>
+    <tr>
+      <td>Llama 3.2 3.2B</td>
+      <td class="mn">59.65</td>
+      <td class="mn">64.90</td>
+      <td class="mn">30.07</td>
+      <td class="mn">52.65</td>
+    </tr>
+    <tr>
+      <td>Phi-3.5 3.8B (18% larger)</td>
+      <td class="mn best">68.91</td>
+      <td class="mn best">79.15</td>
+      <td class="mn">38.31</td>
+      <td class="mn best">64.51</td>
+    </tr>
+    <!-- LFM2-2.6B -->
+    <tr><td colspan="5" style="background:var(--surface);font-size:.67rem;color:var(--muted);padding:.35rem .75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase">LFM2 — 2.6B</td></tr>
+    <tr class="highlight-row">
+      <td><strong>LFM2-2.6B</strong></td>
+      <td class="mn">—</td>
+      <td class="mn best">82.41</td>
+      <td class="mn">—</td>
+      <td class="mn">—</td>
+    </tr>
+    <tr>
+      <td colspan="4" style="font-size:.78rem;color:var(--muted);font-style:italic">IFEval: <span style="color:var(--cyan);font-style:normal">79.56%</span> &nbsp;(instruction following, best-in-class for 3B range)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The standout result is LFM-1B: it outperforms Llama 3.2 1.2B by over 13 points on MMLU and by 22 points
+  on GSM8K at similar parameter count. This isn't a marginal improvement — it suggests the architecture itself
+  is encoding information more efficiently than attention can at small model scales.
+</p>
+
+<h3>What LFM2 Enables</h3>
+<ul>
+  <li><strong>LFM2-VL</strong> — vision-language model with SigLIP2 encoder; tunable accuracy-latency via token-efficient visual processing</li>
+  <li><strong>LFM2-Audio</strong> — end-to-end audio model (speech-in, text/speech-out) competitive with models 3× larger</li>
+  <li><strong>LFM2-ColBERT</strong> — multilingual late-interaction retrieval encoder for RAG pipelines</li>
+  <li><strong>LFM2-Nanos</strong> — domain-specific nano models for tool calling, math, data extraction, and RAG</li>
+  <li>All released open-weight with ExecuTorch, llama.cpp, and vLLM deployment packages</li>
+</ul>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">lfm/kvcache.py</div>
+      <div class="cs-section-title" id="cs-section-title">KV Cache Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="kvcache">kvcache</button>
+    <button class="cs-tab" data-panel="origins">origins</button>
+    <button class="cs-tab" data-panel="designspace">design</button>
+    <button class="cs-tab" data-panel="lfm2arch">lfm2</button>
+    <button class="cs-tab" data-panel="context">ruler</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-kvcache">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># KV Cache Memory Formula</span>
+<span class="cs-line cmt"># For a transformer with grouped-query attention</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">kv_cache_bytes</span>(</span>
+<span class="cs-line hl-p">    seq_len, n_layers,</span>
+<span class="cs-line hl-p">    n_kv_heads, head_dim,</span>
+<span class="cs-line hl-p">    dtype_bytes=2     <span class="cmt"># fp16</span></span>
+<span class="cs-line hl-p">):</span>
+<span class="cs-line">    <span class="cmt"># 2 = one K tensor + one V tensor</span></span>
+<span class="cs-line">    <span class="kw">return</span> (<span class="num">2</span> * seq_len * n_layers</span>
+<span class="cs-line">            * n_kv_heads * head_dim</span>
+<span class="cs-line">            * dtype_bytes)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Llama 3.2 3B: 28 layers, 8 KV heads, d=128</span>
+<span class="cs-line"><span class="kw">for</span> L <span class="kw">in</span> [<span class="num">4096</span>, <span class="num">8192</span>, <span class="num">16384</span>, <span class="num">32768</span>]:</span>
+<span class="cs-line">    b = <span class="fn">kv_cache_bytes</span>(L, <span class="num">28</span>, <span class="num">8</span>, <span class="num">128</span>)</span>
+<span class="cs-line">    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"L=&#123;L&#125;: &#123;b/<span class="num">1e9</span>:.2f&#125; GB"</span>)</span>
+<span class="cs-line cmt"># L=4096:  0.46 GB</span>
+<span class="cs-line cmt"># L=8192:  0.93 GB</span>
+<span class="cs-line cmt"># L=16384: 1.86 GB</span>
+<span class="cs-line cmt"># L=32768: 3.62 GB  ← impossible on mobile</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LFM recurrent state: fixed O(d_state) bytes</span>
+<span class="cs-line cmt"># independent of sequence length L</span>
+<span class="cs-line hl-g">LFM_STATE_BYTES = d_model * n_layers * dtype_bytes</span>
+<span class="cs-line hl-g"><span class="cmt"># e.g. LFM-3B: 2048 × 30 × 2 = ~120 KB</span></span>
+<span class="cs-line hl-g"><span class="cmt"># same at L=1 or L=32768</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-origins">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Liquid Time-Constant (LTC) ODE  [2020]</span>
+<span class="cs-line cmt"># arXiv:2006.04439  — Hasani et al.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Continuous-time hidden state dynamics:</span>
+<span class="cs-line cmt">#   dh/dt = -[1/τ + f(h,I)]·h + g(h,I)·I</span>
+<span class="cs-line cmt">#</span>
+<span class="cs-line cmt"># τ = effective time-constant — NOT fixed!</span>
+<span class="cs-line cmt"># It depends on both hidden state h and input I.</span>
+<span class="cs-line cmt"># → fast inputs: τ shrinks, state adapts quickly</span>
+<span class="cs-line cmt"># → slow inputs: τ grows, state persists longer</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem: requires ODE solver per step</span>
+<span class="cs-line cmt"># (runge-kutta or euler) → slow, not scalable</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># CfC (Closed-Form Continuous-time)  [2022]</span>
+<span class="cs-line cmt"># Nature MI 4, 992–1003  — Hasani et al.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Derived closed form of the LTC integral:</span>
+<span class="cs-line hl-p">x(t) = σ(f(x,I)) · exp(-t·g(x,I))</span>
+<span class="cs-line hl-p">       + σ(h(x,I))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># f, g, h are small MLPs (learned)</span>
+<span class="cs-line cmt"># t is the elapsed time — explicit input!</span>
+<span class="cs-line cmt"># No ODE solver needed: single forward pass</span>
+<span class="cs-line hl-g"><span class="cmt"># Speed: up to 10⁵× faster than ODE-based LTC</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Intuition: σ(f)·exp(-tg) is a state that</span>
+<span class="cs-line cmt"># decays at a learned rate g(x,I), clamped by</span>
+<span class="cs-line cmt"># the learned offset σ(h) — exactly the LTC</span>
+<span class="cs-line cmt"># long-run equilibrium, solved analytically.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-designspace">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LFM Design Space  [LFM1 Technical Report, 2024]</span>
+<span class="cs-line cmt"># All operators expressible as:</span>
+<span class="cs-line hl-p"><span class="cmt">#   y = A(x) · x</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   where A(x) is input-dependent (adaptive)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Attention: A(x) = softmax(QKᵀ/√d)</span>
+<span class="cs-line cmt"># SSM (Mamba): A(x) = diag(exp(Δ·A̅))</span>
+<span class="cs-line cmt"># CfC: A(x) = diag(exp(-t·g(x,I)))</span>
+<span class="cs-line cmt"># Gated conv: A = depthwise Conv_k, gated</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Three design dimensions:</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="cmt"># 1. Token-mixing structure</span></span>
+<span class="cs-line"><span class="cmt">#    Global (attention):   O(n²) — exact</span></span>
+<span class="cs-line"><span class="cmt">#    Recurrent (SSM/CfC):  O(n)  — compressed</span></span>
+<span class="cs-line"><span class="cmt">#    Local (conv):         O(n·k) — windowed</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="cmt"># 2. Channel-mixing structure</span></span>
+<span class="cs-line"><span class="cmt">#    SwiGLU: σ(Wx) ⊙ Vx  (most common)</span></span>
+<span class="cs-line"><span class="cmt">#    MoE: sparse expert routing</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="cmt"># 3. Featurization (input-driven modulation)</span></span>
+<span class="cs-line"><span class="cmt">#    Language: heavy (high semantic variance)</span></span>
+<span class="cs-line"><span class="cmt">#    Audio: light (regular temporal structure)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Plus: depth groups (weight sharing across</span>
+<span class="cs-line cmt"># layers) + featurizer interconnections</span>
+<span class="cs-line cmt"># (shared features across the stack)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-lfm2arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LFM2 Gated Short Convolution Block</span>
+<span class="cs-line cmt"># Input: h ∈ ℝ^(L×d)  (seq_len × hidden_dim)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">gated_short_conv</span>(h, W_in, W_out, conv_k):</span>
+<span class="cs-line">    <span class="cmt"># Expand + split into 3 channels</span></span>
+<span class="cs-line">    B, C, h_tilde = <span class="fn">linear</span>(h, W_in).split(d, dim=-<span class="num">1</span>)</span>
+<span class="cs-line">    <span class="cmt">#   B, C: input-dependent gates  ∈ ℝ^(L×d)</span></span>
+<span class="cs-line">    <span class="cmt">#   h_tilde: projected input     ∈ ℝ^(L×d)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">    y = B * h_tilde         <span class="cmt"># gate 1: scale</span></span>
+<span class="cs-line hl-c">    z = <span class="fn">depthwise_conv1d</span>(y, k=conv_k)  <span class="cmt"># k=3</span></span>
+<span class="cs-line hl-c">    o = <span class="fn">linear</span>(C * z, W_out)  <span class="cmt"># gate 2: output</span></span>
+<span class="cs-line">    <span class="kw">return</span> o</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key properties:</span>
+<span class="cs-line cmt">#  - No KV cache needed (only k=3 tokens local)</span>
+<span class="cs-line cmt">#  - Depthwise conv: no cross-channel mixing</span>
+<span class="cs-line cmt">#  - Two multiplicative gates: B (input-scale)</span>
+<span class="cs-line cmt">#    and C (output-scale) — both input-driven</span>
+<span class="cs-line cmt">#  - Excellent cache behavior on CPUs</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LFM2-2.6B backbone layout:</span>
+<span class="cs-line"><span class="cmt">#   30 layers total</span></span>
+<span class="cs-line"><span class="cmt">#     22 × GatedShortConv + SwiGLU</span></span>
+<span class="cs-line hl-a"><span class="cmt">#      8 × GQA + SwiGLU   (global context)</span></span>
+<span class="cs-line"><span class="cmt">#   all pre-RMSNorm, RoPE on attention heads</span></span>
+<span class="cs-line"><span class="cmt">#   QK-Norm on attention for stability</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Hardware search outcome:</span>
+<span class="cs-line hl-g"><span class="cmt"># SSM and linear-attention operators do NOT</span></span>
+<span class="cs-line hl-g"><span class="cmt"># improve quality vs pure gated-conv + sparse</span></span>
+<span class="cs-line hl-g"><span class="cmt"># GQA when measured on real edge hardware</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-context">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># RULER Benchmark — Effective Context</span>
+<span class="cs-line cmt"># Threshold: score &gt;= 85.6 = "effectively used"</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Tasks (multi-key retrieval, variable tracking,</span>
+<span class="cs-line cmt"># multi-hop QA, aggregation, etc.)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LFM-3B (32k claimed)</span>
+<span class="cs-line hl-g">RULER_LFM3B = &#123;</span>
+<span class="cs-line hl-g">    <span class="str">"4k"</span>:  <span class="num">94.4</span>,  <span class="cmt"># ✓</span></span>
+<span class="cs-line hl-g">    <span class="str">"8k"</span>:  <span class="num">93.5</span>,  <span class="cmt"># ✓</span></span>
+<span class="cs-line hl-g">    <span class="str">"16k"</span>: <span class="num">91.8</span>,  <span class="cmt"># ✓</span></span>
+<span class="cs-line hl-g">    <span class="str">"32k"</span>: <span class="num">89.5</span>,  <span class="cmt"># ✓ above threshold</span></span>
+<span class="cs-line hl-g">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Llama 3.2 3B (128k claimed)</span>
+<span class="cs-line">RULER_LLAMA = &#123;</span>
+<span class="cs-line">    <span class="str">"4k"</span>:  <span class="num">92.0</span>,  <span class="cmt"># ✓</span></span>
+<span class="cs-line">    <span class="str">"8k"</span>:  <span class="num">87.1</span>,  <span class="cmt"># ✓</span></span>
+<span class="cs-line">    <span class="str">"16k"</span>: <span class="num">81.2</span>,  <span class="cmt"># ✗ below threshold</span></span>
+<span class="cs-line">    <span class="str">"32k"</span>: <span class="num">74.1</span>,  <span class="cmt"># ✗</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Gemma 2 2B (8k claimed)</span>
+<span class="cs-line"><span class="attr">RULER_GEMMA</span> = &#123;</span>
+<span class="cs-line">    <span class="str">"4k"</span>:  <span class="num">75.0</span>,  <span class="cmt"># ✗</span></span>
+<span class="cs-line">    <span class="str">"8k"</span>:  <span class="num">0.6</span>,   <span class="cmt"># ✗ collapses!</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why LFMs hold context better:</span>
+<span class="cs-line hl-c"><span class="cmt"># Recurrent state is trained end-to-end to</span></span>
+<span class="cs-line hl-c"><span class="cmt"># preserve retrievable information at all</span></span>
+<span class="cs-line hl-c"><span class="cmt"># lengths, not just short-context fine-tuning</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LFM1 Benchmarks (2024)</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt">#                  LFM-1B  Llama-1.2B  Phi-1.4B</span>
+<span class="cs-line hl-p"><span class="cmt"># MMLU (5-shot)    58.55   45.46       42.26</span></span>
+<span class="cs-line hl-p"><span class="cmt"># GSM8K            55.34   33.36       41.55</span></span>
+<span class="cs-line hl-p"><span class="cmt"># ARC-C            54.95   41.30       53.75</span></span>
+<span class="cs-line hl-p"><span class="cmt"># MMLU-Pro         30.65   19.41       16.80</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">#                  LFM-3B  Phi-3.5-3.8B</span>
+<span class="cs-line hl-c"><span class="cmt"># MMLU             66.16   68.91 (18% larger)</span></span>
+<span class="cs-line hl-c"><span class="cmt"># MMLU-Pro         38.41   38.31  ← LFM wins</span></span>
+<span class="cs-line hl-c"><span class="cmt"># GSM8K            70.28   79.15</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LFM2 Benchmarks (2025)</span>
+<span class="cs-line cmt"># ─────────────────────────────────────────</span>
+<span class="cs-line cmt"># LFM2-2.6B:</span>
+<span class="cs-line hl-g"><span class="cmt">#   IFEval:  79.56%  (instruction following)</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   GSM8K:   82.41%  (math reasoning)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Inference speed (Samsung Galaxy S25):</span>
+<span class="cs-line cmt"># llama.cpp Q4_0, batch=1, prefill tok/s</span>
+<span class="cs-line cmt">#                  1K      4K</span>
+<span class="cs-line hl-p"><span class="cmt"># LFM2-350M        1067    657  ← fastest</span></span>
+<span class="cs-line"><span class="cmt"># Granite-H-350M    784    594</span></span>
+<span class="cs-line"><span class="cmt"># Granite-350M      528    210</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="cmt"># LFM2-2.6B         143    116  tok/s prefill</span></span>
+<span class="cs-line"><span class="cmt"># Llama-3.2-3B        79     51</span></span>
+<span class="cs-line"><span class="cmt"># Qwen3-4B            57     35</span></span>
+<span class="cs-line"><span class="cmt"># → LFM2-2.6B ≈ 2.5× faster prefill than Llama</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ─────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ────────────────────────────
+const tabMeta = {
+  kvcache:    { file: 'lfm/kvcache.py',    title: 'KV Cache Problem' },
+  origins:    { file: 'lfm/ltc_cfc.py',    title: 'LTC → CfC Origins' },
+  designspace:{ file: 'lfm/design_space.py',title: 'LFM Design Space' },
+  lfm2arch:   { file: 'lfm/lfm2_arch.py',  title: 'LFM2 Architecture' },
+  context:    { file: 'lfm/ruler.py',       title: 'Effective Context' },
+  results:    { file: 'lfm/results.py',     title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — TOC + sidebar sync ─────────────
+const sectionMap = {
+  's-kvcache':    'kvcache',
+  's-origins':    'origins',
+  's-designspace':'designspace',
+  's-lfm2arch':   'lfm2arch',
+  's-context':    'context',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §01: KV Cache canvas ──────────────────────────────────
+const kvCanvas = document.getElementById('kv-canvas');
+const ctxSlider = document.getElementById('ctx-slider');
+const ctxLabel  = document.getElementById('ctx-len-label');
+
+if (kvCanvas) {
+  const kctx = kvCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function setupKvCanvas() {
+    const W = kvCanvas.clientWidth;
+    const H = 240;
+    kvCanvas.width  = W * DPR;
+    kvCanvas.height = H * DPR;
+    kctx.scale(DPR, DPR);
+    return { W, H };
+  }
+
+  // KV bytes for Llama 3.2 3B at sequence length L
+  // 2 * L * n_layers * n_kv * head_dim * 2 (fp16)
+  function kvBytes(L) { return 2 * L * 28 * 8 * 128 * 2; }
+  // LFM-3B fixed state (30 layers, d=2048, fp16)
+  const LFM_STATE = 2048 * 30 * 2;
+
+  function drawKvChart(markerL) {
+    const { W, H } = setupKvCanvas();
+    const PAD_L = 58, PAD_R = 20, PAD_T = 22, PAD_B = 36;
+    const CW = W - PAD_L - PAD_R;
+    const CH = H - PAD_T - PAD_B;
+
+    const MAX_L = 128 * 1024;
+    const MAX_BYTES = kvBytes(MAX_L);
+
+    // Grid
+    kctx.fillStyle = '#0d0d14';
+    kctx.fillRect(0, 0, W, H);
+    kctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    kctx.lineWidth = 1;
+    [0.25, 0.5, 0.75, 1].forEach(f => {
+      const y = PAD_T + CH * (1 - f);
+      kctx.beginPath(); kctx.moveTo(PAD_L, y); kctx.lineTo(PAD_L + CW, y); kctx.stroke();
+      const gb = (MAX_BYTES * f / 1e9).toFixed(1);
+      kctx.fillStyle = '#4b5563'; kctx.font = `${9 * DPR / DPR}px monospace`; kctx.textAlign = 'right';
+      kctx.fillText(gb + ' GB', PAD_L - 5, y + 3);
+    });
+
+    // X axis labels
+    [4096, 16384, 32768, 65536, 131072].forEach(l => {
+      const x = PAD_L + (l / MAX_L) * CW;
+      kctx.fillStyle = '#4b5563'; kctx.textAlign = 'center'; kctx.font = `9px monospace`;
+      kctx.fillText(l >= 1024 ? (l / 1024) + 'k' : l, x, H - PAD_B + 14);
+      kctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      kctx.beginPath(); kctx.moveTo(x, PAD_T); kctx.lineTo(x, PAD_T + CH); kctx.stroke();
+    });
+    kctx.fillStyle = '#4b5563'; kctx.textAlign = 'center'; kctx.font = '9px monospace';
+    kctx.fillText('context length (tokens)', PAD_L + CW / 2, H - 4);
+
+    // Draw threshold line at 1.5 GB (mobile RAM limit for KV cache)
+    const THRESH_GB = 1.5;
+    const threshY = PAD_T + CH * (1 - (THRESH_GB * 1e9 / MAX_BYTES));
+    kctx.strokeStyle = 'rgba(245,158,11,.35)';
+    kctx.setLineDash([5, 4]);
+    kctx.lineWidth = 1.2;
+    kctx.beginPath(); kctx.moveTo(PAD_L, threshY); kctx.lineTo(PAD_L + CW, threshY); kctx.stroke();
+    kctx.setLineDash([]);
+    kctx.fillStyle = 'rgba(245,158,11,.7)'; kctx.textAlign = 'right'; kctx.font = '9px monospace';
+    kctx.fillText('mobile RAM limit ~1.5 GB', PAD_L + CW - 4, threshY - 4);
+
+    // Transformer line (red)
+    kctx.strokeStyle = '#e06c75';
+    kctx.lineWidth = 2;
+    kctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= 200; i++) {
+      const l = (i / 200) * MAX_L;
+      const x = PAD_L + (l / MAX_L) * CW;
+      const y = PAD_T + CH * (1 - Math.min(kvBytes(l) / MAX_BYTES, 1));
+      if (!started) { kctx.moveTo(x, y); started = true; } else kctx.lineTo(x, y);
+    }
+    kctx.stroke();
+
+    // LFM line (green) — flat at near zero
+    const lfmY = PAD_T + CH * (1 - Math.min(LFM_STATE / MAX_BYTES, 0.012));
+    kctx.strokeStyle = '#10b981';
+    kctx.lineWidth = 2;
+    kctx.beginPath();
+    kctx.moveTo(PAD_L, lfmY);
+    kctx.lineTo(PAD_L + CW, lfmY);
+    kctx.stroke();
+
+    // LFM label
+    kctx.fillStyle = '#10b981'; kctx.textAlign = 'left'; kctx.font = '9px monospace';
+    kctx.fillText('LFM (constant state ~120 KB)', PAD_L + 4, lfmY - 5);
+
+    // Marker line for current slider position
+    if (markerL > 0) {
+      const mx = PAD_L + (markerL / MAX_L) * CW;
+      kctx.strokeStyle = 'rgba(255,255,255,.18)';
+      kctx.lineWidth = 1;
+      kctx.setLineDash([3, 3]);
+      kctx.beginPath(); kctx.moveTo(mx, PAD_T); kctx.lineTo(mx, PAD_T + CH); kctx.stroke();
+      kctx.setLineDash([]);
+
+      // Annotation bubble for Transformer
+      const kvB = kvBytes(markerL);
+      const dotY = PAD_T + CH * (1 - Math.min(kvB / MAX_BYTES, 1));
+      kctx.fillStyle = '#e06c75';
+      kctx.beginPath(); kctx.arc(mx, dotY, 5, 0, Math.PI * 2); kctx.fill();
+      const label = (kvB / 1e9).toFixed(2) + ' GB';
+      const boxX = mx + 8 > PAD_L + CW - 80 ? mx - 75 : mx + 8;
+      kctx.fillStyle = 'rgba(224,108,117,.2)';
+      kctx.strokeStyle = 'rgba(224,108,117,.6)';
+      kctx.lineWidth = 1;
+      const bw = 72, bh = 16;
+      const bx = boxX, by = dotY - 8;
+      kctx.beginPath(); kctx.roundRect(bx, by, bw, bh, 3); kctx.fill(); kctx.stroke();
+      kctx.fillStyle = '#e06c75'; kctx.font = 'bold 9px monospace'; kctx.textAlign = 'left';
+      kctx.fillText('Transformer: ' + label, bx + 4, by + 11);
+
+      // LFM dot
+      kctx.fillStyle = '#10b981';
+      kctx.beginPath(); kctx.arc(mx, lfmY, 5, 0, Math.PI * 2); kctx.fill();
+    }
+
+    // Y axis label
+    kctx.save();
+    kctx.translate(11, PAD_T + CH / 2);
+    kctx.rotate(-Math.PI / 2);
+    kctx.fillStyle = '#4b5563'; kctx.font = '9px monospace'; kctx.textAlign = 'center';
+    kctx.fillText('memory (GB)', 0, 0);
+    kctx.restore();
+  }
+
+  function getMarkerL() {
+    // slider: 1–128 maps to 1k–128k tokens
+    const v = parseInt(ctxSlider.value);
+    return v * 1024;
+  }
+
+  function updateKv() {
+    const L = getMarkerL();
+    ctxLabel.textContent = L.toLocaleString();
+    drawKvChart(L);
+  }
+
+  ctxSlider.addEventListener('input', updateKv);
+  window.addEventListener('resize', updateKv);
+  updateKv();
+}
+
+// ── §02: Step navigator ───────────────────────────────────
+let evoStep = 0;
+const evoBoxes = document.querySelectorAll('#evo-steps .step-box');
+const evoPrev  = document.getElementById('evo-prev');
+const evoNext  = document.getElementById('evo-next');
+const evoProg  = document.getElementById('evo-prog');
+function updateEvo() {
+  evoBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === evoStep) b.classList.add('active');
+    else if (i < evoStep) b.classList.add('done');
+  });
+  evoPrev.disabled = evoStep === 0;
+  evoNext.disabled = evoStep === evoBoxes.length - 1;
+  evoProg.textContent = `Step ${evoStep + 1} of ${evoBoxes.length}`;
+  evoBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < evoStep ? '✓' : String(i + 1);
+  });
+}
+evoPrev?.addEventListener('click', () => { if (evoStep > 0) { evoStep--; updateEvo(); } });
+evoNext?.addEventListener('click', () => { if (evoStep < evoBoxes.length - 1) { evoStep++; updateEvo(); } });
+updateEvo();
+
+// ── §05: RULER chart ──────────────────────────────────────
+const rulerCanvas = document.getElementById('ruler-canvas');
+if (rulerCanvas) {
+  const rctx = rulerCanvas.getContext('2d');
+  const DPR  = window.devicePixelRatio || 1;
+
+  const MODELS = {
+    lfm:   { label: 'LFM-3B',       color: '#8b5cf6', pts: [[4096,94.4],[8192,93.5],[16384,91.8],[32768,89.5]] },
+    llama: { label: 'Llama 3.2 3B', color: '#e06c75', pts: [[4096,92.0],[8192,87.1],[16384,81.2],[32768,74.1]] },
+    gemma: { label: 'Gemma 2 2B',   color: '#f59e0b', pts: [[4096,75.0],[8192,0.6]] },
+    phi:   { label: 'Phi-3.5 3.8B', color: '#06b6d4', pts: [[4096,93.0],[8192,91.5],[16384,89.2],[32768,87.0]] },
+  };
+
+  let visibleModels = new Set(['lfm']);
+
+  function drawRuler() {
+    const W = rulerCanvas.clientWidth;
+    const H = 260;
+    rulerCanvas.width  = W * DPR;
+    rulerCanvas.height = H * DPR;
+    rctx.scale(DPR, DPR);
+
+    const PAD_L = 42, PAD_R = 20, PAD_T = 18, PAD_B = 40;
+    const CW = W - PAD_L - PAD_R;
+    const CH = H - PAD_T - PAD_B;
+
+    rctx.fillStyle = '#0d0d14';
+    rctx.fillRect(0, 0, W, H);
+
+    const X_TICKS = [4096, 8192, 16384, 32768];
+    const X_MIN = 4096, X_MAX = 32768;
+    const Y_MIN = 0, Y_MAX = 100;
+
+    function xp(l) { return PAD_L + ((l - X_MIN) / (X_MAX - X_MIN)) * CW; }
+    function yp(s) { return PAD_T + CH * (1 - (s - Y_MIN) / (Y_MAX - Y_MIN)); }
+
+    // Grid
+    rctx.strokeStyle = 'rgba(255,255,255,0.04)'; rctx.lineWidth = 1;
+    [0, 25, 50, 75, 85.6, 100].forEach(s => {
+      const y = yp(s);
+      rctx.beginPath(); rctx.moveTo(PAD_L, y); rctx.lineTo(PAD_L + CW, y); rctx.stroke();
+      rctx.fillStyle = '#4b5563'; rctx.font = '9px monospace'; rctx.textAlign = 'right';
+      rctx.fillText(s, PAD_L - 4, y + 3);
+    });
+
+    // Threshold line at 85.6
+    rctx.strokeStyle = 'rgba(245,158,11,.5)';
+    rctx.setLineDash([5, 4]); rctx.lineWidth = 1.5;
+    rctx.beginPath(); rctx.moveTo(PAD_L, yp(85.6)); rctx.lineTo(PAD_L + CW, yp(85.6)); rctx.stroke();
+    rctx.setLineDash([]);
+    rctx.fillStyle = 'rgba(245,158,11,.8)'; rctx.textAlign = 'right'; rctx.font = '9px monospace';
+    rctx.fillText('85.6 threshold', PAD_L + CW - 4, yp(85.6) - 4);
+
+    X_TICKS.forEach(l => {
+      const x = xp(l);
+      rctx.fillStyle = '#4b5563'; rctx.textAlign = 'center'; rctx.font = '9px monospace';
+      rctx.fillText((l / 1024) + 'k', x, H - PAD_B + 14);
+      rctx.strokeStyle = 'rgba(255,255,255,0.03)'; rctx.lineWidth = 1;
+      rctx.beginPath(); rctx.moveTo(x, PAD_T); rctx.lineTo(x, PAD_T + CH); rctx.stroke();
+    });
+    rctx.fillStyle = '#4b5563'; rctx.textAlign = 'center'; rctx.font = '9px monospace';
+    rctx.fillText('context length', PAD_L + CW / 2, H - PAD_B + 28);
+
+    // Y axis label
+    rctx.save(); rctx.translate(11, PAD_T + CH / 2); rctx.rotate(-Math.PI / 2);
+    rctx.fillStyle = '#4b5563'; rctx.font = '9px monospace'; rctx.textAlign = 'center';
+    rctx.fillText('RULER score', 0, 0); rctx.restore();
+
+    // Draw each visible model
+    const allModels = visibleModels.has('all')
+      ? Object.keys(MODELS)
+      : [...visibleModels].filter(k => k !== 'all');
+
+    let legendY = PAD_T + 4;
+    allModels.forEach(key => {
+      const m = MODELS[key]; if (!m) return;
+      rctx.strokeStyle = m.color; rctx.lineWidth = 2.5;
+      rctx.beginPath();
+      m.pts.forEach(([l, s], i) => {
+        const x = xp(l), y = yp(s);
+        if (i === 0) rctx.moveTo(x, y); else rctx.lineTo(x, y);
+      });
+      rctx.stroke();
+      m.pts.forEach(([l, s]) => {
+        rctx.fillStyle = m.color;
+        rctx.beginPath(); rctx.arc(xp(l), yp(s), 4, 0, Math.PI * 2); rctx.fill();
+      });
+      // Legend
+      rctx.fillStyle = m.color; rctx.beginPath();
+      rctx.rect(PAD_L + 4, legendY, 12, 3); rctx.fill();
+      rctx.fillStyle = m.color; rctx.font = '9px monospace'; rctx.textAlign = 'left';
+      rctx.fillText(m.label, PAD_L + 20, legendY + 4);
+      legendY += 14;
+    });
+  }
+
+  document.querySelectorAll('#ruler-btns .viz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const model = btn.dataset.model;
+      if (model === 'all') {
+        visibleModels.clear();
+        visibleModels.add('all');
+        document.querySelectorAll('#ruler-btns .viz-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.model === 'all');
+        });
+      } else {
+        visibleModels.delete('all');
+        if (visibleModels.has(model)) {
+          if (visibleModels.size > 1) visibleModels.delete(model);
+        } else {
+          visibleModels.add(model);
+        }
+        document.querySelectorAll('#ruler-btns .viz-btn').forEach(b => {
+          if (b.dataset.model === 'all') b.classList.remove('active');
+          else b.classList.toggle('active', visibleModels.has(b.dataset.model));
+        });
+      }
+      drawRuler();
+    });
+  });
+
+  window.addEventListener('resize', drawRuler);
+  drawRuler();
+}
+
+// ── §06: Animated bar chart ───────────────────────────────
+const speedSection = document.getElementById('s-results');
+if (speedSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#speed-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(speedSection);
+}
+</script>
+</BaseLayout>
