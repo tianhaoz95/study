@@ -14,21 +14,41 @@ export interface BookmarkMeta {
   date: string;
   href: string;
   tags: { text: string; cls: string }[];
+  readProgress?: number; // 0–100, synced at scroll milestones (bookmarks only)
 }
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function _syncProgressToLocalStorage(id: string, data: { readProgress?: number }) {
+  if (typeof window === 'undefined') return;
+  const remote = data.readProgress ?? 0;
+  if (remote > 0) {
+    const key = `heji-read-${id}`;
+    try {
+      const local = parseInt(localStorage.getItem(key) ?? '0', 10);
+      if (remote > local) localStorage.setItem(key, String(remote));
+    } catch (e) {}
+  }
+}
+
+// ── Bookmarks ─────────────────────────────────────────────────
 
 /**
  * Load all bookmarks for a user. Returns a Set of post slugs.
+ * Side-effect: syncs Firestore readProgress → localStorage (cross-device).
  */
 export async function loadBookmarks(uid: string): Promise<Set<string>> {
   const snap = await getDocs(collection(db, 'users', uid, 'bookmarks'));
   const slugs = new Set<string>();
-  snap.forEach(d => slugs.add(d.id));
+  snap.forEach(d => {
+    slugs.add(d.id);
+    _syncProgressToLocalStorage(d.id, d.data() as { readProgress?: number });
+  });
   return slugs;
 }
 
 /**
- * Toggle a bookmark for a user. Returns true if the post is now bookmarked,
- * false if it was removed.
+ * Toggle a bookmark. Returns true if now bookmarked, false if removed.
  */
 export async function toggleBookmark(
   uid: string,
@@ -41,26 +61,83 @@ export async function toggleBookmark(
     await deleteDoc(ref);
     return false;
   } else {
-    await setDoc(ref, {
-      ...meta,
-      addedAt: serverTimestamp(),
-    });
+    await setDoc(ref, { ...meta, addedAt: serverTimestamp() });
     return true;
   }
 }
 
 /**
- * Fetch all bookmark documents (with full metadata) for the bookmarks page.
+ * Update the readProgress field on a bookmark document (merge, never overwrites other fields).
+ */
+export async function updateReadProgress(
+  uid: string,
+  slug: string,
+  pct: number,
+): Promise<void> {
+  const ref = doc(db, 'users', uid, 'bookmarks', slug);
+  await setDoc(ref, { readProgress: pct }, { merge: true });
+}
+
+/**
+ * Fetch all bookmark docs (with full metadata) for the /bookmarks page.
  */
 export async function getBookmarkDocs(uid: string): Promise<BookmarkMeta[]> {
   const snap = await getDocs(collection(db, 'users', uid, 'bookmarks'));
   const docs: (BookmarkMeta & { addedAt?: any })[] = [];
   snap.forEach(d => docs.push(d.data() as BookmarkMeta));
-  // Sort by most-recently-added (addedAt descending)
-  docs.sort((a, b) => {
-    const ta = a.addedAt?.toMillis?.() ?? 0;
-    const tb = b.addedAt?.toMillis?.() ?? 0;
-    return tb - ta;
+  docs.sort((a, b) => (b.addedAt?.toMillis?.() ?? 0) - (a.addedAt?.toMillis?.() ?? 0));
+  return docs;
+}
+
+// ── Reading List ──────────────────────────────────────────────
+
+/**
+ * Load all reading-list entries. Returns a Set of post slugs.
+ * Side-effect: syncs Firestore readProgress → localStorage (cross-device).
+ */
+export async function loadReadingList(uid: string): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, 'users', uid, 'readingList'));
+  const slugs = new Set<string>();
+  snap.forEach(d => {
+    slugs.add(d.id);
+    _syncProgressToLocalStorage(d.id, d.data() as { readProgress?: number });
   });
+  return slugs;
+}
+
+/**
+ * Toggle a reading-list entry. Returns true if now in list, false if removed.
+ */
+export async function toggleReadingList(
+  uid: string,
+  slug: string,
+  meta: BookmarkMeta,
+  currentlyInList: boolean,
+): Promise<boolean> {
+  const ref = doc(db, 'users', uid, 'readingList', slug);
+  if (currentlyInList) {
+    await deleteDoc(ref);
+    return false;
+  } else {
+    await setDoc(ref, { ...meta, addedAt: serverTimestamp() });
+    return true;
+  }
+}
+
+/**
+ * Remove a post from the reading list (used for auto-remove at 100% read progress).
+ */
+export async function removeFromReadingList(uid: string, slug: string): Promise<void> {
+  await deleteDoc(doc(db, 'users', uid, 'readingList', slug));
+}
+
+/**
+ * Fetch all reading-list docs for the /reading-list page.
+ */
+export async function getReadingListDocs(uid: string): Promise<BookmarkMeta[]> {
+  const snap = await getDocs(collection(db, 'users', uid, 'readingList'));
+  const docs: (BookmarkMeta & { addedAt?: any })[] = [];
+  snap.forEach(d => docs.push(d.data() as BookmarkMeta));
+  docs.sort((a, b) => (b.addedAt?.toMillis?.() ?? 0) - (a.addedAt?.toMillis?.() ?? 0));
   return docs;
 }

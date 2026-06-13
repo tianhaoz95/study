@@ -74,6 +74,8 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     <div id="auth-container" class="auth-container"></div>
     <a class="nav-link" href="/" data-i18n="nav-posts">Posts</a>
     <a class="nav-link" href="/about" data-i18n="nav-about">About</a>
+    <a class="nav-link" id="nav-bookmarks-link" href="/bookmarks" style="display:none" data-i18n="nav-bookmarks">Bookmarks</a>
+    <a class="nav-link" id="nav-rl-link" href="/reading-list" style="display:none" data-i18n="nav-reading-list">Reading List</a>
     <a class="nav-link nav-subscribe" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
     <button class="nav-link nav-suggest" id="suggest-btn" data-i18n="nav-suggest">Suggest Topic</button>
     <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">
@@ -92,9 +94,55 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
   <a class="mobile-menu-link" href="/" data-i18n="nav-posts">Posts</a>
   <a class="mobile-menu-link" href="/about" data-i18n="nav-about">About</a>
   <a class="mobile-menu-link" href="/bookmarks" id="mobile-bookmarks-link" style="display:none" data-i18n="nav-bookmarks">Bookmarks</a>
+  <a class="mobile-menu-link" href="/reading-list" id="mobile-rl-link" style="display:none" data-i18n="nav-reading-list">Reading List</a>
   <a class="mobile-menu-link" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
   <button class="mobile-menu-link mobile-menu-suggest" id="suggest-btn-mobile" data-i18n="nav-suggest">Suggest Topic</button>
 </div>
+
+<script is:inline>
+  // Hamburger menu — inline so it works even if Firebase/analytics fails to load
+  (function() {
+    var btn  = document.getElementById('menu-toggle');
+    var menu = document.getElementById('mobile-menu');
+    var iconOpen  = document.getElementById('icon-menu');
+    var iconClose = document.getElementById('icon-menu-close');
+    if (!btn || !menu) return;
+
+    function openMenu() {
+      menu.setAttribute('aria-hidden', 'false');
+      menu.classList.add('is-open');
+      btn.setAttribute('aria-expanded', 'true');
+      if (iconOpen)  iconOpen.style.display  = 'none';
+      if (iconClose) iconClose.style.display = '';
+    }
+
+    function closeMenu() {
+      menu.setAttribute('aria-hidden', 'true');
+      menu.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+      if (iconOpen)  iconOpen.style.display  = '';
+      if (iconClose) iconClose.style.display = 'none';
+    }
+
+    btn.addEventListener('click', function() {
+      menu.classList.contains('is-open') ? closeMenu() : openMenu();
+    });
+
+    // Close when any menu link/button is clicked
+    menu.querySelectorAll('.mobile-menu-link').forEach(function(link) {
+      link.addEventListener('click', closeMenu);
+    });
+
+    // Close when clicking outside the nav / menu
+    document.addEventListener('click', function(e) {
+      if (menu.classList.contains('is-open') &&
+          !menu.contains(e.target) &&
+          !btn.contains(e.target)) {
+        closeMenu();
+      }
+    });
+  })();
+</script>
 
 <div id="read-progress"></div>
 
@@ -133,6 +181,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 <script>
   import { initAnalytics, analytics } from '../lib/firebase';
   import { logEvent } from 'firebase/analytics';
+  import { updateReadProgress, removeFromReadingList } from '../lib/bookmarks';
   initAnalytics();
 
   const bar = document.getElementById('read-progress');
@@ -221,6 +270,26 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
                 time_spent_seconds: activeTimeSeconds
               });
             }
+            // Sync progress to Firestore when this post is bookmarked
+            const uid: string | null = (window as any).__hejiCurrentUid ?? null;
+            const bms: Set<string> | null = (window as any).__hejiBookmarks ?? null;
+            if (uid && bms?.has(slug)) {
+              updateReadProgress(uid, slug, m).catch(() => {});
+            }
+            // Auto-remove from reading list when fully read
+            const rl: Set<string> | null = (window as any).__hejiReadingList ?? null;
+            if (m === 100 && uid && rl?.has(slug)) {
+              rl.delete(slug);
+              try { localStorage.setItem('heji-rl', JSON.stringify([...rl])); } catch (e) {}
+              (window as any).__hejiApplyRL?.();
+              const countEl = document.getElementById('dropdown-rl-count');
+              if (countEl) {
+                const n = rl.size;
+                if (n <= 0) { countEl.style.display = 'none'; }
+                else { countEl.textContent = String(n); countEl.style.display = ''; }
+              }
+              removeFromReadingList(uid, slug).catch(() => {}); // fire-and-forget Firestore sync
+            }
           }
         });
 
@@ -274,6 +343,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-posts':    'Posts',
       'nav-about':    'About',
       'nav-bookmarks': 'Bookmarks',
+      'nav-reading-list': 'Reading List',
       'nav-subscribe': 'Subscribe',
       'nav-suggest':  'Suggest Topic',
       'hero-eyebrow': 'Personal Research Blog',
@@ -296,6 +366,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-posts':    '文章',
       'nav-about':    '关于',
       'nav-bookmarks': '书签',
+      'nav-reading-list': '阅读列表',
       'nav-subscribe': '订阅',
       'nav-suggest':  '建议主题',
       'hero-eyebrow': '个人研究博客',
@@ -353,37 +424,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     applyLang((safeGetItem(LANG_KEY, 'en') === 'en' ? 'zh' : 'en') as Lang);
   });
 
-  // ── Mobile hamburger menu ──────────────────────────────────
-  const menuToggle  = document.getElementById('menu-toggle');
-  const mobileMenu  = document.getElementById('mobile-menu');
-  const iconMenu    = document.getElementById('icon-menu');
-  const iconMenuClose = document.getElementById('icon-menu-close');
-
-  function closeMobileMenu() {
-    mobileMenu?.setAttribute('aria-hidden', 'true');
-    mobileMenu?.classList.remove('is-open');
-    menuToggle?.setAttribute('aria-expanded', 'false');
-    if (iconMenu)      (iconMenu as HTMLElement).style.display = '';
-    if (iconMenuClose) (iconMenuClose as HTMLElement).style.display = 'none';
-  }
-
-  menuToggle?.addEventListener('click', () => {
-    const isOpen = mobileMenu?.classList.contains('is-open');
-    if (isOpen) {
-      closeMobileMenu();
-    } else {
-      mobileMenu?.setAttribute('aria-hidden', 'false');
-      mobileMenu?.classList.add('is-open');
-      menuToggle.setAttribute('aria-expanded', 'true');
-      if (iconMenu)      (iconMenu as HTMLElement).style.display = 'none';
-      if (iconMenuClose) (iconMenuClose as HTMLElement).style.display = '';
-    }
-  });
-
-  // Close menu on link click or when navigating away
-  mobileMenu?.querySelectorAll('.mobile-menu-link').forEach(link => {
-    link.addEventListener('click', closeMobileMenu);
-  });
+  // Hamburger menu is handled by <script is:inline> above the read-progress bar.
 </script>
 
 <script>
@@ -488,6 +529,11 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
                 Bookmarks
                 <span class="dropdown-bookmarks-count" id="dropdown-bookmarks-count" style="display:none">0</span>
               </a>
+              <a href="/reading-list" class="dropdown-rl-link" id="dropdown-rl-link">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Reading List
+                <span class="dropdown-rl-count" id="dropdown-rl-count" style="display:none">0</span>
+              </a>
               <button class="btn-signout" id="auth-signout-btn">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Sign Out
@@ -546,7 +592,10 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 <script>
   import { auth } from '../lib/firebase';
   import { onAuthStateChanged, type User } from 'firebase/auth';
-  import { loadBookmarks, toggleBookmark } from '../lib/bookmarks';
+  import {
+    loadBookmarks, toggleBookmark,
+    loadReadingList, toggleReadingList,
+  } from '../lib/bookmarks';
 
   // Per-page post slug (null if not on a post page)
   const _pathParts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
@@ -554,9 +603,17 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 
   let _currentUid: string | null = null;
 
+  // ── SVG helpers ────────────────────────────────────────────
+
   function _bmSvg(pressed: boolean): string {
     return `<svg width="11" height="11" viewBox="0 0 24 24" fill="${pressed ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
   }
+
+  function _rlSvg(): string {
+    return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  }
+
+  // ── Bookmarks ─────────────────────────────────────────────
 
   function _applyBookmarkStates(set: Set<string> | null) {
     document.querySelectorAll<HTMLButtonElement>('.post-bookmark-btn').forEach(btn => {
@@ -572,12 +629,8 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
   function _updateDropdownCount(n: number | null) {
     const countEl = document.getElementById('dropdown-bookmarks-count');
     if (!countEl) return;
-    if (n === null || n === 0) {
-      countEl.style.display = 'none';
-    } else {
-      countEl.textContent = String(n);
-      countEl.style.display = '';
-    }
+    if (n === null || n === 0) { countEl.style.display = 'none'; }
+    else { countEl.textContent = String(n); countEl.style.display = ''; }
   }
 
   function _initPostPageBmBtn(set: Set<string>) {
@@ -617,16 +670,72 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     document.getElementById('post-hero-bookmark')?.remove();
   }
 
-  // Delegate bookmark-button clicks across the whole page.
-  // Use capture phase so we intercept clicks before the parent <a> card can navigate.
+  // ── Reading List ───────────────────────────────────────────
+
+  function _applyRLStates(set: Set<string> | null) {
+    document.querySelectorAll<HTMLButtonElement>('.post-rl-btn').forEach(btn => {
+      const slug = btn.dataset.slug;
+      if (!slug) return;
+      const pressed = set != null && set.has(slug);
+      btn.setAttribute('aria-pressed', String(pressed));
+    });
+  }
+
+  function _updateRLDropdownCount(n: number | null) {
+    const countEl = document.getElementById('dropdown-rl-count');
+    if (!countEl) return;
+    if (n === null || n === 0) { countEl.style.display = 'none'; }
+    else { countEl.textContent = String(n); countEl.style.display = ''; }
+  }
+
+  function _initPostPageRLBtn(set: Set<string>) {
+    if (!_pageSlug) return;
+    if (document.getElementById('post-hero-rl')) return;
+    const heroMeta = document.querySelector<HTMLElement>('.post-hero-meta');
+    if (!heroMeta) return;
+
+    const titleEl = document.querySelector<HTMLElement>('.post-hero h1');
+    const tagEls  = document.querySelectorAll<HTMLElement>('.post-hero .tag');
+    const dateEl  = heroMeta.querySelector<HTMLElement>('span');
+    const title   = titleEl?.textContent?.trim() ?? '';
+    const date    = dateEl?.textContent?.trim() ?? '';
+    const href    = window.location.pathname;
+    const tags: { text: string; cls: string }[] = [];
+    tagEls.forEach(el => {
+      const cls = Array.from(el.classList).find(c => c.startsWith('tag-')) ?? '';
+      tags.push({ text: el.textContent?.trim() ?? '', cls: `tag ${cls}` });
+    });
+
+    const pressed = set.has(_pageSlug);
+    const btn = document.createElement('button');
+    btn.id = 'post-hero-rl';
+    btn.className = 'post-rl-btn post-rl-hero';
+    btn.setAttribute('aria-label', pressed ? 'Remove from reading list' : 'Add to reading list');
+    btn.setAttribute('aria-pressed', String(pressed));
+    btn.dataset.slug  = _pageSlug;
+    btn.dataset.title = title;
+    btn.dataset.date  = date;
+    btn.dataset.href  = href;
+    btn.dataset.tags  = JSON.stringify(tags);
+    btn.innerHTML = `${_rlSvg()}<span>${pressed ? 'Queued' : 'Read Later'}</span>`;
+    heroMeta.appendChild(btn);
+  }
+
+  function _removePostPageRLBtn() {
+    document.getElementById('post-hero-rl')?.remove();
+  }
+
+  // ── Click handler (capture phase) ─────────────────────────
+
   document.addEventListener('click', async (e: MouseEvent) => {
-    const target = (e.target as Element).closest<HTMLButtonElement>('.post-bookmark-btn');
-    if (!target) return; // not a bookmark button — let click propagate normally
+    const bmTarget = (e.target as Element).closest<HTMLButtonElement>('.post-bookmark-btn');
+    const rlTarget = (e.target as Element).closest<HTMLButtonElement>('.post-rl-btn');
+    const target = bmTarget ?? rlTarget;
+    if (!target) return; // not our button — let click propagate
     e.preventDefault();
     e.stopPropagation();
 
     if (!_currentUid) {
-      // Not signed in — flash the button red briefly as a hint
       target.style.color = 'var(--red)';
       target.style.borderColor = 'var(--red)';
       setTimeout(() => { target.style.color = ''; target.style.borderColor = ''; }, 800);
@@ -635,41 +744,87 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 
     const slug = target.dataset.slug ?? '';
     if (!slug) return;
+    const isRL = !!rlTarget;
 
-    const set: Set<string> = (window as any).__hejiBookmarks ?? new Set();
-    const wasBookmarked = set.has(slug);
+    if (isRL) {
+      // ── Reading list toggle ──────────────────────────────
+      const set: Set<string> = (window as any).__hejiReadingList ?? new Set();
+      const wasInList = set.has(slug);
+      wasInList ? set.delete(slug) : set.add(slug);
+      (window as any).__hejiReadingList = set;
 
-    // Optimistic update
-    wasBookmarked ? set.delete(slug) : set.add(slug);
-    (window as any).__hejiBookmarks = set;
-    _applyBookmarkStates(set);
-    _updateDropdownCount(set.size);
-
-    // Sync hero button label
-    const heroBtn = document.getElementById('post-hero-bookmark') as HTMLButtonElement | null;
-    if (heroBtn && heroBtn.dataset.slug === slug) {
-      const newPressed = !wasBookmarked;
-      heroBtn.setAttribute('aria-pressed', String(newPressed));
-      heroBtn.setAttribute('aria-label', newPressed ? 'Remove bookmark' : 'Bookmark this post');
-      heroBtn.innerHTML = `${_bmSvg(newPressed)}<span>${newPressed ? 'Saved' : 'Bookmark'}</span>`;
-    }
-
-    try {
-      const parseTags = () => { try { return JSON.parse(target.dataset.tags ?? '[]'); } catch { return []; } };
-      await toggleBookmark(_currentUid, slug, {
+      // Build the full metadata object once (reused for both localStorage and Firestore)
+      const rlMeta = {
         slug,
         title: target.dataset.title ?? '',
         date:  target.dataset.date  ?? '',
         href:  target.dataset.href  ?? '',
-        tags:  parseTags(),
-      }, wasBookmarked);
-    } catch (err) {
-      // Revert on error
-      wasBookmarked ? set.add(slug) : set.delete(slug);
+        tags:  (() => { try { return JSON.parse(target.dataset.tags ?? '[]'); } catch { return []; } })(),
+      };
+
+      // Persist slugs AND full metadata locally — the reading list page reads from here
+      // when Firestore is unavailable (e.g. security rules not yet updated).
+      try {
+        localStorage.setItem('heji-rl', JSON.stringify([...set]));
+        const items: typeof rlMeta[] = JSON.parse(localStorage.getItem('heji-rl-items') ?? '[]');
+        if (wasInList) {
+          localStorage.setItem('heji-rl-items', JSON.stringify(items.filter(i => i.slug !== slug)));
+        } else {
+          items.unshift(rlMeta);
+          localStorage.setItem('heji-rl-items', JSON.stringify(items));
+        }
+      } catch (e) {}
+
+      _applyRLStates(set);
+      _updateRLDropdownCount(set.size);
+
+      // Sync hero RL button label
+      const heroBtn = document.getElementById('post-hero-rl') as HTMLButtonElement | null;
+      if (heroBtn && heroBtn.dataset.slug === slug) {
+        const np = !wasInList;
+        heroBtn.setAttribute('aria-pressed', String(np));
+        heroBtn.setAttribute('aria-label', np ? 'Remove from reading list' : 'Add to reading list');
+        heroBtn.innerHTML = `${_rlSvg()}<span>${np ? 'Queued' : 'Read Later'}</span>`;
+      }
+
+      // Fire-and-forget Firestore sync — local state is the source of truth.
+      toggleReadingList(_currentUid, slug, rlMeta, wasInList).catch(err => {
+        console.warn('[readingList] Firestore sync failed (check Firestore security rules):', err);
+      });
+    } else {
+      // ── Bookmark toggle ──────────────────────────────────
+      const set: Set<string> = (window as any).__hejiBookmarks ?? new Set();
+      const wasBookmarked = set.has(slug);
+      wasBookmarked ? set.delete(slug) : set.add(slug);
       (window as any).__hejiBookmarks = set;
       _applyBookmarkStates(set);
       _updateDropdownCount(set.size);
-      console.error('Bookmark toggle failed:', err);
+
+      // Sync hero bookmark label
+      const heroBtn = document.getElementById('post-hero-bookmark') as HTMLButtonElement | null;
+      if (heroBtn && heroBtn.dataset.slug === slug) {
+        const np = !wasBookmarked;
+        heroBtn.setAttribute('aria-pressed', String(np));
+        heroBtn.setAttribute('aria-label', np ? 'Remove bookmark' : 'Bookmark this post');
+        heroBtn.innerHTML = `${_bmSvg(np)}<span>${np ? 'Saved' : 'Bookmark'}</span>`;
+      }
+
+      try {
+        const parseTags = () => { try { return JSON.parse(target.dataset.tags ?? '[]'); } catch { return []; } };
+        await toggleBookmark(_currentUid, slug, {
+          slug,
+          title: target.dataset.title ?? '',
+          date:  target.dataset.date  ?? '',
+          href:  target.dataset.href  ?? '',
+          tags:  parseTags(),
+        }, wasBookmarked);
+      } catch (err) {
+        wasBookmarked ? set.add(slug) : set.delete(slug);
+        (window as any).__hejiBookmarks = set;
+        _applyBookmarkStates(set);
+        _updateDropdownCount(set.size);
+        console.error('Bookmark toggle failed:', err);
+      }
     }
   }, true); // capture phase: fires before <a> card can follow its link
 
@@ -677,35 +832,70 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
   (window as any).__hejiApplyBookmarks = () => {
     _applyBookmarkStates((window as any).__hejiBookmarks ?? null);
   };
+  (window as any).__hejiApplyRL = () => {
+    _applyRLStates((window as any).__hejiReadingList ?? null);
+  };
 
-  function _setMobileBookmarksVisible(visible: boolean) {
-    const el = document.getElementById('mobile-bookmarks-link') as HTMLElement | null;
-    if (el) el.style.display = visible ? '' : 'none';
+  // ── Nav visibility ──────────────────────────────────────────
+
+  function _setUserNavVisible(visible: boolean) {
+    for (const id of ['mobile-bookmarks-link', 'nav-bookmarks-link',
+                       'mobile-rl-link', 'nav-rl-link']) {
+      const el = document.getElementById(id) as HTMLElement | null;
+      if (el) el.style.display = visible ? '' : 'none';
+    }
   }
+
+  // ── Auth state ──────────────────────────────────────────────
 
   onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       _currentUid = user.uid;
-      // loadBookmarks may fail if Firestore rules aren't deployed yet — use empty
-      // Set as fallback so the rest of auth initialization always completes.
-      let set = new Set<string>();
+      (window as any).__hejiCurrentUid = user.uid;
+      // Load both collections; fall back to empty sets if Firestore rules aren't deployed
+      const [bmSet, rlSet] = await Promise.all([
+        loadBookmarks(user.uid).catch(err => {
+          console.warn('[bookmarks] loadBookmarks failed:', err);
+          return new Set<string>();
+        }),
+        loadReadingList(user.uid).catch(err => {
+          console.warn('[readingList] loadReadingList failed:', err);
+          return new Set<string>();
+        }),
+      ]);
+      // Merge localStorage RL state into Firestore state (localStorage wins for items
+      // that Firestore doesn't have, e.g. when security rules aren't yet deployed).
       try {
-        set = await loadBookmarks(user.uid);
-      } catch (err) {
-        console.warn('[bookmarks] loadBookmarks failed (check Firestore rules):', err);
-      }
-      (window as any).__hejiBookmarks = set;
-      _applyBookmarkStates(set);
-      _updateDropdownCount(set.size);
-      _initPostPageBmBtn(set);
-      _setMobileBookmarksVisible(true);
+        const localSlugs: string[] = JSON.parse(localStorage.getItem('heji-rl') ?? '[]');
+        localSlugs.forEach(s => rlSet.add(s));
+        // Also pull slugs from the full-metadata store
+        const localItems: { slug: string }[] = JSON.parse(localStorage.getItem('heji-rl-items') ?? '[]');
+        localItems.forEach(i => { if (i.slug) rlSet.add(i.slug); });
+      } catch (e) {}
+      // Write merged slug list back so subsequent sessions start warm
+      try { localStorage.setItem('heji-rl', JSON.stringify([...rlSet])); } catch (e) {}
+      (window as any).__hejiBookmarks   = bmSet;
+      (window as any).__hejiReadingList = rlSet;
+      _applyBookmarkStates(bmSet);
+      _applyRLStates(rlSet);
+      _updateDropdownCount(bmSet.size);
+      _updateRLDropdownCount(rlSet.size);
+      _initPostPageBmBtn(bmSet);
+      _initPostPageRLBtn(rlSet);
+      _setUserNavVisible(true);
     } else {
       _currentUid = null;
-      (window as any).__hejiBookmarks = null;
+      (window as any).__hejiCurrentUid  = null;
+      (window as any).__hejiBookmarks   = null;
+      (window as any).__hejiReadingList = null;
+      try { localStorage.removeItem('heji-rl'); localStorage.removeItem('heji-rl-items'); } catch (e) {}
       _applyBookmarkStates(null);
+      _applyRLStates(null);
       _updateDropdownCount(null);
+      _updateRLDropdownCount(null);
       _removePostPageBmBtn();
-      _setMobileBookmarksVisible(false);
+      _removePostPageRLBtn();
+      _setUserNavVisible(false);
     }
   });
 </script>

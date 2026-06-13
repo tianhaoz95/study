@@ -1,0 +1,257 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Reading List | AI/ML Deep Dives" crumb="Reading List">
+
+<style is:global>
+/* ── Reading List page — reuses .bookmarks-* base styles, cyan overrides ── */
+.rl-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-family: var(--ff-mono);
+  margin-bottom: 0.6rem;
+}
+.rl-auto-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.rl-auto-note svg { flex-shrink: 0; opacity: 0.6; }
+/* Cyan card hover (border, shadow, gradient overlay) */
+.rl-page .bm-card:hover {
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.08);
+}
+.rl-page .bm-card::before {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.04) 0%, transparent 60%);
+}
+/* Cyan progress fill for reading list cards */
+.rl-page .bm-progress-fill {
+  background: linear-gradient(90deg, var(--cyan), #67e8f9);
+}
+/* Cyan sign-in button hover */
+.rl-page .bookmarks-state .btn-signin-large:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(6,182,212,.25);
+}
+/* Cyan browse-btn hover */
+.rl-page .bookmarks-state a.browse-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+/* Cyan count badge */
+.rl-page .bookmarks-count-label {
+  color: var(--muted);
+}
+</style>
+
+<div class="bookmarks-page rl-page">
+  <div class="bookmarks-header">
+    <div class="rl-eyebrow">Your Queue</div>
+    <h1>Reading List</h1>
+    <p class="bookmarks-count-label" id="rl-count-label"></p>
+    <p class="rl-auto-note" id="rl-auto-note" style="display:none">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Posts disappear automatically when fully read
+    </p>
+  </div>
+
+  <!-- Loading -->
+  <div class="bookmarks-state is-active" id="rl-loading">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <h2>Loading…</h2>
+  </div>
+
+  <!-- Not signed in -->
+  <div class="bookmarks-state" id="rl-signed-out">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <h2>Sign in to see your reading list</h2>
+    <p>Queue posts for later and they disappear automatically once you finish reading them.</p>
+    <button class="btn-signin-large" id="rl-signin-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Empty state -->
+  <div class="bookmarks-state" id="rl-empty">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <h2>Queue is empty</h2>
+    <p>Hit the <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="display:inline;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> icon on any post to save it for later.</p>
+    <a href="/" class="browse-btn">Browse posts →</a>
+  </div>
+
+  <!-- Reading list -->
+  <div class="bookmarks-grid" id="rl-grid" style="display:none"></div>
+</div>
+
+<script>
+  import { auth } from '../../lib/firebase';
+  import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User } from 'firebase/auth';
+  import { getReadingListDocs, toggleReadingList, type BookmarkMeta } from '../../lib/bookmarks';
+
+  const elLoading   = document.getElementById('rl-loading')!;
+  const elSignedOut = document.getElementById('rl-signed-out')!;
+  const elEmpty     = document.getElementById('rl-empty')!;
+  const elGrid      = document.getElementById('rl-grid')!;
+  const elCount     = document.getElementById('rl-count-label')!;
+  const elNote      = document.getElementById('rl-auto-note')!;
+
+  function showState(which: 'loading' | 'signed-out' | 'empty' | 'grid') {
+    elLoading.classList.toggle('is-active',   which === 'loading');
+    elSignedOut.classList.toggle('is-active', which === 'signed-out');
+    elEmpty.classList.toggle('is-active',     which === 'empty');
+    elGrid.style.display = which === 'grid' ? '' : 'none';
+  }
+
+  function esc(s: string) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function buildCard(item: BookmarkMeta): string {
+    const tags = (item.tags ?? [])
+      .map(t => `<span class="tag ${esc(t.cls)}">${esc(t.text)}</span>`)
+      .join('');
+    // Read progress from localStorage (synced from Firestore on sign-in for cross-device)
+    let progressHtml = '';
+    try {
+      const pct = Math.min(100, Math.max(0, parseInt(localStorage.getItem(`heji-read-${item.slug}`) ?? '0', 10)));
+      if (pct > 0) {
+        const label = pct >= 100 ? 'Read ✓' : `${pct}%`;
+        progressHtml = `<div class="bm-progress-wrap">
+          <div class="bm-progress-track">
+            <div class="bm-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="bm-progress-label">${label}</span>
+        </div>`;
+      }
+    } catch (e) {}
+    return `<div class="bm-card-wrapper" data-slug="${esc(item.slug)}">
+      <a class="bm-card" href="${esc(item.href)}">
+        <div class="tags">${tags}</div>
+        <h3>${esc(item.title)}</h3>
+        <div class="post-meta">
+          <span>${esc(item.date)}</span>
+          <span class="post-arrow">→</span>
+        </div>
+        ${progressHtml}
+      </a>
+      <button class="bm-remove-btn" aria-label="Remove from reading list" data-slug="${esc(item.slug)}" title="Remove from reading list">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }
+
+  function renderList(items: BookmarkMeta[]) {
+    if (items.length === 0) {
+      showState('empty');
+      elCount.style.display = 'none';
+      elNote.style.display = 'none';
+      return;
+    }
+    elGrid.innerHTML = items.map(buildCard).join('');
+    elCount.textContent = `${items.length} post${items.length === 1 ? '' : 's'} to read`;
+    elCount.style.display = '';
+    elNote.style.display = '';
+    showState('grid');
+  }
+
+  let currentUser: User | null = null;
+  let currentItems: BookmarkMeta[] = [];
+
+  // Remove button handler
+  elGrid.addEventListener('click', async (e: MouseEvent) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('.bm-remove-btn');
+    if (!btn || !currentUser) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const slug = btn.dataset.slug ?? '';
+    if (!slug) return;
+
+    // Optimistic remove
+    currentItems = currentItems.filter(b => b.slug !== slug);
+    renderList(currentItems);
+
+    // Sync global reading-list state and localStorage
+    const globalSet: Set<string> | undefined = (window as any).__hejiReadingList;
+    if (globalSet) {
+      globalSet.delete(slug);
+      (window as any).__hejiApplyRL?.();
+      const countEl = document.getElementById('dropdown-rl-count');
+      if (countEl) {
+        const n = globalSet.size;
+        if (n === 0) { countEl.style.display = 'none'; }
+        else { countEl.textContent = String(n); countEl.style.display = ''; }
+      }
+    }
+    try {
+      localStorage.setItem('heji-rl', JSON.stringify([...(globalSet ?? [])]));
+      const saved: {slug:string}[] = JSON.parse(localStorage.getItem('heji-rl-items') ?? '[]');
+      localStorage.setItem('heji-rl-items', JSON.stringify(saved.filter(i => i.slug !== slug)));
+    } catch (e) {}
+
+    // Fire-and-forget Firestore delete
+    const item = { slug, title: '', date: '', href: '', tags: [] };
+    toggleReadingList(currentUser.uid, slug, item, true).catch(err => {
+      console.warn('Reading list Firestore remove failed:', err);
+    });
+  });
+
+  // Sign-in button
+  document.getElementById('rl-signin-btn')?.addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      console.error('Sign in failed:', err);
+    }
+  });
+
+  onAuthStateChanged(auth, async (user: User | null) => {
+    currentUser = user;
+    if (!user) {
+      showState('signed-out');
+      elCount.style.display = 'none';
+      elNote.style.display = 'none';
+      return;
+    }
+    showState('loading');
+    try {
+      // Load from Firestore
+      currentItems = await getReadingListDocs(user.uid);
+    } catch (err) {
+      console.warn('Failed to load reading list from Firestore:', err);
+      currentItems = [];
+    }
+
+    // Merge with localStorage items (covers the case where Firestore write failed
+    // because security rules don't yet include the readingList collection).
+    try {
+      const localItems: BookmarkMeta[] = JSON.parse(localStorage.getItem('heji-rl-items') ?? '[]');
+      if (localItems.length > 0) {
+        const firestoreSlugs = new Set(currentItems.map(i => i.slug));
+        // Add localStorage items whose slugs are NOT already in Firestore
+        localItems.forEach(item => {
+          if (item.slug && !firestoreSlugs.has(item.slug)) {
+            currentItems.push(item);
+          }
+        });
+      }
+    } catch (e) {}
+
+    renderList(currentItems);
+  });
+</script>
+
+</BaseLayout>
