@@ -1,0 +1,1666 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Language Models Need Sleep: Memory Consolidation & Dreaming for LLMs | AI/ML Deep Dives"
+  description="Inspired by human sleep, the Sleep paradigm lets LLMs consolidate short-term in-context knowledge into stable long-term parameters via upward distillation and RL-driven dreaming — beating SFT and GRPO on AIME while achieving near-perfect BABILong recall at 10M tokens."
+  crumb="LLM Sleep"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results bar chart ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* ── Lifecycle canvas buttons ── */
+.canvas-controls{display:flex;flex-wrap:wrap;align-items:center;gap:.625rem;margin-top:.875rem}
+.canvas-controls button{padding:.28rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.canvas-controls button:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.canvas-controls button.active-btn{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-controls .ctrl-label{font-size:.67rem;color:var(--muted);font-family:var(--ff-mono)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Continual Learning</span>
+    <span class="tag tag-cyan">Memory Systems</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Language Models Need Sleep: Memory Consolidation &amp; Dreaming for LLMs</h1>
+  <p class="lead">
+    LLMs learn in-context — but that knowledge evaporates when the context ends. Inspired by human sleep,
+    the Sleep paradigm introduces an offline consolidation phase where models distill short-term in-context
+    memories into stable long-term parameters via upward knowledge seeding and RL-driven dreaming — beating
+    SFT, GRPO, and SEAL across reasoning, knowledge incorporation, and continual learning benchmarks.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 12, 2026</span>
+    <span>~16 min read</span>
+    <span>Paper: <code>arXiv:2606.03979</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.03979" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-memory"><a href="#s-memory"><span class="toc-num">02</span> Memory Spectrum</a></li>
+    <li class="toc-item" id="toc-s-architecture"><a href="#s-architecture"><span class="toc-num">03</span> The Sleep Paradigm</a></li>
+    <li class="toc-item" id="toc-s-seeding"><a href="#s-seeding"><span class="toc-num">04</span> Knowledge Seeding</a></li>
+    <li class="toc-item" id="toc-s-dreaming"><a href="#s-dreaming"><span class="toc-num">05</span> Dreaming</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 The Problem -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>Knowledge Evaporates When the Context Ends</h2>
+<p>
+  Suppose you teach a language model something new — say, facts about a novel language — by putting examples in its context window.
+  The model adapts beautifully. It answers questions correctly. But the moment you close that context and start fresh, the
+  knowledge is gone. The model's parameters were never updated.
+</p>
+<p>
+  Conversely, if you <em>do</em> fine-tune the model on new knowledge, you risk catastrophic forgetting — the weights that encoded
+  old knowledge get overwritten by the new. There's no stable middle ground between "ephemeral in-context adaptation" and
+  "permanent but destructive fine-tuning."
+</p>
+<p>
+  This is the foundational problem the Sleep paradigm addresses. LLMs have two extreme memory modes:
+  the attention mechanism (updates every token, forgets everything at context boundary) and MLP weights (never update after pre-training).
+  There is no medium-timescale memory — no place to store "I learned this today, and I want it to persist."
+</p>
+
+<!-- The catastrophic forgetting canvas: wake vs sleep -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">wake/sleep lifecycle — knowledge retention over time</span>
+    <span class="vp-hint">click to toggle view</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="lifecycle-canvas" style="width:100%;height:240px;display:block"></canvas>
+    <div class="canvas-controls">
+      <span class="ctrl-label">Model:</span>
+      <button id="btn-icl" class="active-btn">ICL only (no sleep)</button>
+      <button id="btn-sleep">Sleep</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The animation above illustrates the core failure mode: without sleep, each new context window acquires temporary knowledge
+  that fades completely when the window closes. With sleep, periodic consolidation checkpoints transfer that fragile in-context
+  knowledge into stable long-term parameters — knowledge that survives across sessions.
+</p>
+</section>
+
+<!-- §02 Memory Spectrum -->
+<section id="s-memory" data-code="memory">
+<div class="section-no">02 — Memory Spectrum</div>
+<h2>The Continuum Memory System: A Spectrum of Frequencies</h2>
+<p>
+  The key insight behind Hope's architecture is that memory stability is not binary — it's a spectrum.
+  Human brains have hippocampal (short-term, high-plasticity) and cortical (long-term, low-plasticity) memory systems
+  operating at different timescales. Transformers only have two extreme endpoints.
+</p>
+<p>
+  The <strong>Continuum Memory System (CMS)</strong> generalizes this: a chain of MLP layers, each with its own
+  <em>update frequency</em> — how many times it gets updated per "unit of time." Higher-frequency layers are shorter-term
+  (update often, forget quickly). Lower-frequency layers are longer-term (update rarely, remember stably).
+</p>
+
+<div class="math-block">
+<div class="math-label">Update Frequency Definition</div>
+<span class="math-var">f_W</span> = number of updates per unit of time for weight component <span class="math-var">W</span>
+<br>
+<span class="math-var">C^(l)</span> = chunk size for l-th layer = max_frequency / <span class="math-var">f_l</span>
+<br><br>
+Layer chain: MLP<sup>(f1)</sup> → MLP<sup>(f2)</sup> → ... → MLP<sup>(f_k)</sup>
+<br>
+where <span class="math-var">f1 ≥ f2 ≥ ... ≥ f_k</span>  <span class="math-comment">// faster → slower (more stable)</span>
+<br><br>
+<span class="math-comment">// Attention: f = ∞ (updates every token, forgets at boundary)</span>
+<span class="math-comment">// Pre-trained MLP: f ≈ 0 (never updates at test time)</span>
+<span class="math-comment">// CMS fills the gap with intermediate frequencies</span>
+</div>
+
+<!-- Frequency spectrum visualization -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">memory frequency spectrum — from ephemeral to permanent</span>
+    <span class="vp-hint">hover over layers</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="spectrum-canvas" style="width:100%;height:200px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  The crucial observation: for any layer in this chain, the layers to its left (higher-frequency) hold
+  <em>shorter-term, more fragile</em> knowledge. Before those layers get updated (potentially overwriting their knowledge),
+  that knowledge must be transferred somewhere more stable. This transfer is exactly what <strong>sleep</strong> accomplishes.
+</p>
+</section>
+
+<!-- §03 The Sleep Paradigm -->
+<section id="s-architecture" data-code="architecture">
+<div class="section-no">03 — The Sleep Paradigm</div>
+<h2>Two Phases: NREM Consolidation + REM Dreaming</h2>
+<p>
+  Human sleep has two well-studied phases: slow-wave sleep (NREM) consolidates declarative memories by replaying
+  hippocampal patterns to the cortex, and REM sleep actively strengthens newly formed synapses through dreaming.
+  The Sleep paradigm maps these directly to two computational phases:
+</p>
+
+<div class="step-list" id="sleep-steps">
+  <div class="step-box active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Wake Phase — In-Context Learning</div>
+      <div class="step-desc">Model receives new data and adapts via in-context learning (ICL). High-frequency attention layers update every token. Short-term fragile knowledge accumulates in the fast MLP layers.</div>
+      <div class="step-code">attention.update(every_token) + fast_mlp.update(every_chunk)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Sleep Trigger — No New Data</div>
+      <div class="step-desc">At scheduled intervals (determined by chunk sizes), the model stops processing external data. The sleep phase begins. All updates from here are self-generated.</div>
+      <div class="step-code">if step % C_l == 0: enter_sleep_phase()</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Memory Consolidation (NREM-like)</div>
+      <div class="step-desc">Upward distillation: knowledge in layer l-1 (faster, more fragile) is transferred to layer l (slower, more stable) via Knowledge Seeding. A new low-rank expert is added to layer l to avoid overwriting existing knowledge.</div>
+      <div class="step-code">knowledge_seeding(src=mlp[l-1], dst=mlp[l] + new_expert)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Dreaming (REM-like)</div>
+      <div class="step-desc">RL-driven self-improvement: model generates synthetic "dreams" (training data), selects the most informative ones via gradient scoring, fine-tunes on them using LoRA, and uses performance improvement as the reward signal.</div>
+      <div class="step-code">dreams = sample_with_random_expert(model, context) → RL reward</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-4">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Synaptic Pruning + Resume Wake</div>
+      <div class="step-desc">After consolidation, low-rank parameters added to faster layers in previous sleep periods are reset — freeing capacity for future knowledge. The model resumes the wake phase.</div>
+      <div class="step-code">mlp[l-1].reset_lora_experts()  # free capacity</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <button id="step-next">Next →</button>
+  <span id="step-prog" style="font-size:.7rem;color:var(--muted);font-family:var(--ff-mono)">Step 1 of 5</span>
+</div>
+
+<p style="margin-top:1.25rem">
+  The key architectural choice: each sleep event expands the target layer by adding a <strong>new low-rank expert</strong>
+  (parametrized as a LoRA-style A·B matrix). This gives the model capacity to absorb new knowledge without overwriting
+  old knowledge — a computational analog of neuroplasticity.
+</p>
+</section>
+
+<!-- §04 Knowledge Seeding -->
+<section id="s-seeding" data-code="seeding">
+<div class="section-no">04 — Knowledge Seeding</div>
+<h2>Upward Distillation: Smaller-Self Teaches Larger-Self</h2>
+<p>
+  Standard knowledge distillation flows <em>downward</em>: a large teacher compresses knowledge into a smaller student.
+  Knowledge Seeding inverts this: a smaller model (with its recently-updated, fragile short-term knowledge) teaches
+  a larger model (the expanded version, with a new low-rank expert added). The student has <em>more capacity</em> than
+  the teacher — the goal is not compression but consolidation.
+</p>
+
+<!-- Distillation direction SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">knowledge seeding — upward vs traditional distillation</span>
+    <span class="vp-hint">contrast: knowledge seeding flows upward</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="seeding-canvas" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  The distillation objective has two components. First, an on-policy distillation loss (following GKD) that
+  forces the student's output distribution to match the teacher's token-level logits — the student generates data,
+  receives token feedback from the teacher. Second, a <strong>Learning to Imitate (LTI)</strong> objective using RL:
+  the student is given a prefix from teacher-generated "dreams," must complete the continuation, and is rewarded
+  based on both semantic similarity (did it mean the same thing?) and token-level similarity (did it generate nearly
+  the same tokens?).
+</p>
+
+<div class="math-block">
+<div class="math-label">Knowledge Seeding Objective</div>
+<span class="math-var">L_KS</span> = E_x [ (1-α) · E_y~student [ r(y) ] - α · E_y~student [ D(teacher || student)(y|x) ] ]
+<br><br>
+<span class="math-comment">// α controls distillation vs imitation balance</span>
+<br>
+<span class="math-comment">// r(y) = γ·r_sem + (1-γ)·r_abs (semantic + token similarity reward)</span>
+<br>
+<span class="math-comment">// Only the new low-rank expert is updated — old parameters frozen</span>
+</div>
+
+<p>
+  Critically: during knowledge seeding, <strong>only the newly added low-rank expert is updated</strong>. All other
+  parameters are frozen. This surgical isolation ensures that the transferred knowledge from the fast layer is stored
+  in dedicated capacity, never interfering with what the slow layer already knows. After consolidation is complete,
+  the fast layer's previously-added low-rank experts are reset — analogous to synaptic pruning.
+</p>
+
+<!-- Interactive K=stages canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">multi-level consolidation — more sleep stages = better retention</span>
+    <span class="vp-hint">click to change number of sleep stages</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="stages-canvas" style="width:100%;height:220px;display:block"></canvas>
+    <div class="canvas-controls">
+      <span class="ctrl-label">Sleep stages:</span>
+      <button id="btn-s1" class="active-btn">Hope-1</button>
+      <button id="btn-s2">Hope-2</button>
+      <button id="btn-s3">Hope-3</button>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §05 Dreaming -->
+<section id="s-dreaming" data-code="dreaming">
+<div class="section-no">05 — Dreaming</div>
+<h2>RL-Driven Self-Improvement: Learning to Dream Better</h2>
+<p>
+  After memory consolidation, the model enters the dreaming phase — analogous to REM sleep. Instead of passively
+  replaying old data, the model actively generates synthetic training examples ("dreams"), evaluates which dreams
+  would most improve its own performance, and fine-tunes on them.
+</p>
+<p>
+  The key challenge: self-improvement in a continual learning setting risks catastrophic forgetting. Each round of
+  dreaming must improve the model on new tasks without erasing what it previously learned. The two-stage design of
+  Sleep (consolidation first, then dreaming) provides crucial protection: by the time dreaming occurs, the new
+  knowledge has already been consolidated into dedicated low-rank experts, isolated from the model's pre-existing knowledge.
+</p>
+
+<h3>Three Innovations Over SEAL</h3>
+<p>
+  Sleep builds on SEAL (Zweiger et al. 2025) but addresses three limitations:
+</p>
+<ul>
+  <li><strong>Scalability</strong>: SEAL uses supervised fine-tuning in its inner loop, limiting the number of dreams. Sleep replaces SFT with LoRA, enabling far more self-edit iterations.</li>
+  <li><strong>Catastrophic Forgetting</strong>: SEAL can erase old knowledge during iterative self-improvement. Sleep's prior consolidation phase provides a stable foundation.</li>
+  <li><strong>Exploration</strong>: SEAL samples from the model's current knowledge space only. Sleep adds a <strong>random expert</strong> in each MoE router during dreaming, injecting "irrelevant" knowledge and encouraging the model to synthesize novel combinations of memories.</li>
+</ul>
+
+<!-- Dream generation canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dream generation — gradient-scored selection + random expert exploration</span>
+    <span class="vp-hint">click Play to animate</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="dream-canvas" style="width:100%;height:240px;display:block"></canvas>
+    <div class="canvas-controls">
+      <button id="dream-play">▶ Play</button>
+      <button id="dream-reset">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="math-block">
+<div class="math-label">Dream Selection &amp; Reward</div>
+Dreams = &#123;DREAM(1), ..., DREAM(m)&#125; ~ LM_θ(·|C, random_expert)
+<br><br>
+<span class="math-comment">// Importance score = gradient of SFT loss w.r.t. model params</span>
+<span class="math-var">g_DR(i)</span> = ∇_θ L_SFT(DREAM(i), θ)
+<br><br>
+Select Top-k by importance + b random (for diversity)
+<br><br>
+<span class="math-comment">// Reward = performance improvement after fine-tuning on dream</span>
+<span class="math-var">r_DREAM</span> = 1 if fine-tuned model improves on task τ, else 0
+</div>
+</section>
+
+<!-- §06 Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Sleep Beats SFT, GRPO, and SEAL Across All Benchmarks</h2>
+<p>
+  Sleep is evaluated across four challenging settings: mathematical reasoning, knowledge incorporation,
+  few-shot abstract reasoning, and continual learning across sequential tasks. The results are consistent —
+  Sleep outperforms or matches every baseline across all settings.
+</p>
+
+<h3>Mathematical Reasoning (AIME-24/25, HMMT-25)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>AIME-24</th>
+      <th>AIME-25</th>
+      <th>HMMT-25</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Base (Instruct)</td>
+      <td class="mn">47.3</td>
+      <td class="mn">36.1</td>
+      <td class="mn">22.9</td>
+    </tr>
+    <tr>
+      <td>SFT</td>
+      <td class="mn">51.0</td>
+      <td class="mn">38.6</td>
+      <td class="mn">26.1</td>
+    </tr>
+    <tr>
+      <td>GRPO</td>
+      <td class="mn">51.6</td>
+      <td class="mn">40.0</td>
+      <td class="mn">28.1</td>
+    </tr>
+    <tr>
+      <td>OPSD</td>
+      <td class="mn">53.2</td>
+      <td class="mn">40.2</td>
+      <td class="mn">29.3</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>Sleep (Qwen3-1.7B)</strong></td>
+      <td class="mn best">53.2</td>
+      <td class="mn best">40.2</td>
+      <td class="mn best">29.3</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>Sleep (Qwen3-8B)</strong></td>
+      <td class="mn best">79.2</td>
+      <td class="mn best">69.0</td>
+      <td class="mn best">46.1</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Few-Shot Abstract Reasoning (ARC) &amp; Knowledge Incorporation</h3>
+<div class="results-bars" id="results-bars">
+  <div class="bar-row">
+    <div class="bar-label">ICL (no sleep)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="0"><span>0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">TTT</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.45)" data-w="10"><span>10%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SEAL</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="72.5"><span>72.5%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">Sleep</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="80"><span>80%</span></div></div>
+  </div>
+</div>
+<p style="font-size:.75rem;color:var(--muted);margin-top:-.5rem;margin-bottom:1.25rem">Few-shot ARC success rate (%) — Llama-3.2-1B backbone. ICL = in-context learning only.</p>
+
+<h3>Knowledge Incorporation (SQuAD, no-context accuracy)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Single Passage (n=1)</th>
+      <th>CPT Setting (n=200)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Base model</td><td class="mn">31.9</td><td class="mn">31.9</td></tr>
+    <tr><td>Fine-tuned (no dreaming)</td><td class="mn">33.4</td><td class="mn">32.0</td></tr>
+    <tr><td>SEAL</td><td class="mn">46.7</td><td class="mn">43.2</td></tr>
+    <tr><td>Sleep (Transformer)</td><td class="mn">48.1</td><td class="mn">44.3</td></tr>
+    <tr class="highlight-row"><td><strong>Sleep (4-level)</strong></td><td class="mn best">48.9</td><td class="mn best">46.2</td></tr>
+  </tbody>
+</table>
+
+<p>
+  On BABILong (long-context recall up to 10M tokens), Sleep achieves near-perfect scores — surpassing GPT-4,
+  GPT-4o-mini, Llama-8B+RAG, and specialized architectures like ARMT and Titans.
+</p>
+<p>
+  Ablations confirm every component matters: removing imitation learning (−RL) drops AIME-24 from 53.2 to 51.0;
+  removing semantic reward loses another point; removing parameter expansion costs 1.0 on AIME-24; removing dreaming
+  entirely is catastrophic, dropping SQuAD CPT from 46.2 to 36.2.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">sleep/core.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="memory">memory</button>
+    <button class="cs-tab" data-panel="architecture">paradigm</button>
+    <button class="cs-tab" data-panel="seeding">seeding</button>
+    <button class="cs-tab" data-panel="dreaming">dreaming</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The core problem: two extreme memory modes</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Mode 1: In-Context Learning (attention)</span>
+<span class="cs-line cmt"># - Updates every token</span>
+<span class="cs-line cmt"># - Forgets everything at context boundary</span>
+<span class="cs-line cmt"># - Great for rapid adaptation, zero persistence</span>
+<span class="cs-line hl-a"><span class="kw">class</span> <span class="cls">InContextMemory</span>:</span>
+<span class="cs-line hl-a">    <span class="attr">update_freq</span> = <span class="str">"every_token"</span>  <span class="cmt"># f = ∞</span></span>
+<span class="cs-line hl-a">    <span class="attr">persistence</span> = <span class="str">"context_window"</span></span>
+<span class="cs-line hl-a">    <span class="attr">catastrophic_forgetting</span> = <span class="cls">True</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Mode 2: Pretrained MLP weights</span>
+<span class="cs-line cmt"># - Never updates after pretraining</span>
+<span class="cs-line cmt"># - Knowledge frozen at training cutoff</span>
+<span class="cs-line cmt"># - Can't incorporate new information</span>
+<span class="cs-line hl-a"><span class="kw">class</span> <span class="cls">PretrainedMemory</span>:</span>
+<span class="cs-line hl-a">    <span class="attr">update_freq</span> = <span class="num">0</span>   <span class="cmt"># f ≈ 0</span></span>
+<span class="cs-line hl-a">    <span class="attr">persistence</span> = <span class="str">"forever"</span></span>
+<span class="cs-line hl-a">    <span class="attr">adaptability</span> = <span class="cls">False</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Missing: medium-timescale memory</span>
+<span class="cs-line cmt"># that persists across context boundaries</span>
+<span class="cs-line cmt"># but can still be updated from experience</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Catastrophic Forgetting in action:</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">continual_learn_without_sleep</span>(model, tasks):</span>
+<span class="cs-line">    <span class="kw">for</span> task <span class="kw">in</span> tasks:</span>
+<span class="cs-line">        model.<span class="fn">finetune</span>(task)  <span class="cmt"># overwrites old</span></span>
+<span class="cs-line">        <span class="cmt"># ↑ performance on task[-1]</span></span>
+<span class="cs-line">        <span class="cmt"># ↓ performance on task[0..-2]</span></span>
+<span class="cs-line">    <span class="kw">return</span> model  <span class="cmt"># mostly knows last task</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-memory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Continuum Memory System (CMS)</span>
+<span class="cs-line cmt"># Chain of MLPs at different update frequencies</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">ContinuumMemorySystem</span>:</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, frequencies):</span>
+<span class="cs-line hl-p">        <span class="cmt"># f1 >= f2 >= ... >= fk</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># faster = shorter-term, more fragile</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># slower = longer-term, more stable</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.<span class="attr">layers</span> = [</span>
+<span class="cs-line hl-p">            <span class="cls">MLP</span>(f=freq) <span class="kw">for</span> freq <span class="kw">in</span> frequencies</span>
+<span class="cs-line hl-p">        ]</span>
+<span class="cs-line hl-p">        <span class="cmt"># chunk_size = max_freq / layer_freq</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, x_t):</span>
+<span class="cs-line">        <span class="cmt"># Each layer processes its chunk</span></span>
+<span class="cs-line">        y = x_t</span>
+<span class="cs-line">        <span class="kw">for</span> layer <span class="kw">in</span> <span class="kw">self</span>.<span class="attr">layers</span>:</span>
+<span class="cs-line">            y = layer.<span class="fn">forward</span>(y)</span>
+<span class="cs-line">        <span class="kw">return</span> y</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">update</span>(<span class="kw">self</span>, step):</span>
+<span class="cs-line">        <span class="kw">for</span> layer <span class="kw">in</span> <span class="kw">self</span>.<span class="attr">layers</span>:</span>
+<span class="cs-line">            <span class="cmt"># Only update if step divides chunk</span></span>
+<span class="cs-line">            <span class="kw">if</span> step % layer.<span class="attr">chunk_size</span> == <span class="num">0</span>:</span>
+<span class="cs-line">                layer.<span class="fn">gradient_step</span>()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example frequency configuration:</span>
+<span class="cs-line cmt"># frequencies = [1000, 100, 10, 1]</span>
+<span class="cs-line cmt"># Layer 0: updates every 1 step (fastest)</span>
+<span class="cs-line cmt"># Layer 1: updates every 10 steps</span>
+<span class="cs-line cmt"># Layer 2: updates every 100 steps</span>
+<span class="cs-line cmt"># Layer 3: updates every 1000 steps (slowest)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Attention == layer with f = ∞ (every token)</span>
+<span class="cs-line cmt"># Pretrained MLP == layer with f = 0 (never)</span>
+<span class="cs-line cmt"># CMS fills the spectrum between them</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-architecture">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The Sleep Paradigm: wake/sleep lifecycle</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">lifelong_learning</span>(model, data_stream):</span>
+<span class="cs-line hl-p">    step = <span class="num">0</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> batch <span class="kw">in</span> data_stream:</span>
+<span class="cs-line hl-p">        <span class="cmt"># ── WAKE PHASE ──</span></span>
+<span class="cs-line hl-p">        model.<span class="fn">process</span>(batch)  <span class="cmt"># ICL + fast updates</span></span>
+<span class="cs-line hl-p">        step += <span class="num">1</span></span>
+<span class="cs-line hl-p"></span>
+<span class="cs-line hl-p">        <span class="cmt"># Check if any layer needs to sleep</span></span>
+<span class="cs-line hl-p">        <span class="kw">for</span> l <span class="kw">in</span> model.<span class="attr">cms_layers</span>:</span>
+<span class="cs-line hl-p">            <span class="kw">if</span> step % l.<span class="attr">chunk_size</span> == <span class="num">0</span>:</span>
+<span class="cs-line hl-p">                <span class="fn">sleep</span>(model, l, step)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">sleep</span>(model, layer_l, step):</span>
+<span class="cs-line">    <span class="cmt"># No new external data during sleep</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># ── Stage 1: Memory Consolidation ──</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Expand target layer with new expert</span></span>
+<span class="cs-line hl-c">    model.<span class="fn">expand_layer</span>(layer_l, rank=<span class="attr">d_low</span>)</span>
+<span class="cs-line hl-c">    <span class="cmt"># Knowledge seeding: layer_(l-1) → layer_l</span></span>
+<span class="cs-line hl-c">    <span class="fn">knowledge_seeding</span>(</span>
+<span class="cs-line hl-c">        src=model.<span class="fn">layer</span>(layer_l - <span class="num">1</span>),</span>
+<span class="cs-line hl-c">        dst=model.<span class="fn">layer</span>(layer_l),</span>
+<span class="cs-line hl-c">        freeze_existing=<span class="cls">True</span></span>
+<span class="cs-line hl-c">    )</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># ── Stage 2: Dreaming ──</span></span>
+<span class="cs-line hl-g">    dreams = <span class="fn">generate_dreams</span>(model)</span>
+<span class="cs-line hl-g">    selected = <span class="fn">gradient_score_select</span>(dreams)</span>
+<span class="cs-line hl-g">    <span class="fn">rl_finetune</span>(model, selected)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># ── Synaptic Pruning ──</span></span>
+<span class="cs-line">    model.<span class="fn">reset_fast_lora_experts</span>(layer_l - <span class="num">1</span>)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-seeding">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Knowledge Seeding: upward distillation</span>
+<span class="cs-line cmt"># Small self (teacher) → large self (student)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">knowledge_seeding</span>(teacher, student, α=<span class="num">0.5</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Build dataset from teacher</span></span>
+<span class="cs-line hl-p">    D = teacher.<span class="fn">sample_dataset</span>()</span>
+<span class="cs-line hl-p"></span>
+<span class="cs-line hl-p">    <span class="cmt"># On-policy distillation (GKD-style)</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> x <span class="kw">in</span> D:</span>
+<span class="cs-line hl-p">        y_student = student.<span class="fn">sample</span>(x)</span>
+<span class="cs-line hl-p">        logits_t = teacher.<span class="fn">logits</span>(y_student, x)</span>
+<span class="cs-line hl-p">        logits_s = student.<span class="fn">logits</span>(y_student, x)</span>
+<span class="cs-line hl-p">        L_dist = <span class="fn">kl_divergence</span>(logits_t, logits_s)</span>
+<span class="cs-line hl-p"></span>
+<span class="cs-line">    <span class="cmt"># Learning to Imitate (LTI) via RL</span></span>
+<span class="cs-line hl-c">    D_teacher = teacher.<span class="fn">generate_dreams</span>()</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> dream <span class="kw">in</span> D_teacher:</span>
+<span class="cs-line hl-c">        prefix = dream[:<span class="fn">random_cut</span>()]</span>
+<span class="cs-line hl-c">        continuation = student.<span class="fn">complete</span>(prefix)</span>
+<span class="cs-line hl-c">        r_sem = <span class="fn">semantic_match</span>(continuation, dream)</span>
+<span class="cs-line hl-c">        r_abs = <span class="num">1</span> - <span class="fn">levenshtein</span>(continuation, dream)</span>
+<span class="cs-line hl-c">        reward = γ * r_sem + (<span class="num">1</span>-γ) * r_abs</span>
+<span class="cs-line hl-c"></span>
+<span class="cs-line">    <span class="cmt"># Combined KS objective</span></span>
+<span class="cs-line">    L_KS = (<span class="num">1</span>-α) * E[reward] - α * E[L_dist]</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># KEY: only update new low-rank expert</span></span>
+<span class="cs-line hl-g">    student.<span class="fn">freeze_all_except</span>(new_lora_expert)</span>
+<span class="cs-line hl-g">    student.<span class="fn">optimize</span>(L_KS)</span>
+<span class="cs-line hl-g">    student.<span class="fn">unfreeze_all</span>()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># After seeding: reset fast layer's old experts</span>
+<span class="cs-line cmt"># (synaptic pruning — free capacity for future)</span>
+<span class="cs-line">teacher.<span class="fn">reset_accumulated_lora</span>()</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-dreaming">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Dreaming: RL-driven self-improvement</span>
+<span class="cs-line cmt"># Builds on SEAL + 3 key innovations</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">dream</span>(model, context, task_metric, m=<span class="num">16</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Innovation 1: Random expert injection</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Forces exploration beyond current knowledge</span></span>
+<span class="cs-line hl-p">    <span class="kw">with</span> model.<span class="fn">random_expert_routing</span>():</span>
+<span class="cs-line hl-p">        dreams = [</span>
+<span class="cs-line hl-p">            model.<span class="fn">generate</span>(context)</span>
+<span class="cs-line hl-p">            <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(m)</span>
+<span class="cs-line hl-p">        ]</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># Innovation 2: Gradient-based selection</span></span>
+<span class="cs-line hl-c">    scores = [</span>
+<span class="cs-line hl-c">        <span class="fn">grad_norm</span>(model, L_SFT(d))</span>
+<span class="cs-line hl-c">        <span class="kw">for</span> d <span class="kw">in</span> dreams</span>
+<span class="cs-line hl-c">    ]</span>
+<span class="cs-line hl-c">    <span class="cmt"># Keep top-k + b random (diversity)</span></span>
+<span class="cs-line hl-c">    selected = <span class="fn">top_k_plus_random</span>(dreams, scores)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="cmt"># Innovation 3: LoRA instead of full SFT</span></span>
+<span class="cs-line hl-g">    rewards = []</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> dream <span class="kw">in</span> selected:</span>
+<span class="cs-line hl-g">        model_copy = model.<span class="fn">clone</span>()</span>
+<span class="cs-line hl-g">        model_copy.<span class="fn">lora_finetune</span>(dream)</span>
+<span class="cs-line hl-g">        improved = task_metric(model_copy)</span>
+<span class="cs-line hl-g">        rewards.<span class="fn">append</span>(<span class="num">1</span> <span class="kw">if</span> improved <span class="kw">else</span> <span class="num">0</span>)</span>
+<span class="cs-line hl-g"></span>
+<span class="cs-line">    <span class="cmt"># REINFORCE update (ReSTEM algorithm)</span></span>
+<span class="cs-line">    model.<span class="fn">reinforce</span>(selected, rewards)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why 2-stage design prevents forgetting:</span>
+<span class="cs-line cmt"># 1. Consolidation runs FIRST (isolated expert)</span>
+<span class="cs-line cmt"># 2. Dreaming fine-tunes ONLY new knowledge</span>
+<span class="cs-line cmt"># 3. Old params never touched by either stage</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key experimental numbers</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Mathematical Reasoning (avg@16)</span>
+<span class="cs-line cmt"># Qwen3-1.7B backbone</span>
+<span class="cs-line cmt"># ──────────────────────────────────</span>
+<span class="cs-line cmt">#              AIME-24  AIME-25  HMMT</span>
+<span class="cs-line hl-a"><span class="cmt"># Base:          47.3    36.1    22.9</span></span>
+<span class="cs-line hl-a"><span class="cmt"># SFT:           51.0    38.6    26.1</span></span>
+<span class="cs-line hl-a"><span class="cmt"># GRPO:          51.6    40.0    28.1</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Sleep:         53.2    40.2    29.3</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Few-Shot ARC (Llama-3.2-1B)</span>
+<span class="cs-line cmt"># ──────────────────────────────────</span>
+<span class="cs-line hl-a"><span class="cmt"># ICL:            0%  (zero-shot)</span></span>
+<span class="cs-line hl-a"><span class="cmt"># TTT:           10%</span></span>
+<span class="cs-line hl-a"><span class="cmt"># SEAL:          72.5%</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Sleep:         80%   (+7.5pp)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Knowledge Incorp (SQuAD, no-context)</span>
+<span class="cs-line cmt"># ──────────────────────────────────</span>
+<span class="cs-line hl-a"><span class="cmt"># Base:          31.9   31.9 (CPT)</span></span>
+<span class="cs-line hl-a"><span class="cmt"># SEAL:          46.7   43.2 (CPT)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Sleep 4-lvl:   48.9   46.2 (CPT)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation (AIME-24 / SQuAD CPT)</span>
+<span class="cs-line cmt"># ──────────────────────────────────</span>
+<span class="cs-line hl-p"><span class="cmt"># Full Sleep:     53.2 / 46.2</span></span>
+<span class="cs-line hl-a"><span class="cmt"># -Imitation RL:  51.0 / --</span></span>
+<span class="cs-line hl-a"><span class="cmt"># -Sem. Reward:   52.9 / --</span></span>
+<span class="cs-line hl-a"><span class="cmt"># -Expansion:     52.2 / --</span></span>
+<span class="cs-line hl-a"><span class="cmt"># -Dreaming:      --   / 36.2</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># BABILong: near-perfect at 10M tokens</span>
+<span class="cs-line cmt"># Outperforms GPT-4, GPT-4o-mini, RAG</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──
+const tabMeta = {
+  problem:      { file: 'sleep/problem.py',      title: 'The Problem' },
+  memory:       { file: 'sleep/cms.py',           title: 'Memory Spectrum' },
+  architecture: { file: 'sleep/paradigm.py',      title: 'Sleep Paradigm' },
+  seeding:      { file: 'sleep/seeding.py',       title: 'Knowledge Seeding' },
+  dreaming:     { file: 'sleep/dreaming.py',      title: 'Dreaming' },
+  results:      { file: 'sleep/results.py',       title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar tab on scroll ──
+const sectionMap = {
+  's-problem':      'problem',
+  's-memory':       'memory',
+  's-architecture': 'architecture',
+  's-seeding':      'seeding',
+  's-dreaming':     'dreaming',
+  's-results':      'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Step navigator (Sleep Paradigm section) ──
+let step = 0;
+const boxes   = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step>0){step--;updateSteps();} });
+nextBtn?.addEventListener('click', () => { if (step<boxes.length-1){step++;updateSteps();} });
+updateSteps();
+
+// ── Lifecycle Canvas (§01 The Problem) ──
+// Shows: ICL only (knowledge spikes during context, drops to 0 at boundary)
+// vs Sleep (knowledge gradually rises as sleep consolidates)
+(function() {
+  const canvas = document.getElementById('lifecycle-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 240, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  let mode = 'icl'; // 'icl' or 'sleep'
+
+  // color palette matching blog theme
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', AMBER = '#f59e0b';
+  const MUTED  = '#6b7280', BORDER = 'rgba(255,255,255,0.07)';
+  const SURFACE = '#12121f';
+
+  function drawLifecycle(m) {
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 48, padR = 16, padT = 30, padB = 40;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Background
+    ctx.fillStyle = SURFACE;
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid lines
+    ctx.strokeStyle = BORDER;
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + cH - (i / 4) * cH;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y); ctx.stroke();
+    }
+
+    // Y axis label
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + cH - (i / 4) * cH;
+      ctx.fillText((i * 25) + '%', padL - 5, y + 4);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillText('knowledge retained', padL - 34, padT + cH / 2);
+    ctx.fillText('time →', padL + cW / 2, H - 6);
+
+    // Context boundary markers
+    const nContexts = 5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    for (let i = 1; i < nContexts; i++) {
+      const x = padL + (i / nContexts) * cW;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + cH); ctx.stroke();
+      ctx.fillStyle = 'rgba(107,114,128,0.7)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('context ends', x, padT + cH + 14);
+    }
+    ctx.setLineDash([]);
+
+    // Sleep event markers (only for sleep mode)
+    if (m === 'sleep') {
+      const sleepEvents = [0.3, 0.6, 0.9];
+      sleepEvents.forEach(frac => {
+        const x = padL + frac * cW;
+        ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+        ctx.setLineDash([2, 3]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + cH); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(139,92,246,0.8)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('😴 sleep', x, padT - 6);
+      });
+    }
+
+    // Draw the knowledge curve
+    if (m === 'icl') {
+      // ICL: knowledge rises during context, resets to ~5% at each boundary
+      ctx.beginPath();
+      ctx.strokeStyle = AMBER;
+      ctx.lineWidth = 2;
+      const pts = [];
+      for (let xi = 0; xi <= 200; xi++) {
+        const t = xi / 200;
+        // 5 contexts, each from ~5% up to ~60%
+        const ctxIdx = Math.floor(t * nContexts);
+        const ctxFrac = (t * nContexts) % 1;
+        // rise within context, small rise with each new context (slight improvement)
+        const baseline = 0.04 + ctxIdx * 0.012;
+        const rise = baseline + ctxFrac * (0.5 + ctxIdx * 0.02);
+        // cliff at context boundary
+        const y_frac = Math.min(rise, 0.72);
+        const px = padL + t * cW;
+        const py = padT + cH * (1 - y_frac);
+        pts.push([px, py]);
+      }
+      // Draw but add vertical drops at context boundaries
+      let first = true;
+      for (let i = 0; i < pts.length; i++) {
+        const t = i / 200;
+        const ctxFrac = (t * nContexts) % 1;
+        if (ctxFrac < 0.01 && i > 0) {
+          // drop to baseline before drawing
+          ctx.stroke(); ctx.beginPath();
+          ctx.moveTo(pts[i-1][0], padT + cH * 0.96);
+          ctx.lineTo(pts[i][0], padT + cH * 0.96);
+          ctx.lineTo(pts[i][0], pts[i][1]);
+          ctx.stroke(); ctx.beginPath();
+          first = false;
+        }
+        if (first) { ctx.moveTo(pts[i][0], pts[i][1]); first = false; }
+        else ctx.lineTo(pts[i][0], pts[i][1]);
+      }
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = AMBER;
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('ICL only — knowledge resets at each context boundary', padL + 5, padT + 18);
+
+    } else {
+      // Sleep: knowledge gradually rises as sleep consolidates, floor rises too
+      ctx.beginPath();
+      ctx.strokeStyle = PURPLE;
+      ctx.lineWidth = 2;
+      const sleepBoosts = [0, 0, 0, 0.15, 0.15, 0.15, 0.30, 0.30, 0.30, 0.44, 0.44, 0.44, 0.56];
+      for (let xi = 0; xi <= 200; xi++) {
+        const t = xi / 200;
+        const ctxIdx = Math.floor(t * nContexts);
+        const ctxFrac = (t * nContexts) % 1;
+        const sleepBoost = ctxIdx < sleepBoosts.length ? sleepBoosts[ctxIdx * 2 + Math.round(ctxFrac)] : 0.56;
+        const boost = Math.min(ctxIdx * 0.12 + sleepBoost * 0.3, 0.58);
+        const rise = 0.04 + boost + ctxFrac * (0.28 + ctxIdx * 0.01);
+        const y_frac = Math.min(rise, 0.82);
+        const px = padL + t * cW;
+        const py = padT + cH * (1 - y_frac);
+        if (xi === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Shade under the curve to show stable floor rising
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(139,92,246,0.08)';
+      for (let xi = 0; xi <= 200; xi++) {
+        const t = xi / 200;
+        const ctxIdx = Math.floor(t * nContexts);
+        const ctxFrac = (t * nContexts) % 1;
+        const boost = Math.min(ctxIdx * 0.12, 0.48);
+        const floor = 0.04 + boost;
+        const px = padL + t * cW;
+        const py = padT + cH * (1 - floor);
+        if (xi === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.lineTo(padL + cW, padT + cH);
+      ctx.lineTo(padL, padT + cH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = PURPLE;
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('Sleep — knowledge floor rises as consolidation accumulates', padL + 5, padT + 18);
+    }
+  }
+
+  document.getElementById('btn-icl')?.addEventListener('click', () => {
+    mode = 'icl';
+    document.getElementById('btn-icl').classList.add('active-btn');
+    document.getElementById('btn-sleep').classList.remove('active-btn');
+    drawLifecycle(mode);
+  });
+  document.getElementById('btn-sleep')?.addEventListener('click', () => {
+    mode = 'sleep';
+    document.getElementById('btn-sleep').classList.add('active-btn');
+    document.getElementById('btn-icl').classList.remove('active-btn');
+    drawLifecycle(mode);
+  });
+
+  drawLifecycle(mode);
+})();
+
+// ── Spectrum Canvas (§02 Memory Spectrum) ──
+(function() {
+  const canvas = document.getElementById('spectrum-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 200, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', AMBER = '#f59e0b';
+  const MUTED = '#6b7280', SURFACE = '#12121f', BORDER = 'rgba(255,255,255,0.07)';
+
+  ctx.fillStyle = SURFACE;
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw a horizontal spectrum bar
+  const barY = 90, barH = 28, padL = 70, padR = 70;
+  const barW = W - padL - padR;
+
+  // Gradient: amber (fast/fragile) → purple (medium) → green (slow/stable)
+  const grad = ctx.createLinearGradient(padL, 0, padL + barW, 0);
+  grad.addColorStop(0,   'rgba(245,158,11,0.8)');
+  grad.addColorStop(0.35,'rgba(139,92,246,0.8)');
+  grad.addColorStop(1,   'rgba(16,185,129,0.8)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(padL, barY, barW, barH, 8);
+  ctx.fill();
+
+  // Layer markers
+  const layers = [
+    { x: 0.0,  label: 'Attention',       sub: 'f = ∞',       color: AMBER,  y: 58 },
+    { x: 0.25, label: 'CMS fast MLP',    sub: 'f = 1000',    color: AMBER,  y: 148 },
+    { x: 0.5,  label: 'CMS medium MLP',  sub: 'f = 100',     color: PURPLE, y: 58 },
+    { x: 0.75, label: 'CMS slow MLP',    sub: 'f = 10',      color: GREEN,  y: 148 },
+    { x: 1.0,  label: 'Pretrained MLP',  sub: 'f = 0',       color: GREEN,  y: 58 },
+  ];
+
+  layers.forEach(l => {
+    const x = padL + l.x * barW;
+    // Tick mark
+    ctx.strokeStyle = l.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (l.y < 90) {
+      ctx.moveTo(x, l.y + 18); ctx.lineTo(x, barY);
+    } else {
+      ctx.moveTo(x, barY + barH); ctx.lineTo(x, l.y - 18);
+    }
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = l.color;
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(l.label, x, l.y < 90 ? l.y : l.y);
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.fillText(l.sub, x, l.y < 90 ? l.y + 14 : l.y + 14);
+  });
+
+  // Axis labels
+  ctx.fillStyle = AMBER;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('← shorter-term, high plasticity', padL + barW * 0.2, barY + barH + 38);
+  ctx.fillStyle = GREEN;
+  ctx.fillText('longer-term, stable →', padL + barW * 0.75, barY + barH + 38);
+
+  // Arrows
+  ctx.strokeStyle = AMBER; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, barY + barH + 24); ctx.lineTo(padL + barW * 0.08, barY + barH + 24); ctx.stroke();
+  ctx.strokeStyle = GREEN;
+  ctx.beginPath(); ctx.moveTo(padL + barW - barW * 0.08, barY + barH + 24); ctx.lineTo(padL + barW, barY + barH + 24); ctx.stroke();
+
+  // Sleep arrows showing consolidation direction
+  ctx.strokeStyle = 'rgba(139,92,246,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  const arrowY = barY + barH / 2;
+  ctx.beginPath();
+  ctx.moveTo(padL + barW * 0.12, arrowY);
+  ctx.lineTo(padL + barW * 0.88, arrowY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // arrowhead
+  ctx.beginPath();
+  ctx.moveTo(padL + barW * 0.88, arrowY - 5);
+  ctx.lineTo(padL + barW * 0.88 + 8, arrowY);
+  ctx.lineTo(padL + barW * 0.88, arrowY + 5);
+  ctx.fillStyle = 'rgba(139,92,246,0.5)';
+  ctx.fill();
+  ctx.fillStyle = PURPLE;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('😴 sleep consolidates →', padL + barW * 0.5, arrowY - 10);
+})();
+
+// ── Seeding Canvas (§04 Knowledge Seeding) ──
+(function() {
+  const canvas = document.getElementById('seeding-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 260, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', AMBER = '#f59e0b';
+  const MUTED = '#6b7280', SURFACE = '#12121f';
+
+  ctx.fillStyle = SURFACE;
+  ctx.fillRect(0, 0, W, H);
+
+  // Two panels: Traditional KD (left) vs Knowledge Seeding (right)
+  const mid = W / 2;
+
+  function drawModel(cx, cy, w, h, label, sub, color, hasNewExpert) {
+    // Box
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = color.replace(')', ',0.1)').replace('rgb', 'rgba').replace('#', 'rgba(').replace(')', ',0.1)');
+
+    // Better approach: use alpha directly
+    ctx.fillStyle = color + '18';
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(cx - w/2, cy - h/2, w, h, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy + 4);
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.fillText(sub, cx, cy + 18);
+
+    if (hasNewExpert) {
+      // Draw a small "new expert" badge
+      ctx.fillStyle = GREEN;
+      ctx.fillStyle = GREEN + '22';
+      ctx.strokeStyle = GREEN;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(cx - w/2 + 6, cy + h/2 - 28, 70, 20, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = GREEN;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('+ new expert', cx - w/2 + 41, cy + h/2 - 14);
+    }
+  }
+
+  function drawArrow(x1, y1, x2, y2, color, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    // Arrowhead
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 10 * Math.cos(angle - 0.4), y2 - 10 * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - 10 * Math.cos(angle + 0.4), y2 - 10 * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fill();
+
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      ctx.fillText(label, mx, my - 8);
+    }
+  }
+
+  // === Left panel: Traditional Distillation ===
+  ctx.fillStyle = MUTED;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Traditional Distillation', mid / 2, 22);
+
+  drawModel(mid / 2, 70, 120, 44, 'Large Teacher', 'large params', CYAN, false);
+  drawArrow(mid / 2, 94, mid / 2, 154, CYAN, 'compress');
+  drawModel(mid / 2, 178, 90, 40, 'Small Student', 'fewer params', MUTED, false);
+
+  ctx.fillStyle = AMBER;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('knowledge flows ↓ downward', mid / 2, 230);
+  ctx.fillText('(compression)', mid / 2, 244);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(mid, 20);
+  ctx.lineTo(mid, H - 10);
+  ctx.stroke();
+
+  // === Right panel: Knowledge Seeding ===
+  ctx.fillStyle = PURPLE;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Knowledge Seeding (Sleep)', mid + mid / 2, 22);
+
+  drawModel(mid + mid / 2, 75, 130, 48, 'Small Self', '(teacher: fast MLP)', AMBER, false);
+  drawArrow(mid + mid / 2, 100, mid + mid / 2, 152, PURPLE, 'seed upward');
+  drawModel(mid + mid / 2, 186, 150, 52, 'Large Self', '(student: slow MLP)', PURPLE, true);
+
+  ctx.fillStyle = GREEN;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('knowledge flows ↑ upward', mid + mid / 2, 248);
+  ctx.fillText('(consolidation + capacity expansion)', mid + mid / 2, 258);
+})();
+
+// ── Stages Canvas (§04 — more stages = better retention) ──
+(function() {
+  const canvas = document.getElementById('stages-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 220, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', AMBER = '#f59e0b';
+  const MUTED = '#6b7280', SURFACE = '#12121f', BORDER = 'rgba(255,255,255,0.07)';
+
+  let numStages = 1;
+
+  function drawStages(n) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = SURFACE;
+    ctx.fillRect(0, 0, W, H);
+
+    const padL = 55, padR = 20, padT = 30, padB = 40;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Grid
+    ctx.strokeStyle = BORDER;
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + cH - (i / 4) * cH;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y); ctx.stroke();
+      ctx.fillStyle = MUTED;
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText((i * 25) + '%', padL - 5, y + 4);
+    }
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('tasks learned sequentially →', padL + cW / 2, H - 5);
+
+    // Draw ICL baseline (always shown)
+    const iclKnowledge = [5, 12, 8, 14, 10, 16, 12, 18, 14, 20];
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(107,114,128,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    for (let i = 0; i < iclKnowledge.length; i++) {
+      const x = padL + (i / (iclKnowledge.length - 1)) * cW;
+      const y = padT + cH * (1 - iclKnowledge[i] / 100);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(107,114,128,0.6)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('ICL baseline', padL + 5, padT + cH - 8);
+
+    // Draw hope variants
+    const configs = [
+      { stages: 1, color: AMBER, data: [8, 22, 28, 32, 36, 40, 44, 48, 50, 52], label: 'Hope-1 (1 stage)' },
+      { stages: 2, color: CYAN,  data: [8, 26, 34, 40, 46, 50, 55, 58, 61, 64], label: 'Hope-2 (2 stages)' },
+      { stages: 3, color: PURPLE,data: [8, 30, 40, 48, 54, 60, 66, 70, 73, 76], label: 'Hope-3 (3 stages)' },
+    ];
+
+    configs.forEach(cfg => {
+      if (cfg.stages > n) return;
+      ctx.beginPath();
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth = cfg.stages === n ? 2.5 : 1.5;
+      ctx.globalAlpha = cfg.stages === n ? 1 : 0.4;
+      for (let i = 0; i < cfg.data.length; i++) {
+        const x = padL + (i / (cfg.data.length - 1)) * cW;
+        const y = padT + cH * (1 - cfg.data[i] / 100);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      if (cfg.stages === n) {
+        const lastX = padL + cW;
+        const lastY = padT + cH * (1 - cfg.data[cfg.data.length - 1] / 100);
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(cfg.label, lastX - 8, lastY - 6);
+      }
+    });
+
+    // Sleep events marker
+    const sleepX = [0.2, 0.4, 0.6, 0.8].slice(0, n + 1);
+    sleepX.forEach(frac => {
+      const x = padL + frac * cW;
+      ctx.strokeStyle = 'rgba(139,92,246,0.3)';
+      ctx.setLineDash([2, 3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  document.getElementById('btn-s1')?.addEventListener('click', () => {
+    numStages = 1;
+    ['btn-s1','btn-s2','btn-s3'].forEach(id => document.getElementById(id)?.classList.remove('active-btn'));
+    document.getElementById('btn-s1').classList.add('active-btn');
+    drawStages(numStages);
+  });
+  document.getElementById('btn-s2')?.addEventListener('click', () => {
+    numStages = 2;
+    ['btn-s1','btn-s2','btn-s3'].forEach(id => document.getElementById(id)?.classList.remove('active-btn'));
+    document.getElementById('btn-s2').classList.add('active-btn');
+    drawStages(numStages);
+  });
+  document.getElementById('btn-s3')?.addEventListener('click', () => {
+    numStages = 3;
+    ['btn-s1','btn-s2','btn-s3'].forEach(id => document.getElementById(id)?.classList.remove('active-btn'));
+    document.getElementById('btn-s3').classList.add('active-btn');
+    drawStages(numStages);
+  });
+  drawStages(numStages);
+})();
+
+// ── Dream Canvas (§05 Dreaming) ──
+(function() {
+  const canvas = document.getElementById('dream-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 240, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', AMBER = '#f59e0b';
+  const MUTED = '#6b7280', SURFACE = '#12121f';
+
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  // Generate m=12 dreams with pre-seeded positions
+  const M = 12;
+  const dreams = Array.from({length: M}, (_, i) => ({
+    x: 0.08 + seededRand(i * 5) * 0.84,
+    y: 0.12 + seededRand(i * 5 + 1) * 0.76,
+    quality: seededRand(i * 5 + 2), // gradient score
+    random_expert: seededRand(i * 5 + 3) > 0.6, // used random expert
+    selected: false,
+  }));
+
+  // Mark top-4 by quality as selected
+  const sorted = [...dreams].sort((a, b) => b.quality - a.quality);
+  sorted.slice(0, 4).forEach(d => d.selected = true);
+  // Plus 1 random from non-selected
+  const nonSelected = dreams.filter(d => !d.selected);
+  nonSelected[Math.floor(seededRand(99) * nonSelected.length)].selected = true;
+
+  let animT = 0;
+  let animRunning = false;
+  let rafId = null;
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = SURFACE;
+    ctx.fillRect(0, 0, W, H);
+
+    const padL = 20, padR = 20, padT = 24, padB = 20;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Title
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('model (with context)', padL + 5, padT - 5);
+
+    // Model box at center
+    const mx = padL + cW * 0.22, my = padT + cH * 0.5;
+    ctx.strokeStyle = CYAN;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = 'rgba(6,182,212,0.08)';
+    ctx.beginPath();
+    ctx.roundRect(mx - 50, my - 25, 100, 50, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = CYAN;
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LM_θ', mx, my + 4);
+    ctx.fillStyle = MUTED;
+    ctx.font = '10px monospace';
+    ctx.fillText('+random expert', mx, my + 18);
+
+    // Draw dreams as dots radiating out
+    dreams.forEach((d, i) => {
+      const dx = padL + cW * (0.45 + d.x * 0.52);
+      const dy = padT + cH * (0.08 + d.y * 0.84);
+
+      // Animate: dreams appear progressively
+      const dreamT = Math.max(0, Math.min(1, (t - i * 0.04) * 3));
+      if (dreamT <= 0) return;
+
+      // Line from model to dream
+      const progress = Math.min(dreamT, 1);
+      const lineEndX = mx + (dx - mx) * progress;
+      const lineEndY = my + (dy - my) * progress;
+      ctx.strokeStyle = d.random_expert ? 'rgba(245,158,11,0.3)' : 'rgba(6,182,212,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(lineEndX, lineEndY);
+      ctx.stroke();
+
+      if (progress < 0.85) return;
+
+      // Dream dot
+      const radius = 7 + d.quality * 8;
+      ctx.globalAlpha = dreamT;
+      if (d.selected) {
+        ctx.fillStyle = GREEN;
+        ctx.strokeStyle = GREEN;
+        ctx.lineWidth = 2;
+      } else {
+        ctx.fillStyle = 'rgba(107,114,128,0.5)';
+        ctx.strokeStyle = 'rgba(107,114,128,0.4)';
+        ctx.lineWidth = 1;
+      }
+      ctx.beginPath();
+      ctx.arc(dx, dy, radius, 0, Math.PI * 2);
+      if (d.selected) { ctx.fill(); ctx.stroke(); }
+      else ctx.fill();
+
+      // Label selected dreams
+      if (d.selected && dreamT > 0.95) {
+        ctx.fillStyle = GREEN;
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(d.random_expert ? '★ (rand)' : '★', dx, dy - radius - 4);
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    // After all dreams shown, show selection legend
+    if (t > 0.7) {
+      const alpha = Math.min(1, (t - 0.7) * 3);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = GREEN;
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('★ selected (top-k + random)', W - padR - 5, padT + 14);
+      ctx.fillStyle = AMBER;
+      ctx.fillText('◇ used random expert', W - padR - 5, padT + 28);
+      ctx.fillStyle = MUTED;
+      ctx.fillText('○ rejected', W - padR - 5, padT + 42);
+
+      // Arrow showing reward
+      ctx.strokeStyle = 'rgba(16,185,129,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(W - padR - 90, padT + 80);
+      ctx.lineTo(mx + 55, my - 5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = GREEN;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('reward → RL update', (W - padR - 90 + mx + 55) / 2, (padT + 80 + my - 5) / 2 - 8);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  draw(0);
+
+  document.getElementById('dream-play')?.addEventListener('click', () => {
+    if (animRunning) return;
+    animRunning = true;
+    animT = 0;
+    const btn = document.getElementById('dream-play');
+    btn.textContent = '⏸ Running...';
+
+    function animate() {
+      animT += 0.006;
+      draw(animT);
+      if (animT < 1.2) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        animRunning = false;
+        btn.textContent = '▶ Play';
+      }
+    }
+    rafId = requestAnimationFrame(animate);
+  });
+
+  document.getElementById('dream-reset')?.addEventListener('click', () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    animRunning = false;
+    animT = 0;
+    const btn = document.getElementById('dream-play');
+    btn.textContent = '▶ Play';
+    draw(0);
+  });
+})();
+
+// ── Results bars animation (IntersectionObserver) ──
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

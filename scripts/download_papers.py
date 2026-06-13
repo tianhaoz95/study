@@ -9,6 +9,10 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "llm-sleep.pdf":                          "https://arxiv.org/pdf/2606.01802",
+    "bebop-mtp-rl.pdf":                      "https://arxiv.org/pdf/2606.03979",
+    "llm-reasoning-rl.pdf":                  "https://arxiv.org/pdf/2606.07527",
+    "bebop-mtp-rl.pdf":                      "https://arxiv.org/pdf/2606.12370",
     "prefilling-dllm.pdf":                   "https://arxiv.org/pdf/2606.10537",
     "smt-rnn.pdf":                           "https://arxiv.org/pdf/2606.09079",
     "opdlm.pdf":                             "https://arxiv.org/pdf/2606.06712",
