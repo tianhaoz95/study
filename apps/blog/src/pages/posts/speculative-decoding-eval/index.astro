@@ -1,0 +1,1435 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Evaluating Speculative Decoding: Metrics, Datasets & Real-World Tradeoffs | AI/ML Deep Dives"
+  description="A practical guide to measuring speculative decoding performance: acceptance length, speedup theory, Spec-Bench's 6 tasks, temperature effects, and the EAGLE evolution from 2× to 6×."
+  crumb="Speculative Decoding Eval"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Callout boxes */
+.callout{border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0;font-size:.85rem;line-height:1.65;border-left:3px solid}
+.callout.info{background:rgba(6,182,212,.07);border-color:var(--cyan);color:var(--muted2)}
+.callout.warn{background:rgba(245,158,11,.07);border-color:var(--amber);color:var(--muted2)}
+.callout.key{background:rgba(139,92,246,.08);border-color:var(--purple);color:var(--muted2)}
+.callout strong{color:var(--text2)}
+
+/* Control buttons */
+.ctrl-row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.875rem}
+.ctrl-btn{padding:.3rem .75rem;border-radius:5px;font-size:.71rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ctrl-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Inference</span>
+    <span class="tag tag-cyan">Speculative Decoding</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Evaluating Speculative Decoding:<br>Metrics, Datasets &amp; Real-World Tradeoffs</h1>
+  <p class="lead">
+    Speculative decoding can push LLM inference from 2× to 6× faster — but only if you measure it right.
+    This guide walks through acceptance length theory, Spec-Bench's six benchmark tasks, the temperature
+    and batch-size traps, and the full evolution from vanilla SpS to EAGLE-3.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 15, 2026</span>
+    <span>~18 min read</span>
+    <span>Survey: <code>Spec-Bench / EAGLE-3</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2401.07851" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Spec-Bench Survey
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2503.01840" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      EAGLE-3 Paper
+    </a>
+    <a class="hero-btn" href="https://github.com/SafeAILab/EAGLE" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      EAGLE GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-mechanism"><a href="#s-mechanism"><span class="toc-num">02</span> Draft-Verify Mechanism</a></li>
+    <li class="toc-item" id="toc-s-metrics"><a href="#s-metrics"><span class="toc-num">03</span> The Metrics</a></li>
+    <li class="toc-item" id="toc-s-benchmarks"><a href="#s-benchmarks"><span class="toc-num">04</span> Spec-Bench Tasks</a></li>
+    <li class="toc-item" id="toc-s-tradeoffs"><a href="#s-tradeoffs"><span class="toc-num">05</span> Real-World Tradeoffs</a></li>
+    <li class="toc-item" id="toc-s-evolution"><a href="#s-evolution"><span class="toc-num">06</span> Method Evolution</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The Bottleneck</div>
+<h2>Why Autoregressive Decoding Is Slow</h2>
+<p>
+  LLM inference is not compute-bound — it is <strong>memory-bandwidth bound</strong>. Generating each
+  token requires loading every model weight from GPU HBM into compute units, performing a
+  relatively small matrix-vector product, then writing one token back. On an H100 with 3.35 TB/s
+  of memory bandwidth and a 70B parameter model in fp16, that's 140 GB of weight movement just
+  to produce a single token. A100s and consumer GPUs fare worse.
+</p>
+<p>
+  The consequence: the actual compute (flops) is done in microseconds, but <em>waiting for weights
+  to stream from memory</em> takes milliseconds. Most GPU compute units sit idle throughout.
+  Generating a sequence of length 1024 means repeating this wasteful memory round-trip 1024 times
+  in strict sequence — no token can start until the previous one is committed.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sequential vs speculative decoding — memory access pattern</span>
+    <span class="vp-hint">tokens/step</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-bottleneck" style="width:100%;height:200px;display:block"></canvas>
+  </div>
+</div>
+
+<p>
+  Speculative decoding attacks this problem with a deceptively simple observation: <em>verifying a
+  proposed token is strictly cheaper than generating one</em>. If a small, fast draft model proposes
+  γ tokens ahead, the large target model can verify all γ of them in a single forward pass — the
+  same cost as generating one token — by batching the verification queries in parallel.
+</p>
+<p>
+  On average, some draft tokens will be accepted and some rejected. But even a 70% acceptance rate
+  on γ=7 draft tokens yields ≈ 5 accepted tokens per target-model forward pass, an immediate
+  5× reduction in memory-bound latency.
+</p>
+
+<div class="callout key">
+  <strong>The key insight:</strong> The target model's forward pass for verification visits the
+  same weights once regardless of how many tokens it checks. Batching γ verification queries costs
+  the same as checking 1. This asymmetry is what makes speculative decoding possible.
+</div>
+</section>
+
+<!-- §02 -->
+<section id="s-mechanism" data-code="mechanism">
+<div class="section-no">02 — The Draft-Verify Mechanism</div>
+<h2>Four Phases of Every Speculative Step</h2>
+<p>
+  At each speculative step, the system alternates between a fast draft phase and a parallel
+  verification phase. Understanding this loop precisely is essential before interpreting any
+  evaluation metric.
+</p>
+
+<div class="step-list" id="step-list">
+  <div class="step-box active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Draft: Propose γ Tokens</div>
+      <div class="step-desc">
+        The draft model runs autoregressively to generate γ candidate tokens
+        <em>x̃₁, x̃₂, …, x̃ᵧ</em>, along with the draft probability distributions
+        <em>q(·|context)</em> at each position. This is fast because the draft model
+        is much smaller (e.g., 0.5B vs 7B parameters).
+      </div>
+      <div class="step-code">draft_tokens, draft_probs = drafter.generate(ctx, gamma=γ)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Verify: One Parallel Target Forward Pass</div>
+      <div class="step-desc">
+        The large target model processes the original context <em>plus</em> all γ draft tokens
+        in a single forward pass — using tree attention if γ > 1. This yields the target
+        distributions <em>p(·|context)</em> at each draft position simultaneously.
+      </div>
+      <div class="step-code">target_probs = target.forward(ctx + draft_tokens)  # ONE pass</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Accept / Reject via Speculative Sampling</div>
+      <div class="step-desc">
+        For each draft token x̃ᵢ, draw u ~ Uniform(0,1). Accept x̃ᵢ if
+        u ≤ p(x̃ᵢ) / q(x̃ᵢ). On rejection, resample from the
+        adjusted distribution max(0, p − q) / ‖max(0, p − q)‖. This
+        provably preserves the target model's output distribution.
+      </div>
+      <div class="step-code">accept = uniform() &lt;= p(x̃ᵢ) / q(x̃ᵢ)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Commit &amp; Advance Context</div>
+      <div class="step-desc">
+        All accepted tokens plus one resampled token after the first rejection are
+        committed to the output. If n tokens are accepted (n ∈ [0, γ]), the context
+        grows by n+1 tokens this step. The expected tokens per step determines
+        the acceptance length τ = E[n+1].
+      </div>
+      <div class="step-code">output.extend(accepted_tokens + [resampled_token])</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span class="step-prog" id="step-prog">Step 1 of 4</span>
+  <button id="step-next">Next →</button>
+</div>
+
+<p>
+  The critical invariant: steps 3 and 4 guarantee the <em>same output distribution as vanilla
+  autoregressive decoding</em> from the target model. This is what makes speculative decoding
+  "lossless" — not an approximation, but an exact acceleration.
+</p>
+</section>
+
+<!-- §03 -->
+<section id="s-metrics" data-code="metrics">
+<div class="section-no">03 — The Metrics</div>
+<h2>What to Measure and Why</h2>
+<p>
+  The most common mistake in evaluating speculative decoding is reporting only the headline
+  speedup number without anchoring it to the underlying mechanism. Two systems with identical
+  speedup can have radically different failure modes. Understanding the full metric stack — from
+  per-token acceptance rate up to wall-clock latency — is what lets you diagnose a regression.
+</p>
+
+<h3>Average Acceptance Length (τ) — The Primary Quality Metric</h3>
+<p>
+  The average acceptance length τ is the expected number of output tokens committed per
+  speculative step. If γ draft tokens are proposed and the per-token acceptance rate is α,
+  the geometric series gives:
+</p>
+<div class="math-block">
+  <div class="math-label">Expected Acceptance Length</div>
+  <span class="math-var">τ</span> = E[n + 1] = <span class="math-var">Σ</span><sub>n=0</sub><sup>γ</sup> (n+1) · α<sup>n</sup>(1−α) + (γ+1) · α<sup>γ+1</sup><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;= (1 − α<sup>γ+1</sup>) / (1 − α) &nbsp;&nbsp;&nbsp;&nbsp;<span class="math-comment">← simplifies to this</span><br>
+  <br>
+  <span class="math-comment"># Example: α=0.75, γ=6 → τ = (1 − 0.75⁷) / 0.25 ≈ 3.79 tokens/step</span>
+</div>
+<p>
+  Why is τ preferred over raw acceptance rate α? Because τ captures both the per-position
+  acceptance rate <em>and</em> the number of draft positions tried. A method that only proposes
+  γ=2 tokens with α=0.95 (τ≈1.95) is outperformed by one that proposes γ=7 with α=0.70 (τ≈3.32).
+  τ directly predicts throughput improvement.
+</p>
+
+<h3>Speedup Ratio — The End-to-End Metric</h3>
+<p>
+  The theoretical speedup relates τ to c, the cost ratio of a single draft-model forward pass
+  relative to a target-model forward pass:
+</p>
+<div class="math-block">
+  <div class="math-label">Expected Speedup Formula (Leviathan et al., 2023)</div>
+  E[speedup] = <span class="math-var">τ</span> / (1 + <span class="math-var">γ</span> · <span class="math-var">c</span>)<br>
+  <br>
+  <span class="math-comment"># τ = avg tokens per step (acceptance length)</span><br>
+  <span class="math-comment"># γ = number of draft tokens proposed</span><br>
+  <span class="math-comment"># c = (draft model inference time) / (target model inference time)</span><br>
+  <br>
+  <span class="math-comment"># Vicuna 13B + EAGLE-3: τ≈6.6, γ=6, c≈0.04 → speedup ≈ 6.6/1.24 ≈ 5.3×</span>
+</div>
+<p>
+  This formula explains why a small c (cheap draft relative to target) enables higher speedup
+  than a higher acceptance rate alone. EAGLE's draft model is roughly 1/25th the cost of the
+  target model, making c ≈ 0.04 — so even γ=6 draft steps add only 24% overhead before the
+  τ numerator takes effect.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">expected speedup vs acceptance rate α — interactive</span>
+    <span class="vp-hint">drag slider</span>
+  </div>
+  <div class="vp-body">
+    <div class="ctrl-row">
+      <span class="ctrl-label">Draft tokens γ:</span>
+      <button class="ctrl-btn active" id="gamma-4">γ=4</button>
+      <button class="ctrl-btn" id="gamma-6">γ=6</button>
+      <button class="ctrl-btn" id="gamma-10">γ=10</button>
+      <span class="ctrl-label" style="margin-left:.75rem">Cost ratio c:</span>
+      <button class="ctrl-btn active" id="c-004">c=0.04 (EAGLE)</button>
+      <button class="ctrl-btn" id="c-010">c=0.10</button>
+      <button class="ctrl-btn" id="c-020">c=0.20</button>
+    </div>
+    <canvas id="canvas-speedup" style="width:100%;height:240px;display:block"></canvas>
+  </div>
+</div>
+
+<h3>Per-Position Acceptance Rate</h3>
+<p>
+  Acceptance rate is <em>not</em> uniform across draft positions. Position 0 (the first draft
+  token) always has the highest acceptance rate since the draft model has access to the full
+  ground-truth context. Position 5 has the lowest — the draft model is predicting based on
+  its own earlier, potentially wrong, predictions. EAGLE-2 explicitly models this position
+  dependence to build smarter draft trees; EAGLE-3 solves the root cause with training-time test.
+</p>
+
+<div class="callout warn">
+  <strong>Common trap:</strong> Reporting a single "acceptance rate α" hides position collapse.
+  A method claiming α=0.80 might have position-0 at 0.95 and position-5 at 0.30 — the headline
+  looks good but the 6th draft token is nearly useless. Always report τ (the integrated metric)
+  alongside per-position acceptance curves.
+</div>
+
+<h3>Throughput vs Latency</h3>
+<p>
+  Speedup ratio measures per-request latency. At high batch sizes, the picture changes:
+  throughput (total tokens/second across all requests) becomes the right metric. These two
+  can diverge significantly — a method that halves per-request latency at batch=1 may add
+  negligible throughput at batch=32 because GPU compute is now saturated by the draft overhead.
+</p>
+</section>
+
+<!-- §04 -->
+<section id="s-benchmarks" data-code="benchmarks">
+<div class="section-no">04 — Spec-Bench Tasks</div>
+<h2>Six Tasks That Cover the Evaluation Surface</h2>
+<p>
+  Spec-Bench (Xia et al., ACL 2024) was built to solve the reproducibility crisis in speculative
+  decoding papers: every paper used different tasks, different temperature settings, and different
+  hardware, making side-by-side comparison impossible. Spec-Bench standardizes evaluation to
+  six tasks using 80 randomly-selected instances each, measured on a fixed GPU.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Dataset</th>
+      <th>Why it matters</th>
+      <th>Typical τ (EAGLE-3)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Multi-turn conversation</td>
+      <td class="mn">MT-Bench</td>
+      <td>Tests instruction-following; rich mix of topics and styles</td>
+      <td class="mn">5.4–6.2</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>Code generation</td>
+      <td class="mn">HumanEval</td>
+      <td>Highest acceptance rates — code syntax is template-heavy and highly predictable</td>
+      <td class="mn best">7.5 (peak)</td>
+    </tr>
+    <tr>
+      <td>Mathematical reasoning</td>
+      <td class="mn">GSM8K</td>
+      <td>Structured reasoning chains; repeated arithmetic tokens drive acceptance</td>
+      <td class="mn">6.9 (DeepSeek-R1)</td>
+    </tr>
+    <tr>
+      <td>Instruction following</td>
+      <td class="mn">Alpaca</td>
+      <td>Short, diverse responses; moderate acceptance</td>
+      <td class="mn">5.1–5.8</td>
+    </tr>
+    <tr>
+      <td>Summarization</td>
+      <td class="mn">CNN/Daily Mail</td>
+      <td>Long extractive summaries; PLD excels here due to copy patterns</td>
+      <td class="mn">5.3–6.0</td>
+    </tr>
+    <tr>
+      <td>Question answering / RAG</td>
+      <td class="mn">Natural Questions</td>
+      <td>Lowest acceptance — open-ended factual recall resists prediction</td>
+      <td class="mn">3.1–3.5</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The spread is dramatic: HumanEval gives EAGLE-3 a τ of 7.54 on Vicuna 13B while Natural
+  Questions drops to ~3. This means any single-task evaluation number is misleading — a method
+  tuned for code generation tasks will look far better than one tested on open-ended QA.
+  <strong>Always report multi-task averages alongside per-task breakdowns.</strong>
+</p>
+
+<h3>Why Code and Math Score Higher</h3>
+<p>
+  Predictability is the core driver. Code contains <code>for</code> loops, indent blocks,
+  <code>return</code> statements, and docstring templates that repeat across millions of
+  training samples. Given <code>def fizzbuzz(n):</code>, the next five tokens are nearly
+  deterministic regardless of context. Similarly, GSM8K answers follow rigid arithmetic
+  reasoning chains where many intermediate steps are highly constrained.
+</p>
+<p>
+  Natural Questions and open-domain QA are at the other extreme. The model must recall
+  specific facts (names, dates, locations) that depend heavily on context and are
+  distributionally rare — exactly the tokens where draft models struggle most.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">speedup by method × task — Vicuna 13B, T=0</span>
+    <span class="vp-hint">scroll to animate</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-tasks" style="width:100%;height:300px;display:block"></canvas>
+  </div>
+</div>
+
+<h3>Distribution-Preserving vs Approximate Evaluation</h3>
+<p>
+  Spec-Bench uses greedy decoding (temperature=0) as the primary evaluation mode because it
+  allows exact output comparison between speculative and autoregressive decoding — the outputs
+  must be bit-identical for a lossless method. Temperature>0 requires statistical testing to
+  verify distribution preservation, which is rarely done in practice.
+</p>
+<p>
+  Methods like Medusa that use approximate verification (accepting the highest-probability
+  token rather than running full rejection sampling) should be explicitly labeled "lossy" in
+  evaluations, as they trade a small quality degradation for additional speedup.
+</p>
+</section>
+
+<!-- §05 -->
+<section id="s-tradeoffs" data-code="tradeoffs">
+<div class="section-no">05 — Real-World Tradeoffs</div>
+<h2>Five Factors That Shift the Numbers</h2>
+<p>
+  Publishing a speedup number without context is nearly meaningless. Five key factors each
+  shift results by 20–200%, and the best system for one setting can be worst in another.
+</p>
+
+<h3>1. Sampling Temperature</h3>
+<p>
+  Higher temperature makes the target distribution more diffuse — any given token is less
+  likely to match the draft model's top prediction. EAGLE-2 at temperature=1 on Vicuna 7B
+  achieves 3.05× speedup versus 3.62× at temperature=0: a 15% degradation. Methods with
+  weaker draft models can lose 30–50% of their speedup at temperature=1.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">acceptance rate vs sampling temperature — conceptual</span>
+    <span class="vp-hint">interactive</span>
+  </div>
+  <div class="vp-body">
+    <div class="ctrl-row">
+      <span class="ctrl-label">Draft quality:</span>
+      <button class="ctrl-btn active" id="dq-high">Strong (EAGLE-3)</button>
+      <button class="ctrl-btn" id="dq-med">Medium (EAGLE)</button>
+      <button class="ctrl-btn" id="dq-low">Weak (Medusa)</button>
+    </div>
+    <canvas id="canvas-temp" style="width:100%;height:200px;display:block"></canvas>
+  </div>
+</div>
+
+<h3>2. Batch Size</h3>
+<p>
+  Most speculative decoding papers report results at batch size 1. This is the latency-critical
+  setting (e.g., interactive chatbots), but many production deployments run larger batches for
+  throughput. The problem: draft overhead becomes proportionally larger as the target model's
+  utilization rises with batch size. At batch=32, the target model is no longer memory-bandwidth
+  bound — it's compute-bound — so the verification "free ride" disappears.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Batch=1</th>
+      <th>Batch=2</th>
+      <th>Batch=16</th>
+      <th>Batch=64</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EAGLE</td>
+      <td class="mn">3.05×</td>
+      <td class="mn">1.40×</td>
+      <td class="mn">1.02×</td>
+      <td class="mn" style="color:var(--attr)">0.99× (↓)</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>EAGLE-3</td>
+      <td class="mn best">4.12×</td>
+      <td class="mn best">1.81×</td>
+      <td class="mn best">1.48×</td>
+      <td class="mn best">1.38×</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  EAGLE-3's advantage at large batch sizes comes from its multi-layer feature fusion — richer
+  draft context means fewer rejected tokens, which means the overhead-per-accepted-token stays
+  low even when the verification "bargain" shrinks.
+</p>
+
+<h3>3. Hardware: Bandwidth vs Compute</h3>
+<p>
+  Speculative decoding's advantage is fundamentally tied to memory-bandwidth bottlenecking.
+  Consumer GPUs (RTX 3090/4090) have lower HBM bandwidth than data-center GPUs (A100/H100),
+  which paradoxically can make speculative decoding <em>more</em> beneficial on consumer
+  hardware — the target model is more starved for memory bandwidth, so draft+verify savings
+  are more impactful. However, consumer GPUs also lack CUDA Graph support in some frameworks,
+  adding per-step launch overhead that partially offsets the gain.
+</p>
+<p>
+  Benchmark numbers from Spec-Bench use an A100-80G at batch=1. The same method on a 3090
+  will show different absolute speedup ratios. Always report your exact hardware configuration.
+</p>
+
+<h3>4. Model Size and Draft/Target Ratio</h3>
+<p>
+  The cost ratio c = t_draft / t_target is the second most important parameter after α. A
+  Vicuna-7B-level draft model used with a 70B target has c ≈ 0.07 — small enough that
+  even 7 draft steps only add 49% overhead. Using the same 7B draft with a 13B target raises
+  c ≈ 0.40, making speculative decoding far less efficient. The EAGLE family sidesteps this
+  by using a purpose-built autoregressive head (≈68M params) rather than a full small model.
+</p>
+
+<h3>5. Context Prefix vs Open Generation</h3>
+<p>
+  Prompt lookup decoding (PLD) achieves 2–3× speedup on summarization tasks where the output
+  overlaps heavily with the input prompt. This "free" speedup requires no trained draft model,
+  but collapses to near 1× on open-ended generation with no prompt overlap. Always check
+  whether a method's numbers rely on input/output lexical similarity.
+</p>
+
+<div class="callout info">
+  <strong>Evaluation checklist:</strong> Always report (1) hardware and batch size, (2) sampling
+  temperature, (3) per-task τ and speedup alongside averages, (4) whether the method is
+  lossless or approximate, and (5) the c ratio (draft vs target model size).
+</div>
+</section>
+
+<!-- §06 -->
+<section id="s-evolution" data-code="evolution">
+<div class="section-no">06 — Method Evolution</div>
+<h2>From 2× to 6×: The EAGLE Ladder</h2>
+<p>
+  The past two years of speculative decoding research can be read as a series of targeted
+  fixes to the acceptance rate ceiling. Each generation identified a specific failure mode in
+  the previous approach and addressed it with a focused architectural change.
+</p>
+
+<div class="results-bars" id="evolution-bars">
+  <div class="bar-row">
+    <div class="bar-label">Standard SpS (2023)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="34.8"><span>1.93×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Medusa (2023)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="37.5"><span>2.07×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Lookahead (2023)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.55)" data-w="34.0"><span>1.88×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Hydra (2024)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="50.7"><span>2.80×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">EAGLE-1 (2024)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(139,92,246,.5)" data-w="55.3"><span>3.05×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">EAGLE-2 (2024)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(139,92,246,.7)" data-w="76.4"><span>4.22×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">EAGLE-3 (2025)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="100"><span>5.51×</span></div></div>
+  </div>
+</div>
+
+<p style="font-size:.75rem;color:var(--muted);margin-top:-.5rem">
+  Vicuna 13B, T=0, MT-Bench mean speedup. Bars scaled to EAGLE-3's 5.51×.
+</p>
+
+<h3>What Each Generation Fixed</h3>
+<ul>
+  <li><strong>Standard SpS</strong>: Baseline method. Uses a separate fine-tuned small model as drafter. Limited by distribution mismatch between small and large model families.</li>
+  <li><strong>Medusa</strong>: Adds multiple prediction heads to the target model itself. No separate model needed, but heads share the same top-layer representation — limited context diversity.</li>
+  <li><strong>EAGLE-1</strong>: Switches to second-to-top-layer features (richer than top-layer logits). Uses a purpose-built autoregressive head with feature+token input. Fixes distribution mismatch by staying within the target model's representation space.</li>
+  <li><strong>EAGLE-2</strong>: Discovers that acceptance rate varies with position <em>and</em> context. Draft model confidence scores correlate with actual acceptance probability (conf&lt;0.05 → acc≈0.04, conf&gt;0.95 → acc≈0.98). Builds dynamic draft trees that skip low-confidence branches. ~20–40% faster than EAGLE-1.</li>
+  <li><strong>EAGLE-3</strong>: Solves the root cause of position-level acceptance rate collapse. EAGLE's feature prediction creates a training-inference gap — at inference, the model inputs its own predicted features, not the true target features. EAGLE-3 simulates this during training (training-time test), eliminating the distribution shift. Also adds multi-layer feature fusion (low+mid+high target layers) for richer context. Enables scaling law for draft models.</li>
+</ul>
+
+<div class="callout key">
+  <strong>The τ trajectory</strong> tells the full story. On Vicuna 13B (T=0, MT-Bench):
+  SpS τ=2.27 → Medusa τ=2.59 → Hydra τ=3.65 → EAGLE τ=3.98 → EAGLE-2 τ=4.83 → EAGLE-3 τ=6.62.
+  The speedup scales near-linearly with τ because the denominator (draft overhead) barely changes.
+</div>
+
+<h3>Self-Drafting Alternatives</h3>
+<p>
+  Not every method needs a separate draft model. Self-speculative approaches like LayerSkip
+  and REST offer different tradeoffs:
+</p>
+<ul>
+  <li><strong>LayerSkip</strong>: Early-exits at an intermediate layer to draft, then runs the full model for verification. No extra parameters, but acceptance rate is highly sensitive to which layer is used as the exit point.</li>
+  <li><strong>REST (Retrieval-based)</strong>: Looks up the current context in a retrieval datastore and uses retrieved text as draft tokens. Requires no training, but performance is highly datastore-dependent. Works exceptionally well on in-domain tasks where the datastore matches the query distribution.</li>
+  <li><strong>Prompt Lookup Decoding (PLD)</strong>: Drafts by copying n-grams from the input prompt. Zero overhead, but only helps when output overlaps with input (e.g., summarization, code editing with context).</li>
+</ul>
+
+<p>
+  When evaluating any self-drafting method, the c ratio in the speedup formula changes
+  fundamentally — there's no separate model cost, but there is a computation split cost.
+  Compare τ at fixed computational budget to see which is actually better.
+</p>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">eval/metrics.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">bottleneck</button>
+    <button class="cs-tab" data-panel="mechanism">mechanism</button>
+    <button class="cs-tab" data-panel="metrics">metrics</button>
+    <button class="cs-tab" data-panel="benchmarks">benchmarks</button>
+    <button class="cs-tab" data-panel="tradeoffs">tradeoffs</button>
+    <button class="cs-tab" data-panel="evolution">evolution</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Memory bandwidth is the bottleneck</span>
+<span class="cs-line cmt"># H100: 3.35 TB/s HBM bandwidth</span>
+<span class="cs-line cmt"># 70B model in fp16 = 140 GB weights</span>
+<span class="cs-line cmt"># Each token = one full weight load</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Time per token (memory-bound):</span></span>
+<span class="cs-line hl-a"><span class="cmt"># t = weights_gb / bandwidth_tbps</span></span>
+<span class="cs-line hl-a"><span class="cmt"># t ≈ 140 GB / 3350 GB/s ≈ 42ms</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Speculative: verify γ tokens in ONE pass</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">speculative_step</span>(target, draft, ctx, gamma):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Draft: γ × (small model fwd)</span></span>
+<span class="cs-line">    drafts = draft.<span class="fn">generate</span>(ctx, gamma)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Verify: ONE big model fwd</span></span>
+<span class="cs-line hl-c">    probs = target.<span class="fn">forward</span>(ctx + drafts)</span>
+<span class="cs-line hl-c">    <span class="cmt"># Same cost as generating 1 token!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    accepted = <span class="fn">rejection_sample</span>(drafts, probs)</span>
+<span class="cs-line">    <span class="kw">return</span> accepted  <span class="cmt"># avg τ tokens</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Cost breakdown:</span>
+<span class="cs-line cmt"># Auto-regressive: N × t_target</span>
+<span class="cs-line cmt"># Speculative: (N/τ) × (γ·c + 1) × t_target</span>
+<span class="cs-line cmt"># Speedup = τ / (γ·c + 1)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-mechanism">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Full speculative sampling loop</span>
+<span class="cs-line kw">import</span> torch</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">rejection_sample</span>(draft_tok, p_target, q_draft):</span>
+<span class="cs-line hl-p">    <span class="str">"""Accept draft token with prob p/q."""</span></span>
+<span class="cs-line">    u = torch.<span class="fn">rand_like</span>(p_target)</span>
+<span class="cs-line hl-c">    accept = u &lt;= p_target / q_draft</span>
+<span class="cs-line hl-c">    <span class="kw">if</span> <span class="fn">accept</span>:</span>
+<span class="cs-line">        <span class="kw">return</span> draft_tok  <span class="cmt"># keep draft token</span></span>
+<span class="cs-line">    <span class="kw">else</span>:</span>
+<span class="cs-line">        <span class="cmt"># Resample from residual distribution</span></span>
+<span class="cs-line hl-g">        residual = <span class="fn">max</span>(<span class="num">0</span>, p_target - q_draft)</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> <span class="fn">sample</span>(residual / residual.<span class="fn">sum</span>())</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key property: identical output distribution</span>
+<span class="cs-line cmt"># to vanilla target model sampling.</span>
+<span class="cs-line cmt"># Proof: E[output] = target distribution</span>
+<span class="cs-line cmt"># regardless of q (draft quality).</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Tree attention: verify γ tokens in 1 fwd</span></span>
+<span class="cs-line hl-a"><span class="cmt"># by masking future positions per branch</span></span>
+<span class="cs-line hl-a"><span class="cmt"># tree_mask[i,j] = 1 if j is ancestor of i</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-metrics">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Computing evaluation metrics</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">acceptance_length</span>(accepted_counts, total_steps):</span>
+<span class="cs-line hl-p">    <span class="str">"""τ = avg tokens committed per step."""</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">sum</span>(accepted_counts) / total_steps</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">speedup_ratio</span>(t_spec, t_auto):</span>
+<span class="cs-line hl-c">    <span class="str">"""Wall-clock speedup: must use real time."""</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> t_auto / t_spec  <span class="cmt"># NOT τ directly</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Theoretical speedup formula</span>
+<span class="cs-line kw">def</span> <span class="fn">theoretical_speedup</span>(alpha, gamma, c):</span>
+<span class="cs-line">    <span class="cmt"># alpha: per-token acceptance rate</span></span>
+<span class="cs-line">    <span class="cmt"># gamma: draft tokens proposed</span></span>
+<span class="cs-line">    <span class="cmt"># c:     draft/target cost ratio</span></span>
+<span class="cs-line hl-g">    tau = (<span class="num">1</span> - alpha**(<span class="cls">int</span>(gamma)+<span class="num">1</span>)) / (<span class="num">1</span> - alpha)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> tau / (<span class="num">1</span> + gamma * c)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Example (EAGLE-3, Vicuna 13B):</span>
+<span class="cs-line cmt"># alpha ≈ 0.84, gamma = 6, c ≈ 0.04</span>
+<span class="cs-line cmt"># τ = (1 - 0.84^7) / 0.16 ≈ 5.5</span>
+<span class="cs-line cmt"># speedup ≈ 5.5 / 1.24 ≈ 4.4×</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-benchmarks">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Spec-Bench evaluation setup</span>
+<span class="cs-line cmt"># Xia et al., ACL 2024</span>
+<span class="cs-line"> </span>
+<span class="cs-line">SPEC_BENCH_TASKS = &#123;</span>
+<span class="cs-line hl-p">    <span class="str">"mt_bench"</span>:     <span class="num">80</span>,  <span class="cmt"># multi-turn chat</span></span>
+<span class="cs-line hl-c">    <span class="str">"humaneval"</span>:    <span class="num">80</span>,  <span class="cmt"># code generation</span></span>
+<span class="cs-line hl-g">    <span class="str">"gsm8k"</span>:        <span class="num">80</span>,  <span class="cmt"># math reasoning</span></span>
+<span class="cs-line">    <span class="str">"alpaca"</span>:       <span class="num">80</span>,  <span class="cmt"># instructions</span></span>
+<span class="cs-line">    <span class="str">"cnn_dailymail"</span>:<span class="num">80</span>,  <span class="cmt"># summarization</span></span>
+<span class="cs-line">    <span class="str">"nq"</span>:           <span class="num">80</span>,  <span class="cmt"># open-domain QA</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># τ values: EAGLE-3 (Vicuna 13B, T=0)</span>
+<span class="cs-line cmt"># humaneval: 7.54 ← highest</span>
+<span class="cs-line cmt"># gsm8k:     6.93 (DeepSeek-R1-8B)</span>
+<span class="cs-line cmt"># mt_bench:  6.62</span>
+<span class="cs-line cmt"># alpaca:    5.80</span>
+<span class="cs-line cmt"># cnn_dm:    5.60</span>
+<span class="cs-line cmt"># nq:        3.31 ← lowest</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why code scores highest:</span>
+<span class="cs-line hl-a"><span class="cmt"># for i in range(n):  ← near-certain next</span></span>
+<span class="cs-line hl-a"><span class="cmt"># return result       ← high predictability</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-tradeoffs">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key evaluation tradeoffs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Temperature effect on acceptance</span>
+<span class="cs-line hl-p"><span class="cmt"># Higher temp → more uniform p(x) → lower p/q</span></span>
+<span class="cs-line hl-p"><span class="cmt"># EAGLE-2: T=0: 4.26× → T=1: 3.05×</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Batch size (SGLang, LLaMA 3.1 8B)</span>
+<span class="cs-line">BATCH_SPEEDUP = &#123;</span>
+<span class="cs-line">    <span class="str">"EAGLE"</span>: &#123;<span class="num">1</span>: <span class="num">3.05</span>, <span class="num">2</span>: <span class="num">1.40</span>, <span class="num">16</span>: <span class="num">1.02</span>, <span class="num">64</span>: <span class="num">0.99</span>&#125;,</span>
+<span class="cs-line hl-g">    <span class="str">"EAGLE-3"</span>: &#123;<span class="num">1</span>: <span class="num">4.12</span>, <span class="num">2</span>: <span class="num">1.81</span>, <span class="num">16</span>: <span class="num">1.48</span>, <span class="num">64</span>: <span class="num">1.38</span>&#125;,</span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. Cost ratio c = draft / target time</span>
+<span class="cs-line hl-c"><span class="cmt"># EAGLE head (68M) vs 70B: c ≈ 0.04</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Small LLM (7B) vs 70B:   c ≈ 0.07</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Small LLM (7B) vs 13B:   c ≈ 0.40 ← worse</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 4. Distribution preservation check</span>
+<span class="cs-line kw">def</span> <span class="fn">lossless_check</span>(speculative_out, auto_out):</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> speculative_out == auto_out  <span class="cmt"># T=0</span></span>
+<span class="cs-line hl-a">    <span class="cmt"># T>0: requires statistical KL test</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-evolution">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Method evolution — τ trajectory</span>
+<span class="cs-line cmt"># Vicuna 13B, T=0, MT-Bench</span>
+<span class="cs-line"> </span>
+<span class="cs-line">EVOLUTION = [</span>
+<span class="cs-line">  <span class="cmt"># (name, τ, speedup, year, key_fix)</span></span>
+<span class="cs-line">  (<span class="str">"SpS"</span>,      <span class="num">2.27</span>, <span class="num">1.93</span>, <span class="num">2023</span>, <span class="str">"baseline"</span>),</span>
+<span class="cs-line">  (<span class="str">"Medusa"</span>,   <span class="num">2.59</span>, <span class="num">2.07</span>, <span class="num">2023</span>, <span class="str">"multi-head"</span>),</span>
+<span class="cs-line">  (<span class="str">"Hydra"</span>,    <span class="num">3.65</span>, <span class="num">2.80</span>, <span class="num">2024</span>, <span class="str">"tree attention"</span>),</span>
+<span class="cs-line hl-p">  (<span class="str">"EAGLE"</span>,    <span class="num">3.98</span>, <span class="num">3.05</span>, <span class="num">2024</span>, <span class="str">"feature-level draft"</span>),</span>
+<span class="cs-line hl-c">  (<span class="str">"EAGLE-2"</span>,  <span class="num">4.83</span>, <span class="num">4.22</span>, <span class="num">2024</span>, <span class="str">"dynamic tree"</span>),</span>
+<span class="cs-line hl-g">  (<span class="str">"EAGLE-3"</span>,  <span class="num">6.62</span>, <span class="num">5.51</span>, <span class="num">2025</span>, <span class="str">"training-time test"</span>),</span>
+<span class="cs-line">]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># EAGLE-3 key insight:</span>
+<span class="cs-line cmt"># EAGLE trains on (true_features) → tokens</span>
+<span class="cs-line cmt"># but infers on (predicted_features) → tokens</span>
+<span class="cs-line cmt"># → distribution shift at each step</span>
+<span class="cs-line hl-a"><span class="cmt"># Fix: during training, feed OWN outputs</span></span>
+<span class="cs-line hl-a"><span class="cmt"># as inputs (simulate inference distribution)</span></span>
+<span class="cs-line hl-a"><span class="cmt"># → acceptance rate no longer decays</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tabs ────────────────────────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'eval/bottleneck.py',  title: 'The Bottleneck' },
+  mechanism:  { file: 'eval/mechanism.py',   title: 'Draft-Verify Mechanism' },
+  metrics:    { file: 'eval/metrics.py',     title: 'The Metrics' },
+  benchmarks: { file: 'eval/benchmarks.py',  title: 'Spec-Bench Tasks' },
+  tradeoffs:  { file: 'eval/tradeoffs.py',   title: 'Real-World Tradeoffs' },
+  evolution:  { file: 'eval/evolution.py',   title: 'Method Evolution' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver: sync TOC + sidebar ────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-mechanism':  'mechanism',
+  's-metrics':    'metrics',
+  's-benchmarks': 'benchmarks',
+  's-tradeoffs':  'tradeoffs',
+  's-evolution':  'evolution',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── Step navigator ───────────────────────────────────────────────
+let step = 0;
+const boxes   = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = 'Step ' + (step + 1) + ' of ' + boxes.length;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i + 1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+updateSteps();
+
+// ─── Canvas: Bottleneck visualization ────────────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-bottleneck');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', GREEN = '#10b981', MUTED = '#6b7280';
+  const BG = '#1a1a2e', BORDER = 'rgba(255,255,255,0.08)';
+
+  // Left panel: sequential (7 target model passes)
+  const lw = W * 0.44, rw = W * 0.44, gap = W * 0.12;
+  const lx = 0, rx = lw + gap;
+
+  ctx.fillStyle = BG;
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(lx, 10, lw, H - 20, 6); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(rx, 10, rw, H - 20, 6); ctx.fill(); ctx.stroke();
+
+  // Labels
+  ctx.font = '600 11px monospace';
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  ctx.fillText('Autoregressive: 7 passes', lx + lw/2, 28);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('Speculative: 1 verify pass', rx + rw/2, 28);
+
+  // Left: 7 small sequential blocks (target model)
+  const blockW = (lw - 24) / 7 - 4;
+  for (let i = 0; i < 7; i++) {
+    const bx = lx + 12 + i * (blockW + 4);
+    const by = 40;
+    const bh = H - 60;
+    ctx.fillStyle = 'rgba(245,158,11,0.15)';
+    ctx.strokeStyle = 'rgba(245,158,11,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(bx, by, blockW, bh, 4); ctx.fill(); ctx.stroke();
+    ctx.font = '700 9px monospace';
+    ctx.fillStyle = 'rgba(245,158,11,0.9)';
+    ctx.textAlign = 'center';
+    ctx.fillText('T' + (i+1), bx + blockW/2, by + bh/2 + 4);
+  }
+
+  // Right: 1 draft section + 1 verify section
+  const draftW = rw * 0.40;
+  const verifyW = rw * 0.52;
+  const byR = 40; const bhR = H - 60;
+
+  // Draft strip (7 small passes)
+  ctx.fillStyle = 'rgba(6,182,212,0.12)';
+  ctx.strokeStyle = 'rgba(6,182,212,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(rx + 12, byR, draftW, bhR, 4); ctx.fill(); ctx.stroke();
+  ctx.font = '700 9px monospace';
+  ctx.fillStyle = 'rgba(6,182,212,0.9)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Draft ×7', rx + 12 + draftW/2, byR + bhR/2 - 6);
+  ctx.font = '9px monospace';
+  ctx.fillStyle = 'rgba(6,182,212,0.6)';
+  ctx.fillText('(small)', rx + 12 + draftW/2, byR + bhR/2 + 6);
+
+  // Arrow
+  const ax = rx + 12 + draftW + 4;
+  ctx.strokeStyle = MUTED;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(ax, byR + bhR/2);
+  ctx.lineTo(ax + 10, byR + bhR/2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ax + 10, byR + bhR/2 - 4);
+  ctx.lineTo(ax + 16, byR + bhR/2);
+  ctx.lineTo(ax + 10, byR + bhR/2 + 4);
+  ctx.fill();
+
+  // Verify block (1 large parallel pass)
+  const vx = rx + 12 + draftW + 16;
+  ctx.fillStyle = 'rgba(139,92,246,0.15)';
+  ctx.strokeStyle = 'rgba(139,92,246,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(vx, byR, verifyW - 16, bhR, 4); ctx.fill(); ctx.stroke();
+  ctx.font = '700 9px monospace';
+  ctx.fillStyle = 'rgba(139,92,246,0.95)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Verify ×1', vx + (verifyW-16)/2, byR + bhR/2 - 6);
+  ctx.font = '9px monospace';
+  ctx.fillStyle = 'rgba(139,92,246,0.7)';
+  ctx.fillText('(parallel)', vx + (verifyW-16)/2, byR + bhR/2 + 6);
+})();
+
+// ─── Canvas: Speedup vs acceptance rate ──────────────────────────
+let gammaVal = 4, cVal = 0.04;
+
+function drawSpeedupChart() {
+  const canvas = document.getElementById('canvas-speedup');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const pad = { l: 52, r: 20, t: 16, b: 36 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  // Background
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 5; i++) {
+    const y = pad.t + ph - (i / 6) * ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+  }
+  for (let i = 1; i <= 9; i++) {
+    const x = pad.l + (i / 10) * pw;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+  }
+
+  // Speedup function: tau / (1 + gamma * c)
+  function speedup(alpha) {
+    if (alpha >= 1) return gammaVal + 1; // limit
+    const tau = (1 - Math.pow(alpha, gammaVal + 1)) / (1 - alpha);
+    return tau / (1 + gammaVal * cVal);
+  }
+
+  const maxSpeedup = 8;
+
+  // Draw curve
+  ctx.strokeStyle = '#8b5cf6';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= 200; i++) {
+    const alpha = i / 200;
+    const s = speedup(alpha);
+    const x = pad.l + alpha * pw;
+    const y = pad.t + ph - Math.min(s / maxSpeedup, 1) * ph;
+    if (first) { ctx.moveTo(x, y); first = false; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Mark α = 0.7, 0.8, 0.9 points
+  const marks = [0.7, 0.8, 0.9];
+  marks.forEach(a => {
+    const s = speedup(a);
+    const x = pad.l + a * pw;
+    const y = pad.t + ph - Math.min(s / maxSpeedup, 1) * ph;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fill();
+    ctx.font = '600 10px monospace';
+    ctx.fillStyle = '#a78bfa';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.toFixed(1) + '×', x, y - 10);
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ph + 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l - 6, pad.t + ph); ctx.lineTo(pad.l + pw, pad.t + ph); ctx.stroke();
+
+  // X-axis labels
+  ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'center';
+  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0].forEach(v => {
+    const x = pad.l + v * pw;
+    ctx.fillText(v.toFixed(1), x, pad.t + ph + 22);
+  });
+  ctx.fillText('Acceptance rate α', pad.l + pw / 2, pad.t + ph + 34);
+
+  // Y-axis labels
+  ctx.textAlign = 'right';
+  for (let i = 1; i <= 6; i++) {
+    const y = pad.t + ph - (i / 6) * ph;
+    ctx.fillText((i / 6 * maxSpeedup).toFixed(0) + '×', pad.l - 6, y + 4);
+  }
+
+  // Param label
+  ctx.font = '600 11px monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.textAlign = 'left';
+  ctx.fillText('γ=' + gammaVal + '  c=' + cVal.toFixed(2), pad.l + 8, pad.t + 14);
+}
+
+drawSpeedupChart();
+
+// Gamma buttons
+['gamma-4', 'gamma-6', 'gamma-10'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', e => {
+    gammaVal = parseInt(id.split('-')[1]);
+    document.querySelectorAll('[id^="gamma-"]').forEach(b => b.classList.toggle('active', b.id === id));
+    drawSpeedupChart();
+  });
+});
+['c-004', 'c-010', 'c-020'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', e => {
+    cVal = parseFloat(id.split('-')[1].replace('0', '0.'));
+    if (id === 'c-004') cVal = 0.04;
+    if (id === 'c-010') cVal = 0.10;
+    if (id === 'c-020') cVal = 0.20;
+    document.querySelectorAll('[id^="c-"]').forEach(b => b.classList.toggle('active', b.id === id));
+    drawSpeedupChart();
+  });
+});
+
+// ─── Canvas: tasks × methods heatmap bar chart ───────────────────
+(function() {
+  const canvas = document.getElementById('canvas-tasks');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 300;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // EAGLE-2 speedup data (Vicuna 13B, T=0) — approximate from paper
+  const methods = ['SpS', 'Medusa', 'EAGLE', 'EAGLE-2', 'EAGLE-3'];
+  const tasks = ['MT-Bench', 'HumanEval', 'GSM8K', 'Alpaca', 'CNN/DM', 'NQ'];
+  const data = [
+    // SpS
+    [1.93, 2.25, 2.10, 1.80, 1.85, 1.40],
+    // Medusa
+    [2.07, 2.40, 2.20, 1.95, 2.00, 1.55],
+    // EAGLE
+    [3.07, 3.73, 3.40, 2.95, 3.05, 2.20],
+    // EAGLE-2
+    [4.26, 4.96, 4.22, 3.85, 4.00, 3.13],
+    // EAGLE-3
+    [5.51, 6.47, 5.80, 5.10, 5.30, 3.80],
+  ];
+
+  const colors = [
+    'rgba(107,114,128,0.5)',
+    'rgba(107,114,128,0.65)',
+    'rgba(139,92,246,0.5)',
+    'rgba(139,92,246,0.7)',
+    'rgba(139,92,246,0.95)',
+  ];
+
+  const pad = { l: 72, r: 16, t: 24, b: 28 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const taskW = pw / tasks.length;
+  const barW = taskW * 0.8 / methods.length;
+  const maxVal = 7.0;
+
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [2, 4, 6].forEach(v => {
+    const y = pad.t + ph - (v / maxVal) * ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+    ctx.font = '9px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'right';
+    ctx.fillText(v + '×', pad.l - 5, y + 3);
+  });
+
+  // Bars
+  tasks.forEach((task, ti) => {
+    const basex = pad.l + ti * taskW + taskW * 0.1;
+    methods.forEach((method, mi) => {
+      const v = data[mi][ti];
+      const bh = (v / maxVal) * ph;
+      const bx = basex + mi * barW;
+      const by = pad.t + ph - bh;
+      ctx.fillStyle = colors[mi];
+      ctx.beginPath(); ctx.roundRect(bx, by, barW - 1, bh, [2, 2, 0, 0]); ctx.fill();
+    });
+
+    // Task label
+    ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.textAlign = 'center';
+    const shortLabel = task === 'HumanEval' ? 'Code' : task === 'CNN/DM' ? 'CNN/DM' :
+                       task === 'MT-Bench' ? 'Chat' : task;
+    ctx.fillText(shortLabel, pad.l + ti * taskW + taskW / 2, H - 10);
+  });
+
+  // Legend
+  const legX = pad.l + 8;
+  methods.forEach((m, i) => {
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(legX + i * 72, pad.t + 4, 10, 10);
+    ctx.font = '9px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.textAlign = 'left';
+    ctx.fillText(m, legX + i * 72 + 13, pad.t + 13);
+  });
+})();
+
+// ─── Canvas: Temperature effect ──────────────────────────────────
+let draftQuality = 'high';
+
+function drawTempCanvas() {
+  const canvas = document.getElementById('canvas-temp');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const pad = { l: 52, r: 20, t: 16, b: 36 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [1, 2, 3, 4, 5, 6].forEach(v => {
+    const y = pad.t + ph - (v / 7) * ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+  });
+
+  // Speedup curves for different temperatures
+  // Params: at T=0, T=0.5, T=1.0, T=1.5
+  const curves = {
+    high:  { label: 'EAGLE-3', color: '#8b5cf6', pts: [[0, 5.51], [0.5, 4.90], [1.0, 4.20], [1.5, 3.40]] },
+    med:   { label: 'EAGLE-1', color: '#06b6d4', pts: [[0, 3.05], [0.5, 2.75], [1.0, 2.35], [1.5, 1.90]] },
+    low:   { label: 'Medusa',  color: '#6b7280', pts: [[0, 2.07], [0.5, 1.88], [1.0, 1.62], [1.5, 1.30]] },
+  };
+
+  const c = curves[draftQuality];
+  const maxY = 7;
+
+  // Background fills for other curves (faint)
+  Object.entries(curves).forEach(([k, cv]) => {
+    if (k === draftQuality) return;
+    ctx.strokeStyle = cv.color.replace(')', ', 0.2)').replace('#', 'rgba(').replace('rgba(', 'rgba(') || cv.color + '33';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    cv.pts.forEach(([t, s], i) => {
+      const x = pad.l + (t / 1.5) * pw;
+      const y = pad.t + ph - (s / maxY) * ph;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Active curve
+  ctx.strokeStyle = c.color;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  c.pts.forEach(([t, s], i) => {
+    const x = pad.l + (t / 1.5) * pw;
+    const y = pad.t + ph - (s / maxY) * ph;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Points
+  c.pts.forEach(([t, s]) => {
+    const x = pad.l + (t / 1.5) * pw;
+    const y = pad.t + ph - (s / maxY) * ph;
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = c.color; ctx.fill();
+    ctx.font = '600 10px monospace'; ctx.fillStyle = c.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(s.toFixed(1) + '×', x, y - 10);
+  });
+
+  // Axes labels
+  ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center';
+  [0, 0.5, 1.0, 1.5].forEach(v => {
+    const x = pad.l + (v / 1.5) * pw;
+    ctx.fillText('T=' + v.toFixed(1), x, pad.t + ph + 22);
+  });
+  ctx.fillText('Sampling temperature', pad.l + pw / 2, pad.t + ph + 34);
+  ctx.textAlign = 'right';
+  [2, 4, 6].forEach(v => {
+    const y = pad.t + ph - (v / maxY) * ph;
+    ctx.fillText(v + '×', pad.l - 5, y + 3);
+  });
+}
+
+drawTempCanvas();
+
+document.getElementById('dq-high')?.addEventListener('click', () => {
+  draftQuality = 'high';
+  ['dq-high', 'dq-med', 'dq-low'].forEach(id =>
+    document.getElementById(id)?.classList.toggle('active', id === 'dq-high'));
+  drawTempCanvas();
+});
+document.getElementById('dq-med')?.addEventListener('click', () => {
+  draftQuality = 'med';
+  ['dq-high', 'dq-med', 'dq-low'].forEach(id =>
+    document.getElementById(id)?.classList.toggle('active', id === 'dq-med'));
+  drawTempCanvas();
+});
+document.getElementById('dq-low')?.addEventListener('click', () => {
+  draftQuality = 'low';
+  ['dq-high', 'dq-med', 'dq-low'].forEach(id =>
+    document.getElementById(id)?.classList.toggle('active', id === 'dq-low'));
+  drawTempCanvas();
+});
+
+// ─── Animated bar chart (evolution) ──────────────────────────────
+const evolutionSection = document.getElementById('s-evolution');
+if (evolutionSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#evolution-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(evolutionSection);
+}
+</script>
+</BaseLayout>

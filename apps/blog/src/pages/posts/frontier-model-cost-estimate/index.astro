@@ -175,7 +175,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     <span class="tag tag-green">Interactive</span>
   </div>
   <h1>How to Estimate the Cost of Training a Frontier Model</h1>
-  <p class="lead">Training a GPT-4 or Llama 3–class model from scratch costs roughly $100–150M end-to-end on cloud. This guide walks you through every step of the calculation — from the core <code>C = 6ND</code> formula to storage, human annotation, and team costs — using Llama 3 405B as a fully worked example. By the end, you'll be able to estimate any frontier model's launch cost within ±50%.</p>
+  <p class="lead">Training a GPT-4 or Llama 3–class model from scratch costs roughly $100–150M end-to-end on cloud. Modern frontier reasoning models (GPT-o1/o3, Gemini 2.5 Pro, Qwen-3) add another $7–25M in RLVR post-training. This guide walks you through every step of the calculation — from the core <code>C = 6ND</code> formula to RLVR rollout/reward/gradient costs — using Llama 3 405B as a fully worked example.</p>
   <div class="post-hero-meta">
     <span>June 13, 2026</span>
     <span>~20 min read</span>
@@ -231,7 +231,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
       <span class="vp-hint">Scroll to animate</span>
     </div>
     <div class="vp-body">
-      <p style="font-size:.78rem;color:var(--muted);margin-bottom:.875rem">These are best estimates from public data and cloud pricing (June 2026). Pre-training compute dominates at ~70–75% of total cost. The "hidden" costs — storage, annotation, team — add another 20–30%.</p>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:.875rem">These are best estimates from public data and cloud pricing (June 2026). Pre-training compute dominates at ~60–70% of total cost. The "hidden" costs — storage, annotation, team — add another 20–30%. Modern frontier <em>reasoning</em> models (GPT-o1/o3, Gemini 2.5 Pro, Qwen-3) also add $7–25M in RLVR post-training, shown in red below.</p>
       <div class="waterfall" id="wf-overview">
         <div class="wf-row"><div class="wf-label">Pre-training compute</div><div class="wf-track"><div class="wf-bar" id="wf-0" style="background:var(--purple);left:0%" data-pct="72" data-label="~$80M"><span>~$80M</span></div></div></div>
         <div class="wf-row"><div class="wf-label">Experiments &amp; ablations</div><div class="wf-track"><div class="wf-bar" id="wf-1" style="background:rgba(139,92,246,.6);left:0%" data-pct="11" data-label="~$12M"><span>~$12M</span></div></div></div>
@@ -240,9 +240,13 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <div class="wf-row"><div class="wf-label">Human annotation / RLHF</div><div class="wf-track"><div class="wf-bar" id="wf-4" style="background:var(--amber);left:0%" data-pct="4" data-label="~$4M"><span>~$4M</span></div></div></div>
         <div class="wf-row"><div class="wf-label">Storage &amp; networking</div><div class="wf-track"><div class="wf-bar" id="wf-5" style="background:rgba(245,158,11,.6);left:0%" data-pct="2" data-label="~$2M"><span>~$2M</span></div></div></div>
         <div class="wf-row"><div class="wf-label">Team (18 months)</div><div class="wf-track"><div class="wf-bar" id="wf-6" style="background:var(--green);left:0%" data-pct="14" data-label="~$15M"><span>~$15M</span></div></div></div>
+        <div style="margin:.6rem 0 .3rem;padding:.35rem .75rem;background:rgba(239,68,68,.08);border-left:2px solid rgba(239,68,68,.45);border-radius:4px;font-size:.67rem;color:var(--muted)">↓ RLVR post-training (reasoning models, 2025+) — not in Llama 3 405B original run</div>
+        <div class="wf-row"><div class="wf-label">RLVR rollout gen</div><div class="wf-track"><div class="wf-bar" id="wf-7" style="background:rgba(239,68,68,.75);left:0%" data-pct="2" data-label="~$2.5M"><span>~$2.5M</span></div></div></div>
+        <div class="wf-row"><div class="wf-label">RLVR policy gradient</div><div class="wf-track"><div class="wf-bar" id="wf-8" style="background:rgba(239,68,68,.55);left:0%" data-pct="3" data-label="~$3.2M"><span>~$3.2M</span></div></div></div>
+        <div class="wf-row"><div class="wf-label">RLVR reward/verifier</div><div class="wf-track"><div class="wf-bar" id="wf-9" style="background:rgba(239,68,68,.38);left:0%" data-pct="1.5" data-label="~$1.5M"><span>~$1.5M</span></div></div></div>
       </div>
       <div class="wf-total">
-        <span class="wf-total-label">Total (Llama 3 405B scale)</span>
+        <span class="wf-total-label">Total (Llama 3 405B scale + RLVR)</span>
         <span class="wf-total-val" id="wf-total-val">—</span>
       </div>
     </div>
@@ -437,15 +441,114 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <div class="step-code">Each DPO round: ~50B tokens × 405B × 6 = 1.2e23 FLOPs → ~0.08M GPU-hrs → ~$250K</div>
       </div>
     </div>
+    <div class="step-box">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <div class="step-title">RLVR — Rollout Generation (2025+ reasoning models)</div>
+        <div class="step-desc">Sample G=16–64 full completions per training prompt using the current policy. For reasoning models these are long chain-of-thought traces (avg 4K–32K tokens). Runs as autoregressive inference, which is memory-bandwidth limited — only 15–20% MFU. This is the single biggest cost sink in RLVR, often consuming 70–85% of wall-clock time per RL step.</div>
+        <div class="step-code">100K steps × 32 prompts × 16 rollouts × 6K tokens = 307B rollout tokens → ~388K GPU-hrs @ 18% MFU → ~$1.2M</div>
+      </div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <div class="step-title">RLVR — Policy Gradient + Reward Computation</div>
+        <div class="step-desc">Score each rollout (code execution, symbolic math check, or a 70B reward model), then run GRPO/PPO policy gradient update. A frozen reference model copy also runs in parallel to compute the KL penalty. Policy gradient achieves normal training MFU (~40%) but reference-model inference adds another ~0.5× overhead.</div>
+        <div class="step-code">Policy grad: 307B tok × 405B × 6 → 524K GPU-hrs → $1.6M | Ref model KL: 233K GPU-hrs → $0.7M | Reward/verifier: ~$0.3M</div>
+      </div>
+    </div>
   </div>
   <div class="step-nav">
     <button id="pipe-prev" disabled>← Prev</button>
-    <span id="pipe-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 6</span>
+    <span id="pipe-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 8</span>
     <button id="pipe-next">Next →</button>
   </div>
 
-  <h3>Post-Training Is Relatively Cheap (But Still Significant)</h3>
-  <p>Across all post-training stages — context extension, reward model, 3–5 rounds each of SFT and DPO — the total compute is roughly <strong>1–2% of pre-training cost</strong>: about $1.5–3M for a 405B model. The big cost in post-training is not compute but <strong>data quality</strong>: curating 10M high-quality instruction examples and 500K preference pairs requires significant human annotation (see §06).</p>
+  <h3>SFT/DPO Is Relatively Cheap — RLVR Is Not</h3>
+  <p>For Llama 3-era models (SFT + DPO, 2023–2024), the total post-training compute was roughly <strong>1–2% of pre-training cost</strong>: about $1.5–3M for a 405B model. The big cost was not compute but <strong>data quality</strong> — curating 10M high-quality instruction examples and 500K preference pairs (see §06).</p>
+
+  <p>But starting in 2025, frontier models replaced DPO with <strong>RLVR (Reinforcement Learning from Verifiable Rewards)</strong> — generating outcomes on-policy and scoring them with an automated verifier (code execution, symbolic math check). This fundamentally changes the cost structure: RLVR is inference-heavy rather than data-heavy, and those inference costs are substantial.</p>
+
+  <h3>RLVR Cost Breakdown: Rollout, Reward, and Gradient</h3>
+  <p>RLVR training cost splits into three distinct phases, each with a different compute profile. The numbers below use a reference configuration of 100K RL steps, batch = 32 prompts × G=16 rollouts = 512 rollouts/step, and average reasoning trace length of 6K tokens per rollout (typical for math/code reasoning).</p>
+
+  <div class="vp">
+    <div class="vp-head">
+      <span class="vp-title">RLVR Post-Training — Compute Cost by Phase (405B model, 100K steps, G=16, L=6K)</span>
+      <span class="vp-hint">All costs at $3/hr H100</span>
+    </div>
+    <div class="vp-body">
+      <table class="results-table">
+        <thead><tr><th>Phase</th><th>Mechanism</th><th>MFU</th><th>GPU-hours</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Rollout generation</strong></td>
+            <td>Autoregressive inference: G completions of length L per prompt. Sequential token generation — memory-bandwidth limited.</td>
+            <td class="mn">15–20%</td>
+            <td class="mn">~388K</td>
+            <td class="mn best">~$1.2M</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Policy gradient update</strong></td>
+            <td>Forward + backward pass on all G×L rollout tokens (GRPO/PPO loss). Runs like SFT — dense matrix ops, full MFU.</td>
+            <td class="mn">38–42%</td>
+            <td class="mn">~524K</td>
+            <td class="mn best">~$1.6M</td>
+          </tr>
+          <tr>
+            <td><strong>Reference model (KL)</strong></td>
+            <td>Forward pass on a frozen copy of the policy to compute the KL divergence regularization term.</td>
+            <td class="mn">28–35%</td>
+            <td class="mn">~233K</td>
+            <td class="mn best">~$0.7M</td>
+          </tr>
+          <tr>
+            <td><strong>Reward / verifier</strong></td>
+            <td>Code execution sandbox (CPU-heavy, modest GPU) + optional 70B reward model inference for open-ended tasks.</td>
+            <td class="mn">—</td>
+            <td class="mn">~80K</td>
+            <td class="mn best">~$0.3M</td>
+          </tr>
+          <tr style="font-weight:700">
+            <td>Total RLVR (100K steps)</td>
+            <td></td>
+            <td></td>
+            <td class="mn best">~1.2M</td>
+            <td class="mn best">~$3.8M</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem">⚠ Rollout generation is the dominant wall-clock cost even though it has fewer FLOPs than the gradient update — because autoregressive decoding runs at only 15–20% MFU vs 40% for training. Modern RLVR systems (verl, vLLM+Megatron hybrid, TBA-async) dedicate 70–90% of GPU capacity to inference at any given moment.</p>
+    </div>
+  </div>
+
+  <h3>How Costs Scale with RL Training Depth</h3>
+  <p>The numbers above are for 100K RL steps — a light-to-moderate run. Frontier reasoning models like o3 and Gemini 2.5 Pro almost certainly train much longer, and rollout lengths also increase as models learn to reason further. Here's how total RLVR cost scales:</p>
+
+  <div class="results-bars" id="rlvr-scale-bars" style="margin:1.25rem 0">
+    <div class="bar-row">
+      <div class="bar-label">DeepSeek-R1-Zero scale (10K steps)</div>
+      <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.5)" data-w="5"><span>~$0.4M</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Research repro (50K steps)</div>
+      <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.65)" data-w="25"><span>~$2M</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Frontier light (100K steps)</div>
+      <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.75)" data-w="48"><span>~$3.8M</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Frontier mid (250K steps)</div>
+      <div class="bar-track"><div class="bar-fill" style="background:rgba(239,68,68,.85)" data-w="75"><span>~$9.5M</span></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Frontier heavy (500K+ steps)</div>
+      <div class="bar-track"><div class="bar-fill" style="background:#e06c75" data-w="100"><span>~$19M+</span></div></div>
+    </div>
+  </div>
+
+  <p>For comparison, traditional SFT+DPO for a 405B model costs approximately <strong>$2M</strong>. RLVR at frontier depth costs <strong>5–10× more</strong>. This is why post-training has moved from a minor line item to a first-class budget concern for 2025-era frontier labs — the reasoning capability it unlocks (AIME scores, competition math, code generation) is worth the compute, but it is decidedly not cheap.</p>
 
   <p>One important asymmetry: post-training failures are hard to fix with more compute. A pre-training run that's 5% worse than expected can often be rescued with better data or a longer run. A post-training run that produces a misaligned or low-quality assistant often requires going back to the drawing board on annotation quality. Budget for at least 3–4 post-training iteration cycles in both time and human annotation spend.</p>
 </section>
@@ -616,6 +719,27 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <td class="mn">$1.5M</td>
         <td class="mn">$3M</td>
       </tr>
+      <tr style="border-top:1px solid rgba(239,68,68,.3)">
+        <td style="color:#e06c75">RLVR rollout generation <span style="font-size:.65rem;color:var(--muted)">(reasoning models)</span></td>
+        <td class="mn">autoregressive inference, G=16, L=6K</td>
+        <td class="mn">$0.4M</td>
+        <td class="mn best" style="color:#e06c75">$1.2M</td>
+        <td class="mn">$5M</td>
+      </tr>
+      <tr>
+        <td style="color:#e06c75">RLVR policy gradient <span style="font-size:.65rem;color:var(--muted)">(reasoning models)</span></td>
+        <td class="mn">fwd+bwd on all G×L rollout tokens</td>
+        <td class="mn">$0.6M</td>
+        <td class="mn best" style="color:#e06c75">$1.6M</td>
+        <td class="mn">$7M</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(239,68,68,.3)">
+        <td style="color:#e06c75">RLVR reward/verifier + ref model <span style="font-size:.65rem;color:var(--muted)">(reasoning models)</span></td>
+        <td class="mn">code exec + KL reference model</td>
+        <td class="mn">$0.3M</td>
+        <td class="mn best" style="color:#e06c75">$1.0M</td>
+        <td class="mn">$4M</td>
+      </tr>
       <tr>
         <td>Storage (checkpoints + data)</td>
         <td class="mn">810TB ckpts, 4 months</td>
@@ -645,16 +769,23 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <td class="mn">$2M</td>
       </tr>
       <tr style="font-weight:700;font-size:.85rem">
-        <td>TOTAL</td>
+        <td>TOTAL (base, SFT+DPO)</td>
         <td></td>
         <td class="mn best">$97.6M</td>
         <td class="mn best">$127.1M</td>
         <td class="mn best">$182.3M</td>
       </tr>
+      <tr style="font-weight:700;font-size:.85rem;background:rgba(239,68,68,.05)">
+        <td>TOTAL (+ RLVR, reasoning model)</td>
+        <td style="font-size:.68rem;color:var(--muted);font-weight:400">adds RLVR rollout + gradient + reward</td>
+        <td class="mn best" style="color:#e06c75">$99M</td>
+        <td class="mn best" style="color:#e06c75">$131M</td>
+        <td class="mn best" style="color:#e06c75">$198M</td>
+      </tr>
     </tbody>
   </div>
 
-  <p><strong>Our mid estimate for a Llama 3 405B–class model: ~$127M end-to-end.</strong> This is consistent with public estimates of GPT-4's training cost (~$63–100M for compute alone, which is smaller model or better pricing), and with the general understanding in the industry that frontier model training runs cost $50–200M depending on scale.</p>
+  <p><strong>Base mid estimate (SFT+DPO, Llama 3 era): ~$127M.</strong> For a 2025-era frontier reasoning model that adds comprehensive RLVR post-training (250K–500K RL steps), the mid estimate rises to <strong>~$131–150M+</strong>. This is consistent with the general understanding in the industry that frontier model training runs cost $100–250M depending on scale and post-training depth.</p>
 
   <h3>Scaling to Other Model Sizes</h3>
   <p>The compute cost scales as <strong>N × D</strong>. If you're targeting a smaller model (say, 70B at 2× Chinchilla-optimal = 1.4T tokens), the pre-training compute is:</p>
@@ -882,10 +1013,50 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <span class="cs-line">post_flops = 6 * 405e9 * post_train_tokens</span>
 <span class="cs-line cmt"># = 9.7e23 FLOPs → 0.68M GPU-hrs → $2M</span>
 <span class="cs-line"> </span>
-<span class="cs-line cmt"># ── Summary ──────────────────────────────</span>
+<span class="cs-line cmt"># ── Summary (SFT/DPO pipeline) ───────────</span>
 <span class="cs-line hl-g">total_post_hrs = 0.068 + 0.51 + 0.009 + 0.68</span>
 <span class="cs-line cmt"># = ~1.27M H100 GPU-hrs → ~$3.8M</span>
 <span class="cs-line cmt"># ≈ 4.7% of pre-training compute</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── RLVR (reasoning model, 2025+) ────────</span>
+<span class="cs-line cmt"># Config: 100K steps, batch 32×G=16, avg 6K tok</span>
+<span class="cs-line">rollout_tokens = 100_000 * 32 * 16 * 6_000</span>
+<span class="cs-line cmt"># = 307.2B rollout tokens per run</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># A) Rollout generation (autoregressive inference)</span>
+<span class="cs-line">rollout_mfu   = 0.18  <span class="cmt"># memory-BW limited</span></span>
+<span class="cs-line hl-a">rollout_flops = 2 * 405e9 * rollout_tokens</span>
+<span class="cs-line hl-a">rollout_hrs   = rollout_flops / (989e12 * rollout_mfu) / 3600</span>
+<span class="cs-line cmt"># = 2.49e23 FLOPs → ~388K GPU-hrs → ~$1.16M</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># B) Policy gradient (fwd + bwd on rollout tokens)</span>
+<span class="cs-line hl-p">grad_flops = 6 * 405e9 * rollout_tokens</span>
+<span class="cs-line hl-p">grad_hrs   = grad_flops / (989e12 * 0.40) / 3600</span>
+<span class="cs-line cmt"># = 7.47e23 FLOPs → ~524K GPU-hrs → ~$1.57M</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># C) Reference model (KL penalty, frozen copy)</span>
+<span class="cs-line">ref_mfu   = 0.30  <span class="cmt"># batched fwd, better than rollout</span></span>
+<span class="cs-line hl-c">ref_flops = 2 * 405e9 * rollout_tokens</span>
+<span class="cs-line hl-c">ref_hrs   = ref_flops / (989e12 * ref_mfu) / 3600</span>
+<span class="cs-line cmt"># = 2.49e23 FLOPs → ~233K GPU-hrs → ~$0.70M</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># D) Reward / verifier</span>
+<span class="cs-line cmt"># Code exec sandbox (CPU) + 70B reward model</span>
+<span class="cs-line">reward_hrs = 80_000   <span class="cmt"># ~$0.24M</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── RLVR total ───────────────────────────</span>
+<span class="cs-line hl-g">total_rlvr_hrs = rollout_hrs + grad_hrs + ref_hrs + reward_hrs</span>
+<span class="cs-line cmt"># = ~1.23M GPU-hrs → ~$3.7M  (100K steps)</span>
+<span class="cs-line cmt"> </span>
+<span class="cs-line cmt"># Scaling with RL training depth:</span>
+<span class="cs-line cmt"># 10K steps  → ~370K hrs  → ~$1.1M   (R1-Zero scale)</span>
+<span class="cs-line cmt"># 50K steps  → ~615K hrs  → ~$1.9M</span>
+<span class="cs-line cmt"># 100K steps → ~1.23M hrs → ~$3.7M</span>
+<span class="cs-line cmt"># 250K steps → ~3.08M hrs → ~$9.2M   (frontier)</span>
+<span class="cs-line cmt"># 500K steps → ~6.16M hrs → ~$18.5M  (heavy)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># vs traditional SFT+DPO: ~0.68M hrs → ~$2M</span>
+<span class="cs-line cmt"># RLVR @ 250K steps costs ~4.5× more than SFT+DPO</span>
       </pre>
     </div>
 
@@ -1075,7 +1246,7 @@ function animateWaterfall() {
     }, i * 120);
   });
   setTimeout(() => {
-    document.getElementById('wf-total-val').textContent = '~$119M (mid estimate)';
+    document.getElementById('wf-total-val').textContent = '~$127M base + ~$7M RLVR = ~$134M';
   }, bars.length * 120 + 200);
 }
 if (wfSection) {
@@ -1096,6 +1267,20 @@ if (cloudSection) {
       });
     }
   }, { threshold: 0.3 }).observe(cloudSection);
+}
+
+/* ── RLVR scale bars (§04) ── */
+const rlvrSection = document.getElementById('s-pipeline');
+let rlvrAnimated = false;
+if (rlvrSection) {
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !rlvrAnimated) {
+      rlvrAnimated = true;
+      document.querySelectorAll('#rlvr-scale-bars .bar-fill').forEach((b, i) => {
+        setTimeout(() => { b.style.width = b.dataset.w + '%'; }, i * 200);
+      });
+    }
+  }, { threshold: 0.2 }).observe(rlvrSection);
 }
 
 /* ── Compute Budget Calculator (§02) ── */
