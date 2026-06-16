@@ -77,7 +77,7 @@ start_app() {
   local name
   name="$(basename "$app_dir")"
 
-  if [ ! -d "$app_dir/node_modules" ]; then
+  if [ ! -d "$app_dir/node_modules" ] || { [ "$name" = "blog" ] && [ ! -d "$app_dir/node_modules/@study/tts" ]; }; then
     echo "Installing dependencies for $name..."
     (cd "$app_dir" && npm install) || {
       echo "ERROR: npm install failed for $name" >&2
