@@ -231,12 +231,30 @@
       currentUtterance = new SpeechSynthesisUtterance(speechUtterances[index]);
       currentUtterance.rate = currentSpeed;
 
-      // Select high-quality system English or Chinese voice depending on content/language
+      // Select online/neural voices or high-quality offline voices depending on language
       const voices = synth.getVoices();
       const currentLang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
       
-      const matchedVoice = voices.find(v => v.lang.startsWith(currentLang) && v.localService) ||
-                           voices.find(v => v.lang.startsWith(currentLang));
+      // Voice preference order:
+      // 1. Online/Remote Natural voices (e.g. Edge Online Natural, Google Online)
+      // 2. Premium local voices (Siri, Premium, Local Natural)
+      // 3. Fallback to any voice matching active language
+      let matchedVoice = voices.find(v => 
+        v.lang.toLowerCase().startsWith(currentLang) && 
+        (v.name.includes('Online') || v.name.includes('Natural') || v.localService === false)
+      );
+
+      if (!matchedVoice) {
+        matchedVoice = voices.find(v => 
+          v.lang.toLowerCase().startsWith(currentLang) && 
+          (v.name.includes('Siri') || v.name.includes('Premium') || v.name.includes('Google'))
+        );
+      }
+
+      if (!matchedVoice) {
+        matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(currentLang));
+      }
+
       if (matchedVoice) {
         currentUtterance.voice = matchedVoice;
       }
