@@ -233,6 +233,20 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 <!-- repeat for each section -->
 
+<!-- Listen-friendly content (hidden summary played during audio playback) -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: [Post Title]</h2>
+    <p>[Concise, visualization-independent summary paragraph 1...]</p>
+    <p>[Concise, visualization-independent summary paragraph 2...]</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：[文章标题]</h2>
+    <p>[中文精简、独立于可视化的摘要段落 1...]</p>
+    <p>[中文精简、独立于可视化的摘要段落 2...]</p>
+  </div>
+</div>
+
 </article>
 
 <!-- RIGHT: CODE SIDEBAR -->
@@ -1226,6 +1240,7 @@ Add to the post CSS:
 - [ ] Code sidebar has one tab per section with relevant pseudocode/results
 - [ ] TOC has one entry per section, IntersectionObserver wires sync
 - [ ] `.cs-pre` uses `white-space:normal` and `.cs-line` uses `white-space:pre` — **grep to confirm:** `grep "cs-pre{" index.astro` must show `white-space:normal`; `grep "cs-line{" index.astro` must show `white-space:pre`
+- [ ] Listen-friendly hidden summary block generated at the bottom of the article body in both English and Chinese (`<div class="listen-friendly-content">`)
 
 **Index**
 - [ ] Index entry added with `★ Latest` badge, previous post's badge removed
