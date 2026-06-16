@@ -127,21 +127,27 @@
 </style>
 
 <script>
+  import { CascadeTtsPlayer } from '@study/tts';
+
   let speechUtterances: string[] = [];
   let speechElements: HTMLElement[] = [];
   let currentIndex = 0;
   let isPlaying = false;
-  let currentUtterance: SpeechSynthesisUtterance | null = null;
+  let isPaused = false;
   let currentSpeed = 1.0;
 
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  // Instantiate the Cascade Player
+  const player = new CascadeTtsPlayer({
+    apiEndpoint: (window as any).TTS_API_ENDPOINT,
+    onnxModelUrl: (window as any).TTS_ONNX_MODEL_URL
+  });
 
   function initTTS() {
     const postBody = document.querySelector('.post-body');
     const heroLinks = document.querySelector('.hero-links');
     
     // Only inject if both the post body and hero links exist
-    if (!postBody || !heroLinks || !synth) return;
+    if (!postBody || !heroLinks) return;
 
     // Avoid double injection
     if (document.getElementById('tts-trigger')) return;
@@ -219,12 +225,12 @@
     }
 
     function playChunk(index: number) {
-      if (!synth || index < 0 || index >= speechUtterances.length) {
+      if (index < 0 || index >= speechUtterances.length) {
         stopPlayback();
         return;
       }
 
-      synth.cancel();
+      player.cancel();
       currentIndex = index;
 
       // Update Highlights
@@ -244,51 +250,35 @@
         }
       });
 
-      // Prepare text and trigger utterance
-      currentUtterance = new SpeechSynthesisUtterance(speechUtterances[index]);
-      currentUtterance.rate = currentSpeed;
+      // Update state to playing
+      isPlaying = true;
+      isPaused = false;
+      updatePlayButtonUI(true);
+      updateTriggerUI(true);
 
-      // Select online/neural voices or high-quality offline voices depending on language
-      const voices = synth.getVoices();
+      // Select voice preference and language
       const currentLang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
-      
-      // Voice preference order:
-      // 1. Online/Remote Natural voices (e.g. Edge Online Natural, Google Online)
-      // 2. Premium local voices (Siri, Premium, Local Natural)
-      // 3. Fallback to any voice matching active language
-      let matchedVoice = voices.find(v => 
-        v.lang.toLowerCase().startsWith(currentLang) && 
-        (v.name.includes('Online') || v.name.includes('Natural') || v.localService === false)
+      player.setLang(currentLang);
+      player.setSpeed(currentSpeed);
+
+      player.play(
+        speechUtterances[index],
+        () => {
+          // onStart
+        },
+        () => {
+          // onEnd
+          if (isPlaying && !isPaused) {
+            playChunk(currentIndex + 1);
+          }
+        },
+        (err) => {
+          console.error('TTS Player play chunk failed:', err);
+          if (isPlaying && !isPaused) {
+            playChunk(currentIndex + 1);
+          }
+        }
       );
-
-      if (!matchedVoice) {
-        matchedVoice = voices.find(v => 
-          v.lang.toLowerCase().startsWith(currentLang) && 
-          (v.name.includes('Siri') || v.name.includes('Premium') || v.name.includes('Google'))
-        );
-      }
-
-      if (!matchedVoice) {
-        matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(currentLang));
-      }
-
-      if (matchedVoice) {
-        currentUtterance.voice = matchedVoice;
-      }
-
-      currentUtterance.onend = () => {
-        if (isPlaying) {
-          playChunk(currentIndex + 1);
-        }
-      };
-
-      currentUtterance.onerror = (e) => {
-        if (isPlaying && e.error !== 'interrupted') {
-          playChunk(currentIndex + 1);
-        }
-      };
-
-      synth.speak(currentUtterance);
     }
 
     function togglePlayPause() {
@@ -300,19 +290,19 @@
           extractArticleContent();
         }
 
-        // Change button style on post header
         updateTriggerUI(true);
+        updatePlayButtonUI(true);
 
-        if (synth.paused) {
-          synth.resume();
+        if (isPaused) {
+          player.resume();
+          isPaused = false;
         } else {
           playChunk(currentIndex);
         }
-        
-        updatePlayButtonUI(true);
       } else {
         isPlaying = false;
-        synth.pause();
+        isPaused = true;
+        player.pause();
         updatePlayButtonUI(false);
         updateTriggerUI(false);
       }
@@ -360,7 +350,8 @@
 
     function stopPlayback() {
       isPlaying = false;
-      synth.cancel();
+      isPaused = false;
+      player.cancel();
       updatePlayButtonUI(false);
       
       // Reset trigger icon back to speaker icon
@@ -402,13 +393,6 @@
         playChunk(currentIndex); // Reload chunk at updated rate
       }
     });
-
-    // Handle voice changes asynchronously (required by Chrome)
-    if (synth.onvoiceschanged !== undefined) {
-      synth.onvoiceschanged = () => {
-        // voices loaded
-      };
-    }
   }
 
   // Hook into document lifecycle
