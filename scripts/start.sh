@@ -6,6 +6,13 @@
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Ensure Homebrew OpenJDK is on PATH (required for Firebase emulators)
+if [ -d "/opt/homebrew/opt/openjdk/bin" ]; then
+  export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+elif [ -d "/usr/local/opt/openjdk/bin" ]; then
+  export PATH="/usr/local/opt/openjdk/bin:$PATH"
+fi
+
 PIDS=()
 
 cleanup() {
