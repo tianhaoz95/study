@@ -176,16 +176,36 @@ interface Suggestion {
   createdAt: Date | null
 }
 
+interface Feedback {
+  id: string
+  message: string
+  email?: string
+  rating?: number
+  path?: string
+  createdAt: Date | null
+}
+
 // ── State ─────────────────────────────────────────────────────
 let allSuggestions: Suggestion[] = []
+let allFeedback: Feedback[] = []
+let activeTab: 'suggestions' | 'feedback' = 'suggestions'
 
 // ── DOM refs ──────────────────────────────────────────────────
-const listEl       = document.getElementById('suggestions-list')!
-const totalEl      = document.getElementById('stat-total')!
-const todayEl      = document.getElementById('stat-today')!
-const searchEl     = document.getElementById('search') as HTMLInputElement
-const sortEl       = document.getElementById('sort') as HTMLSelectElement
-const refreshBtn   = document.getElementById('refresh-btn')!
+const listEl          = document.getElementById('suggestions-list')!
+const feedbackListEl  = document.getElementById('feedback-list')!
+const totalEl         = document.getElementById('stat-total')!
+const todayEl         = document.getElementById('stat-today')!
+const searchEl        = document.getElementById('search') as HTMLInputElement
+const sortEl          = document.getElementById('sort') as HTMLSelectElement
+const ratingFilterEl  = document.getElementById('rating-filter') as HTMLSelectElement
+const refreshBtn      = document.getElementById('refresh-btn')!
+const statTotalLabel  = document.getElementById('stat-total-label')!
+const statChipAvg     = document.getElementById('stat-chip-avg')!
+const statAvgEl       = document.getElementById('stat-avg')!
+const pageTitleEl     = document.getElementById('page-title')!
+const pageDescEl      = document.getElementById('page-desc')!
+const tabSuggestions  = document.getElementById('tab-suggestions')!
+const tabFeedback     = document.getElementById('tab-feedback')!
 
 // ── Helpers ───────────────────────────────────────────────────
 function formatDate(d: Date | null): string {
@@ -210,8 +230,92 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+// ── Tabs Switching ───────────────────────────────────────────
+function switchTab(tab: 'suggestions' | 'feedback') {
+  activeTab = tab;
+  
+  if (tab === 'suggestions') {
+    tabSuggestions.classList.add('active');
+    tabSuggestions.setAttribute('aria-selected', 'true');
+    tabSuggestions.setAttribute('tabindex', '0');
+    
+    tabFeedback.classList.remove('active');
+    tabFeedback.setAttribute('aria-selected', 'false');
+    tabFeedback.setAttribute('tabindex', '-1');
+    
+    listEl.style.display = 'flex';
+    feedbackListEl.style.display = 'none';
+    
+    pageTitleEl.textContent = 'Topic Suggestions';
+    pageDescEl.textContent = 'Suggestions submitted by blog readers via the Suggest Topic form.';
+    statTotalLabel.textContent = 'total suggestions';
+    statChipAvg.style.display = 'none';
+    
+    searchEl.placeholder = 'Filter by topic or email…';
+    ratingFilterEl.style.display = 'none';
+    
+    sortEl.innerHTML = `
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="az">A → Z</option>
+    `;
+    sortEl.value = 'newest';
+  } else {
+    tabFeedback.classList.add('active');
+    tabFeedback.setAttribute('aria-selected', 'true');
+    tabFeedback.setAttribute('tabindex', '0');
+    
+    tabSuggestions.classList.remove('active');
+    tabSuggestions.setAttribute('aria-selected', 'false');
+    tabSuggestions.setAttribute('tabindex', '-1');
+    
+    listEl.style.display = 'none';
+    feedbackListEl.style.display = 'flex';
+    
+    pageTitleEl.textContent = 'Reader Feedback';
+    pageDescEl.textContent = 'Ratings and feedback submitted by blog readers.';
+    statTotalLabel.textContent = 'total feedback';
+    statChipAvg.style.display = 'flex';
+    
+    searchEl.placeholder = 'Filter by message, path, or email…';
+    ratingFilterEl.style.display = 'block';
+    
+    sortEl.innerHTML = `
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="rating-desc">Highest rating</option>
+      <option value="rating-asc">Lowest rating</option>
+    `;
+    sortEl.value = 'newest';
+  }
+  
+  searchEl.value = '';
+  ratingFilterEl.value = 'all';
+  
+  render();
+  updateStats();
+}
+
+function updateStats() {
+  if (activeTab === 'suggestions') {
+    totalEl.textContent = String(allSuggestions.length);
+    todayEl.textContent = String(allSuggestions.filter(s => isToday(s.createdAt)).length);
+  } else {
+    totalEl.textContent = String(allFeedback.length);
+    todayEl.textContent = String(allFeedback.filter(f => isToday(f.createdAt)).length);
+    
+    const ratedFeedback = allFeedback.filter(f => typeof f.rating === 'number');
+    if (ratedFeedback.length > 0) {
+      const avg = ratedFeedback.reduce((sum, f) => sum + (f.rating ?? 0), 0) / ratedFeedback.length;
+      statAvgEl.textContent = `${avg.toFixed(1)} ★`;
+    } else {
+      statAvgEl.textContent = '—';
+    }
+  }
+}
+
 // ── Render ────────────────────────────────────────────────────
-function render() {
+function renderSuggestions() {
   const q = searchEl.value.trim().toLowerCase()
   const sortVal = sortEl.value
 
@@ -255,18 +359,138 @@ function render() {
     </div>`).join('')
 }
 
+function renderFeedback() {
+  const q = searchEl.value.trim().toLowerCase()
+  const sortVal = sortEl.value
+  const ratingFilterVal = ratingFilterEl.value
+
+  let filtered = [...allFeedback]
+
+  // Filter by search query (message, email, path)
+  if (q) {
+    filtered = filtered.filter(f =>
+      f.message.toLowerCase().includes(q) ||
+      (f.email?.toLowerCase().includes(q) ?? false) ||
+      (f.path?.toLowerCase().includes(q) ?? false)
+    )
+  }
+
+  // Filter by rating
+  if (ratingFilterVal !== 'all') {
+    const minRating = parseInt(ratingFilterVal, 10)
+    if (ratingFilterVal === '5') {
+      filtered = filtered.filter(f => f.rating === 5)
+    } else {
+      filtered = filtered.filter(f => typeof f.rating === 'number' && f.rating >= minRating)
+    }
+  }
+
+  // Sorting
+  if (sortVal === 'oldest') {
+    filtered.sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0))
+  } else if (sortVal === 'rating-desc') {
+    filtered.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+  } else if (sortVal === 'rating-asc') {
+    filtered.sort((a, b) => (a.rating ?? 999) - (b.rating ?? 999))
+  } else {
+    // default: newest first
+    filtered.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
+  }
+
+  if (filtered.length === 0) {
+    feedbackListEl.innerHTML = `
+      <div class="state-box">
+        <span class="state-icon">💬</span>
+        <span>No feedback matches your filters.</span>
+      </div>`
+    return
+  }
+
+  feedbackListEl.innerHTML = filtered.map(f => {
+    // Build rating stars
+    let starsHtml = ''
+    if (typeof f.rating === 'number') {
+      starsHtml = `<div class="feedback-rating" aria-label="${f.rating} out of 5 stars">`
+      for (let i = 1; i <= 5; i++) {
+        starsHtml += `<span class="feedback-star ${i <= f.rating ? 'filled' : ''}">★</span>`
+      }
+      starsHtml += '</div>'
+    } else {
+      starsHtml = `<span style="font-size:0.75rem;color:var(--muted)">No rating</span>`
+    }
+
+    // Direct link to the post
+    let pathUrl = f.path ?? '/'
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      pathUrl = `http://localhost:4321${f.path ?? ''}`
+    }
+
+    const pathBadge = f.path ? `
+      <a href="${pathUrl}" target="_blank" rel="noopener noreferrer" class="feedback-path">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><polygon points="16.2 7.8 10.8 10.8 7.8 16.2 13.2 13.2 16.2 7.8"/>
+        </svg>
+        ${escapeHtml(f.path)}
+      </a>
+    ` : ''
+
+    const emailBadge = f.email ? `
+      <span class="feedback-email">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        ${escapeHtml(f.email)}
+      </span>
+    ` : ''
+
+    return `
+      <div class="feedback-card">
+        <div class="feedback-header">
+          ${starsHtml}
+          <div class="feedback-date">
+            ${formatDate(f.createdAt)}<br/>
+            <span style="color:var(--muted)">${formatTime(f.createdAt)}</span>
+          </div>
+        </div>
+        <div class="feedback-message">${escapeHtml(f.message)}</div>
+        ${(emailBadge || pathBadge) ? `
+          <div class="feedback-footer">
+            <div class="feedback-meta-left">
+              ${emailBadge}
+              ${pathBadge}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `
+  }).join('')
+}
+
+function render() {
+  if (activeTab === 'suggestions') {
+    renderSuggestions();
+  } else {
+    renderFeedback();
+  }
+}
+
 // ── Load data ─────────────────────────────────────────────────
 async function load() {
   if (!isAdminUser) {
     return
   }
 
-
   listEl.innerHTML = `<div class="state-box"><div class="spinner"></div><span>Loading…</span></div>`
+  feedbackListEl.innerHTML = `<div class="state-box"><div class="spinner"></div><span>Loading…</span></div>`
 
   try {
-    const snap = await getDocs(query(collection(db, 'topic-suggestions'), orderBy('createdAt', 'desc')))
-    allSuggestions = snap.docs.map(doc => {
+    const suggestionsPromise = getDocs(query(collection(db, 'topic-suggestions'), orderBy('createdAt', 'desc')));
+    const feedbackPromise = getDocs(query(collection(db, 'feedback'), orderBy('createdAt', 'desc')));
+
+    const [suggestionsSnap, feedbackSnap] = await Promise.all([suggestionsPromise, feedbackPromise]);
+
+    allSuggestions = suggestionsSnap.docs.map(doc => {
       const data = doc.data()
       const ts = data['createdAt'] as Timestamp | null
       return {
@@ -275,13 +499,27 @@ async function load() {
         email: data['email'] ? String(data['email']) : undefined,
         createdAt: ts instanceof Timestamp ? ts.toDate() : null,
       }
-    })
+    });
 
-    totalEl.textContent = String(allSuggestions.length)
-    todayEl.textContent = String(allSuggestions.filter(s => isToday(s.createdAt)).length)
-    render()
+    allFeedback = feedbackSnap.docs.map(doc => {
+      const data = doc.data()
+      const ts = data['createdAt'] as Timestamp | null
+      return {
+        id: doc.id,
+        message: String(data['message'] ?? ''),
+        email: data['email'] ? String(data['email']) : undefined,
+        rating: typeof data['rating'] === 'number' ? data['rating'] : undefined,
+        path: data['path'] ? String(data['path']) : undefined,
+        createdAt: ts instanceof Timestamp ? ts.toDate() : null,
+      }
+    });
+
+    updateStats();
+    render();
   } catch (err) {
+    console.error('Failed to load data:', err);
     listEl.innerHTML = `<div class="state-box"><span class="state-icon">⚠️</span><span>Failed to load suggestions. Check Firestore rules.</span></div>`
+    feedbackListEl.innerHTML = `<div class="state-box"><span class="state-icon">⚠️</span><span>Failed to load feedback. Check Firestore rules.</span></div>`
   }
 }
 
@@ -303,9 +541,49 @@ sortEl.addEventListener('change', () => {
   render()
 })
 
+ratingFilterEl.addEventListener('change', () => {
+  if (analytics) {
+    logEvent(analytics, 'admin_rating_filter', { rating_filter: ratingFilterEl.value })
+  }
+  render()
+})
+
 refreshBtn.addEventListener('click', () => {
   if (analytics) {
     logEvent(analytics, 'admin_refresh')
   }
   load()
 })
+
+tabSuggestions.addEventListener('click', () => {
+  if (activeTab !== 'suggestions') {
+    if (analytics) {
+      logEvent(analytics, 'admin_tab_switch', { tab: 'suggestions' })
+    }
+    switchTab('suggestions')
+  }
+})
+
+tabSuggestions.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    tabSuggestions.click();
+  }
+})
+
+tabFeedback.addEventListener('click', () => {
+  if (activeTab !== 'feedback') {
+    if (analytics) {
+      logEvent(analytics, 'admin_tab_switch', { tab: 'feedback' })
+    }
+    switchTab('feedback')
+  }
+})
+
+tabFeedback.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    tabFeedback.click();
+  }
+})
+
