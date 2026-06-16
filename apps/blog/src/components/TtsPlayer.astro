@@ -179,29 +179,43 @@
 
     // Extract content
     function extractArticleContent() {
-      const elements = Array.from(postBody!.querySelectorAll('p, li, h2, h3'));
+      const currentLang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+      const listenFriendly = postBody!.querySelector(`.listen-friendly-content [lang="${currentLang}"]`) || 
+                             postBody!.querySelector('.listen-friendly-content');
+      
       speechUtterances = [];
       speechElements = [];
 
-      elements.forEach((el) => {
-        // Exclude interactive panels, codeblocks, math, formulas, and headers
-        if (
-          el.closest('pre') || 
-          el.closest('.vp') || 
-          el.closest('svg') || 
-          el.closest('aside') ||
-          el.closest('.code-sidebar') ||
-          el.closest('.step-code') ||
-          el.closest('.math-block') ||
-          el.classList.contains('cs-line') ||
-          el.textContent?.trim() === ''
-        ) {
-          return;
-        }
+      if (listenFriendly) {
+        // If there's special listen-friendly content for the current language, use it!
+        const elements = Array.from(listenFriendly.querySelectorAll('p, li, h2, h3'));
+        elements.forEach((el) => {
+          speechUtterances.push(el.textContent!.trim());
+          speechElements.push(el as HTMLElement);
+        });
+      } else {
+        // Fallback to standard post body parsing
+        const elements = Array.from(postBody!.querySelectorAll('p, li, h2, h3'));
+        elements.forEach((el) => {
+          // Exclude interactive panels, codeblocks, math, formulas, and headers
+          if (
+            el.closest('pre') || 
+            el.closest('.vp') || 
+            el.closest('svg') || 
+            el.closest('aside') ||
+            el.closest('.code-sidebar') ||
+            el.closest('.step-code') ||
+            el.closest('.math-block') ||
+            el.classList.contains('cs-line') ||
+            el.textContent?.trim() === ''
+          ) {
+            return;
+          }
 
-        speechUtterances.push(el.textContent!.trim());
-        speechElements.push(el as HTMLElement);
-      });
+          speechUtterances.push(el.textContent!.trim());
+          speechElements.push(el as HTMLElement);
+        });
+      }
     }
 
     function playChunk(index: number) {
@@ -216,12 +230,15 @@
       // Update Highlights
       speechElements.forEach((el, i) => {
         if (i === index) {
-          el.classList.add('speaking-highlight');
-          
-          // Smooth scroll to element, accounting for fixed nav header
-          const yOffset = -80; 
-          const y = el.getBoundingClientRect().top + window.scrollY + yOffset;
-          window.scrollTo({ top: y, behavior: 'smooth' });
+          const isHidden = el.closest('[style*="display: none"]') || el.closest('.listen-friendly-content');
+          if (!isHidden) {
+            el.classList.add('speaking-highlight');
+            
+            // Smooth scroll to element, accounting for fixed nav header
+            const yOffset = -80; 
+            const y = el.getBoundingClientRect().top + window.scrollY + yOffset;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+          }
         } else {
           el.classList.remove('speaking-highlight');
         }
@@ -358,6 +375,8 @@
       speechElements.forEach(el => el.classList.remove('speaking-highlight'));
       playerWidget?.classList.remove('visible');
       currentIndex = 0;
+      speechUtterances = [];
+      speechElements = [];
     }
 
     // Attach controls listeners
