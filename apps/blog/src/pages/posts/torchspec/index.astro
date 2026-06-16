@@ -1,0 +1,1049 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="TorchSpec: Disaggregated Speculative Decoding Training | AI/ML Deep Dives"
+  description="TorchSpec is a torch-native framework that trains EAGLE-3 draft models by streaming target hidden states from inference engines straight to training workers — no 700 TB of disk, no rigid co-located sharding. A walkthrough of its design, architecture, and how it compares to SpecForge."
+  crumb="TorchSpec"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.hero-summary-video{width:100%;max-width:380px;border-radius:10px;border:1px solid var(--border);margin-top:1.25rem}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.post-body strong{color:var(--text2);font-weight:600}
+.post-body code{font-family:var(--ff-mono);font-size:.82em;background:var(--card2);padding:.1rem .35rem;border-radius:4px;color:var(--cyan)}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.vp-controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+.vp-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.vp-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.vp-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.vp-caption{font-size:.72rem;color:var(--muted);margin-top:.75rem;line-height:1.55;font-family:var(--ff-mono)}
+canvas{display:block;width:100%}
+
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin:1.5rem 0}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem}
+.stat-num{font-size:1.4rem;font-weight:800;color:var(--purple-l);font-family:var(--ff-mono);letter-spacing:-.02em}
+.stat-label{font-size:.68rem;color:var(--muted);margin-top:.2rem;line-height:1.4}
+
+/* Callout */
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.85rem 1.1rem;margin:1.5rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+
+/* Tables */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .bad{color:var(--amber)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;color:var(--muted);font-family:var(--ff-mono)}
+
+/* Animated bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Training Systems</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>TorchSpec: Training Draft Models by Streaming Hidden States, Not Storing Them</h1>
+  <p class="lead">Training an EAGLE-3 draft model for a 1-trillion-parameter target like Kimi K2.5 means moving an enormous river of hidden states — one 128K-token sample alone is 7 GB. The old answers are bad: co-locate training with inference and you're stuck at 4K context on a single node, or dump everything offline and you're staring at 700 TB of disk. TorchSpec is a torch-native framework that <strong>disaggregates</strong> the two and streams hidden states straight from inference engines to training workers over the network — zero disk, independent scaling, 200K-token context.</p>
+  <div class="post-hero-meta">
+    <span>June 16, 2026</span>
+    <span>~16 min read</span>
+    <span>Project: <code>lightseekorg/TorchSpec</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://github.com/lightseekorg/TorchSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <a class="hero-btn" href="https://pytorch.org/blog/torchspec-speculative-decoding-training-at-scale/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      PyTorch Blog
+    </a>
+    <a class="hero-btn" href="https://huggingface.co/lightseekorg/kimi-k2.5-eagle3" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Released Models
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The hidden-state explosion</a></li>
+    <li class="toc-item" id="toc-s-eagle"><a href="#s-eagle"><span class="toc-num">02</span> What a draft model eats</a></li>
+    <li class="toc-item" id="toc-s-approaches"><a href="#s-approaches"><span class="toc-num">03</span> Two ways that hit a wall</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">04</span> Disaggregation</a></li>
+    <li class="toc-item" id="toc-s-stream"><a href="#s-stream"><span class="toc-num">05</span> Streaming without disk</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Comparison &amp; results</a></li>
+    <li class="toc-item" id="toc-s-ecosystem"><a href="#s-ecosystem"><span class="toc-num">07</span> Ecosystem &amp; roadmap</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ===================== 01 ===================== -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The hidden-state explosion</div>
+<h2>A tiny draft model needs a mountain of data</h2>
+<p>Speculative decoding makes an LLM faster by pairing it with a small, cheap <strong>draft model</strong> that guesses several tokens ahead; the big <strong>target model</strong> then verifies those guesses in a single parallel pass. The modern recipe, EAGLE-3, doesn't draft from raw text — it drafts from the target's own internal <strong>hidden states</strong>. That makes the draft accurate, but it creates a brutal data-logistics problem: to train the draft, you must capture the target's hidden states for every token of every training sample.</p>
+<p>Those tensors are huge. For an EAGLE-3 draft of Kimi K2.5, a <strong>single 128K-token sample is ~7 GB</strong>. The draft model itself is a few hundred MB — but feeding it requires a river of activations from a 1T-parameter target. Scale that to a real dataset and the storage is absurd.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">storage_explosion.canvas</span>
+    <span class="vp-hint">pick a dataset size</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cv-storage" height="280"></canvas>
+    <div class="vp-controls" id="storage-ctrls">
+      <button class="vp-btn" data-n="10000">10k samples</button>
+      <button class="vp-btn active" data-n="100000">100k samples</button>
+      <button class="vp-btn" data-n="600000">600k samples</button>
+    </div>
+    <div class="vp-caption" id="storage-cap"></div>
+  </div>
+</div>
+
+<p>The breakdown per 128K sample, in bf16:</p>
+<table class="results-table">
+  <thead><tr><th>Tensor</th><th>Shape</th><th>Size</th></tr></thead>
+  <tbody>
+    <tr><td>Hidden states (3 aux layers)</td><td class="mn">(131072, 21504)</td><td class="mn">5.25 GB</td></tr>
+    <tr><td>Last hidden states</td><td class="mn">(131072, 7168)</td><td class="mn">1.75 GB</td></tr>
+    <tr><td>Input IDs</td><td class="mn">(131072,)</td><td class="mn">1 MB</td></tr>
+    <tr class="highlight-row"><td><strong>Total per sample</strong></td><td class="mn">—</td><td class="mn">~7.0 GB</td></tr>
+  </tbody>
+</table>
+<p>At 100k samples that's <strong>700 TB</strong>. This single number is the reason TorchSpec exists: the data you need to <em>move</em> dwarfs both models combined, so the way you move it <em>is</em> the system.</p>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section id="s-eagle" data-code="eagle">
+<div class="section-no">02 — What a draft model eats</div>
+<h2>EAGLE-3: drafting from fused features</h2>
+<p>To see why the hidden states matter, walk through one EAGLE-3 step. The draft model is a single transformer layer that reuses the target's embedding and LM head. What makes it good is <strong>training-time test</strong>: instead of predicting one top-layer feature, EAGLE-3 fuses <strong>low, mid, and high</strong> layers of the target into one rich feature vector, then drafts directly in token space. That's where the <code>(seq, 21504)</code> "3 aux layers" tensor comes from — 3 × 7168.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">eagle3_step.walkthrough</span>
+    <span class="vp-hint">step through one draft+verify cycle</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="eagle-steps">
+      <div class="step-box">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Target runs, captures fused features</div>
+          <div class="step-desc">For prompt "The cat sat on the…", the target forward pass exposes low/mid/high hidden states. These are concatenated into one feature per token.</div>
+          <div class="step-code">h = concat(h_low, h_mid, h_high)  # (seq, 21504)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Draft proposes K tokens</div>
+          <div class="step-desc">The 1-layer draft autoregresses from the fused feature, proposing a short tree: ["mat", "floor", "rug"].</div>
+          <div class="step-code">draft.generate(h, k=3) → ["mat","floor","rug"]</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Target verifies all K in one pass</div>
+          <div class="step-desc">The target scores the whole proposed tree in a single parallel forward — the speedup comes from amortizing one expensive pass over many tokens.</div>
+          <div class="step-code">logits = target(prompt + proposals)  # 1 pass</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Accept the longest valid prefix</div>
+          <div class="step-desc">"mat" matches the target's own distribution → accepted. Output is identical to the target alone, but multiple tokens land per step. Lossless.</div>
+          <div class="step-code">accept "mat" ✓  (3 tokens checked, ≥1 free)</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="eagle-prev">‹ Prev</button>
+      <button id="eagle-next">Next ›</button>
+      <span class="step-prog" id="eagle-prog"></span>
+    </div>
+  </div>
+</div>
+
+<p>Training the draft means making step 2's proposals match step 4's acceptances as often as possible — which requires the <em>exact</em> fused features from step 1, for every token in the corpus. Hence the 7 GB/sample. The training problem is really a <strong>data-movement problem</strong>.</p>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section id="s-approaches" data-code="approaches">
+<div class="section-no">03 — Two ways that hit a wall</div>
+<h2>Co-located vs. offline — and why both break</h2>
+<p>Before TorchSpec, you had two options for getting those features to the trainer. Toggle between them — each hits a different wall at trillion-parameter scale.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">old_approaches.canvas</span>
+    <span class="vp-hint">toggle the approach</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cv-approach" height="320"></canvas>
+    <div class="vp-controls" id="approach-ctrls">
+      <button class="vp-btn active" data-a="colocated">Co-located (online)</button>
+      <button class="vp-btn" data-a="offline">Offline dump</button>
+    </div>
+    <div class="vp-caption" id="approach-cap"></div>
+  </div>
+</div>
+
+<h3>Co-located (online)</h3>
+<p>Put the target and the draft trainer on the <em>same</em> GPUs. The target generates features and the draft trains in lockstep. The problem is memory and rigidity. Kimi K2.5 is a 1T-param MoE — about <strong>575 GB</strong> of weights. Shard it across 8 GPUs and each card carries ~72 GB of target:</p>
+<ul>
+  <li><strong>8×H200 (1,128 GB total):</strong> ~69 GB left per GPU for training</li>
+  <li><strong>8×H100 (640 GB total):</strong> ~8 GB left per GPU — barely enough to train at all</li>
+</ul>
+<p>That tiny remainder caps context length at roughly <strong>4K tokens</strong>, and because the draft's parallelism is chained to the target's sharding, you can't grow past a single node. Rigid and starved.</p>
+
+<h3>Offline dump</h3>
+<p>Run the target once, write every feature to disk, then train separately. This decouples the two — but now you own <strong>700 TB</strong> of files, hammering a distributed filesystem with serialize/deserialize churn while multiple runs fight for I/O bandwidth. The trainer spends its life waiting on storage.</p>
+
+<div class="callout"><strong>The dilemma:</strong> co-located gives you no memory and no flexibility; offline gives you flexibility but an ocean of disk and an I/O bottleneck. TorchSpec's bet: keep the decoupling of offline, but never touch the disk.</div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">04 — Disaggregation</div>
+<h2>Two clusters, one network pipe</h2>
+<p>TorchSpec splits the job into two independent fleets. An <strong>inference cluster</strong> runs vLLM or SGLang and does nothing but generate target hidden states. A separate <strong>training cluster</strong> runs FSDP and does nothing but optimize the draft. Between them, hidden states flow over the network through a transfer engine called <strong>Mooncake</strong> — never landing on disk.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">torchspec_architecture.svg</span>
+    <span class="vp-hint">data flows left → right</span>
+  </div>
+  <div class="vp-body">
+    <svg id="arch-svg" viewBox="0 0 900 360" style="width:100%;height:auto">
+      <!-- Inference cluster -->
+      <rect x="20" y="50" width="240" height="260" rx="10" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.4)"/>
+      <text x="140" y="78" text-anchor="middle" fill="#06b6d4" font-size="14" font-family="monospace" font-weight="700">INFERENCE CLUSTER</text>
+      <text x="140" y="98" text-anchor="middle" fill="#6b7280" font-size="11" font-family="monospace">vLLM / SGLang · scale for throughput</text>
+      <rect x="45" y="120" width="90" height="58" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.5)"/>
+      <text x="90" y="145" text-anchor="middle" fill="#9fe7f5" font-size="11" font-family="monospace">Target</text>
+      <text x="90" y="162" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">TP=8</text>
+      <rect x="145" y="120" width="90" height="58" rx="6" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.5)"/>
+      <text x="190" y="145" text-anchor="middle" fill="#9fe7f5" font-size="11" font-family="monospace">Target</text>
+      <text x="190" y="162" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">TP=8</text>
+      <rect x="45" y="200" width="190" height="48" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.45)"/>
+      <text x="140" y="220" text-anchor="middle" fill="#f5c97b" font-size="10" font-family="monospace">Worker Extension hook</text>
+      <text x="140" y="236" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">capture h in-process, no RPC</text>
+
+      <!-- Mooncake pipe -->
+      <rect x="330" y="140" width="240" height="80" rx="10" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.5)"/>
+      <text x="450" y="170" text-anchor="middle" fill="#a78bfa" font-size="13" font-family="monospace" font-weight="700">MOONCAKE STORE</text>
+      <text x="450" y="190" text-anchor="middle" fill="#6b7280" font-size="10" font-family="monospace">RDMA / TCP · zero-copy</text>
+      <text x="450" y="206" text-anchor="middle" fill="#10b981" font-size="10" font-family="monospace">no disk materialization</text>
+
+      <!-- arrows -->
+      <line x1="262" y1="180" x2="328" y2="180" stroke="#8b5cf6" stroke-width="2" marker-end="url(#ah)"/>
+      <line x1="572" y1="180" x2="638" y2="180" stroke="#8b5cf6" stroke-width="2" marker-end="url(#ah)"/>
+      <text x="295" y="172" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">h stream</text>
+
+      <!-- Training cluster -->
+      <rect x="640" y="50" width="240" height="260" rx="10" fill="rgba(16,185,129,.07)" stroke="rgba(16,185,129,.4)"/>
+      <text x="760" y="78" text-anchor="middle" fill="#10b981" font-size="14" font-family="monospace" font-weight="700">TRAINING CLUSTER</text>
+      <text x="760" y="98" text-anchor="middle" fill="#6b7280" font-size="11" font-family="monospace">FSDP · scale for optimization</text>
+      <rect x="665" y="120" width="90" height="58" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)"/>
+      <text x="710" y="145" text-anchor="middle" fill="#7ee0bd" font-size="11" font-family="monospace">Draft</text>
+      <text x="710" y="162" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">full mem</text>
+      <rect x="765" y="120" width="90" height="58" rx="6" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)"/>
+      <text x="810" y="145" text-anchor="middle" fill="#7ee0bd" font-size="11" font-family="monospace">Draft</text>
+      <text x="810" y="162" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">full mem</text>
+      <rect x="665" y="200" width="190" height="48" rx="6" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.45)"/>
+      <text x="760" y="220" text-anchor="middle" fill="#7ee0bd" font-size="10" font-family="monospace">EAGLE-3 loss · FSDP ckpt</text>
+      <text x="760" y="236" text-anchor="middle" fill="#6b7280" font-size="9" font-family="monospace">context up to 44K–200K</text>
+      <defs>
+        <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b5cf6"/></marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<p>Three pieces make this work:</p>
+<ul>
+  <li><strong>Worker Extension capture.</strong> On vLLM, TorchSpec uses the Worker Extension mechanism to hook the model forward pass and grab hidden states <em>inside</em> the worker process — no RPC serialization on the hot path. (On SGLang, a small patch enables the same extraction.)</li>
+  <li><strong>Mooncake transfer.</strong> The captured tensors are handed to Mooncake, which moves them across the network via GPU-Direct RDMA (or TCP) with zero-copy, pre-registered pinned buffers.</li>
+  <li><strong>Independent scaling.</strong> Because the two fleets share nothing but the pipe, you size them separately — more inference GPUs when feature generation is the bottleneck, more training GPUs when optimization is. The draft trainer gets the <em>full</em> GPU memory.</li>
+</ul>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section id="s-stream" data-code="stream">
+<div class="section-no">05 — Streaming without disk</div>
+<h2>The same data, but it never lands</h2>
+<p>The whole win is one idea made physical: in the offline world, every feature tensor is written to a disk and read back; in TorchSpec, it flies straight from an inference GPU to a training GPU. Hit <strong>Play</strong> and toggle the path to watch the difference.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">hidden_state_flow.canvas</span>
+    <span class="vp-hint">Play · toggle disk vs. stream</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="cv-stream" height="300"></canvas>
+    <div class="vp-controls" id="stream-ctrls">
+      <button class="vp-btn" data-mode="disk">Offline (via disk)</button>
+      <button class="vp-btn active" data-mode="stream">TorchSpec (stream)</button>
+      <button class="vp-btn" id="stream-play" style="margin-left:auto;border-color:var(--purple);color:var(--purple-l)">▶ Play</button>
+    </div>
+    <div class="vp-caption" id="stream-cap"></div>
+  </div>
+</div>
+
+<p>Because the trainer no longer co-exists with a 575 GB target, its GPUs are free for activations — and that directly buys context length:</p>
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-num">44K</div><div class="stat-label">max input tokens on H100 (full GPU memory for the draft)</div></div>
+  <div class="stat-card"><div class="stat-num">200K</div><div class="stat-label">max input tokens on B200</div></div>
+  <div class="stat-card"><div class="stat-num">0 TB</div><div class="stat-label">disk used — features never materialize</div></div>
+</div>
+<p>Mooncake isn't a research toy: it's the same production transfer engine used in large-scale LLM serving, so the streaming path inherits zero-copy GPU-Direct RDMA and battle-tested reliability rather than a bespoke socket layer.</p>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Comparison &amp; results</div>
+<h2>How the four approaches stack up</h2>
+<table class="results-table">
+  <thead><tr><th>Approach</th><th>Flexibility</th><th>Train memory</th><th>Storage</th><th>Long context</th></tr></thead>
+  <tbody>
+    <tr><td>Co-located (online)</td><td class="bad">✗ rigid sharding</td><td class="bad">✗ 69 GB H200 / 8 GB H100</td><td class="best">✓ none</td><td class="bad">✗ ~4K tokens</td></tr>
+    <tr><td>Offline dump</td><td class="best">✓ decoupled</td><td class="best">✓ full</td><td class="bad">✗ 700 TB+</td><td>✓ possible</td></tr>
+    <tr><td><strong>SpecForge (online/offline)</strong></td><td>✓ SGLang-native</td><td>✓ FSDP + FlexAttn</td><td class="bad">✗ disk for offline</td><td>✓ memory-optimized</td></tr>
+    <tr class="highlight-row"><td><strong>TorchSpec (disaggregated)</strong></td><td class="best">✓ independent scaling</td><td class="best">✓ full</td><td class="best">✓ none</td><td class="best">✓ 44K–200K</td></tr>
+  </tbody>
+</table>
+
+<h3>Kimi K2.5 EAGLE-3, trained end-to-end</h3>
+<p>TorchSpec's headline result is a real draft model, released openly, trained on the disaggregated stack (8×H200 inference, 8×H200 training).</p>
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-num">1,500</div><div class="stat-label">H200 GPU-hours total</div></div>
+  <div class="stat-card"><div class="stat-num">600k</div><div class="stat-label">training samples</div></div>
+  <div class="stat-card"><div class="stat-num">6B</div><div class="stat-label">tokens trained</div></div>
+</div>
+
+<h3>Throughput gain (lookahead = 3 tokens)</h3>
+<div class="results-bars" id="result-bars">
+  <div class="bar-row">
+    <div class="bar-label">batch size 1</div>
+    <div class="bar-track"><div class="bar-fill" data-w="60" style="background:var(--purple)"><span>+60%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">batch size 8</div>
+    <div class="bar-track"><div class="bar-fill" data-w="30" style="background:#06b6d4"><span>+30%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">batch size 16</div>
+    <div class="bar-track"><div class="bar-fill" data-w="26" style="background:#10b981"><span>+26%</span></div></div>
+  </div>
+</div>
+<p>The gains shrink with batch size, as expected — speculative decoding helps most when the target is memory-bound at low concurrency, and at batch size 1 a single user sees <strong>+60% output throughput</strong>. Bars normalized to the speedup percentage, not a shared axis.</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section id="s-ecosystem" data-code="ecosystem">
+<div class="section-no">07 — Ecosystem &amp; roadmap</div>
+<h2>Where TorchSpec sits next to SpecForge</h2>
+<p>Both projects train EAGLE-3 drafts; they answer to different masters. <strong>SpecForge</strong> is the SGLang team's framework — its goal is that whatever you train drops straight into SGLang serving with no porting, and it leans on memory tricks (FlexAttention for the training-time test, an in-place Triton kernel) to fit big targets on a node. <strong>TorchSpec</strong> is torch-native and inference-engine-agnostic; its goal is to remove the data-movement ceiling entirely so you can train at trillion-parameter, long-context scale.</p>
+
+<table class="results-table">
+  <thead><tr><th></th><th>SpecForge</th><th>TorchSpec</th></tr></thead>
+  <tbody>
+    <tr><td>Maintainer</td><td>SGLang / LMSYS</td><td>LightSeek Foundation</td></tr>
+    <tr><td>Core idea</td><td>SGLang-native drafter training</td><td>Disaggregated streaming of hidden states</td></tr>
+    <tr><td>Training modes</td><td>Online (co-located) + offline dump</td><td>Disaggregated (stream, no disk)</td></tr>
+    <tr><td>Algorithms</td><td>EAGLE-3, DFlash, Domino</td><td>EAGLE-3 (DFlash / MTP on roadmap)</td></tr>
+    <tr><td>Inference backends</td><td>SGLang</td><td>vLLM (1st), TokenSpeed (wip), SGLang/HF (community)</td></tr>
+    <tr><td>Sweet spot</td><td>Fast path to SGLang deployment</td><td>1T-param targets, 200K context</td></tr>
+  </tbody>
+</table>
+
+<h3>TorchSpec backend support</h3>
+<table class="results-table">
+  <thead><tr><th>Backend</th><th>Tier</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>vLLM</td><td class="best">First-class</td><td>Available</td></tr>
+    <tr><td>TokenSpeed</td><td class="best">First-class</td><td>In progress</td></tr>
+    <tr><td>SGLang</td><td>Community</td><td>Available (patch)</td></tr>
+    <tr><td>HuggingFace Transformers</td><td>Community</td><td>Available</td></tr>
+  </tbody>
+</table>
+
+<h3>What ships today</h3>
+<ul>
+  <li><strong>Released drafts:</strong> EAGLE-3 models for Kimi K2.5 / K2.6 (incl. MLA and EAGLE-3.1 variants), MiniMax-M2.5/M3, and Qwen3 — plus the open 600k-sample training dataset.</li>
+  <li><strong>Training features:</strong> FSDP checkpoints, vocabulary pruning, resume vs. continual modes, HF-format conversion, W&amp;B logging, per-rank file logs via <code>TORCHSPEC_LOG_DIR</code>.</li>
+  <li><strong>Ready-to-run configs:</strong> single-node 4-GPU up to 5-node H200, including <code>kimi-k25-2node-h200</code> and <code>kimi-k25-3node-h100</code>.</li>
+</ul>
+
+<h3>Roadmap</h3>
+<ul>
+  <li>More targets: MiniMax M2.5, Qwen 3.5, GLM 5</li>
+  <li>Packed-sequence training for higher throughput</li>
+  <li>Algorithms beyond EAGLE-3: DFlash, MTP</li>
+  <li>TensorRT-LLM integration</li>
+</ul>
+
+<div class="callout">If you live in SGLang and want a drafter <em>today</em>, SpecForge is the shortest path. If your target is a trillion-parameter MoE and you need real long-context training without a 700 TB filesystem, TorchSpec's disaggregation is the architecture built for that problem.</div>
+</section>
+
+<!-- Listen-friendly content (hidden summary played during audio playback) -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: TorchSpec — Disaggregated Speculative Decoding Training</h2>
+    <p>Speculative decoding speeds up large language models by pairing them with a small draft model that guesses several tokens ahead, which the big target model then verifies in a single parallel pass. The modern method, EAGLE-3, trains the draft model on the target's internal hidden states. The trouble is scale: for a trillion-parameter target like Kimi K2.5, a single 128,000-token training sample produces about 7 gigabytes of hidden states. A 100,000-sample dataset would be 700 terabytes. So the real problem in draft-model training is not the math — it is moving an enormous volume of activation data.</p>
+    <p>Before TorchSpec, there were two options, both bad. Co-located online training puts the target and the trainer on the same GPUs, but the 575-gigabyte target leaves almost no memory for training — about 8 gigabytes per card on an H100 — capping context length near 4,000 tokens and locking you to a single node. Offline training dumps every hidden state to disk and trains separately, which is flexible but means owning hundreds of terabytes of files and a constant input-output bottleneck.</p>
+    <p>TorchSpec disaggregates the two. One cluster runs inference engines like vLLM or SGLang and does nothing but generate hidden states; a separate cluster runs FSDP and does nothing but train the draft. Between them, a transfer engine called Mooncake streams the tensors over the network using zero-copy GPU-Direct RDMA, so the data never touches disk. Each side scales independently, the trainer gets the full GPU memory, and context length jumps to 44,000 tokens on H100 or 200,000 on B200. TorchSpec used this to train an EAGLE-3 draft for Kimi K2.5 in 1,500 H200 GPU-hours over 6 billion tokens, improving output throughput by 60 percent at batch size one. Compared to SpecForge — the SGLang team's framework focused on native deployment and memory tricks — TorchSpec is torch-native and engine-agnostic, built for trillion-parameter, long-context training.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：TorchSpec — 解耦式投机解码训练</h2>
+    <p>投机解码通过给大模型配一个小的草稿模型来加速：草稿模型一次猜出若干个未来的 token，再由大的目标模型在一次并行前向中验证。当前主流方法 EAGLE-3 是用目标模型内部的隐藏状态来训练草稿模型。难点在于规模:对于像 Kimi K2.5 这样的万亿参数目标,单个 12.8 万 token 的训练样本就会产生约 7 GB 的隐藏状态,10 万样本的数据集高达 700 TB。所以草稿模型训练真正的瓶颈不是算法,而是搬运海量的激活数据。</p>
+    <p>在 TorchSpec 之前有两种方案,都有缺陷。共置在线训练把目标模型和训练器放在同一批 GPU 上,但 575 GB 的目标几乎不留训练显存——在 H100 上每卡仅约 8 GB,上下文长度被压到 4000 token 左右,且只能单节点。离线训练把所有隐藏状态写到磁盘再单独训练,虽然灵活,却要承受数百 TB 的文件和持续的 I/O 瓶颈。</p>
+    <p>TorchSpec 把两者解耦。一个集群跑 vLLM 或 SGLang 等推理引擎,只负责生成隐藏状态;另一个集群跑 FSDP,只负责训练草稿模型。中间由名为 Mooncake 的传输引擎通过零拷贝 GPU-Direct RDMA 在网络上直接流式传输张量,数据完全不落盘。两侧独立扩展,训练器拿到完整显存,上下文长度在 H100 上提升到 4.4 万、在 B200 上达到 20 万 token。TorchSpec 以此用 1500 个 H200 GPU 小时、60 亿 token 训出了 Kimi K2.5 的 EAGLE-3 草稿模型,在 batch size 为 1 时吞吐提升 60%。相比 SGLang 团队主打原生部署与显存优化的 SpecForge,TorchSpec 是 torch 原生、引擎无关,专为万亿参数、长上下文训练而生。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">storage_math.py</div>
+      <div class="cs-section-title" id="cs-section-title">The hidden-state explosion</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="eagle">eagle3</button>
+    <button class="cs-tab" data-panel="approaches">approaches</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="stream">stream</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="ecosystem">ecosystem</button>
+  </div>
+  <div class="cs-body" id="cs-body"></div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ---------- Code sidebar panels ----------
+const PANELS = {
+  problem: `# Per-sample hidden-state cost (Kimi K2.5 EAGLE-3)
+SEQ   = 131072          # 128K context
+HID   = 7168            # target hidden dim
+AUX   = 3 * HID         # low + mid + high = 21504
+BF16  = 2               # bytes
+
+aux  = SEQ * AUX * BF16        # 5.25 GB
+last = SEQ * HID * BF16        # 1.75 GB
+per_sample = aux + last        # ~7.0 GB
+
+# Dataset-scale storage if you keep it all:
+for n in (10_000, 100_000, 600_000):
+    tb = n * per_sample / 1e12
+    print(n, "samples ->", round(tb), "TB")
+# 10k -> 70 TB   100k -> 700 TB   600k -> 4200 TB`,
+
+  eagle: `# EAGLE-3 draft: fuse 3 target layers, draft in token space
+def eagle3_step(target, draft, prompt, k=3):
+    # 1. target forward exposes low/mid/high hidden states
+    h_low, h_mid, h_high = target.forward(prompt, return_aux=True)
+    h = torch.cat([h_low, h_mid, h_high], dim=-1)   # (seq, 21504)
+
+    # 2. one-layer draft autoregresses k tokens from h
+    proposals = draft.generate(h, k=k)              # ["mat","floor","rug"]
+
+    # 3. target verifies the whole tree in ONE pass
+    logits = target(prompt + proposals)
+
+    # 4. accept the longest prefix matching target's dist
+    return longest_accepted_prefix(logits, proposals)`,
+
+  approaches: `# Why the two classic approaches break at 1T params
+TARGET_GB = 575          # Kimi K2.5 MoE weights
+
+# --- co-located (online): share GPUs with the target ---
+def leftover_per_gpu(total_gb, gpus=8):
+    return (total_gb - TARGET_GB) / gpus
+
+leftover_per_gpu(1128)   # 8xH200 -> ~69 GB
+leftover_per_gpu(640)    # 8xH100 -> ~8 GB  (caps ctx ~4K)
+# draft parallelism is CHAINED to target sharding -> 1 node only
+
+# --- offline dump: decouple, but write everything ---
+disk_tb = 100_000 * 7.0 / 1e3   # 700 TB on a shared FS
+# trainer bottlenecks on serialize / deserialize / I/O`,
+
+  arch: `# Disaggregated launch: two independent fleets
+# 2-node H200 config (kimi-k25-2node-h200)
+
+# --- inference cluster: only makes hidden states ---
+torchspec.launch_inference(
+    backend="vllm",          # Worker Extension hook
+    target="Kimi-K2.5",
+    tp=8,
+    capture=["aux_layers", "last_hidden"],
+    sink="mooncake://store",  # stream out, no disk
+)
+
+# --- training cluster: only optimizes the draft ---
+torchspec.launch_training(
+    draft="eagle3",
+    source="mooncake://store",   # stream in
+    fsdp=True,
+    max_seq_len=44_000,          # full GPU memory!
+)`,
+
+  stream: `# Mooncake: zero-copy hidden-state transfer (no disk)
+from mooncake import Store
+
+store = Store(transport="rdma")   # GPU-Direct RDMA, TCP fallback
+
+# inference side: push captured features (zero-copy)
+def on_forward(hidden, sample_id):
+    store.put(sample_id, hidden)   # pinned buffer, no serialize
+
+# training side: pull and step
+for sample_id in schedule:
+    h = store.get(sample_id)       # lands directly in GPU mem
+    loss = draft_loss(draft, h)
+    loss.backward(); opt.step()
+# nothing ever touches the filesystem`,
+
+  results: `# Kimi K2.5 EAGLE-3 trained on the disaggregated stack
+config = dict(
+    inference = "8xH200 (TP=8)",
+    training  = "8xH200 (TP=8)",
+    gpu_hours = 1500,
+    samples   = 600_000,
+    tokens    = 6e9,
+)
+
+# Output-throughput gain, lookahead = 3 tokens
+speedup = {
+    "bs=1":  "+60%",   # single user, memory-bound -> biggest win
+    "bs=8":  "+30%",
+    "bs=16": "+26%",
+}`,
+
+  ecosystem: `# TorchSpec vs SpecForge: different jobs
+specforge = dict(
+    owner="SGLang/LMSYS",
+    idea="native drafter training for SGLang",
+    modes=["online", "offline"],
+    algos=["eagle3", "dflash", "domino"],
+)
+
+torchspec = dict(
+    owner="LightSeek",
+    idea="disaggregated streaming, no disk",
+    modes=["disaggregated"],
+    backends=["vllm", "tokenspeed", "sglang", "hf"],
+    roadmap=["dflash", "mtp", "GLM-5", "trt-llm"],
+)`,
+};
+
+// ---------- Single-pass syntax highlighter ----------
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','Store']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)            out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w))  out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else                 out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d[\d_]*(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+const tabMeta = {
+  problem:    { file: 'storage_math.py',    title: 'The hidden-state explosion' },
+  eagle:      { file: 'eagle3_step.py',     title: 'What a draft model eats' },
+  approaches: { file: 'old_approaches.py',  title: 'Two ways that hit a wall' },
+  arch:       { file: 'launch_config.py',   title: 'Disaggregation' },
+  stream:     { file: 'mooncake_stream.py', title: 'Streaming without disk' },
+  results:    { file: 'results.py',         title: 'Comparison & results' },
+  ecosystem:  { file: 'ecosystem.py',       title: 'Ecosystem & roadmap' },
+};
+
+const csBody = document.getElementById('cs-body');
+function renderPanels() {
+  csBody.innerHTML = Object.keys(PANELS).map(name => {
+    const lines = PANELS[name].split('\n')
+      .map(l => `<span class="cs-line">${hl(l)}</span>`).join('\n');
+    return `<div class="cs-panel${name==='problem'?' active':''}" id="panel-${name}"><pre class="cs-pre">${lines}</pre></div>`;
+  }).join('');
+}
+renderPanels();
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ---------- TOC + sidebar toggles ----------
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ---------- Scroll sync ----------
+const sectionMap = {
+  's-problem':'problem','s-eagle':'eagle','s-approaches':'approaches',
+  's-arch':'arch','s-stream':'stream','s-results':'results','s-ecosystem':'ecosystem'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ---------- helper: hi-dpi canvas ----------
+function fitCanvas(cv, h) {
+  const DPR = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || cv.parentElement.clientWidth;
+  cv.width = W * DPR; cv.height = h * DPR;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  return { ctx, W, H: h };
+}
+
+// ============ 01 storage explosion ============
+(function(){
+  const cv = document.getElementById('cv-storage');
+  if (!cv) return;
+  let nSamples = 100000;
+  const cap = document.getElementById('storage-cap');
+  function draw() {
+    const { ctx, W, H } = fitCanvas(cv, 280);
+    ctx.clearRect(0,0,W,H);
+    const tb = nSamples * 7.0 / 1000; // TB
+    // draft model tiny box (left)
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(30, H-70, 46, 50);
+    ctx.fillStyle = '#7ee0bd';
+    ctx.font = '11px monospace'; ctx.textAlign='center';
+    ctx.fillText('draft', 53, H-78);
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('~0.3 GB', 53, H-6);
+    // mountain of hidden states (right) — height scales with log(tb)
+    const maxH = H-50;
+    const frac = Math.min(1, Math.log10(tb)/Math.log10(4200));
+    const mh = 30 + frac*(maxH-30);
+    const mx0 = 140, mx1 = W-40;
+    const grad = ctx.createLinearGradient(0, H-20-mh, 0, H-20);
+    grad.addColorStop(0, '#8b5cf6'); grad.addColorStop(1, '#3b2a66');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(mx0, H-20);
+    ctx.lineTo((mx0+mx1)/2, H-20-mh);
+    ctx.lineTo(mx1, H-20);
+    ctx.closePath(); ctx.fill();
+    // ground
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.moveTo(20,H-20); ctx.lineTo(W-20,H-20); ctx.stroke();
+    // big TB label
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = '700 30px monospace'; ctx.textAlign='center';
+    const lbl = tb >= 1000 ? (tb/1000).toFixed(1)+' PB' : Math.round(tb)+' TB';
+    ctx.fillText(lbl, (mx0+mx1)/2, H-20-mh-14);
+    ctx.fillStyle = '#9aa0ab'; ctx.font='11px monospace';
+    ctx.fillText('hidden states to move', (mx0+mx1)/2, H-6);
+    cap.textContent = `${nSamples.toLocaleString()} samples × 7.0 GB = ${lbl}. The draft is ~0.3 GB — the data dwarfs both models.`;
+  }
+  document.querySelectorAll('#storage-ctrls .vp-btn').forEach(b =>
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#storage-ctrls .vp-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); nSamples = +b.dataset.n; draw();
+    }));
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ============ 02 eagle step navigator ============
+(function(){
+  const boxes = document.querySelectorAll('#eagle-steps .step-box');
+  if (!boxes.length) return;
+  let step = 0;
+  const prev = document.getElementById('eagle-prev');
+  const next = document.getElementById('eagle-next');
+  const prog = document.getElementById('eagle-prog');
+  function upd(){
+    boxes.forEach((b,i)=>{
+      b.classList.remove('active','done');
+      if(i===step) b.classList.add('active');
+      else if(i<step) b.classList.add('done');
+      const n=b.querySelector('.step-num');
+      if(n) n.textContent = i<step ? '✓' : String(i+1);
+    });
+    prev.disabled = step===0; next.disabled = step===boxes.length-1;
+    prog.textContent = `Step ${step+1} of ${boxes.length}`;
+  }
+  prev.addEventListener('click',()=>{if(step>0){step--;upd();}});
+  next.addEventListener('click',()=>{if(step<boxes.length-1){step++;upd();}});
+  upd();
+})();
+
+// ============ 03 approaches toggle ============
+(function(){
+  const cv = document.getElementById('cv-approach');
+  if (!cv) return;
+  let mode = 'colocated';
+  const cap = document.getElementById('approach-cap');
+  function box(ctx,x,y,w,h,stroke,fill,label,sub,subc){
+    ctx.fillStyle=fill; ctx.strokeStyle=stroke; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,8); ctx.fill(); ctx.stroke();
+    ctx.textAlign='center';
+    ctx.fillStyle=stroke; ctx.font='700 12px monospace'; ctx.fillText(label,x+w/2,y+22);
+    if(sub){ctx.fillStyle=subc||'#6b7280'; ctx.font='10px monospace'; ctx.fillText(sub,x+w/2,y+40);}
+  }
+  function draw(){
+    const { ctx, W, H } = fitCanvas(cv, 320);
+    ctx.clearRect(0,0,W,H);
+    ctx.textAlign='center';
+    if(mode==='colocated'){
+      // one GPU node holding target + squeezed training
+      const x=W/2-150, w=300;
+      box(ctx,x,40,w,210,'rgba(6,182,212,.5)','rgba(6,182,212,.06)','8×H100 NODE','640 GB total','#6b7280');
+      // target fills most
+      ctx.fillStyle='rgba(6,182,212,.18)'; ctx.strokeStyle='rgba(6,182,212,.5)';
+      ctx.beginPath(); ctx.roundRect(x+20,80,w-40,120,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#9fe7f5'; ctx.font='700 13px monospace'; ctx.fillText('TARGET — 575 GB',x+w/2,135);
+      ctx.fillStyle='#6b7280'; ctx.font='10px monospace'; ctx.fillText('rigid sharding · 1 node only',x+w/2,158);
+      // tiny leftover
+      ctx.fillStyle='rgba(245,158,11,.18)'; ctx.strokeStyle='rgba(245,158,11,.6)';
+      ctx.beginPath(); ctx.roundRect(x+20,210,w-40,28,5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#f5c97b'; ctx.font='700 11px monospace'; ctx.fillText('draft training: ~8 GB → ctx ≤ 4K',x+w/2,228);
+      // wall
+      ctx.fillStyle='#f87171'; ctx.font='700 13px monospace';
+      ctx.fillText('⛔ WALL: no memory, no scaling',W/2,285);
+      cap.textContent='Co-located: target eats the node, ~8 GB left for training on H100, context capped near 4K, draft sharding chained to target — single node only.';
+    } else {
+      // target -> disk -> trainer
+      box(ctx,40,110,180,90,'rgba(6,182,212,.5)','rgba(6,182,212,.06)','TARGET','generate features','#6b7280');
+      // disk mountain
+      ctx.fillStyle='rgba(139,92,246,.2)'; ctx.strokeStyle='rgba(139,92,246,.6)';
+      const dx=W/2-55;
+      ctx.beginPath(); ctx.roundRect(dx,90,110,130,8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#a78bfa'; ctx.font='700 22px monospace'; ctx.fillText('700',dx+55,150);
+      ctx.font='700 13px monospace'; ctx.fillText('TB DISK',dx+55,172);
+      ctx.fillStyle='#6b7280'; ctx.font='10px monospace'; ctx.fillText('shared FS',dx+55,196);
+      box(ctx,W-220,110,180,90,'rgba(16,185,129,.5)','rgba(16,185,129,.06)','TRAINER','waits on I/O','#f5c97b');
+      // arrows
+      ctx.strokeStyle='#8b5cf6'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(222,155); ctx.lineTo(dx-4,155); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(dx+114,155); ctx.lineTo(W-222,155); ctx.stroke();
+      ctx.fillStyle='#f87171'; ctx.font='700 13px monospace';
+      ctx.fillText('⛔ WALL: 700 TB + I/O bottleneck',W/2,285);
+      cap.textContent='Offline: decoupled and flexible, but every feature is written then re-read — hundreds of TB on a shared filesystem, trainer bottlenecked on I/O.';
+    }
+  }
+  document.querySelectorAll('#approach-ctrls .vp-btn').forEach(b =>
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#approach-ctrls .vp-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); mode=b.dataset.a; draw();
+    }));
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ============ 05 streaming flow ============
+(function(){
+  const cv = document.getElementById('cv-stream');
+  if (!cv) return;
+  let mode='stream', playing=false, t=0, raf=null;
+  const cap = document.getElementById('stream-cap');
+  const playBtn = document.getElementById('stream-play');
+  function seededRand(n){return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff;}
+  const N=14;
+  function draw(){
+    const { ctx, W, H } = fitCanvas(cv, 300);
+    ctx.clearRect(0,0,W,H);
+    const srcX=70, dstX=W-70, midY=H/2;
+    // src + dst GPU boxes
+    function gpu(x,color,label){
+      ctx.fillStyle=color+'22'; ctx.strokeStyle=color; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.roundRect(x-45,midY-55,90,110,8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=color; ctx.font='700 11px monospace'; ctx.textAlign='center';
+      ctx.fillText(label,x,midY-62);
+    }
+    gpu(srcX,'#06b6d4','INFERENCE GPU');
+    gpu(dstX,'#10b981','TRAINING GPU');
+    if(mode==='disk'){
+      // disk in the middle
+      ctx.fillStyle='rgba(139,92,246,.18)'; ctx.strokeStyle='rgba(139,92,246,.6)';
+      ctx.beginPath(); ctx.roundRect(W/2-45,midY-32,90,64,8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#a78bfa'; ctx.font='700 12px monospace'; ctx.textAlign='center';
+      ctx.fillText('DISK',W/2,midY-40);
+      ctx.fillStyle='#6b7280'; ctx.font='9px monospace'; ctx.fillText('700 TB',W/2,midY+4);
+    }
+    // packets
+    for(let i=0;i<N;i++){
+      const phase=(t + seededRand(i)*1)%1;
+      let x,y=midY-30+seededRand(i*3)*60;
+      let col;
+      if(mode==='stream'){
+        x = srcX + (dstX-srcX)*phase;
+        col='#a78bfa';
+      } else {
+        // first half src->disk, second half disk->dst (slower, staged)
+        if(phase<0.5){ x=srcX+(W/2-srcX)*(phase/0.5); col='#06b6d4'; }
+        else { x=W/2+(dstX-W/2)*((phase-0.5)/0.5); col='#10b981'; }
+      }
+      ctx.fillStyle=col;
+      ctx.beginPath(); ctx.roundRect(x-7,y-5,14,10,2); ctx.fill();
+    }
+    // path label
+    ctx.textAlign='center'; ctx.font='11px monospace';
+    if(mode==='stream'){
+      ctx.fillStyle='#10b981';
+      ctx.fillText('zero-copy RDMA · never lands on disk', W/2, H-18);
+    } else {
+      ctx.fillStyle='#f59e0b';
+      ctx.fillText('write → read · staged through filesystem', W/2, H-18);
+    }
+  }
+  function loop(){
+    if(!playing) return;
+    t += mode==='stream' ? 0.010 : 0.006;
+    if(t>1) t-=1;
+    draw();
+    raf=requestAnimationFrame(loop);
+  }
+  playBtn.addEventListener('click',()=>{
+    playing=!playing;
+    playBtn.textContent = playing ? '❚❚ Pause' : '▶ Play';
+    if(playing) loop(); else if(raf) cancelAnimationFrame(raf);
+  });
+  document.querySelectorAll('#stream-ctrls .vp-btn[data-mode]').forEach(b =>
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#stream-ctrls .vp-btn[data-mode]').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); mode=b.dataset.mode;
+      cap.textContent = mode==='stream'
+        ? 'Stream: features fly inference-GPU → training-GPU over RDMA. No disk, full GPU memory for the draft → 44K–200K context.'
+        : 'Disk: features are written to the filesystem then read back — two hops, serialize/deserialize, I/O contention.';
+      draw();
+    }));
+  cap.textContent='Stream: features fly inference-GPU → training-GPU over RDMA. No disk, full GPU memory for the draft → 44K–200K context.';
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ============ 06 results bars ============
+(function(){
+  const sec = document.getElementById('s-results');
+  if (!sec) return;
+  new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        document.querySelectorAll('#result-bars .bar-fill[data-w]').forEach(b=>{
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  },{threshold:0.3}).observe(sec);
+})();
+</script>
+</BaseLayout>

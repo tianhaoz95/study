@@ -86,7 +86,7 @@ start_app() {
   fi
 
   echo "Starting $name on port $port..."
-  (cd "$app_dir" && npm run dev -- --port "$port") &
+  (cd "$app_dir" && npm run dev -- --host 0.0.0.0 --port "$port") &
   PIDS+=($!)
 }
 

@@ -79,6 +79,7 @@ export class WasmOnnxEngine {
       // which is model-specific and typically requires a 5MB+ javascript tokenizer bundle.
       // This is a template showing how to run inference once tokenized.
       // If a full custom local synthesizer pipeline is needed, implement tokenization here.
+      console.warn('WasmOnnxEngine: Local WASM neural TTS is currently a placeholder stub. Falling back to next engine in cascade.');
       
       // For this general cascade player, if the full tokenizer pipeline is not configured,
       // we return false to let the cascade flow to Web Speech API.

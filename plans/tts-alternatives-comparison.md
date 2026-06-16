@@ -20,7 +20,7 @@ Modify the browser voice-selection query to scan the list of available system vo
 
 ---
 
-## Option 3: Local WebAssembly Neural TTS (e.g., Kokoro-ONNX / Sherpa-ONNX)
+## Option 2: Local WebAssembly Neural TTS (e.g., Kokoro-ONNX / Sherpa-ONNX)
 
 ### Architecture & Concept
 Run a state-of-the-art neural Text-to-Speech model entirely client-side using **ONNX Runtime Web** (`onnxruntime-web`). The client browser downloads a quantized model (e.g. Kokoro-82M, ~22MB) and generates human-like speech waveforms locally using WebAssembly or WebGL/WebGPU.
@@ -50,7 +50,7 @@ Run a state-of-the-art neural Text-to-Speech model entirely client-side using **
 
 ---
 
-## Option 4: On-the-Fly Cloud Neural TTS Streaming (Edge/Hybrid API)
+## Option 3: On-the-Fly Cloud Neural TTS Streaming (Edge/Hybrid API)
 
 ### Architecture & Concept
 Deploy a serverless backend function (e.g. Firebase Cloud Functions) that acts as a secure wrapper around a premium neural TTS provider (like OpenAI, Microsoft Azure Speech, or ElevenLabs). When a user clicks "Listen", the browser requests audio segments from the API, which dynamically generates and streams audio.

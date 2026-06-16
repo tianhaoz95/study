@@ -19,12 +19,19 @@ function recentTopics(max = 6): string[] {
 }
 
 export default defineConfig({
-  server: { port: 4323 },
+  server: { port: 4323, host: true, allowedHosts: true },
   define: {
     __RECENT_TOPICS__: JSON.stringify(recentTopics()),
   },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics']
+        }
+      }
+    }
   },
 })
