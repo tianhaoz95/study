@@ -7,6 +7,8 @@ import {
   query,
   orderBy,
   Timestamp,
+  doc,
+  getDoc,
 } from 'firebase/firestore'
 import {
   onAuthStateChanged,
@@ -18,16 +20,54 @@ import {
 
 initAnalytics()
 
+let isAdminUser = false;
+
 function setupAuthUI(containerId: string) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  onAuthStateChanged(auth, (user: User | null) => {
+  const mainContent = document.getElementById('main-content');
+  const loginPrompt = document.getElementById('login-prompt');
+  const loginMessage = document.getElementById('login-message');
+  const centerSigninBtn = document.getElementById('center-signin-btn');
+
+  // Wire up center sign-in button once
+  centerSigninBtn?.addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error('Sign in failed:', err);
+    }
+  });
+
+  onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       const avatarUrl = user.photoURL || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
       const name = user.displayName || 'User';
       const email = user.email || '';
       
+      let authorized = false;
+      try {
+        const docRef = doc(db, 'admins', email.toLowerCase());
+        const docSnap = await getDoc(docRef);
+        authorized = docSnap.exists();
+      } catch (err) {
+        console.error('Failed to verify admin status:', err);
+      }
+
+      isAdminUser = authorized;
+
+      if (authorized) {
+        if (mainContent) mainContent.style.display = 'block';
+        if (loginPrompt) loginPrompt.style.display = 'none';
+      } else {
+        if (mainContent) mainContent.style.display = 'none';
+        if (loginPrompt) loginPrompt.style.display = 'block';
+        if (loginMessage) loginMessage.textContent = `Access Denied: '${email}' is not authorized as an admin.`;
+        if (centerSigninBtn) (centerSigninBtn as HTMLElement).style.display = 'none';
+      }
+
       container.innerHTML = `
         <div class="user-profile">
           <img src="${avatarUrl}" class="user-avatar" id="auth-avatar" alt="${name}" />
@@ -35,6 +75,7 @@ function setupAuthUI(containerId: string) {
             <div class="dropdown-user-info">
               <span class="dropdown-user-name">${name}</span>
               <span class="dropdown-user-email">${email}</span>
+              <span class="badge ${authorized ? 'badge-admin' : 'badge-unauthorized'}">${authorized ? 'Admin' : 'Not Authorized'}</span>
             </div>
             <button class="btn-signout" id="auth-signout-btn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -66,6 +107,12 @@ function setupAuthUI(containerId: string) {
         }
       });
     } else {
+      isAdminUser = false;
+      if (mainContent) mainContent.style.display = 'none';
+      if (loginPrompt) loginPrompt.style.display = 'block';
+      if (loginMessage) loginMessage.textContent = 'Please sign in with an authorized admin account to access the console.';
+      if (centerSigninBtn) (centerSigninBtn as HTMLElement).style.display = 'inline-flex';
+      
       container.innerHTML = `
         <button class="btn-signin" id="auth-signin-btn">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -88,6 +135,9 @@ function setupAuthUI(containerId: string) {
         }
       });
     }
+
+    // Load data after auth state is determined
+    load();
   });
 }
 
@@ -207,6 +257,11 @@ function render() {
 
 // ── Load data ─────────────────────────────────────────────────
 async function load() {
+  if (!isAdminUser) {
+    return
+  }
+
+
   listEl.innerHTML = `<div class="state-box"><div class="spinner"></div><span>Loading…</span></div>`
 
   try {
@@ -254,5 +309,3 @@ refreshBtn.addEventListener('click', () => {
   }
   load()
 })
-
-load()

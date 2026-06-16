@@ -1,19 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper to check if the authenticated user is an admin
+    function isAdmin() {
+      return request.auth != null 
+        && request.auth.token.email != null 
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
     // Subscriptions: anyone can create their own doc; only owner can read/update
     match /subscriptions/{id} {
       allow create: if true;
       allow read, update, delete: if request.auth != null && request.auth.uid == id;
     }
 
-    // Topic suggestions: anyone can submit; anyone can read (admin site is public)
+    // Topic suggestions: anyone can submit; only admins can read
     match /topic-suggestions/{id} {
       allow create: if request.resource.data.keys().hasAll(['topic', 'createdAt'])
         && request.resource.data.topic is string
         && request.resource.data.topic.size() > 0
         && request.resource.data.topic.size() <= 500;
-      allow read: if true;
+      allow read: if isAdmin();
     }
 
     // Bookmarks: each user owns their own subcollection
@@ -21,7 +28,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Contact messages: public write-only, validated inputs, no public reads
+    // Contact messages: public write-only, validated inputs, only admins can read
     match /contact_messages/{id} {
       allow create: if request.resource.data.keys().hasOnly(['email', 'message', 'createdAt'])
         && request.resource.data.email is string
@@ -31,9 +38,10 @@ service cloud.firestore {
         && request.resource.data.message.size() > 0
         && request.resource.data.message.size() <= 5000
         && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin();
     }
 
-    // Feedback messages: public write-only, validated inputs, no public reads
+    // Feedback messages: public write-only, validated inputs, only admins can read
     match /feedback/{id} {
       allow create: if request.resource.data.keys().hasAll(['message', 'createdAt'])
         && request.resource.data.keys().hasOnly(['message', 'createdAt', 'email', 'rating', 'path'])
@@ -44,8 +52,14 @@ service cloud.firestore {
         && (!('rating' in request.resource.data) || (request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5))
         && (!('path' in request.resource.data) || (request.resource.data.path is string && request.resource.data.path.size() <= 1000))
         && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin();
     }
 
+    // Admin access control: users can read their own status; write-only via Admin SDK
+    match /admins/{email} {
+      allow read: if request.auth != null && (request.auth.token.email == email || isAdmin());
+      allow write: if false;
+    }
 
     // Upvotes: anyone can read; anyone can create (count > 0) or update (count > resource.data.count)
     match /upvotes/{slug} {
@@ -59,3 +73,4 @@ service cloud.firestore {
     }
   }
 }
+

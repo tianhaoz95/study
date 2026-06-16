@@ -1,6 +1,7 @@
-import { initAnalytics, auth, analytics } from './firebase'
+import { initAnalytics, auth, db, analytics } from './firebase'
 import { initUI } from './ui'
 import { initViz } from './viz'
+import { doc, getDoc } from 'firebase/firestore'
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -18,11 +19,17 @@ function setupAuthUI(containerId: string) {
   if (!container) return;
 
   onAuthStateChanged(auth, (user: User | null) => {
+    const navAdmin = document.getElementById('nav-admin');
+    
     if (user) {
       const avatarUrl = user.photoURL || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
       const name = user.displayName || 'User';
       const email = user.email || '';
       
+      const adminUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:4324'
+        : 'https://heji-study-admin.web.app';
+
       container.innerHTML = `
         <div class="user-profile">
           <img src="${avatarUrl}" class="user-avatar" id="auth-avatar" alt="${name}" />
@@ -31,6 +38,10 @@ function setupAuthUI(containerId: string) {
               <span class="dropdown-user-name">${name}</span>
               <span class="dropdown-user-email">${email}</span>
             </div>
+            <a href="${adminUrl}" class="dropdown-admin-link" id="dropdown-admin-link" target="_blank" rel="noopener noreferrer" style="display:none">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+              Admin Panel
+            </a>
             <button class="btn-signout" id="auth-signout-btn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               Sign Out
@@ -42,6 +53,7 @@ function setupAuthUI(containerId: string) {
       const avatar = container.querySelector('#auth-avatar');
       const dropdown = container.querySelector('#auth-dropdown');
       const signoutBtn = container.querySelector('#auth-signout-btn');
+      const dropdownAdminLink = container.querySelector('#dropdown-admin-link') as HTMLElement | null;
 
       avatar?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -60,7 +72,29 @@ function setupAuthUI(containerId: string) {
           console.error('Sign out failed:', err);
         }
       });
+
+      // Verify if user is an admin
+      getDoc(doc(db, 'admins', email.toLowerCase())).then((docSnap) => {
+        if (docSnap.exists()) {
+          if (navAdmin) {
+            navAdmin.setAttribute('href', adminUrl);
+            navAdmin.style.display = '';
+          }
+          if (dropdownAdminLink) {
+            dropdownAdminLink.style.display = 'flex';
+          }
+        } else {
+          if (navAdmin) navAdmin.style.display = 'none';
+        }
+      }).catch((err) => {
+        console.error('Error verifying admin status:', err);
+        if (navAdmin) navAdmin.style.display = 'none';
+      });
+
     } else {
+      if (navAdmin) {
+        navAdmin.style.display = 'none';
+      }
       container.innerHTML = `
         <button class="btn-signin" id="auth-signin-btn">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -85,6 +119,7 @@ function setupAuthUI(containerId: string) {
     }
   });
 }
+
 
 setupAuthUI('auth-container')
 
