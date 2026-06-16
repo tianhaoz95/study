@@ -1,0 +1,396 @@
+---
+/* src/components/TtsPlayer.astro */
+---
+
+<!-- Floating Player Widget -->
+<div id="tts-player-widget" class="tts-player">
+  <button id="tts-prev-btn" class="tts-btn" title="Previous paragraph">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+  </button>
+  
+  <button id="tts-play-btn" class="tts-btn play-pause" title="Play / Pause">
+    <svg id="tts-play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+    <svg id="tts-pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+  </button>
+
+  <button id="tts-next-btn" class="tts-btn" title="Next paragraph">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+  </button>
+
+  <select id="tts-speed-select" class="tts-speed" title="Playback Speed">
+    <option value="0.8">0.8x</option>
+    <option value="1.0" selected>1.0x</option>
+    <option value="1.2">1.2x</option>
+    <option value="1.5">1.5x</option>
+    <option value="2.0">2.0x</option>
+  </select>
+
+  <button id="tts-stop-btn" class="tts-btn" title="Stop & Close">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+</div>
+
+<style is:global>
+  /* Speaking highlight with cosmic touch */
+  .speaking-highlight {
+    background: rgba(139, 92, 246, 0.08) !important;
+    border-left: 3px solid var(--purple) !important;
+    padding-left: 0.75rem !important;
+    transition: background 0.3s ease, border-left 0.3s ease, padding-left 0.3s ease;
+    border-radius: 0 4px 4px 0;
+  }
+
+  [data-theme="light"] .speaking-highlight {
+    background: rgba(139, 92, 246, 0.06) !important;
+  }
+
+  /* Audio Player Widget */
+  .tts-player {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(15, 15, 27, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-hi);
+    border-radius: 9999px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 15px rgba(139, 92, 246, 0.15);
+    transform: translateY(100px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+  }
+
+  .tts-player.visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .tts-btn {
+    background: none;
+    border: none;
+    color: var(--muted2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+
+  .tts-btn:hover {
+    color: var(--purple-l);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .tts-btn.play-pause {
+    background: var(--purple);
+    color: white;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+  }
+
+  .tts-btn.play-pause:hover {
+    background: var(--purple-l);
+    transform: scale(1.05);
+    box-shadow: 0 0 12px var(--purple-dim);
+  }
+
+  .tts-speed {
+    font-family: var(--ff-mono);
+    font-size: 0.72rem;
+    color: var(--muted2);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 3px 6px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s;
+  }
+
+  .tts-speed:hover {
+    color: var(--text);
+    border-color: var(--purple);
+  }
+</style>
+
+<script>
+  let speechUtterances: string[] = [];
+  let speechElements: HTMLElement[] = [];
+  let currentIndex = 0;
+  let isPlaying = false;
+  let currentUtterance: SpeechSynthesisUtterance | null = null;
+  let currentSpeed = 1.0;
+
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+
+  function initTTS() {
+    const postBody = document.querySelector('.post-body');
+    const heroLinks = document.querySelector('.hero-links');
+    
+    // Only inject if both the post body and hero links exist
+    if (!postBody || !heroLinks || !synth) return;
+
+    // Avoid double injection
+    if (document.getElementById('tts-trigger')) return;
+
+    // Create the "Listen to Post" button matching other hero buttons
+    const triggerBtn = document.createElement('button');
+    triggerBtn.id = 'tts-trigger';
+    triggerBtn.className = 'hero-btn';
+    triggerBtn.style.cursor = 'pointer';
+    
+    // Check current language to set initial text
+    const currentLang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+    const initialText = currentLang === 'zh' ? '听文章' : 'Listen to Post';
+
+    triggerBtn.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; opacity:0.85;">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      <span data-i18n="tts-trigger">${initialText}</span>
+    `;
+
+    // Append to links
+    heroLinks.appendChild(triggerBtn);
+
+    // Setup interactive controls
+    const playerWidget = document.getElementById('tts-player-widget');
+    const playBtn = document.getElementById('tts-play-btn');
+    const playIcon = document.getElementById('tts-play-icon');
+    const pauseIcon = document.getElementById('tts-pause-icon');
+    const prevBtn = document.getElementById('tts-prev-btn');
+    const nextBtn = document.getElementById('tts-next-btn');
+    const speedSelect = document.getElementById('tts-speed-select') as HTMLSelectElement;
+    const stopBtn = document.getElementById('tts-stop-btn');
+
+    // Extract content
+    function extractArticleContent() {
+      const elements = Array.from(postBody!.querySelectorAll('p, li, h2, h3'));
+      speechUtterances = [];
+      speechElements = [];
+
+      elements.forEach((el) => {
+        // Exclude interactive panels, codeblocks, math, formulas, and headers
+        if (
+          el.closest('pre') || 
+          el.closest('.vp') || 
+          el.closest('svg') || 
+          el.closest('aside') ||
+          el.closest('.code-sidebar') ||
+          el.closest('.step-code') ||
+          el.closest('.math-block') ||
+          el.classList.contains('cs-line') ||
+          el.textContent?.trim() === ''
+        ) {
+          return;
+        }
+
+        speechUtterances.push(el.textContent!.trim());
+        speechElements.push(el as HTMLElement);
+      });
+    }
+
+    function playChunk(index: number) {
+      if (!synth || index < 0 || index >= speechUtterances.length) {
+        stopPlayback();
+        return;
+      }
+
+      synth.cancel();
+      currentIndex = index;
+
+      // Update Highlights
+      speechElements.forEach((el, i) => {
+        if (i === index) {
+          el.classList.add('speaking-highlight');
+          
+          // Smooth scroll to element, accounting for fixed nav header
+          const yOffset = -80; 
+          const y = el.getBoundingClientRect().top + window.scrollY + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        } else {
+          el.classList.remove('speaking-highlight');
+        }
+      });
+
+      // Prepare text and trigger utterance
+      currentUtterance = new SpeechSynthesisUtterance(speechUtterances[index]);
+      currentUtterance.rate = currentSpeed;
+
+      // Select high-quality system English or Chinese voice depending on content/language
+      const voices = synth.getVoices();
+      const currentLang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+      
+      const matchedVoice = voices.find(v => v.lang.startsWith(currentLang) && v.localService) ||
+                           voices.find(v => v.lang.startsWith(currentLang));
+      if (matchedVoice) {
+        currentUtterance.voice = matchedVoice;
+      }
+
+      currentUtterance.onend = () => {
+        if (isPlaying) {
+          playChunk(currentIndex + 1);
+        }
+      };
+
+      currentUtterance.onerror = (e) => {
+        if (isPlaying && e.error !== 'interrupted') {
+          playChunk(currentIndex + 1);
+        }
+      };
+
+      synth.speak(currentUtterance);
+    }
+
+    function togglePlayPause() {
+      if (!isPlaying) {
+        isPlaying = true;
+        playerWidget?.classList.add('visible');
+        
+        if (speechUtterances.length === 0) {
+          extractArticleContent();
+        }
+
+        // Change button style on post header
+        updateTriggerUI(true);
+
+        if (synth.paused) {
+          synth.resume();
+        } else {
+          playChunk(currentIndex);
+        }
+        
+        updatePlayButtonUI(true);
+      } else {
+        isPlaying = false;
+        synth.pause();
+        updatePlayButtonUI(false);
+        updateTriggerUI(false);
+      }
+    }
+
+    const speakerSvg = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; opacity:0.85;">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+    `;
+    const pauseSvg = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; opacity:0.85;">
+        <rect x="6" y="4" width="4" height="16"></rect>
+        <rect x="14" y="4" width="4" height="16"></rect>
+      </svg>
+    `;
+
+    function updateTriggerUI(playing: boolean) {
+      if (triggerBtn) {
+        const svg = triggerBtn.querySelector('svg');
+        if (playing) {
+          if (svg) svg.outerHTML = pauseSvg;
+          triggerBtn.style.borderColor = 'var(--purple)';
+          triggerBtn.style.color = 'var(--purple-l)';
+        } else {
+          if (svg) svg.outerHTML = speakerSvg;
+          triggerBtn.style.borderColor = 'var(--border-hi)';
+          triggerBtn.style.color = 'var(--muted2)';
+        }
+      }
+    }
+
+    function updatePlayButtonUI(playing: boolean) {
+      if (playIcon && pauseIcon) {
+        if (playing) {
+          playIcon.style.display = 'none';
+          pauseIcon.style.display = 'block';
+        } else {
+          playIcon.style.display = 'block';
+          pauseIcon.style.display = 'none';
+        }
+      }
+    }
+
+    function stopPlayback() {
+      isPlaying = false;
+      synth.cancel();
+      updatePlayButtonUI(false);
+      
+      // Reset trigger icon back to speaker icon
+      if (triggerBtn) {
+        const svg = triggerBtn.querySelector('svg');
+        if (svg) svg.outerHTML = speakerSvg;
+        triggerBtn.style.borderColor = 'var(--border-hi)';
+        triggerBtn.style.color = 'var(--muted2)';
+      }
+      
+      // Remove all highlights
+      speechElements.forEach(el => el.classList.remove('speaking-highlight'));
+      playerWidget?.classList.remove('visible');
+      currentIndex = 0;
+    }
+
+    // Attach controls listeners
+    triggerBtn.addEventListener('click', togglePlayPause);
+    playBtn?.addEventListener('click', togglePlayPause);
+    stopBtn?.addEventListener('click', stopPlayback);
+
+    prevBtn?.addEventListener('click', () => {
+      if (currentIndex > 0) {
+        playChunk(currentIndex - 1);
+      }
+    });
+
+    nextBtn?.addEventListener('click', () => {
+      if (currentIndex < speechUtterances.length - 1) {
+        playChunk(currentIndex + 1);
+      }
+    });
+
+    speedSelect?.addEventListener('change', (e) => {
+      currentSpeed = parseFloat((e.target as HTMLSelectElement).value);
+      if (isPlaying) {
+        playChunk(currentIndex); // Reload chunk at updated rate
+      }
+    });
+
+    // Handle voice changes asynchronously (required by Chrome)
+    if (synth.onvoiceschanged !== undefined) {
+      synth.onvoiceschanged = () => {
+        // voices loaded
+      };
+    }
+  }
+
+  // Hook into document lifecycle
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTTS);
+  } else {
+    initTTS();
+  }
+
+  // Handle SPA / dynamic changes
+  const observer = new MutationObserver((mutations) => {
+    let shouldInit = false;
+    for (const mutation of mutations) {
+      if (mutation.addedNodes.length) {
+        shouldInit = true;
+        break;
+      }
+    }
+    if (shouldInit) initTTS();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+</script>
