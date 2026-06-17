@@ -1,0 +1,1214 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="MTP with Parameter Sharing: How GLM-5 Out-Speculates DeepSeek-V3 | AI/ML Deep Dives"
+  description="GLM-5 introduces parameter-shared multi-token prediction — training 3 MTP layers with shared weights to achieve 2.76 accept length vs DeepSeek-V3.2's 2.55, with no extra memory cost."
+  crumb="GLM-5 MTP Sharing"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* K-selector buttons */
+.k-btns{display:flex;gap:.5rem;margin-bottom:1rem}
+.k-btn{padding:.3rem .8rem;border-radius:5px;font-size:.75rem;font-family:var(--ff-mono);font-weight:600;cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.k-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.k-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Approach comparison grid */
+.approach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin:1.5rem 0}
+.approach-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;transition:border-color .2s}
+.approach-card.highlight{border-color:var(--purple);background:var(--purple-dim)}
+.approach-card h4{font-size:.78rem;font-weight:700;margin-bottom:.5rem;font-family:var(--ff-mono)}
+.approach-card p{font-size:.72rem;color:var(--muted);line-height:1.55;margin:0}
+.approach-tag{display:inline-block;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .4rem;border-radius:3px;margin-bottom:.4rem}
+.tag-ext{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.25)}
+.tag-diff{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.tag-int{background:rgba(139,92,246,.12);color:var(--purple-l);border:1px solid rgba(139,92,246,.25)}
+@media(max-width:680px){.approach-grid{grid-template-columns:1fr}}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Multi-Token Prediction</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>MTP with Parameter Sharing: How GLM-5 Out-Speculates DeepSeek-V3</h1>
+  <p class="lead">GLM-5 introduces a subtle but powerful training trick: share weights across 3 MTP layers instead of training them separately. Memory stays flat, but the model learns to speculate at every depth — pushing accept length from 2.55 to 2.76 with zero extra cost.</p>
+  <div class="post-hero-meta">
+    <span>June 16, 2026</span>
+    <span>~9 min read</span>
+    <span>Paper: <code>arXiv:2602.15763</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2602.15763" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/zai-org/GLM-5" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-spec"><a href="#s-spec"><span class="toc-num">01</span> Speculative Decoding</a></li>
+    <li class="toc-item" id="toc-s-three"><a href="#s-three"><span class="toc-num">02</span> Three Drafting Approaches</a></li>
+    <li class="toc-item" id="toc-s-memory"><a href="#s-memory"><span class="toc-num">03</span> MTP's Memory Dilemma</a></li>
+    <li class="toc-item" id="toc-s-sharing"><a href="#s-sharing"><span class="toc-num">04</span> Parameter Sharing</a></li>
+    <li class="toc-item" id="toc-s-compare"><a href="#s-compare"><span class="toc-num">05</span> Comparative Landscape</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-spec" data-code="spec">
+<div class="section-no">01 — Speculative Decoding</div>
+<h2>Why Every Token Costs the Same</h2>
+<p>A 700-billion-parameter language model does the same amount of computation whether it outputs the word "the" or a breakthrough mathematical insight. Each token requires one full forward pass through all layers — there's no shortcut for easy tokens. At 400GB of weights, even a single token takes milliseconds.</p>
+<p>Speculative decoding flips this equation. Instead of paying the full price per token, it lets a small, cheap <strong>draft model</strong> guess the next K tokens all at once. Then the big model verifies all K in a <em>single</em> forward pass — which is nearly free since attention sees them together. Any token that matches the big model's distribution is accepted; the first mismatch drops the tail.</p>
+<p>The result: if the draft is good enough that K=3 tokens get accepted on average, you've done 3 tokens' worth of work in roughly 1 forward pass. The key metric is <strong>accept length τ</strong> — the average number of tokens accepted per verification step.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">speculative_decode.py — one round of speculation</span>
+    <span class="vp-hint">click steps</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="spec-steps">
+      <div class="step-box active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Generate K draft tokens</div>
+          <div class="step-desc">The small draft model autoregressively produces K candidate tokens — fast, cheap, O(K) sequential passes through a tiny network.</div>
+          <div class="step-code">drafts = draft_model.generate("The cat sat", K=4)<br>→ [" on", " the", " mat", "."]</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Single-pass verification</div>
+          <div class="step-desc">The big target model processes the original context + all K drafts in ONE forward pass. This is the key insight — parallel attention is nearly free vs sequential generation.</div>
+          <div class="step-code">logits = target_model("The cat sat on the mat.", batch=True)<br>→ 5 positions verified at once</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Accept or reject each position</div>
+          <div class="step-desc">Compare draft probability q(x) vs target probability p(x) at each position. Accept if p/q ≥ uniform sample u ~ U[0,1]. Reject at first mismatch and resample from corrected distribution.</div>
+          <div class="step-code">for i, (p, q) in enumerate(zip(target_probs, draft_probs)):<br>    if rand() &lt; p[x_i] / q[x_i]: accept<br>    else: resample and break</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Accepted tokens = free speedup</div>
+          <div class="step-desc">Every accepted draft token was verified in the batch pass — it's essentially free. Speedup ≈ τ / (1 + γ·c) where γ is overhead and c is cost ratio of draft/target.</div>
+          <div class="step-code">speedup = tau / (1 + gamma * cost_ratio)<br># EAGLE-3: tau=6.62 → speedup ~5.5×<br># MTP (GLM-5): tau=2.76 → speedup ~2×</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="spec-prev" disabled>← Prev</button>
+      <span id="spec-prog" style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">Step 1 of 4</span>
+      <button id="spec-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<p>The draft model is everything. An ideal drafter is fast, cheap, and highly correlated with the big model's distribution. This is where the three major approaches diverge sharply.</p>
+</section>
+
+<!-- §02 -->
+<section id="s-three" data-code="three">
+<div class="section-no">02 — Three Drafting Approaches</div>
+<h2>External Neural, Diffusion Block, or Internal MTP</h2>
+<p>The critical architectural decision is <em>where</em> the draft tokens come from. Three major approaches have emerged, each with fundamentally different trade-offs between acceptance rate, integration depth, and deployment complexity.</p>
+
+<div class="approach-grid">
+  <div class="approach-card">
+    <span class="approach-tag tag-ext">External</span>
+    <h4 style="color:var(--cyan)">EAGLE-3</h4>
+    <p>A separate lightweight transformer trained on the top-layer hidden states of the target model. Learns to mimic the target's next-token distribution using feature-level supervision. Achieves τ ≈ 6.6 on Vicuna 13B — highest acceptance of any approach.</p>
+    <p style="margin-top:.5rem;color:var(--muted)"><strong style="color:var(--text2)">Trade-off:</strong> Requires training a new drafter per base model. Can't be integrated at pretraining time.</p>
+  </div>
+  <div class="approach-card">
+    <span class="approach-tag tag-diff">Diffusion</span>
+    <h4 style="color:var(--amber)">DFlash (MiMo)</h4>
+    <p>Block-diffusion speculation: treats a window of K future tokens as a joint diffusion process, iteratively denoising them in parallel. Used by Xiaomi's MiMo to break 1000 tokens/second on a 1T-parameter MoE, combined with MXFP4 quantization.</p>
+    <p style="margin-top:.5rem;color:var(--muted)"><strong style="color:var(--text2)">Trade-off:</strong> Powerful for large batches; requires diffusion-aware training. Less plug-and-play.</p>
+  </div>
+  <div class="approach-card highlight">
+    <span class="approach-tag tag-int">Internal</span>
+    <h4 style="color:var(--purple-l)">MTP (GLM-5) ★</h4>
+    <p>Extra transformer layers appended to the main model during pretraining, each predicting one additional future token. No separate drafter — the draft is baked into the base model weights. GLM-5's parameter-sharing variant achieves τ = 2.76.</p>
+    <p style="margin-top:.5rem;color:var(--muted)"><strong style="color:var(--text2)">Trade-off:</strong> Lower raw τ than EAGLE-3, but zero marginal deployment cost — just use the model you already have.</p>
+  </div>
+</div>
+
+<p>The contrast is stark: EAGLE-3 gets the best acceptance rate but requires a whole separate model; MTP gets a lower but still useful rate with nothing extra to deploy. DFlash occupies a middle ground suited for massive-scale inference clusters.</p>
+<p>For frontier labs deploying 700B+ models where every additional component adds operational complexity, MTP's <strong>zero-overhead integration</strong> is often worth accepting a lower τ. The real question becomes: can MTP's acceptance rate be pushed higher without increasing memory?</p>
+</section>
+
+<!-- §03 -->
+<section id="s-memory" data-code="memory">
+<div class="section-no">03 — MTP's Memory Dilemma</div>
+<h2>N Speculative Steps → N Extra Transformer Layers</h2>
+<p>Multi-Token Prediction (MTP) works by training the model to predict not just the next token but the next N tokens simultaneously. Each prediction depth gets its own transformer layer — a small but complete transformer block that takes the main model's hidden state and predicts one more step ahead.</p>
+
+<div class="math-block">
+<div class="math-label">MTP architecture</div>
+<span class="math-var">h</span><sub>t</sub> = main_transformer(x<sub>1..t</sub>)  <span class="math-comment">← main model hidden state</span><br>
+<span class="math-var">ŷ</span><sub>t+1</sub> = output_head(<span class="math-var">h</span><sub>t</sub>)               <span class="math-comment">← next token (standard)</span><br>
+<span class="math-var">ŷ</span><sub>t+2</sub> = mtp₁(norm(<span class="math-var">h</span><sub>t</sub>), emb(<span class="math-var">ŷ</span><sub>t+1</sub>))  <span class="math-comment">← depth-1 MTP layer</span><br>
+<span class="math-var">ŷ</span><sub>t+3</sub> = mtp₂(norm(<span class="math-var">h</span><sub>t+1</sub>), emb(<span class="math-var">ŷ</span><sub>t+2</sub>)) <span class="math-comment">← depth-2 MTP layer</span><br>
+<span class="math-var">ŷ</span><sub>t+4</sub> = mtp₃(norm(<span class="math-var">h</span><sub>t+2</sub>), emb(<span class="math-var">ŷ</span><sub>t+3</sub>)) <span class="math-comment">← depth-3 MTP layer</span>
+</div>
+
+<p>The problem: to speculate K tokens ahead during inference, you need K separate MTP layers at training time. Each layer has its own weights and its own KV cache during generation. For a 744B parameter model trained with 4 speculative steps, the MTP module alone can add tens of gigabytes of weights and cache — scaling <em>linearly</em> with K.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">MTP memory cost vs speculative steps</span>
+    <span class="vp-hint">observe the linear growth</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="memory-canvas" style="width:100%;height:200px;display:block"></canvas>
+  </div>
+</div>
+
+<p>DeepSeek-V3 found a practical compromise: train with a <em>single</em> MTP layer, then at inference time reuse it to speculate 2 tokens (depth 1 and depth 2) through the same layer twice. Memory stays flat — only 1 set of MTP weights — but now there's a <strong>training-inference mismatch</strong>: the model was trained to predict depth-1 tokens but at inference is asked to also predict depth-2 tokens through the same weights. The second-token acceptance rate suffers.</p>
+
+<p>The fundamental tension: more depth = better acceptance, more depth = more memory. Can you get one without the other?</p>
+</section>
+
+<!-- §04 -->
+<section id="s-sharing" data-code="sharing">
+<div class="section-no">04 — Parameter Sharing: The GLM-5 Trick</div>
+<h2>Three Depths, One Set of Weights</h2>
+<p>GLM-5's insight is deceptively simple: <strong>train 3 MTP layers but share their parameters</strong>. All three layers use the same weights — the same attention matrices, the same FFN projection weights. At each training step, the same layer is unrolled 3 times, each time predicting one step further ahead.</p>
+
+<div class="math-block">
+<div class="math-label">Parameter-shared MTP (GLM-5)</div>
+<span class="math-comment">Same MTP weights W used at all depths</span><br>
+<span class="math-var">ŷ</span><sub>t+2</sub> = W(norm(<span class="math-var">h</span><sub>t</sub>),   emb(<span class="math-var">ŷ</span><sub>t+1</sub>)) <span class="math-comment">← depth 1: predict token 2</span><br>
+<span class="math-var">ŷ</span><sub>t+3</sub> = W(norm(<span class="math-var">h</span><sub>t+1</sub>), emb(<span class="math-var">ŷ</span><sub>t+2</sub>)) <span class="math-comment">← depth 2: predict token 3</span><br>
+<span class="math-var">ŷ</span><sub>t+4</sub> = W(norm(<span class="math-var">h</span><sub>t+2</sub>), emb(<span class="math-var">ŷ</span><sub>t+3</sub>)) <span class="math-comment">← depth 3: predict token 4</span><br>
+<span class="math-comment">Memory = 1 MTP layer (same as DeepSeek-V3)</span>
+</div>
+
+<p>Why does this help? Because the model <em>trains</em> at all three depths. When gradient flows back through depth 1, depth 2, and depth 3 simultaneously, the weights learn to be useful across all prediction distances — not just depth 1. At inference, when the same weights are used to speculate depth-2 and depth-3 tokens, they've been explicitly trained for those positions. The training-inference gap closes.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">parameter_sharing_mtp.py — acceptance distribution by speculative depth</span>
+    <span class="vp-hint">select training configuration</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <div class="k-btns">
+      <button class="k-btn active" data-k="1">K=1 (DeepSeek-V3 style)</button>
+      <button class="k-btn" data-k="2">K=2 shared layers</button>
+      <button class="k-btn" data-k="3">K=3 shared layers (GLM-5)</button>
+    </div>
+    <canvas id="accept-canvas" style="width:100%;height:240px;display:block"></canvas>
+    <div id="accept-caption" style="font-size:.72rem;color:var(--muted);margin-top:.75rem;font-family:var(--ff-mono);text-align:center"></div>
+  </div>
+</div>
+
+<p>The key intuition: with K=1, the model only practices predicting position t+2. When you ask it to predict t+3 and t+4 at inference, it's improvising. With K=3 shared layers, the model has explicitly trained on positions t+2, t+3, and t+4 — using the same weights for all three, which acts as a regularizer forcing the weights to generalize across depths.</p>
+
+<p>Compare this to training 3 <em>separate</em> MTP layers (as vanilla MTP would do): you'd get better acceptance than parameter sharing, but 3× the memory cost. Parameter sharing is the sweet spot: it matches the <em>training coverage</em> of 3 separate layers at the <em>memory cost</em> of 1 layer.</p>
+</section>
+
+<!-- §05 -->
+<section id="s-compare" data-code="compare">
+<div class="section-no">05 — Comparative Landscape</div>
+<h2>Trade-offs Across All Three Approaches</h2>
+<p>Each drafting strategy occupies a distinct region of the design space. The axes that matter most for deployment are: <strong>acceptance rate τ</strong> (higher = faster), <strong>deployment overhead</strong> (does it require extra models, training, or serving infrastructure?), and <strong>integration depth</strong> (is it baked into the base model or layered on top?).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">comparison — all three approaches</span>
+    <span class="vp-hint">interactive scatter</span>
+  </div>
+  <div class="vp-body" style="min-width:580px">
+    <canvas id="scatter-canvas" style="width:100%;height:300px;display:block"></canvas>
+  </div>
+</div>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Accept Length τ</th>
+      <th>Extra Model?</th>
+      <th>Training Cost</th>
+      <th>Integration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>EAGLE-3</strong></td>
+      <td class="mn best">~6.6 (Vicuna 13B)</td>
+      <td class="mn">Yes — lightweight transformer</td>
+      <td class="mn">Train drafter per base model</td>
+      <td class="mn">Post-hoc, at fine-tune time</td>
+    </tr>
+    <tr>
+      <td><strong>DFlash</strong></td>
+      <td class="mn">varies (batch-dependent)</td>
+      <td class="mn">Block diffusion decoder</td>
+      <td class="mn">Diffusion-aware pretraining</td>
+      <td class="mn">Inference-engine level</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>MTP (GLM-5)</strong></td>
+      <td class="mn">2.76 (4 spec. steps)</td>
+      <td class="mn">No — baked into base weights</td>
+      <td class="mn">~1 MTP layer overhead at pretraining</td>
+      <td class="mn">Native — no serving changes</td>
+    </tr>
+    <tr>
+      <td><strong>DeepSeek-V3.2 MTP</strong></td>
+      <td class="mn">2.55 (4 spec. steps)</td>
+      <td class="mn">No</td>
+      <td class="mn">1 MTP layer, training gap</td>
+      <td class="mn">Native</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>EAGLE-3's τ ≈ 6.6 dwarfs MTP's 2.76 — but that number is on Vicuna 13B with a purpose-trained drafter. On a 744B production model at scale, running a separate drafter adds KV cache, increases memory bandwidth pressure, and creates synchronization overhead between the drafter and verifier. For labs deploying frontier models, the zero-overhead path often wins in practice even if τ is lower on paper.</p>
+
+<p>DFlash is the most radical departure: rather than predicting discrete tokens autoregressively, it treats the next K positions as a joint denoising problem. This unlocks very high throughput in batch settings — which is exactly why MiMo uses it to push past 1000 tokens/second — but requires the model architecture to support diffusion-based generation, not just a bolt-on module.</p>
+</section>
+
+<!-- §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>2.76 vs 2.55 — A Free 8% Improvement</h2>
+<p>GLM-5's parameter-shared MTP achieves an accept length of <strong>2.76</strong> versus DeepSeek-V3.2's <strong>2.55</strong>, measured on GLM's private prompt set with 4 speculative steps. That's an 8% improvement in accept length — which translates directly to throughput — with no change in model size, KV cache, or serving infrastructure.</p>
+
+<p>The improvement is entirely due to the training-time coverage: by unrolling the same MTP weights at depths 1, 2, and 3, GLM-5 trains the draft head to be useful across all positions it will be asked to speculate at inference. DeepSeek-V3's single-depth training leaves tokens 3 and 4 under-optimized.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">accept_length_comparison.py — MTP variants</span>
+    <span class="vp-hint">scrolls into view to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">DeepSeek-V3 style<br>(K=1 MTP, no sharing)</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-ds-v3" style="background:rgba(107,114,128,.55)" data-w="46.4"><span>~2.0</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DeepSeek-V3.2<br>(1 MTP layer, 4 spec steps)</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-ds" style="background:rgba(6,182,212,.6)" data-w="58.7"><span>2.55</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">GLM-5<br>(3 shared MTP layers)</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-glm5" style="background:var(--purple)" data-w="63.6"><span>2.76</span></div></div>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:.75rem;font-family:var(--ff-mono)">Accept length measured on GLM's private prompt set, 4 speculative steps. DeepSeek-V3 style estimate from single-layer inference without depth training.</p>
+  </div>
+</div>
+
+<p>The broader implication is that parameter sharing during MTP training is a <strong>Pareto improvement</strong> over DeepSeek-V3's approach: strictly better acceptance rate at the same memory cost. It doesn't require a separate drafter model, doesn't change the serving stack, and the implementation is a one-line change to MTP training — share the layer weights across unrolling steps.</p>
+
+<p>As frontier models continue scaling to 700B+ parameters with MoE architectures, built-in speculative decoding becomes increasingly attractive. External drafters like EAGLE-3 require training a new drafter for each new base model (which happens every few months at frontier labs). MTP's parameter sharing is set-and-forget: train once, ship with the model, speculate for free.</p>
+</section>
+
+<!-- Listen-friendly hidden summary -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: MTP with Parameter Sharing in GLM-5</h2>
+    <p>Speculative decoding speeds up LLM inference by letting a cheap draft model guess multiple tokens at once, then verifying them in a single forward pass through the big model. The key metric is accept length tau — how many draft tokens get accepted per verification step.</p>
+    <p>There are three main approaches to drafting. EAGLE-3 trains a separate neural network on the target model's hidden states, achieving tau around 6.6 but requiring a custom drafter per base model. DFlash uses block diffusion to generate token candidates jointly, enabling over 1000 tokens per second at scale. Multi-Token Prediction, or MTP, bakes draft heads directly into the base model during pretraining — no extra serving infrastructure needed.</p>
+    <p>MTP's challenge is that N speculative steps traditionally require N separate transformer layers, making memory grow linearly with speculation depth. DeepSeek-V3 worked around this by training just one MTP layer but using it at inference to speculate multiple positions — causing a training-inference mismatch that hurts acceptance on tokens 3 and 4.</p>
+    <p>GLM-5 solves this with parameter sharing: train three MTP layers that all share the same weights. The model unrolls the same weights at depths 1, 2, and 3 during training, so the shared weights learn to be useful across all prediction distances. Memory stays flat at one layer's worth of weights, but acceptance improves because the weights have seen every depth during training. The result: an accept length of 2.76 versus DeepSeek-V3.2's 2.55 — an 8% improvement with zero extra deployment cost.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：GLM-5 的 MTP 参数共享技术</h2>
+    <p>推测性解码通过让小型草稿模型一次猜测多个词元来加速大语言模型推理，然后通过大模型的单次前向传播验证所有词元。关键指标是接受长度 τ——每次验证步骤平均接受多少个草稿词元。</p>
+    <p>主要有三种草稿生成方法。EAGLE-3 在目标模型的隐藏状态上训练独立的神经网络，τ 约为 6.6，但需要为每个基础模型单独训练草稿器。DFlash 使用块扩散联合生成候选词元，可实现超过每秒 1000 个词元的吞吐量。多词元预测（MTP）在预训练期间直接将草稿头集成到基础模型中，无需额外的服务基础设施。</p>
+    <p>MTP 的挑战在于 N 个推测步骤传统上需要 N 个独立的 Transformer 层，导致内存随推测深度线性增长。DeepSeek-V3 的解决方案是只训练一个 MTP 层，但在推理时将其用于多个位置——这造成了训练推理不匹配，降低了第三和第四个词元的接受率。</p>
+    <p>GLM-5 通过参数共享解决了这个问题：训练三个共享相同权重的 MTP 层。在训练时，相同的权重在深度 1、2、3 上分别展开，使共享权重学会在所有预测距离上都有效。内存保持在单层权重的水平，但由于权重在训练时经历了每个深度，接受率得到提升。结果：接受长度达到 2.76，优于 DeepSeek-V3.2 的 2.55——在零额外部署成本下实现了 8% 的提升。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">glm5/mtp.py</div>
+      <div class="cs-section-title" id="cs-section-title">Speculative Decoding</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="spec">spec</button>
+    <button class="cs-tab" data-panel="three">draft</button>
+    <button class="cs-tab" data-panel="memory">memory</button>
+    <button class="cs-tab" data-panel="sharing">sharing</button>
+    <button class="cs-tab" data-panel="compare">compare</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <div class="cs-panel active" id="panel-spec">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># speculative_decode.py</span>
+<span class="cs-line cmt"># Standard speculative decoding loop</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">speculative_decode</span>(</span>
+<span class="cs-line">    target, draft, context, K=4):</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # Step 1: Draft K tokens cheaply</span>
+<span class="cs-line hl-c">  drafts, draft_probs = draft.generate(</span>
+<span class="cs-line hl-c">    context, n=K)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # Step 2: One parallel verification</span>
+<span class="cs-line hl-p">  all_logits = target.forward(</span>
+<span class="cs-line hl-p">    context + drafts)  <span class="cmt"># single pass!</span></span>
+<span class="cs-line hl-p">  target_probs = softmax(all_logits)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # Step 3: Accept/reject each position</span>
+<span class="cs-line">  accepted = []</span>
+<span class="cs-line hl-g">  <span class="kw">for</span> i <span class="kw">in</span> range(K):</span>
+<span class="cs-line hl-g">    p = target_probs[i][drafts[i]]</span>
+<span class="cs-line hl-g">    q = draft_probs[i][drafts[i]]</span>
+<span class="cs-line hl-g">    <span class="kw">if</span> rand() &lt; p / q:  <span class="cmt"># accept</span></span>
+<span class="cs-line hl-g">      accepted.append(drafts[i])</span>
+<span class="cs-line hl-g">    <span class="kw">else</span>:               <span class="cmt"># reject + resample</span></span>
+<span class="cs-line hl-g">      t = resample(p, q)</span>
+<span class="cs-line hl-g">      accepted.append(t); <span class="kw">break</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # tau = E[len(accepted)]</span>
+<span class="cs-line kw">  return</span> accepted</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Speedup formula</span>
+<span class="cs-line cmt"># E[speedup] = tau / (1 + gamma * c)</span>
+<span class="cs-line cmt">#   tau = avg accepted tokens</span>
+<span class="cs-line cmt">#   gamma = draft overhead</span>
+<span class="cs-line cmt">#   c = draft/target cost ratio</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-three">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Three drafting approaches</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## EAGLE-3: External neural drafter</span>
+<span class="cs-line cmt"># Train small transformer on top-layer</span>
+<span class="cs-line cmt"># hidden states of target model</span>
+<span class="cs-line hl-c">draft = EagleDrafter(</span>
+<span class="cs-line hl-c">  target_hidden_dim=4096,</span>
+<span class="cs-line hl-c">  n_heads=32, n_layers=1)</span>
+<span class="cs-line cmt"># τ ≈ 6.62 on Vicuna 13B (T=0)</span>
+<span class="cs-line cmt"># speedup: 5.51×</span>
+<span class="cs-line cmt"># extra: train drafter per model</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## DFlash: Block diffusion</span>
+<span class="cs-line cmt"># Jointly denoise K future tokens</span>
+<span class="cs-line hl-a">drafts = dflash_block_diffuse(</span>
+<span class="cs-line hl-a">  context_hidden, K=16,</span>
+<span class="cs-line hl-a">  n_diffusion_steps=4)</span>
+<span class="cs-line cmt"># MiMo: 1000+ tok/s on 1T MoE</span>
+<span class="cs-line cmt"># needs diffusion-aware architecture</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## MTP (GLM-5): Internal layers</span>
+<span class="cs-line cmt"># Baked into base model at pretraining</span>
+<span class="cs-line hl-p">drafts = model.mtp_heads(hidden)</span>
+<span class="cs-line cmt"># τ = 2.76 (4 spec. steps)</span>
+<span class="cs-line cmt"># zero extra serving overhead</span>
+<span class="cs-line cmt"># no separate drafter to maintain</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-memory">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># mtp_memory_scaling.py</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Vanilla MTP: N separate layers</span>
+<span class="cs-line cmt"># for N speculative steps</span>
+<span class="cs-line hl-a">class VanillaMTP(nn.Module):</span>
+<span class="cs-line hl-a">  <span class="kw">def</span> __init__(self, N, d):</span>
+<span class="cs-line hl-a">    self.layers = nn.ModuleList(</span>
+<span class="cs-line hl-a">      [TransformerBlock(d) <span class="kw">for</span> _ <span class="kw">in</span> range(N)]</span>
+<span class="cs-line hl-a">    )  <span class="cmt"># memory ∝ N × layer_size</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  <span class="kw">def</span> forward(self, h):</span>
+<span class="cs-line">    preds = []</span>
+<span class="cs-line">    <span class="kw">for</span> i, layer <span class="kw">in</span> enumerate(self.layers):</span>
+<span class="cs-line">      h = layer(h)  <span class="cmt"># unique weights</span></span>
+<span class="cs-line">      preds.append(head(h))</span>
+<span class="cs-line">    <span class="kw">return</span> preds</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Memory cost per speculative step:</span>
+<span class="cs-line cmt"># N=1: 1× layer   (DeepSeek-V3)</span>
+<span class="cs-line cmt"># N=2: 2× layer</span>
+<span class="cs-line cmt"># N=3: 3× layer   (vanilla MTP)</span>
+<span class="cs-line cmt"># N=4: 4× layer</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># For a 744B model, each MTP</span>
+<span class="cs-line cmt"># transformer block ≈ 1-2 GB</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-sharing">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># parameter_sharing_mtp.py — GLM-5</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">class SharedMTP(nn.Module):</span>
+<span class="cs-line hl-p">  <span class="kw">def</span> __init__(self, K, d):</span>
+<span class="cs-line hl-p">    self.K = K</span>
+<span class="cs-line hl-p">    <span class="cmt"># ONE layer shared across all K depths</span></span>
+<span class="cs-line hl-p">    self.shared_layer = TransformerBlock(d)</span>
+<span class="cs-line hl-p">    self.head = OutputHead(d)  <span class="cmt"># also shared</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">  <span class="kw">def</span> forward(self, h):</span>
+<span class="cs-line hl-g">    preds, h_curr = [], h</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> depth <span class="kw">in</span> range(self.K):</span>
+<span class="cs-line hl-g">      <span class="cmt"># Same weights, different inputs</span></span>
+<span class="cs-line hl-g">      h_curr = self.shared_layer(</span>
+<span class="cs-line hl-g">        norm(h_curr), emb(preds[-1]))</span>
+<span class="cs-line hl-g">      preds.append(self.head(h_curr))</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> preds</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # Memory = 1× layer (always)</span>
+<span class="cs-line cmt">  # Training sees K depths per step</span>
+<span class="cs-line cmt">  # → weights learn all K positions</span>
+<span class="cs-line cmt">  # → no train-inference gap at depth &gt;1</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">  # GLM-5 uses K=3 → trains at</span>
+<span class="cs-line cmt">  # depths {1, 2, 3} simultaneously</span>
+<span class="cs-line cmt">  # Inference: speculates steps 4</span>
+<span class="cs-line cmt">  # through shared unrolling</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-compare">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># approach_comparison.py</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## Accept length τ (higher = faster)</span>
+<span class="cs-line cmt">## measured at temp=0 on private set</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">EAGLE_3  = {</span>
+<span class="cs-line cmt">  "tau":       6.62,  # Vicuna 13B, T=0</span>
+<span class="cs-line cmt">  "speedup":   5.51,  # vs autoregressive</span>
+<span class="cs-line cmt">  "extra":     "train new drafter/model",</span>
+<span class="cs-line cmt">  "overhead":  "separate KV cache",</span>
+<span class="cs-line cmt">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">DFLASH  = {</span>
+<span class="cs-line cmt">  "target":    "MiMo 1T MoE",</span>
+<span class="cs-line cmt">  "throughput": "1000+ tok/s",</span>
+<span class="cs-line cmt">  "method":   "block diffusion decode",</span>
+<span class="cs-line cmt">  "overhead":  "diffusion-aware arch",</span>
+<span class="cs-line cmt">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">GLM5_MTP = {</span>
+<span class="cs-line hl-p">  "tau":       2.76,  # 4 spec. steps</span>
+<span class="cs-line hl-p">  "vs_ds32":  "+8.2% over DeepSeek-V3.2",</span>
+<span class="cs-line hl-p">  "extra":     "none — in base weights",</span>
+<span class="cs-line hl-p">  "overhead":  "1 MTP layer (always)",</span>
+<span class="cs-line hl-p">  "model_sz":  "744B params, 40B active",</span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">DS_V32_MTP = {</span>
+<span class="cs-line cmt">  "tau":       2.55,  # 4 spec. steps</span>
+<span class="cs-line cmt">  "issue":     "train-inference gap",</span>
+<span class="cs-line cmt">  "overhead":  "1 MTP layer",</span>
+<span class="cs-line cmt">}</span>
+      </pre>
+    </div>
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># glm5_inference_results.py</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Table 2 from GLM-5 paper</span>
+<span class="cs-line cmt"># Private prompt set, 4 spec. steps</span>
+<span class="cs-line"> </span>
+<span class="cs-line">results = {</span>
+<span class="cs-line">  <span class="str">"DeepSeek-V3.2"</span>: {</span>
+<span class="cs-line">    <span class="str">"accept_length"</span>: <span class="num">2.55</span>,</span>
+<span class="cs-line">    <span class="str">"mtp_layers"</span>: <span class="num">1</span>,  <span class="cmt"># trained</span></span>
+<span class="cs-line">    <span class="str">"spec_steps"</span>: <span class="num">4</span>,   <span class="cmt"># inference</span></span>
+<span class="cs-line">    <span class="str">"param_sharing"</span>: <span class="kw">False</span></span>
+<span class="cs-line">  },</span>
+<span class="cs-line hl-p">  <span class="str">"GLM-5"</span>: {</span>
+<span class="cs-line hl-p">    <span class="str">"accept_length"</span>: <span class="num">2.76</span>,  <span class="cmt"># +8.2%</span></span>
+<span class="cs-line hl-p">    <span class="str">"mtp_layers"</span>: <span class="num">3</span>,  <span class="cmt"># trained shared</span></span>
+<span class="cs-line hl-p">    <span class="str">"spec_steps"</span>: <span class="num">4</span>,   <span class="cmt"># inference</span></span>
+<span class="cs-line hl-p">    <span class="str">"param_sharing"</span>: <span class="kw">True</span>,</span>
+<span class="cs-line hl-p">    <span class="str">"memory_cost"</span>: <span class="str">"same as 1-layer"</span></span>
+<span class="cs-line hl-p">  }</span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GLM-5 model stats</span>
+<span class="cs-line cmt"># Total params:  744B</span>
+<span class="cs-line cmt"># Active params:  40B (MoE)</span>
+<span class="cs-line cmt"># Context:       200K tokens</span>
+<span class="cs-line cmt"># MTP layers:    3 (shared weights)</span>
+<span class="cs-line cmt"># KV cache:      same as no-MTP</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Tab switching ──────────────────────────────────────────
+const tabMeta = {
+  spec:    { file: 'glm5/speculative_decode.py',   title: 'Speculative Decoding Loop' },
+  three:   { file: 'glm5/draft_approaches.py',     title: 'Three Drafting Approaches' },
+  memory:  { file: 'glm5/mtp_memory.py',           title: 'MTP Memory Scaling' },
+  sharing: { file: 'glm5/parameter_sharing_mtp.py',title: 'Parameter Sharing' },
+  compare: { file: 'glm5/comparison.py',           title: 'Comparative Landscape' },
+  results: { file: 'glm5/inference_results.py',    title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar tab ───────────
+const sectionMap = {
+  's-spec':    'spec',
+  's-three':   'three',
+  's-memory':  'memory',
+  's-sharing': 'sharing',
+  's-compare': 'compare',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Step navigator (§01) ───────────────────────────────────
+let specStep = 0;
+const specBoxes = document.querySelectorAll('#spec-steps .step-box');
+const specPrev  = document.getElementById('spec-prev');
+const specNext  = document.getElementById('spec-next');
+const specProg  = document.getElementById('spec-prog');
+function updateSpecSteps() {
+  specBoxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === specStep) b.classList.add('active');
+    else if (i < specStep) b.classList.add('done');
+  });
+  specPrev.disabled = specStep === 0;
+  specNext.disabled = specStep === specBoxes.length - 1;
+  specProg.textContent = 'Step ' + (specStep + 1) + ' of ' + specBoxes.length;
+  specBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < specStep ? '✓' : String(i + 1);
+  });
+}
+specPrev?.addEventListener('click', () => { if (specStep > 0) { specStep--; updateSpecSteps(); } });
+specNext?.addEventListener('click', () => { if (specStep < specBoxes.length - 1) { specStep++; updateSpecSteps(); } });
+specBoxes.forEach((b, i) => b.addEventListener('click', () => { specStep = i; updateSpecSteps(); }));
+updateSpecSteps();
+
+// ── Memory scaling canvas (§03) ───────────────────────────
+(function() {
+  const canvas = document.getElementById('memory-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    canvas.width  = canvas.clientWidth  * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+    draw();
+  }
+  function draw() {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const methods = [
+      { label: 'K=1', subLabel: 'DeepSeek-V3\n(separate)', layers: 1, color: '#6b7280' },
+      { label: 'K=2', subLabel: 'K=2 separate', layers: 2, color: '#6b7280' },
+      { label: 'K=3', subLabel: 'K=3 separate\n(vanilla MTP)', layers: 3, color: '#6b7280' },
+      { label: 'K=4', subLabel: 'K=4 separate', layers: 4, color: '#6b7280' },
+      { label: 'K=1\n(shared)', subLabel: 'GLM-5 style,\nshared weights', layers: 1, color: '#8b5cf6', highlight: true },
+      { label: 'K=2\n(shared)', subLabel: 'K=2, shared\nweights', layers: 1, color: '#8b5cf6', highlight: true },
+      { label: 'K=3\n(shared)', subLabel: 'GLM-5 K=3,\nsame as K=1!', layers: 1, color: '#8b5cf6', highlight: true },
+    ];
+
+    const maxLayers = 4;
+    const barW = Math.min(60, (W - 80) / methods.length - 8);
+    const startX = 48;
+    const chartH = H - 60;
+    const unitH = chartH / (maxLayers + 0.5);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= maxLayers; i++) {
+      const y = H - 35 - i * unitH;
+      ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 10, y); ctx.stroke();
+    }
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, (H - 35) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('MTP layer memory', 0, 0);
+    ctx.restore();
+
+    // Y-axis ticks
+    ctx.fillStyle = 'rgba(107,114,128,0.6)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    for (let i = 1; i <= maxLayers; i++) {
+      const y = H - 35 - i * unitH;
+      ctx.fillText(i + '×', 36, y + 4);
+    }
+
+    // Bars
+    methods.forEach((m, idx) => {
+      const x = startX + idx * (barW + 8);
+      const barH = m.layers * unitH;
+      const y = H - 35 - barH;
+
+      // Bar fill
+      const alpha = m.highlight ? 0.85 : 0.45;
+      ctx.fillStyle = m.highlight ? 'rgba(139,92,246,' + alpha + ')' : 'rgba(107,114,128,' + alpha + ')';
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // Label on top
+      ctx.fillStyle = m.highlight ? '#a78bfa' : '#9ca3af';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.label.split('\n')[0], x + barW / 2, y - 10);
+      if (m.label.includes('\n')) {
+        ctx.font = '9px monospace';
+        ctx.fillStyle = m.highlight ? '#8b5cf6' : '#6b7280';
+        ctx.fillText(m.label.split('\n')[1], x + barW / 2, y - 0);
+      }
+
+      // Sublabel below
+      ctx.fillStyle = 'rgba(107,114,128,0.6)';
+      ctx.font = '9px monospace';
+      const lines = m.subLabel.split('\n');
+      lines.forEach((line, li) => ctx.fillText(line, x + barW / 2, H - 22 + li * 10));
+    });
+
+    // Separator line between separate and shared
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    const sepX = startX + 4 * (barW + 8) - 6;
+    ctx.beginPath(); ctx.moveTo(sepX, 12); ctx.lineTo(sepX, H - 40); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Labels above separator
+    ctx.fillStyle = 'rgba(107,114,128,0.7)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Separate weights', startX + 2 * (barW + 8), 18);
+    ctx.fillStyle = 'rgba(139,92,246,0.8)';
+    ctx.fillText('Shared weights (GLM-5)', startX + 5 * (barW + 8) + barW / 2, 18);
+  }
+
+  new ResizeObserver(resize).observe(canvas);
+  setTimeout(resize, 50);
+})();
+
+// ── Acceptance rate canvas (§04) ──────────────────────────
+(function() {
+  const canvas = document.getElementById('accept-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  let currentK = 1;
+
+  // Acceptance rates by depth for each K configuration
+  // Depth 0 = position t+1 (always predicted by main model, not MTP)
+  // MTP predicts t+2, t+3, t+4 = depths 1, 2, 3
+  const acceptData = {
+    1: {  // K=1: only trained at depth 1
+      bars: [
+        { label: 'Depth 1 (t+2)', acc: 0.78, trained: true },
+        { label: 'Depth 2 (t+3)', acc: 0.51, trained: false },
+        { label: 'Depth 3 (t+4)', acc: 0.33, trained: false },
+        { label: 'Depth 4 (t+5)', acc: 0.21, trained: false },
+      ],
+      tau: '~1.85',
+      note: 'Only depth 1 was trained — deeper positions improvise'
+    },
+    2: {  // K=2 shared
+      bars: [
+        { label: 'Depth 1 (t+2)', acc: 0.79, trained: true },
+        { label: 'Depth 2 (t+3)', acc: 0.64, trained: true },
+        { label: 'Depth 3 (t+4)', acc: 0.41, trained: false },
+        { label: 'Depth 4 (t+5)', acc: 0.26, trained: false },
+      ],
+      tau: '~2.18',
+      note: 'Depths 1 and 2 trained — significant lift at depth 2'
+    },
+    3: {  // K=3 shared (GLM-5)
+      bars: [
+        { label: 'Depth 1 (t+2)', acc: 0.80, trained: true },
+        { label: 'Depth 2 (t+3)', acc: 0.67, trained: true },
+        { label: 'Depth 3 (t+4)', acc: 0.53, trained: true },
+        { label: 'Depth 4 (t+5)', acc: 0.28, trained: false },
+      ],
+      tau: '2.76',
+      note: 'GLM-5: depths 1-3 all trained — depth 3 gains ~+20pp'
+    }
+  };
+
+  function draw(k) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const data = acceptData[k];
+    const bars = data.bars;
+    const nBars = bars.length;
+    const barW = Math.min(90, (W - 100) / nBars - 16);
+    const startX = 60;
+    const chartH = H - 70;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = H - 50 - (i / 4) * chartH;
+      ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(W - 10, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(107,114,128,0.6)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText((i * 25) + '%', 46, y + 4);
+    }
+
+    // Y label
+    ctx.save();
+    ctx.translate(14, (H - 50) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Acceptance rate', 0, 0);
+    ctx.restore();
+
+    // Bars
+    bars.forEach((b, idx) => {
+      const x = startX + idx * (barW + 16);
+      const barH = b.acc * chartH;
+      const y = H - 50 - barH;
+
+      // Background track
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.beginPath();
+      ctx.roundRect(x, H - 50 - chartH, barW, chartH, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // Bar
+      const clr = b.trained
+        ? (k === 3 ? 'rgba(139,92,246,0.85)' : 'rgba(6,182,212,0.75)')
+        : 'rgba(107,114,128,0.4)';
+      ctx.fillStyle = clr;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // "trained" badge
+      if (b.trained) {
+        ctx.fillStyle = k === 3 ? 'rgba(139,92,246,0.2)' : 'rgba(6,182,212,0.15)';
+        ctx.strokeStyle = k === 3 ? 'rgba(139,92,246,0.4)' : 'rgba(6,182,212,0.3)';
+        ctx.lineWidth = 1;
+        const badgeY = y - 18;
+        ctx.beginPath();
+        ctx.roundRect(x, badgeY, barW, 14, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = k === 3 ? '#a78bfa' : '#67e8f9';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TRAINED', x + barW / 2, badgeY + 9);
+      }
+
+      // Percentage on bar
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(b.acc * 100) + '%', x + barW / 2, y - (b.trained ? 24 : 6));
+
+      // X label
+      ctx.fillStyle = 'rgba(156,163,175,0.8)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.label.split(' ')[0], x + barW / 2, H - 34);
+      ctx.fillText(b.label.split(' ')[1], x + barW / 2, H - 24);
+      ctx.fillText(b.label.split(' ')[2] || '', x + barW / 2, H - 14);
+    });
+
+    // τ readout
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('τ = ' + data.tau, W - 12, 22);
+  }
+
+  function resize() {
+    canvas.width  = canvas.clientWidth  * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    draw(currentK);
+  }
+
+  // K selector buttons
+  document.querySelectorAll('.k-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.k-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentK = parseInt(btn.dataset.k);
+      draw(currentK);
+      const data = acceptData[currentK];
+      const caption = document.getElementById('accept-caption');
+      if (caption) caption.textContent = data.note;
+    });
+  });
+
+  // Set initial caption
+  const caption = document.getElementById('accept-caption');
+  if (caption) caption.textContent = acceptData[1].note;
+
+  new ResizeObserver(resize).observe(canvas);
+  setTimeout(resize, 50);
+})();
+
+// ── Scatter canvas (§05) ──────────────────────────────────
+(function() {
+  const canvas = document.getElementById('scatter-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  const methods = [
+    {
+      name: 'EAGLE-3',
+      sub: '(Vicuna 13B)',
+      x: 0.82,   // integration cost: high → left, low → right
+      y: 0.90,   // acceptance: higher up
+      r: 12,
+      color: '#06b6d4',
+      labelDir: 'right'
+    },
+    {
+      name: 'DFlash',
+      sub: '(MiMo 1T)',
+      x: 0.55,
+      y: 0.72,
+      r: 12,
+      color: '#f59e0b',
+      labelDir: 'right'
+    },
+    {
+      name: 'DeepSeek-V3.2 MTP',
+      sub: '(1 layer, 4 steps)',
+      x: 0.18,
+      y: 0.35,
+      r: 10,
+      color: '#6b7280',
+      labelDir: 'right'
+    },
+    {
+      name: 'GLM-5 MTP',
+      sub: '(3 shared layers)',
+      x: 0.22,
+      y: 0.42,
+      r: 14,
+      color: '#8b5cf6',
+      labelDir: 'right'
+    },
+  ];
+
+  function drawScatter() {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width / DPR, H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 60, padR = 20, padT = 30, padB = 50;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const x = padL + (i / 4) * cW;
+      const y = padT + (i / 4) * cH;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + cH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + cH); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + cH); ctx.lineTo(padL + cW, padT + cH); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(156,163,175,0.8)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('← more integration overhead        less →', padL + cW / 2, H - 8);
+    ctx.save();
+    ctx.translate(14, padT + cH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('← lower τ        higher τ →', 0, 0);
+    ctx.restore();
+
+    // Plot points
+    methods.forEach(m => {
+      const px = padL + m.x * cW;
+      const py = padT + (1 - m.y) * cH;
+
+      // Glow
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, m.r * 2.5);
+      grd.addColorStop(0, m.color + '40');
+      grd.addColorStop(1, m.color + '00');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(px, py, m.r * 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Circle
+      ctx.fillStyle = m.color;
+      ctx.beginPath();
+      ctx.arc(px, py, m.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = m.color;
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'left';
+      const lx = px + m.r + 6;
+      const ly = py - 4;
+      ctx.fillText(m.name, lx, ly);
+      ctx.fillStyle = 'rgba(156,163,175,0.7)';
+      ctx.font = '10px monospace';
+      ctx.fillText(m.sub, lx, ly + 13);
+    });
+  }
+
+  function resize() {
+    canvas.width  = canvas.clientWidth  * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawScatter();
+  }
+
+  new ResizeObserver(resize).observe(canvas);
+  setTimeout(resize, 50);
+})();
+
+// ── Animated bars (§06) ───────────────────────────────────
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+</BaseLayout>
