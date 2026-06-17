@@ -161,7 +161,7 @@ Every post follows this exact structure:
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 ---
 <BaseLayout
-  title="Post Title | AI/ML Deep Dives"
+  title="Post Title | Catpuccino.ai"
   description="One-sentence description for SEO/OG."
   crumb="Short nav breadcrumb"
 >
@@ -727,11 +727,11 @@ Run `npx hyperframes@latest lint .` from the composition directory and fix all e
 
 A **72-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts).
 
-**Every video always opens with the branded "Today's AI/ML Deep Dive" card.** This is non-negotiable — it is scene 0, always present, always first.
+**Every video always opens with the branded "Today's Deep Dive" card.** This is non-negotiable — it is scene 0, always present, always first.
 
 | Scene | Window | Voiceover | Content |
 |---|---|---|---|
-| **0 — Opening** | 0–5s   | ~5 words  | "Today's AI/ML Deep Dive" branded card — eyebrow, animated line, brand name |
+| **0 — Opening** | 0–5s   | ~5 words  | "Today's Deep Dive" branded card — eyebrow, animated line, brand name |
 | **1 — Title**   | 5–17s  | ~25 words | Paper title + one-line hook (what problem it solves) + subtitle + blog URL |
 | **2 — Explain** | 17–49s | ~90 words | **Explain the mechanism/concept** — how does it work, what's the key insight. The viz *is* the explanation. Voiceover narrates *why/how*, not benchmark numbers. |
 | **3 — Results** | 49–63s | ~35 words | Brief flash of 2–3 key numbers only. Kept short — the concept is the story, not the leaderboard. |
@@ -847,10 +847,10 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
   <!-- Scene 0: Opening card (0–5s) — ALWAYS PRESENT, NEVER SKIP -->
   <div class="scene" id="scene-open">
     <div id="open-glow"></div>
-    <div id="open-eyebrow">Today's AI/ML Deep Dive</div>
+    <div id="open-eyebrow">Today's Deep Dive</div>
     <div id="open-line"></div>
-    <div id="open-brand">AI/ML Deep Dives</div>
-    <div id="open-url">aideepd.ives</div>
+    <div id="open-brand">Catpuccino.ai</div>
+    <div id="open-url">catpuccino.ai</div>
   </div>
 
   <!-- Scene 1: Title (5–17s) -->
@@ -862,7 +862,7 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
     <div id="title-text">Post Title</div>
     <div id="title-hook">One-line hook: what problem it solves</div>
     <div id="title-sub">One sentence expanding the hook with concrete context.</div>
-    <div id="title-url">aideepd.ives/posts/POST-SLUG</div>
+    <div id="title-url">catpuccino.ai/posts/POST-SLUG</div>
   </div>
 
   <!-- Scene 2: Core viz — EXPLAINS THE MECHANISM (17–49s) -->
@@ -887,7 +887,7 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
   <!-- Scene 4: CTA (63–72s) -->
   <div class="scene" id="scene-cta">
     <div id="cta-label">Full interactive post</div>
-    <div id="cta-url">aideepd.ives/posts/POST-SLUG</div>
+    <div id="cta-url">catpuccino.ai/posts/POST-SLUG</div>
     <div id="cta-hint">What you can do interactively →</div>
   </div>
 
@@ -1000,7 +1000,7 @@ Write a spoken script for each scene, then generate the audio files **before** r
 
 | Scene | Target | Tone |
 |---|---|---|
-| 0 — Opening | ~5 words | Just "Today's AI/ML Deep Dive." — short, punchy |
+| 0 — Opening | ~5 words | Just "Today's Deep Dive." — short, punchy |
 | 1 — Title   | ~25 words | Name the paper. State the problem it solves. One concrete number if possible. |
 | 2 — Explain | ~90 words | **Explain the mechanism.** Narrate what's happening in the animation — why the old approach fails, what the new approach does differently, step by step. No benchmark numbers. |
 | 3 — Results | ~35 words | 1–2 headline numbers. Brief. "On X, this method scores Y — Z times better than the baseline." |
@@ -1049,7 +1049,7 @@ mkdir -p audio
 # Other good options: zh-CN-XiaoxiaoNeural (female, warmer), zh-CN-YunxiNeural (male)
 # --rate="-10%" slows slightly for clarity; adjust to taste
 
-edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "今日AI/ML深度解析。" --write-media audio/scene-0.mp3
+edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "今日深度解析。" --write-media audio/scene-0.mp3
 edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景1脚本" --write-media audio/scene-1.mp3
 edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景2脚本" --write-media audio/scene-2.mp3
 edge-tts --voice "zh-CN-XiaoyiNeural" --rate="-10%" --text "场景3脚本" --write-media audio/scene-3.mp3
@@ -1208,7 +1208,7 @@ The video is meant to be manually published on a completely different platform (
 **Video (Phase 7 — always run, both EN and ZH)**
 - [ ] `social-media/posts/<post-id>/index.html` created (lint requires `index.html`)
 - [ ] `social-media/posts/<post-id>-zh/index.html` created (Chinese version)
-- [ ] Scene 0 opening card present in both — "Today's AI/ML Deep Dive" / "今日AI/ML深度解析"
+- [ ] Scene 0 opening card present in both — "Today's Deep Dive" / "今日深度解析"
 - [ ] Scene 2 voiceover explains the *mechanism*, not the benchmark numbers
 - [ ] All placeholder text replaced (title, hook, tags, bar labels, CTA URL)
 - [ ] `drawViz(t)` implements the post's core concept as a pure `t ∈ [0,1]` function

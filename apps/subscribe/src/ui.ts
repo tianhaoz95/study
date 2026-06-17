@@ -7,7 +7,7 @@ const HTML      = document.documentElement
 
 const translations: Record<Lang, Record<string, string>> = {
   en: {
-    'nav-brand':         'AI/ML Deep Dives',
+    'nav-brand':         'Catpuccino.ai',
     'nav-blog':          'Blog',
     'eyebrow':           'Personal Research Blog',
     'heading-1':         'Deep dives into',
