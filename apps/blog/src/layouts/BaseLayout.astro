@@ -2206,10 +2206,26 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 </script>
 
 <script>
-  // Split View functionality for Research Papers
+  // Split View functionality for Research Papers & Code Repositories
   (function() {
-    function getCleanPdfUrl(url: string): string {
+    function getCleanUrlAndType(url: string, linkText: string): { cleanUrl: string; type: 'pdf' | 'code'; title: string } {
       let cleanUrl = url;
+      if (cleanUrl.includes('github.com/')) {
+        // Convert to github1s
+        cleanUrl = cleanUrl.replace('github.com/', 'github1s.com/');
+        
+        // Extract repo name for title
+        const pathPart = url.split('github.com/')[1] || '';
+        const parts = pathPart.split('/').filter(Boolean);
+        const repoName = parts[1] ? `${parts[0]}/${parts[1]}` : 'Repository';
+        
+        return {
+          cleanUrl,
+          type: 'code',
+          title: `Code: ${repoName}`
+        };
+      }
+      
       // Convert arXiv abstract URL to direct PDF URL
       if (cleanUrl.includes('arxiv.org/abs/')) {
         cleanUrl = cleanUrl.replace('/abs/', '/pdf/');
@@ -2217,27 +2233,38 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
           cleanUrl += '.pdf';
         }
       }
-      return cleanUrl;
+      
+      return {
+        cleanUrl,
+        type: 'pdf',
+        title: 'Research Paper'
+      };
     }
 
-    function openSplitView(pdfUrl: string) {
+    function openSplitView(rawUrl: string, linkText: string) {
       const container = document.getElementById('split-view-container');
       const rightPane = document.getElementById('split-view-right');
       const body = document.getElementById('split-view-body');
       const extLink = document.getElementById('split-view-external') as HTMLAnchorElement;
+      const titleEl = document.getElementById('split-view-title');
       
       if (!container || !rightPane || !body) return;
       
-      const cleanUrl = getCleanPdfUrl(pdfUrl);
+      const { cleanUrl, type, title } = getCleanUrlAndType(rawUrl, linkText);
       
       if (extLink) {
-        extLink.href = cleanUrl;
+        extLink.href = rawUrl;
+      }
+      
+      if (titleEl) {
+        titleEl.textContent = title;
       }
       
       body.innerHTML = '';
       const iframe = document.createElement('iframe');
       iframe.src = cleanUrl;
-      iframe.title = 'Research Paper PDF';
+      iframe.title = title;
+      iframe.setAttribute('allow', 'clipboard-write');
       body.appendChild(iframe);
       
       rightPane.style.display = 'flex';
@@ -2299,11 +2326,13 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       });
     }
 
-    // Bind event listeners to PDF links
-    const bindPdfLinks = () => {
+    // Bind event listeners to PDF & GitHub links
+    const bindSplitViewLinks = () => {
       const links = document.querySelectorAll('a');
       links.forEach(link => {
         const href = link.getAttribute('href') || '';
+        
+        // Detect PDF
         const isPdf = href.toLowerCase().includes('.pdf') || 
                       href.toLowerCase().includes('arxiv.org/pdf') ||
                       href.toLowerCase().includes('arxiv.org/abs') ||
@@ -2312,12 +2341,23 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
                         link.textContent.toLowerCase().includes('paper')
                       ));
                       
-        if (isPdf && !link.dataset.splitViewBound) {
+        // Detect Github Repo (at least 2 path segments after github.com/)
+        let isGithubRepo = false;
+        if (href.includes('github.com/')) {
+          const pathPart = href.split('github.com/')[1] || '';
+          const parts = pathPart.split('/').filter(Boolean);
+          const isNotRepo = ['settings', 'notifications', 'explore', 'trending', 'about', 'pricing', 'contact', 'features', 'security', 'enterprise'].includes(parts[0]);
+          if (parts.length >= 2 && !isNotRepo) {
+            isGithubRepo = true;
+          }
+        }
+        
+        if ((isPdf || isGithubRepo) && !link.dataset.splitViewBound) {
           link.dataset.splitViewBound = 'true';
           link.addEventListener('click', (e) => {
             if (window.innerWidth > 800 && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
               e.preventDefault();
-              openSplitView(href);
+              openSplitView(href, link.textContent || '');
             }
           });
         }
@@ -2325,11 +2365,11 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     };
 
     // Initial binding
-    bindPdfLinks();
+    bindSplitViewLinks();
 
     // Re-bind when content changes or dynamic pages load
     const observer = new MutationObserver(() => {
-      bindPdfLinks();
+      bindSplitViewLinks();
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
