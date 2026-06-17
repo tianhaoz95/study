@@ -323,6 +323,62 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 </div>
 
 <slot />
+
+<script is:inline>
+  (function() {
+    try {
+      var postGrid = document.getElementById('post-grid');
+      var tocSidebar = document.getElementById('toc-sidebar');
+      var tocToggle = document.getElementById('toc-toggle');
+      var codeSidebar = document.getElementById('code-sidebar');
+      var csToggle = document.getElementById('cs-toggle');
+
+      if (postGrid) {
+        // Restore TOC state
+        var isTocCollapsed = localStorage.getItem('toc-sidebar-collapsed') === 'true';
+        if (tocSidebar) {
+          tocSidebar.classList.toggle('collapsed', isTocCollapsed);
+          postGrid.classList.toggle('toc-collapsed', isTocCollapsed);
+          if (tocToggle) {
+            tocToggle.textContent = isTocCollapsed ? '›' : '‹';
+          }
+        }
+
+        // Restore Code sidebar state
+        var isCodeCollapsed = localStorage.getItem('code-sidebar-collapsed') === 'true';
+        if (codeSidebar) {
+          codeSidebar.classList.toggle('collapsed', isCodeCollapsed);
+          postGrid.classList.toggle('sidebar-collapsed', isCodeCollapsed);
+          if (csToggle) {
+            csToggle.textContent = isCodeCollapsed ? '‹' : '›';
+          }
+        }
+      }
+
+      // Add event listeners to save preference on click
+      document.addEventListener('click', function(e) {
+        var target = e.target;
+        if (!target) return;
+        
+        var tocToggleBtn = target.closest('#toc-toggle');
+        var csToggleBtn = target.closest('#cs-toggle');
+
+        if (tocToggleBtn) {
+          setTimeout(function() {
+            var isCollapsed = document.getElementById('toc-sidebar')?.classList.contains('collapsed');
+            localStorage.setItem('toc-sidebar-collapsed', isCollapsed ? 'true' : 'false');
+          }, 0);
+        } else if (csToggleBtn) {
+          setTimeout(function() {
+            var isCollapsed = document.getElementById('code-sidebar')?.classList.contains('collapsed');
+            localStorage.setItem('code-sidebar-collapsed', isCollapsed ? 'true' : 'false');
+          }, 0);
+        }
+      });
+    } catch(e) {}
+  })();
+</script>
+
 <TtsPlayer />
 
 <script>
@@ -941,13 +997,15 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 
 
 <script>
-  import { auth } from '../lib/firebase';
-  import { onAuthStateChanged, type User } from 'firebase/auth';
+  import { auth, db } from '../lib/firebase';
+  import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User } from 'firebase/auth';
+  import { doc, getDoc } from 'firebase/firestore';
   import {
     loadBookmarks, toggleBookmark,
     loadReadingList, toggleReadingList,
   } from '../lib/bookmarks';
   import { getUpvotes, getAllUpvotes, incrementUpvotes } from '../lib/upvotes';
+  import { getComments, addComment, deleteComment } from '../lib/comments';
 
   // Per-page post slug (null if not on a post page)
   const _pathParts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
@@ -1370,12 +1428,285 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     }
   }
 
+  // ── Comments section ────────────────────────────────────────
+
+  let _commentsCache: any[] = [];
+  let _isAdminUser = false;
+
+  function _escapeHtml(str: string): string {
+    const div = document.createElement('div');
+    div.innerText = str;
+    return div.innerHTML;
+  }
+
+  function _formatCommentDate(dateVal: any): string {
+    if (!dateVal) return 'Just now';
+    let date: Date;
+    if (typeof dateVal.toDate === 'function') {
+      date = dateVal.toDate();
+    } else if (dateVal instanceof Date) {
+      date = dateVal;
+    } else {
+      date = new Date(dateVal);
+    }
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function _renderCommentForm(user: User | null) {
+    const formContainer = document.getElementById('comment-form-container');
+    if (!formContainer) return;
+
+    if (!user) {
+      formContainer.innerHTML = `
+        <div class="comment-signin-prompt">
+          <p class="comment-signin-text">Please sign in to join the discussion.</p>
+          <div class="comment-signin-btn-wrapper">
+            <button class="btn-signin-prompt" id="comment-signin-btn">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+              </svg>
+              <span>Sign In with Google</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      const signInBtn = document.getElementById('comment-signin-btn');
+      signInBtn?.addEventListener('click', async () => {
+        const provider = new GoogleAuthProvider();
+        try {
+          await signInWithPopup(auth, provider);
+        } catch (err) {
+          console.error('[comments] Sign in failed:', err);
+        }
+      });
+      return;
+    }
+
+    const avatarUrl = user.photoURL || '';
+    const displayName = user.displayName || 'User';
+
+    formContainer.innerHTML = `
+      <div class="comment-form-box">
+        <div class="comment-form-header">
+          <img src="${avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" class="comment-user-avatar" id="comment-form-avatar" alt="${_escapeHtml(displayName)}" />
+          <span class="comment-user-name" id="comment-form-username">${_escapeHtml(displayName)}</span>
+        </div>
+        <div class="comment-textarea-wrapper">
+          <textarea class="comment-textarea" id="comment-input" placeholder="Join the discussion... Keep it respectful." maxlength="2000"></textarea>
+        </div>
+        <div class="comment-form-actions">
+          <label class="comment-anonymous-label">
+            <input type="checkbox" class="comment-anonymous-checkbox" id="comment-anon-check" />
+            Comment anonymously
+          </label>
+          <button class="comment-submit-btn" id="comment-submit-btn" disabled>Post Comment</button>
+        </div>
+        <div class="comment-submit-error" id="comment-submit-error"></div>
+      </div>
+    `;
+
+    const commentInput = document.getElementById('comment-input') as HTMLTextAreaElement | null;
+    const submitBtn = document.getElementById('comment-submit-btn') as HTMLButtonElement | null;
+    const anonCheck = document.getElementById('comment-anon-check') as HTMLInputElement | null;
+    const formUsername = document.getElementById('comment-form-username');
+    const formAvatar = document.getElementById('comment-form-avatar') as HTMLImageElement | null;
+    const submitError = document.getElementById('comment-submit-error');
+
+    if (commentInput && submitBtn) {
+      commentInput.addEventListener('input', () => {
+        const val = commentInput.value.trim();
+        submitBtn.disabled = val.length === 0;
+      });
+
+      anonCheck?.addEventListener('change', () => {
+        const isAnon = anonCheck.checked;
+        if (isAnon) {
+          if (formUsername) formUsername.innerText = 'Anonymous';
+          if (formAvatar) {
+            formAvatar.src = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+          }
+        } else {
+          if (formUsername) formUsername.innerText = displayName;
+          if (formAvatar) {
+            formAvatar.src = avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+          }
+        }
+      });
+
+      submitBtn.addEventListener('click', async () => {
+        const content = commentInput.value.trim();
+        if (!content) return;
+
+        submitBtn.disabled = true;
+        commentInput.disabled = true;
+        if (anonCheck) anonCheck.disabled = true;
+        if (submitError) submitError.style.display = 'none';
+
+        try {
+          const isAnon = anonCheck ? anonCheck.checked : false;
+          const newComment = await addComment(_pageSlug!, user.uid, displayName, avatarUrl, content, isAnon);
+          
+          _commentsCache.push(newComment);
+          _renderCommentsList(_commentsCache, user);
+
+          commentInput.value = '';
+          commentInput.disabled = false;
+          if (anonCheck) {
+            anonCheck.checked = false;
+            anonCheck.disabled = false;
+          }
+          if (formUsername) formUsername.innerText = displayName;
+          if (formAvatar) formAvatar.src = avatarUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+        } catch (err: any) {
+          console.error('[comments] Failed to add comment:', err);
+          submitBtn.disabled = false;
+          commentInput.disabled = false;
+          if (anonCheck) anonCheck.disabled = false;
+          if (submitError) {
+            submitError.innerText = 'Failed to post comment. Please try again.';
+            submitError.style.display = 'block';
+          }
+        }
+      });
+    }
+  }
+
+  function _renderCommentsList(comments: any[], user: User | null) {
+    const badge = document.getElementById('comments-count-badge');
+    if (badge) {
+      badge.innerText = String(comments.length);
+      badge.style.display = comments.length > 0 ? 'inline-block' : 'none';
+    }
+
+    const listContainer = document.getElementById('comments-list-container');
+    if (!listContainer) return;
+
+    if (comments.length === 0) {
+      listContainer.innerHTML = `
+        <div class="comments-empty">No comments yet. Be the first to start the discussion!</div>
+      `;
+      return;
+    }
+
+    let html = `<div class="comments-list">`;
+    comments.forEach(comment => {
+      const canDelete = user && (comment.authorUid === user.uid || _isAdminUser);
+      const isAnon = comment.isAnonymous;
+      
+      html += `
+        <div class="comment-card" id="comment-card-${comment.id}">
+          <div class="comment-avatar-wrapper">
+            ${isAnon || !comment.authorAvatar ? `
+              <svg class="comment-author-avatar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="background: var(--surface); padding: 7px; border: 1px solid var(--border-hi);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            ` : `
+               <img src="${comment.authorAvatar}" class="comment-author-avatar" alt="${_escapeHtml(comment.authorName)}" />
+            `}
+          </div>
+          <div class="comment-content-wrapper">
+            <div class="comment-meta">
+              <span class="comment-author-name ${isAnon ? 'anonymous' : ''}">${_escapeHtml(comment.authorName)}</span>
+              <span class="comment-date">${_formatCommentDate(comment.createdAt)}</span>
+            </div>
+            <div class="comment-body">${_escapeHtml(comment.content)}</div>
+          </div>
+          ${canDelete ? `
+            <button class="comment-delete-btn" data-comment-id="${comment.id}" title="Delete comment">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+          ` : ''}
+        </div>
+      `;
+    });
+    html += `</div>`;
+    listContainer.innerHTML = html;
+
+    listContainer.querySelectorAll('.comment-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const commentId = btn.getAttribute('data-comment-id');
+        if (!commentId || !_pageSlug) return;
+
+        if (confirm('Are you sure you want to delete this comment?')) {
+          try {
+            (btn as HTMLButtonElement).disabled = true;
+            await deleteComment(_pageSlug, commentId);
+            _commentsCache = _commentsCache.filter(c => c.id !== commentId);
+            _renderCommentsList(_commentsCache, user);
+          } catch (err) {
+            console.error('[comments] Failed to delete comment:', err);
+            alert('Failed to delete comment. Please try again.');
+            (btn as HTMLButtonElement).disabled = false;
+          }
+        }
+      });
+    });
+  }
+
+  async function _initComments() {
+    if (!_pageSlug) return;
+
+    const article = document.querySelector('article.post-body');
+    if (!article) return;
+
+    if (document.getElementById('post-comments-sec')) return;
+
+    const commentsSec = document.createElement('div');
+    commentsSec.id = 'post-comments-sec';
+    commentsSec.className = 'post-comments-section';
+    commentsSec.innerHTML = `
+      <h3 class="comments-title">
+        Discussion <span class="count-badge" id="comments-count-badge" style="display:none">0</span>
+      </h3>
+      <div id="comment-form-container"></div>
+      <div id="comments-list-container">
+        <div class="comments-loading">Loading comments...</div>
+      </div>
+    `;
+    article.appendChild(commentsSec);
+
+    _renderCommentForm(auth.currentUser);
+
+    try {
+      const comments = await getComments(_pageSlug);
+      _commentsCache = comments;
+      _renderCommentsList(comments, auth.currentUser);
+    } catch (err) {
+      console.error('[comments] Initial load failed:', err);
+      const listContainer = document.getElementById('comments-list-container');
+      if (listContainer) {
+        listContainer.innerHTML = `<div class="comments-empty">Failed to load comments.</div>`;
+      }
+    }
+  }
+
   // ── Auth state ──────────────────────────────────────────────
 
   onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       _currentUid = user.uid;
       (window as any).__hejiCurrentUid = user.uid;
+
+      // Verify admin status for comments deletion
+      try {
+        const adminSnap = await getDoc(doc(db, 'admins', user.email?.toLowerCase() || ''));
+        _isAdminUser = adminSnap.exists();
+      } catch (e) {
+        _isAdminUser = false;
+      }
+
+      // Render/update comments UI
+      _renderCommentForm(user);
+      _renderCommentsList(_commentsCache, user);
+
       // Load both collections; fall back to empty sets if Firestore rules aren't deployed
       const [bmSet, rlSet] = await Promise.all([
         loadBookmarks(user.uid).catch(err => {
@@ -1409,9 +1740,15 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       _setUserNavVisible(true);
     } else {
       _currentUid = null;
+      _isAdminUser = false;
       (window as any).__hejiCurrentUid  = null;
       (window as any).__hejiBookmarks   = null;
       (window as any).__hejiReadingList = null;
+
+      // Render/update comments UI for logged out
+      _renderCommentForm(null);
+      _renderCommentsList(_commentsCache, null);
+
       try { localStorage.removeItem('heji-rl'); localStorage.removeItem('heji-rl-items'); } catch (e) {}
       _applyBookmarkStates(null);
       _applyRLStates(null);
@@ -1423,15 +1760,17 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     }
   });
 
-  // Initialize upvotes when DOM is ready
+  // Initialize upvotes and comments when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       _initUpvotes();
       _applyUpvoteCounts();
+      _initComments();
     });
   } else {
     _initUpvotes();
     _applyUpvoteCounts();
+    _initComments();
   }
 </script>
 

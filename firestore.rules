@@ -76,6 +76,26 @@ service cloud.firestore {
         && request.resource.data.count is int
         && request.resource.data.count > resource.data.count;
     }
+
+    // Comments: anyone can read; signed-in users can write their own comments; author or admin can delete
+    match /posts/{slug}/comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['authorUid', 'authorName', 'authorAvatar', 'content', 'createdAt', 'isAnonymous'])
+        && request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'authorAvatar', 'content', 'createdAt', 'isAnonymous'])
+        && (
+             (request.resource.data.isAnonymous == false && request.resource.data.authorUid == request.auth.uid) ||
+             (request.resource.data.isAnonymous == true && request.resource.data.authorUid == "anonymous")
+           )
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 2000
+        && request.resource.data.authorName is string
+        && request.resource.data.authorAvatar is string
+        && request.resource.data.isAnonymous is bool
+        && request.resource.data.createdAt == request.time;
+      allow delete: if request.auth != null && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
   }
 }
 
