@@ -2334,23 +2334,26 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       
       // Create wrapper
       const wrapper = document.createElement('div');
-      wrapper.className = 'hero-btn-dropdown';
+      wrapper.className = 'hero-btn-dropdown split-btn-group';
       
-      // Create new trigger button
-      const trigger = document.createElement('button');
-      trigger.className = 'hero-btn hero-btn-trigger';
-      trigger.setAttribute('type', 'button');
+      // Create new main action button
+      const mainBtn = document.createElement('button');
+      mainBtn.className = 'hero-btn split-btn-main';
+      mainBtn.setAttribute('type', 'button');
       
       // Copy original contents (SVG icon + text)
-      trigger.innerHTML = link.innerHTML;
+      mainBtn.innerHTML = link.innerHTML;
       
-      // Append dropdown arrow
-      const arrowSvg = `
+      // Create new toggle button for dropdown
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'split-btn-toggle';
+      toggleBtn.setAttribute('type', 'button');
+      toggleBtn.setAttribute('aria-label', 'Open options');
+      toggleBtn.innerHTML = `
         <svg class="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       `;
-      trigger.insertAdjacentHTML('beforeend', arrowSvg);
       
       // Create dropdown menu
       const menu = document.createElement('div');
@@ -2386,14 +2389,26 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       menu.appendChild(splitBtn);
       menu.appendChild(tabLink);
       
-      wrapper.appendChild(trigger);
+      wrapper.appendChild(mainBtn);
+      wrapper.appendChild(toggleBtn);
       wrapper.appendChild(menu);
       
       // Replace original link with wrapper in the DOM
       link.parentNode?.replaceChild(wrapper, link);
       
       // Event listeners
-      trigger.addEventListener('click', (e) => {
+      // Main button click: directly open split view
+      mainBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close dropdowns
+        document.querySelectorAll('.hero-btn-dropdown.is-open').forEach(openDropdown => {
+          openDropdown.classList.remove('is-open');
+        });
+        openSplitView(href, mainBtn.textContent?.trim() || '');
+      });
+      
+      // Toggle button click: toggle the options dropdown menu
+      toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         // Close other open dropdowns first
         document.querySelectorAll('.hero-btn-dropdown.is-open').forEach(openDropdown => {
@@ -2407,7 +2422,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       splitBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         wrapper.classList.remove('is-open');
-        openSplitView(href, trigger.textContent?.trim() || '');
+        openSplitView(href, mainBtn.textContent?.trim() || '');
       });
       
       tabLink.addEventListener('click', () => {
