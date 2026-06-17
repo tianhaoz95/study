@@ -2326,6 +2326,95 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       });
     }
 
+    const convertToDropdown = (link: HTMLAnchorElement) => {
+      if (link.dataset.dropdownConverted) return;
+      link.dataset.dropdownConverted = 'true';
+      
+      const href = link.getAttribute('href') || '';
+      
+      // Create wrapper
+      const wrapper = document.createElement('div');
+      wrapper.className = 'hero-btn-dropdown';
+      
+      // Create new trigger button
+      const trigger = document.createElement('button');
+      trigger.className = 'hero-btn hero-btn-trigger';
+      trigger.setAttribute('type', 'button');
+      
+      // Copy original contents (SVG icon + text)
+      trigger.innerHTML = link.innerHTML;
+      
+      // Append dropdown arrow
+      const arrowSvg = `
+        <svg class="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      `;
+      trigger.insertAdjacentHTML('beforeend', arrowSvg);
+      
+      // Create dropdown menu
+      const menu = document.createElement('div');
+      menu.className = 'hero-dropdown-menu';
+      
+      // Option 1: View in Split Screen
+      const splitBtn = document.createElement('button');
+      splitBtn.className = 'dropdown-item split-view-opt';
+      splitBtn.setAttribute('type', 'button');
+      splitBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <line x1="12" y1="3" x2="12" y2="21"/>
+        </svg>
+        View in Split Screen
+      `;
+      
+      // Option 2: Open in New Tab
+      const tabLink = document.createElement('a');
+      tabLink.className = 'dropdown-item new-tab-opt';
+      tabLink.href = href;
+      tabLink.target = '_blank';
+      tabLink.rel = 'noopener';
+      tabLink.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        Open in New Tab
+      `;
+      
+      menu.appendChild(splitBtn);
+      menu.appendChild(tabLink);
+      
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(menu);
+      
+      // Replace original link with wrapper in the DOM
+      link.parentNode?.replaceChild(wrapper, link);
+      
+      // Event listeners
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close other open dropdowns first
+        document.querySelectorAll('.hero-btn-dropdown.is-open').forEach(openDropdown => {
+          if (openDropdown !== wrapper) {
+            openDropdown.classList.remove('is-open');
+          }
+        });
+        wrapper.classList.toggle('is-open');
+      });
+      
+      splitBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrapper.classList.remove('is-open');
+        openSplitView(href, trigger.textContent?.trim() || '');
+      });
+      
+      tabLink.addEventListener('click', () => {
+        wrapper.classList.remove('is-open');
+      });
+    };
+
     // Bind event listeners to PDF & GitHub links
     const bindSplitViewLinks = () => {
       const links = document.querySelectorAll('a');
@@ -2352,14 +2441,10 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
           }
         }
         
-        if ((isPdf || isGithubRepo) && !link.dataset.splitViewBound) {
-          link.dataset.splitViewBound = 'true';
-          link.addEventListener('click', (e) => {
-            if (window.innerWidth > 800 && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-              e.preventDefault();
-              openSplitView(href, link.textContent || '');
-            }
-          });
+        if (isPdf || isGithubRepo) {
+          if (window.innerWidth > 800) {
+            convertToDropdown(link as HTMLAnchorElement);
+          }
         }
       });
     };
@@ -2367,11 +2452,12 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     // Initial binding
     bindSplitViewLinks();
 
-    // Re-bind when content changes or dynamic pages load
-    const observer = new MutationObserver(() => {
-      bindSplitViewLinks();
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.hero-btn-dropdown.is-open').forEach(dropdown => {
+        dropdown.classList.remove('is-open');
+      });
     });
-    observer.observe(document.body, { childList: true, subtree: true });
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
