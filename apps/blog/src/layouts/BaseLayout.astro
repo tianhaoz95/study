@@ -2489,5 +2489,569 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
   })();
 </script>
 
+<style is:global>
+  /* ── Medium-style inline highlights & comments ─────────────── */
+  mark.hl-mark {
+    background: linear-gradient(180deg, transparent 58%, var(--purple-dim) 58%);
+    background-color: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 2px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-color .15s ease;
+  }
+  mark.hl-mark:hover,
+  mark.hl-mark.hl-active {
+    background-color: var(--purple-dim);
+  }
+  /* Deep-focus reading: comments toggled off → strip all highlight chrome */
+  body:not(.hl-comments-on) mark.hl-mark {
+    background: none !important;
+    background-color: transparent !important;
+    cursor: inherit;
+    pointer-events: none;
+  }
+
+  /* Floating selection toolbar */
+  .hl-selection-toolbar {
+    position: fixed;
+    z-index: 1200;
+    display: none;
+    transform: translate(-50%, -100%);
+    background: var(--card);
+    border: 1px solid var(--border-hi);
+    border-radius: 9px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.45);
+    padding: 4px;
+  }
+  .hl-selection-toolbar.is-open { display: block; }
+  .hl-selection-toolbar::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: -5px;
+    transform: translateX(-50%) rotate(45deg);
+    width: 9px; height: 9px;
+    background: var(--card);
+    border-right: 1px solid var(--border-hi);
+    border-bottom: 1px solid var(--border-hi);
+  }
+  .hl-toolbar-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 0; color: var(--text);
+    font: inherit; font-size: .8rem; font-weight: 600;
+    padding: 7px 11px; border-radius: 6px; cursor: pointer;
+  }
+  .hl-toolbar-btn:hover { background: var(--purple-dim); color: var(--purple-l); }
+  .hl-toolbar-btn svg { width: 14px; height: 14px; }
+
+  /* Popover: composer + viewer */
+  .hl-popover {
+    position: fixed;
+    z-index: 1210;
+    display: none;
+    width: 344px; max-width: calc(100vw - 28px);
+    background: var(--card);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 56px rgba(0,0,0,.55);
+    overflow: hidden;
+  }
+  .hl-popover.is-open { display: block; }
+  .hl-popover-quote {
+    font-size: .8rem; color: var(--muted2); line-height: 1.55;
+    border-left: 3px solid var(--purple);
+    padding: 9px 13px; margin: 0;
+    background: var(--surface);
+    max-height: 92px; overflow: auto;
+    font-style: italic;
+  }
+  .hl-popover-inner { padding: 13px; }
+  .hl-author-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .hl-author-row img, .hl-author-row svg.hl-avatar {
+    width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--border-hi); background: var(--surface);
+  }
+  .hl-author-row svg.hl-avatar { padding: 5px; color: var(--muted2); }
+  .hl-author-name { font-size: .82rem; font-weight: 600; color: var(--text); }
+  .hl-author-name.anonymous { color: var(--muted); font-style: italic; }
+  .hl-comment-date { font-size: .72rem; color: var(--muted); }
+  .hl-textarea {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border-hi); border-radius: 7px;
+    padding: 9px 11px; font: inherit; font-size: .85rem; line-height: 1.5;
+  }
+  .hl-textarea:focus { outline: none; border-color: var(--purple); }
+  .hl-note-body {
+    font-size: .85rem; color: var(--text2); line-height: 1.6;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .hl-anon {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .74rem; color: var(--muted2); cursor: pointer; margin-top: 9px;
+  }
+  .hl-anon input { accent-color: var(--purple); }
+  .hl-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 11px; }
+  .hl-btn-ghost, .hl-btn-primary {
+    border-radius: 7px; font: inherit; font-size: .8rem; font-weight: 600;
+    padding: 7px 14px; cursor: pointer; border: 1px solid transparent;
+  }
+  .hl-btn-ghost { background: transparent; color: var(--muted2); border-color: var(--border-hi); }
+  .hl-btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .hl-btn-primary { background: var(--purple); color: #fff; }
+  .hl-btn-primary:hover:not(:disabled) { background: var(--purple-l); }
+  .hl-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .hl-error { color: var(--red); font-size: .76rem; margin-top: 8px; display: none; }
+  .hl-delete-btn {
+    margin-left: auto; background: transparent; border: 0; cursor: pointer;
+    color: var(--muted); padding: 4px; border-radius: 6px; line-height: 0;
+  }
+  .hl-delete-btn:hover { color: var(--red); background: rgba(239,68,68,.12); }
+  .hl-delete-btn svg { width: 14px; height: 14px; }
+  .hl-signin-text { font-size: .85rem; color: var(--text2); line-height: 1.55; margin: 0 0 12px; }
+  .hl-google-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border-hi); border-radius: 8px;
+    padding: 9px 12px; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+  }
+  .hl-google-btn:hover { border-color: var(--purple); }
+  .hl-google-btn svg { width: 16px; height: 16px; }
+  .hl-signin-sub { font-size: .74rem; color: var(--muted); text-align: center; margin: 10px 0 0; }
+  .hl-signin-sub a { color: var(--purple-l); }
+
+  /* Floating comments on/off toggle */
+  .hl-focus-toggle {
+    position: fixed; bottom: 24px; left: 24px; z-index: 950;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--card); color: var(--muted2);
+    border: 1px solid var(--border-hi); border-radius: 999px;
+    padding: 8px 14px; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .hl-focus-toggle:hover { border-color: var(--purple); color: var(--text); }
+  .hl-focus-toggle svg { width: 14px; height: 14px; }
+  .hl-focus-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); transition: background .15s ease; }
+  body:not(.hl-comments-on) .hl-focus-dot { background: var(--muted); }
+  @media (max-width: 680px) {
+    .hl-focus-toggle { bottom: 16px; left: 16px; padding: 7px 11px; font-size: .72rem; }
+  }
+</style>
+
+<script>
+  import { auth, db } from '../lib/firebase';
+  import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User } from 'firebase/auth';
+  import { doc, getDoc } from 'firebase/firestore';
+  import { getHighlights, addHighlight, deleteHighlight, type Highlight } from '../lib/highlights';
+
+  const _hlParts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+  const _hlSlug = _hlParts[0] === 'posts' && _hlParts[1] ? _hlParts[1] : null;
+  const _hlArticle = _hlSlug ? document.querySelector<HTMLElement>('article.post-body') : null;
+
+  const GRAVATAR = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+  const GOOGLE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>`;
+  const CTX = 40; // context window length for re-anchoring
+
+  if (_hlSlug && _hlArticle) {
+    const article = _hlArticle;
+    const slug = _hlSlug;
+
+    // ── State ────────────────────────────────────────────────
+    let hlUser: User | null = null;
+    let hlIsAdmin = false;
+    let hlCache: Highlight[] = [];
+    let pendingCtx: { quote: string; prefix: string; suffix: string } | null = null;
+    let lastRect: DOMRect | null = null;
+    let commentsOn = true;
+    try { commentsOn = localStorage.getItem('heji-hl-comments') !== 'off'; } catch (e) {}
+
+    // ── Utilities ────────────────────────────────────────────
+    const esc = (s: string) => { const d = document.createElement('div'); d.innerText = s; return d.innerHTML; };
+    const cssId = (s: string) => (window as any).CSS?.escape ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+
+    function fmtDate(v: any): string {
+      if (!v) return 'Just now';
+      let d: Date;
+      if (typeof v.toDate === 'function') d = v.toDate();
+      else if (v instanceof Date) d = v;
+      else d = new Date(v);
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Collect prose text nodes, skipping injected UI / code panels / scripts.
+    function textNodes(): Text[] {
+      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const t = node as Text;
+          if (!t.textContent) return NodeFilter.FILTER_REJECT;
+          const p = t.parentElement;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          if (p.closest('script, style, .vp-head, .post-upvote-section, .post-comments-section, .hl-popover, .hl-selection-toolbar')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      const nodes: Text[] = [];
+      let n: Node | null;
+      while ((n = walker.nextNode())) nodes.push(n as Text);
+      return nodes;
+    }
+
+    function globalOffset(nodes: Text[], node: Node, offset: number): number {
+      let total = 0;
+      for (const tn of nodes) {
+        if (tn === node) return total + offset;
+        total += tn.textContent!.length;
+      }
+      return -1;
+    }
+
+    // Wrap [start,end) of the joined text in <mark> elements (one per text node touched).
+    function wrapRange(nodes: Text[], start: number, end: number, id: string): HTMLElement[] {
+      let total = 0;
+      const marks: HTMLElement[] = [];
+      for (const tn of nodes) {
+        const len = tn.textContent!.length;
+        const nodeStart = total;
+        const nodeEnd = total + len;
+        total = nodeEnd;
+        if (nodeEnd <= start || nodeStart >= end) continue;
+        const s = Math.max(start, nodeStart) - nodeStart;
+        const e = Math.min(end, nodeEnd) - nodeStart;
+        if (e <= s) continue;
+        try {
+          const r = document.createRange();
+          r.setStart(tn, s);
+          r.setEnd(tn, e);
+          const mark = document.createElement('mark');
+          mark.className = 'hl-mark';
+          mark.dataset.hlId = id;
+          r.surroundContents(mark);
+          marks.push(mark);
+        } catch (err) { /* fragment crosses element boundary — skip */ }
+      }
+      return marks;
+    }
+
+    // Find a stored highlight in the live DOM (via prefix+quote+suffix) and wrap it.
+    function applyHighlight(h: Highlight): HTMLElement[] {
+      const existing = document.querySelectorAll<HTMLElement>(`mark.hl-mark[data-hl-id="${cssId(h.id)}"]`);
+      if (existing.length) return Array.from(existing);
+      if (!h.quote) return [];
+      const nodes = textNodes();
+      const full = nodes.map(n => n.textContent).join('');
+      let start = -1;
+      let idx = full.indexOf(h.prefix + h.quote + h.suffix);
+      if (idx >= 0) start = idx + h.prefix.length;
+      else {
+        idx = h.prefix ? full.indexOf(h.prefix + h.quote) : -1;
+        if (idx >= 0) start = idx + h.prefix.length;
+        else { idx = full.indexOf(h.quote); if (idx >= 0) start = idx; }
+      }
+      if (start < 0) return [];
+      return wrapRange(nodes, start, start + h.quote.length, h.id);
+    }
+
+    function removeMarks(id: string) {
+      document.querySelectorAll<HTMLElement>(`mark.hl-mark[data-hl-id="${cssId(id)}"]`).forEach(m => {
+        const parent = m.parentNode;
+        if (!parent) return;
+        while (m.firstChild) parent.insertBefore(m.firstChild, m);
+        parent.removeChild(m);
+        parent.normalize();
+      });
+    }
+
+    // Capture the current selection as { quote, prefix, suffix }.
+    function captureContext(): { quote: string; prefix: string; suffix: string } | null {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+      const range = sel.getRangeAt(0);
+      if (!article.contains(range.commonAncestorContainer)) return null;
+      const nodes = textNodes();
+      const full = nodes.map(n => n.textContent).join('');
+      let start = globalOffset(nodes, range.startContainer, range.startOffset);
+      let end = globalOffset(nodes, range.endContainer, range.endOffset);
+      if (start < 0 || end < 0) {
+        const q = sel.toString();
+        const i = q ? full.indexOf(q) : -1;
+        if (i < 0) return null;
+        start = i; end = i + q.length;
+      }
+      if (end < start) { const t = start; start = end; end = t; }
+      const quote = full.slice(start, end);
+      if (!quote.trim()) return null;
+      return {
+        quote,
+        prefix: full.slice(Math.max(0, start - CTX), start),
+        suffix: full.slice(end, end + CTX),
+      };
+    }
+
+    // ── UI elements ──────────────────────────────────────────
+    document.body.classList.toggle('hl-comments-on', commentsOn);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'hl-selection-toolbar';
+    toolbar.innerHTML = `
+      <button class="hl-toolbar-btn" id="hl-comment-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Comment</span>
+      </button>`;
+    document.body.appendChild(toolbar);
+
+    const popover = document.createElement('div');
+    popover.className = 'hl-popover';
+    popover.setAttribute('role', 'dialog');
+    document.body.appendChild(popover);
+
+    const toggle = document.createElement('button');
+    toggle.className = 'hl-focus-toggle';
+    toggle.type = 'button';
+    toggle.setAttribute('aria-pressed', String(commentsOn));
+    function renderToggle() {
+      toggle.innerHTML = `
+        <span class="hl-focus-dot"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>${commentsOn ? 'Comments on' : 'Deep focus'}</span>`;
+      toggle.title = commentsOn ? 'Highlights & comments are on — click for deep-focus reading' : 'Deep-focus reading — click to show highlights & comments';
+    }
+    renderToggle();
+    document.body.appendChild(toggle);
+
+    // ── Toolbar ──────────────────────────────────────────────
+    function hideToolbar() { toolbar.classList.remove('is-open'); }
+    function maybeShowToolbar() {
+      if (!commentsOn) { hideToolbar(); return; }
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.toString().trim()) { hideToolbar(); return; }
+      const range = sel.getRangeAt(0);
+      if (!article.contains(range.commonAncestorContainer)) { hideToolbar(); return; }
+      const rect = range.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) { hideToolbar(); return; }
+      toolbar.style.left = (rect.left + rect.width / 2) + 'px';
+      toolbar.style.top = (rect.top - 8) + 'px';
+      toolbar.classList.add('is-open');
+    }
+
+    document.addEventListener('mouseup', (e) => {
+      const t = e.target as Element;
+      if (t?.closest?.('.hl-popover, .hl-selection-toolbar, .hl-focus-toggle')) return;
+      setTimeout(maybeShowToolbar, 10);
+    });
+    document.addEventListener('selectionchange', () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) hideToolbar();
+    });
+
+    toolbar.querySelector('#hl-comment-btn')?.addEventListener('click', () => {
+      const ctx = captureContext();
+      const sel = window.getSelection();
+      lastRect = sel && sel.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
+      hideToolbar();
+      if (!ctx) return;
+      pendingCtx = ctx;
+      openComposer(ctx);
+    });
+
+    // ── Popover positioning ──────────────────────────────────
+    function positionPopover(rect: DOMRect | null) {
+      popover.style.visibility = 'hidden';
+      popover.classList.add('is-open');
+      const pw = popover.offsetWidth, ph = popover.offsetHeight;
+      let left = rect ? rect.left + rect.width / 2 - pw / 2 : window.innerWidth / 2 - pw / 2;
+      let top = rect ? rect.bottom + 10 : 120;
+      if (rect && top + ph > window.innerHeight - 12) top = Math.max(12, rect.top - ph - 10);
+      left = Math.max(12, Math.min(left, window.innerWidth - pw - 12));
+      top = Math.max(12, Math.min(top, window.innerHeight - ph - 12));
+      popover.style.left = left + 'px';
+      popover.style.top = top + 'px';
+      popover.style.visibility = '';
+    }
+    function closePopover() {
+      popover.classList.remove('is-open');
+      popover.innerHTML = '';
+      popover.dataset.mode = '';
+      pendingCtx = null;
+    }
+
+    // ── Composer ─────────────────────────────────────────────
+    function openComposer(ctx: { quote: string; prefix: string; suffix: string }) {
+      popover.dataset.mode = 'composer';
+      if (!hlUser) {
+        const subHref = document.querySelector('.nav-subscribe')?.getAttribute('href') || '#';
+        popover.innerHTML = `
+          <p class="hl-popover-quote">${esc(ctx.quote)}</p>
+          <div class="hl-popover-inner">
+            <p class="hl-signin-text">Sign in to highlight this passage and add your comment.</p>
+            <button class="hl-google-btn" id="hl-signin" type="button">${GOOGLE_SVG}<span>Sign in with Google</span></button>
+            <p class="hl-signin-sub">New here? <a href="${subHref}" target="_blank" rel="noopener noreferrer">Subscribe for updates</a></p>
+          </div>`;
+        popover.querySelector('#hl-signin')?.addEventListener('click', async () => {
+          try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+          catch (err) { console.error('[highlights] Sign in failed:', err); }
+        });
+        positionPopover(lastRect);
+        return;
+      }
+
+      const name = hlUser.displayName || 'User';
+      const avatar = hlUser.photoURL || GRAVATAR;
+      popover.innerHTML = `
+        <p class="hl-popover-quote">${esc(ctx.quote)}</p>
+        <div class="hl-popover-inner">
+          <div class="hl-author-row">
+            <img src="${avatar}" id="hl-c-avatar" alt="${esc(name)}" />
+            <span class="hl-author-name" id="hl-c-name">${esc(name)}</span>
+          </div>
+          <textarea class="hl-textarea" id="hl-input" placeholder="Add a comment or note…" maxlength="2000"></textarea>
+          <label class="hl-anon"><input type="checkbox" id="hl-anon" /> Comment anonymously</label>
+          <div class="hl-actions">
+            <button class="hl-btn-ghost" id="hl-cancel" type="button">Cancel</button>
+            <button class="hl-btn-primary" id="hl-post" type="button" disabled>Comment</button>
+          </div>
+          <div class="hl-error" id="hl-error"></div>
+        </div>`;
+
+      const input = popover.querySelector('#hl-input') as HTMLTextAreaElement;
+      const postBtn = popover.querySelector('#hl-post') as HTMLButtonElement;
+      const anon = popover.querySelector('#hl-anon') as HTMLInputElement;
+      const nameEl = popover.querySelector('#hl-c-name') as HTMLElement;
+      const avatarEl = popover.querySelector('#hl-c-avatar') as HTMLImageElement;
+      const errEl = popover.querySelector('#hl-error') as HTMLElement;
+
+      input.addEventListener('input', () => { postBtn.disabled = input.value.trim().length === 0; });
+      anon.addEventListener('change', () => {
+        nameEl.innerText = anon.checked ? 'Anonymous' : name;
+        nameEl.classList.toggle('anonymous', anon.checked);
+        avatarEl.src = anon.checked ? GRAVATAR : avatar;
+      });
+      popover.querySelector('#hl-cancel')?.addEventListener('click', () => { closePopover(); window.getSelection()?.removeAllRanges(); });
+      input.focus();
+
+      postBtn.addEventListener('click', async () => {
+        const comment = input.value.trim();
+        if (!comment) return;
+        postBtn.disabled = true; input.disabled = true; anon.disabled = true; errEl.style.display = 'none';
+        try {
+          const isAnon = anon.checked;
+          const h = await addHighlight(slug, hlUser!.uid, name, avatar, ctx.quote, ctx.prefix, ctx.suffix, comment, isAnon);
+          hlCache.push(h);
+          applyHighlight(h);
+          window.getSelection()?.removeAllRanges();
+          closePopover();
+        } catch (err) {
+          console.error('[highlights] Failed to save:', err);
+          postBtn.disabled = false; input.disabled = false; anon.disabled = false;
+          errEl.innerText = 'Failed to post. Please try again.';
+          errEl.style.display = 'block';
+        }
+      });
+
+      positionPopover(lastRect);
+    }
+
+    // ── Viewer ───────────────────────────────────────────────
+    function openViewer(h: Highlight, mark: HTMLElement) {
+      popover.dataset.mode = 'viewer';
+      const isAnon = h.isAnonymous;
+      const canDelete = !!hlUser && (h.authorUid === hlUser.uid || hlIsAdmin);
+      const avatar = (!isAnon && h.authorAvatar)
+        ? `<img src="${h.authorAvatar}" alt="${esc(h.authorName)}" />`
+        : `<svg class="hl-avatar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+      popover.innerHTML = `
+        <p class="hl-popover-quote">${esc(h.quote)}</p>
+        <div class="hl-popover-inner">
+          <div class="hl-author-row">
+            ${avatar}
+            <div>
+              <div class="hl-author-name ${isAnon ? 'anonymous' : ''}">${esc(h.authorName)}</div>
+              <div class="hl-comment-date">${fmtDate(h.createdAt)}</div>
+            </div>
+            ${canDelete ? `<button class="hl-delete-btn" id="hl-del" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+          </div>
+          ${h.comment ? `<div class="hl-note-body">${esc(h.comment)}</div>` : ''}
+        </div>`;
+
+      popover.querySelector('#hl-del')?.addEventListener('click', async () => {
+        if (!confirm('Delete this highlight?')) return;
+        try {
+          await deleteHighlight(slug, h.id);
+          hlCache = hlCache.filter(x => x.id !== h.id);
+          removeMarks(h.id);
+          closePopover();
+        } catch (err) {
+          console.error('[highlights] Failed to delete:', err);
+          alert('Failed to delete. Please try again.');
+        }
+      });
+
+      positionPopover(mark.getBoundingClientRect());
+    }
+
+    article.addEventListener('click', (e) => {
+      if (!commentsOn) return;
+      const mark = (e.target as Element).closest('mark.hl-mark') as HTMLElement | null;
+      if (!mark) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = mark.dataset.hlId;
+      const h = hlCache.find(x => x.id === id);
+      if (h) openViewer(h, mark);
+    });
+
+    // ── Global dismiss ───────────────────────────────────────
+    document.addEventListener('click', (e) => {
+      if (!popover.classList.contains('is-open')) return;
+      const t = e.target as Element;
+      if (t.closest('.hl-popover') || t.closest('mark.hl-mark') || t.closest('.hl-selection-toolbar')) return;
+      closePopover();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closePopover(); hideToolbar(); }
+    });
+
+    // ── Comments on/off toggle ───────────────────────────────
+    toggle.addEventListener('click', () => {
+      commentsOn = !commentsOn;
+      document.body.classList.toggle('hl-comments-on', commentsOn);
+      toggle.setAttribute('aria-pressed', String(commentsOn));
+      try { localStorage.setItem('heji-hl-comments', commentsOn ? 'on' : 'off'); } catch (e) {}
+      renderToggle();
+      if (!commentsOn) { hideToolbar(); closePopover(); }
+    });
+
+    // ── Auth ─────────────────────────────────────────────────
+    onAuthStateChanged(auth, async (user: User | null) => {
+      hlUser = user;
+      if (user) {
+        try {
+          const s = await getDoc(doc(db, 'admins', (user.email || '').toLowerCase()));
+          hlIsAdmin = s.exists();
+        } catch (e) { hlIsAdmin = false; }
+      } else {
+        hlIsAdmin = false;
+      }
+      // Upgrade an open sign-in composer once the user signs in.
+      if (pendingCtx && popover.dataset.mode === 'composer' && popover.classList.contains('is-open')) {
+        openComposer(pendingCtx);
+      }
+    });
+
+    // ── Initial load ─────────────────────────────────────────
+    function loadHighlights() {
+      getHighlights(slug).then(list => {
+        hlCache = list;
+        list.forEach(applyHighlight);
+      });
+    }
+    if (document.readyState === 'complete') loadHighlights();
+    else window.addEventListener('load', loadHighlights);
+  }
+</script>
+
 </body>
 </html>

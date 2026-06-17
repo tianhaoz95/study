@@ -96,6 +96,33 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow delete: if request.auth != null && (resource.data.authorUid == request.auth.uid || isAdmin());
     }
+
+    // Highlights: Medium-style inline text highlights with an attached note.
+    // Anyone can read; signed-in users can create their own; author or admin can delete.
+    match /posts/{slug}/highlights/{highlightId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['authorUid', 'authorName', 'authorAvatar', 'quote', 'prefix', 'suffix', 'comment', 'createdAt', 'isAnonymous'])
+        && request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'authorAvatar', 'quote', 'prefix', 'suffix', 'comment', 'createdAt', 'isAnonymous'])
+        && (
+             (request.resource.data.isAnonymous == false && request.resource.data.authorUid == request.auth.uid) ||
+             (request.resource.data.isAnonymous == true && request.resource.data.authorUid == "anonymous")
+           )
+        && request.resource.data.quote is string
+        && request.resource.data.quote.size() > 0
+        && request.resource.data.quote.size() <= 5000
+        && request.resource.data.prefix is string
+        && request.resource.data.prefix.size() <= 200
+        && request.resource.data.suffix is string
+        && request.resource.data.suffix.size() <= 200
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 2000
+        && request.resource.data.authorName is string
+        && request.resource.data.authorAvatar is string
+        && request.resource.data.isAnonymous is bool
+        && request.resource.data.createdAt == request.time;
+      allow delete: if request.auth != null && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
   }
 }
 
