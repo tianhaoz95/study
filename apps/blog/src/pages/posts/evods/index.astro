@@ -1,0 +1,1198 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('evods');
+---
+<BaseLayout
+  title="EvoDS: Self-Evolving Autonomous Data Science Agents | AI/ML Deep Dives"
+  description="A deep dive into EvoDS, a self-evolving data science agent that expands its skill space autonomously and prevents context explosion using reinforcement-learned compression."
+  crumb="EvoDS: Self-Evolving Data Science Agents"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Context Token Canvas ───────────────────────────────── */
+#context-canvas{display:block;width:100%;height:220px;border-radius:8px;background:var(--card2)}
+.canvas-controls{display:flex;align-items:center;gap:.75rem;margin-top:.875rem;flex-wrap:wrap}
+.canvas-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .9rem;border-radius:6px;font-size:.74rem;font-family:var(--ff-mono);cursor:pointer;transition:all .2s;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)}
+.canvas-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.canvas-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+#canvas-step-val, #canvas-tokens-val{color:var(--cyan);font-weight:700}
+
+/* ── Architecture SVG ───────────────────────────────────── */
+#arch-svg{width:100%;height:auto;background:var(--card2);border-radius:8px;border:1px solid var(--border)}
+.arch-node{cursor:pointer;transition:all 0.2s}
+.arch-node:hover{filter:brightness(1.2)}
+.arch-node.active rect{stroke:var(--purple);stroke-width:3}
+.arch-node.active circle{stroke:var(--purple);stroke-width:3}
+.arch-skills-box{background:var(--surface);border:1px solid var(--border-hi);border-radius:8px;padding:1rem;margin-top:1rem;font-size:0.8rem}
+.arch-skills-title{font-size:0.75rem;font-family:var(--ff-mono);color:var(--purple-l);font-weight:700;margin-bottom:0.5rem;text-transform:uppercase}
+.arch-skills-list{display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:0.5rem;list-style:none;padding:0}
+.arch-skills-list li{font-size:0.75rem;font-family:var(--ff-mono);color:var(--text2);padding:0.25rem 0.5rem;background:var(--card);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;gap:0.35rem}
+.arch-skills-list li::before{content:none}
+.arch-skills-list li .skill-tag{font-size:0.6rem;padding:1px 3px;border-radius:3px;font-weight:700}
+.tag-basic{background:rgba(6,182,212,0.15);color:var(--cyan)}
+.tag-evolved{background:rgba(16,185,129,0.15);color:var(--green)}
+
+/* ── Step-by-step navigator (ASA) ───────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.25rem}
+
+/* ── Context Compression Contrast Panel ─────────────────── */
+.comp-panel{border:1px solid var(--border);border-radius:8px;background:var(--card2);overflow:hidden;margin:1.5rem 0}
+.comp-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border)}
+.comp-tab{flex:1;text-align:center;padding:0.6rem;font-size:0.75rem;font-family:var(--ff-mono);color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+.comp-tab:hover{color:var(--text2)}
+.comp-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.comp-body{padding:1rem;height:240px;overflow-y:auto;font-family:var(--ff-mono);font-size:0.75rem;line-height:1.5;scrollbar-width:thin}
+.comp-body.distilled{color:var(--green-l)}
+.comp-body.raw{color:var(--muted2);white-space:pre}
+
+/* ── Math Block ─────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-op{color:var(--muted2)}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results Bar Chart ──────────────────────────────────── */
+.results-header{display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.results-tab-btn{padding:0.35rem 0.75rem;font-size:0.7rem;font-family:var(--ff-mono);border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);border-radius:4px;cursor:pointer;transition:all 0.15s}
+.results-tab-btn:hover{color:var(--text2);border-color:var(--purple)}
+.results-tab-btn.active{background:var(--purple-dim);color:var(--purple-l);border-color:var(--purple)}
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:160px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-fill-baseline{background:rgba(6,182,212,0.4)}
+.bar-fill-evods{background:var(--purple)}
+
+/* ── Results table ──────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2);line-height:1.5}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .model-name{font-family:var(--ff-mono);font-size:.75rem;font-weight:600;color:var(--text2)}
+.results-table .elf-row td{background:rgba(139,92,246,.06)}
+.results-table .elf-row .model-name{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .note{font-size:.65rem;color:var(--muted);font-style:italic}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── TOC sidebar ─────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){
+  .post-hero{padding:5rem 1.25rem 2.5rem}
+  .post-body{padding:1.25rem 1.25rem 4rem}
+}
+</style>
+
+<!-- ════════════════════════════════════════════════════════ HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Agentic AI</span>
+    <span class="tag tag-cyan">Data Science</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>EvoDS: Self-Evolving Data Science Agents</h1>
+  <p class="lead">
+    In long-horizon data science workflows, conventional LLM agents fail due to fixed toolsets and out-of-token failures. EvoDS solves this by dynamically synthesizing and caching reusable code-based skills, while actively compression executing contexts using a reinforcement-learned context bottleneck.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 17, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2606.03841</code> — HKUST</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.03841v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/usail-hkust/EvoDS" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════ GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- ══════════════════════════════════ TOC ══════════════════ -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents" aria-label="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Long Horizon</a></li>
+    <li class="toc-item" id="toc-s-hierarchy"><a href="#s-hierarchy"><span class="toc-num">02</span> Specialization</a></li>
+    <li class="toc-item" id="toc-s-asa"><a href="#s-asa"><span class="toc-num">03</span> Skill Acquisition</a></li>
+    <li class="toc-item" id="toc-s-acc"><a href="#s-acc"><span class="toc-num">04</span> Active Compression</a></li>
+    <li class="toc-item" id="toc-s-rl"><a href="#s-rl"><span class="toc-num">05</span> Agentic GRPO</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Benchmarks</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════════════════════════ ARTICLE ══════════════════ -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────── §1 The Long Horizon -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Long-Horizon Bottleneck</div>
+<h2>Why data science breaks standard agents</h2>
+<p>
+  Autonomous data science is inherently exploratory, iterative, and long-horizon. An agent must load massive datasets, clean missing entries, explore feature relationships, write code, run model trials, inspect stack traces, and debug execution errors. This multi-stage feedback loop produces two fundamental problems for standard single-agent architectures:
+</p>
+<ul>
+  <li><strong>Static Action Spaces:</strong> Standard agents operate with a predefined, hardcoded list of tool primitives. When a task requires highly customized handling (such as class-imbalanced resampling or advanced model fine-tuning), the agent cannot synthesize new tools. It is stuck in a loop of trial-and-error using generic primitives.</li>
+  <li><strong>Context Explosion:</strong> Every trial output, traceback log, and pandas printout is appended directly to the prompt. In standard agents, context grows linearly and uncontrollably until it hits model token limits, triggering Out-of-Token (OOT) failures or inducing severe reasoning degradation (the "lost-in-the-middle" effect).</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Interactive: Context Growth Simulator</div>
+    <div class="vp-hint">Visualize how naive context accumulation triggers token-limit failures</div>
+  </div>
+  <div class="vp-body">
+    <canvas id="context-canvas"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="canvas-play">▶ Play Simulation</button>
+      <button class="canvas-btn" id="canvas-reset">↻ Reset</button>
+      <span class="canvas-label">Step: <span id="canvas-step-val">0</span> / 15</span>
+      <span class="canvas-label">Context Size: <span id="canvas-tokens-val">1,000</span> tokens</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  As shown in the simulation above, the Naive Agent's passive history appending leads directly to an out-of-token crash. EvoDS resolves this bottleneck by integrating <strong>specialized multi-agent routing</strong>, <strong>autonomous skill synthesis</strong>, and <strong>reinforcement-learned context compression</strong>.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §2 Hierarchical Specialization -->
+<section id="s-hierarchy" data-code="hierarchy">
+<div class="section-no">02 — Hierarchical Specialization</div>
+<h2>Decomposing the data science lifecycle</h2>
+<p>
+  Flattening all actions into a single agent forces the model to choose from an overly large, complex tool space, which dramatically increases tool-selection errors. EvoDS implements a <strong>Hierarchical Multi-Agent Architecture</strong> that separates concern areas.
+</p>
+<p>
+  At the top, the <strong>Manager Agent</strong> acts as the global orchestrator. It inspects the environment, divides the main problem into smaller subtasks, and delegates them to specialized lower-level agents. Lower-level sub-agents maintain localized action spaces:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Interactive Hierarchy Explorer</div>
+    <div class="vp-hint">Click on any agent node to inspect its local and dynamically acquired tools</div>
+  </div>
+  <div class="vp-body">
+    <svg id="arch-svg" viewBox="0 0 700 280">
+      <!-- Links -->
+      <path d="M 350 50 L 100 160" stroke="#5c6370" stroke-width="2" fill="none" />
+      <path d="M 350 50 L 225 160" stroke="#5c6370" stroke-width="2" fill="none" />
+      <path d="M 350 50 L 350 160" stroke="#5c6370" stroke-width="2" fill="none" />
+      <path d="M 350 50 L 475 160" stroke="#5c6370" stroke-width="2" fill="none" />
+      <path d="M 350 50 L 600 160" stroke="#5c6370" stroke-width="2" fill="none" />
+      
+      <!-- Manager Node -->
+      <g class="arch-node active" id="node-manager" data-agent="manager">
+        <rect x="290" y="20" width="120" height="40" rx="6" fill="#1e1e30" stroke="#6b7280" stroke-width="1.5" />
+        <text x="350" y="45" fill="#f0f0f8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Manager</text>
+      </g>
+      
+      <!-- Sub-agents -->
+      <g class="arch-node" id="node-cleaner" data-agent="cleaner">
+        <circle cx="100" cy="180" r="30" fill="#1a1a2e" stroke="#06b6d4" stroke-width="1.5" />
+        <text x="100" y="184" fill="#06b6d4" font-size="10" font-family="monospace" text-anchor="middle">Cleaner</text>
+      </g>
+      
+      <g class="arch-node" id="node-featurizer" data-agent="featurizer">
+        <circle cx="225" cy="180" r="30" fill="#1a1a2e" stroke="#10b981" stroke-width="1.5" />
+        <text x="225" y="184" fill="#10b981" font-size="9" font-family="monospace" text-anchor="middle">Featurizer</text>
+      </g>
+      
+      <g class="arch-node" id="node-modeler" data-agent="modeler">
+        <circle cx="350" cy="180" r="30" fill="#1a1a2e" stroke="#8b5cf6" stroke-width="1.5" />
+        <text x="350" y="184" fill="#8b5cf6" font-size="10" font-family="monospace" text-anchor="middle">Modeler</text>
+      </g>
+      
+      <g class="arch-node" id="node-visualizer" data-agent="visualizer">
+        <circle cx="475" cy="180" r="30" fill="#1a1a2e" stroke="#f59e0b" stroke-width="1.5" />
+        <text x="475" y="184" fill="#f59e0b" font-size="9" font-family="monospace" text-anchor="middle">Visualizer</text>
+      </g>
+      
+      <g class="arch-node" id="node-debugger" data-agent="debugger">
+        <circle cx="600" cy="180" r="30" fill="#1a1a2e" stroke="#e06c75" stroke-width="1.5" />
+        <text x="600" y="184" fill="#e06c75" font-size="10" font-family="monospace" text-anchor="middle">Debugger</text>
+      </g>
+    </svg>
+    
+    <div class="arch-skills-box" id="arch-skills-box">
+      <div class="arch-skills-title" id="arch-skills-title">Manager Tools</div>
+      <ul class="arch-skills-list" id="arch-skills-list">
+        <!-- Rendered dynamically by JS -->
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p>
+  By partitioning the available operations, EvoDS reduces the action space size of each agent node. Mathematically, the paper proves in <strong>Theorem 5.1</strong> that the upper bound on the tool-selection error probability of this hierarchical routing is strictly lower than that of a flat agent architecture.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §3 Autonomous Skill Acquisition -->
+<section id="s-asa" data-code="asa">
+<div class="section-no">03 — Autonomous Skill Acquisition</div>
+<h2>How agents learn new actions from experience</h2>
+<p>
+  When a subtask exceeds the capability of a sub-agent's basic tools, the sub-agent is allowed to synthesize a new tool. This is the <strong>Autonomous Skill Acquisition (ASA)</strong> mechanism, which operates in four distinct phases:
+</p>
+
+<div class="step-list">
+  <div class="step-box active" data-step="0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Synthesis: On-Demand Creation</div>
+      <div class="step-desc">The sub-agent generates a structured skill candidate consisting of a name, detailed execution description, and raw parameterized Python code.</div>
+      <div class="step-code">def imbalanced_classification_smote(X, y): ...</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Verification: Environment Testing</div>
+      <div class="step-desc">The generated code is executed within the sandbox. The execution results are analyzed for syntactical correctness and outcome validity. Failed code is discarded.</div>
+      <div class="step-code">Execution check: Exit Code 0, Output Valid.</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Caching: Synthesized Repository</div>
+      <div class="step-desc">Successful skills are stored in a temporary synthesized skill repository. The model keeps a usage-frequency counter for each cached candidate.</div>
+      <div class="step-code">Candidate pool candidate_skills.add(smote_skill, count=1)</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Expansion: Permanent Merge</div>
+      <div class="step-desc">If a cached skill is synthesized repeatedly (usage count &gt;= 3), indicating a recurring task requirement, it is permanently added to the agent's action space.</div>
+      <div class="step-code">Permanent Action Space merged: A_modeler = A_modeler ∪ &#123;smote_skill&#125;</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-nav">
+  <button id="step-prev" disabled>Previous Step</button>
+  <button id="step-next">Next Step</button>
+  <span class="step-prog-label" id="step-prog">Step 1 of 4</span>
+</div>
+
+<p>
+  During experiments, EvoDS synthesized a total of <strong>279 skills</strong>, which were invoked 925 times. This represents a <strong>69% cross-task skill reuse rate</strong>, proving that the agent successfully abstracts reusable abstractions rather than task-specific procedures.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §4 Adaptive Context Compression -->
+<section id="s-acc" data-code="acc">
+<div class="section-no">04 — Adaptive Context Compression</div>
+<h2>Mitigating the lost-in-the-middle effect</h2>
+<p>
+  Instead of passively truncating history (which deletes important intermediate insights), EvoDS implements <strong>Adaptive Context Compression (ACC)</strong> at two separate levels:
+</p>
+<ul>
+  <li><strong>Sub-agent Level:</strong> Raw execution trace logs, Pandas debug readouts, and compilation backtraces are condensed by the sub-agent into a short summary before being sent back to the Manager Agent.</li>
+  <li><strong>Manager Level:</strong> The Manager Agent is equipped with a learned compression tool: <code>context_summarize</code>. It decides <em>when</em> to trigger context summarization dynamically based on the current context complexity.</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Interactive: Context Comparison View</div>
+    <div class="vp-hint">Compare the raw traceback execution context against the distilled ACC summary</div>
+  </div>
+  <div class="comp-panel">
+    <div class="comp-tabs">
+      <div class="comp-tab active" id="tab-raw" data-view="raw">Raw Execution Context (12,800 tokens)</div>
+      <div class="comp-tab" id="tab-distilled" data-view="distilled">ACC Distilled Summary (180 tokens)</div>
+    </div>
+    <div class="comp-body raw" id="comp-content">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</div>
+
+<p>
+  By actively calling the summarization tool, the Manager compresses historical logs, keeping the active context size bounded. In the paper, <strong>Theorem 5.2</strong> theoretically shows that the Manager's compression objective aligns with the <strong>Information Bottleneck principle</strong>, which minimizes task-irrelevant signals while preserving task-critical outputs.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §5 Agentic GRPO -->
+<section id="s-rl" data-code="grpo">
+<div class="section-no">05 — Joint Reinforcement Learning</div>
+<h2>Co-training Manager and sub-agent behaviors</h2>
+<p>
+  To optimize task coordination, skill selection, and context compression, EvoDS uses <strong>Group Relative Policy Optimization (GRPO)</strong>. GRPO allows training a group of rollouts without the overhead of an auxiliary critic network.
+</p>
+<p>
+  The training objective co-optimizes the Manager Agent and the sub-agents. The overall reward formulation for the Manager Agent is structured as a hybrid combination of solution quality and execution cost:
+</p>
+
+<div class="math-block">
+  <div class="math-label">Manager Agent Reward Formulation</div>
+  <span class="math-var">R_main</span> = <span class="math-var">R_outcome</span> + 0.2 <span class="math-op">*</span> <span class="math-var">R_sub</span> - 0.1 <span class="math-op">*</span> <span class="math-var">P_context</span> - 0.1 <span class="math-op">*</span> <span class="math-var">P_turn</span>
+  <br>
+  <span class="math-comment"># Where:</span>
+  <br>
+  <span class="math-comment"># R_outcome ∈ [0, 1] is the final benchmark evaluation score</span>
+  <br>
+  <span class="math-comment"># R_sub is the average success rate of delegated subtasks</span>
+  <br>
+  <span class="math-comment"># P_context = |C| / C_max is the token usage context penalty</span>
+  <br>
+  <span class="math-comment"># P_turn = T / T_max is the turn usage efficiency penalty</span>
+</div>
+
+<p>
+  This joint reward function penalizes agents that solve tasks inefficiently by generating overly long contexts or wasting coordination turns, directly aligning model policy with the information bottleneck objective.
+</p>
+</section>
+
+<!-- ─────────────────────────────────── §6 Benchmarks -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Empirical Benchmarks</div>
+<h2>EvoDS out-performs state-of-the-art baselines</h2>
+<p>
+  EvoDS was evaluated on four diverse data science benchmarks: **DABench** (exploratory data analysis), **DA-Code** (coding loops), **ScienceAgentBench** (domain-specific science), and **MLE-Dojo** (machine learning challenges).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <div class="vp-title">Interactive: Benchmark Leaderboard</div>
+    <div class="vp-hint">Click on a benchmark to visualize the relative performance improvement</div>
+  </div>
+  <div class="vp-body">
+    <div class="results-header">
+      <button class="results-tab-btn active" data-bench="average">Average Score</button>
+      <button class="results-tab-btn" data-bench="dabench">DABench</button>
+      <button class="results-tab-btn" data-bench="dacode">DA-Code</button>
+      <button class="results-tab-btn" data-bench="sab">ScienceAgentBench</button>
+      <button class="results-tab-btn" data-bench="mledojo">MLE-Dojo</button>
+    </div>
+    
+    <div class="results-bars">
+      <div class="bar-row">
+        <div class="bar-label">DeepAnalyze-8B</div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-baseline" id="bar-deepanalyze" data-w="0"><span>0.0%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DataMind-14B</div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-baseline" id="bar-datamind" data-w="0"><span>0.0%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">EvoDS-8B (Ours)</div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-evods" id="bar-evods" data-w="0"><span>0.0%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">EvoDS-evo-8B (Ours)</div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-evods" id="bar-evods-evo" data-w="0"><span>0.0%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  EvoDS achieves an average improvement of <strong>28.9%</strong> relative to the strongest open-source baseline, DataMind-14B, despite using far fewer parameters. Enabling cross-task skill reuse (EvoDS-evo) yields further gains, particularly on long-horizon tasks like DA-Code and MLE-Dojo.
+</p>
+</section>
+
+<!-- Listen-friendly content (hidden summary played during audio playback) -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: EvoDS</h2>
+    <p>This post presents EvoDS, a self-evolving autonomous data science agent built on a hierarchical multi-agent framework. By introducing Autonomous Skill Acquisition, sub-agents can dynamically synthesize, verify, and cache new executable skills, promoting them to the permanent toolset if used frequently. To tackle context explosion, Adaptive Context Compression integrates outcome distillation at the sub-agent level and a learned summarization tool at the manager level.</p>
+    <p>The entire framework is optimized using joint reinforcement learning via GRPO, penalizing excessive token usage and inefficient execution turns. Empirically, EvoDS outperforms previous state-of-the-art open-source data science agents by an average of 28.9% across DABench, DA-Code, ScienceAgentBench, and MLE-Dojo benchmarks while entirely eliminating out-of-token failures.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：EvoDS</h2>
+    <p>本文深入探讨了 EvoDS，一种基于分层多智能体架构的自演化自主数据科学智能体。EvoDS 引入了自主技能获取机制，使子智能体能够动态合成、验证和缓存新的可执行代码工具，并在频繁使用时将其永久并入工具箱。为了应对上下文爆炸，自适应上下文压缩策略将子智能体的执行结果提炼与管理智能体的主动总结决策相结合。</p>
+    <p>该框架通过基于 GRPO 的联合强化学习策略进行优化，并引入了针对上下文长度和执行轮数的惩罚项。实验表明，EvoDS 在 DABench、DA-Code、ScienceAgentBench 和 MLE-Dojo 四个数据科学基准测试上相比现有开源智能体平均提升了 28.9%，并且完全消除了 Token 超限导致的失败。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">naive_agent.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Long Horizon</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="hierarchy">hierarchy</button>
+    <button class="cs-tab" data-panel="asa">asa</button>
+    <button class="cs-tab" data-panel="acc">acc</button>
+    <button class="cs-tab" data-panel="grpo">grpo</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- Panel 1: Problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># naive_agent.py</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">NaiveDataScienceAgent</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, llm):</span>
+<span class="cs-line">        <span class="self">self</span>.llm = llm</span>
+<span class="cs-line">        <span class="self">self</span>.history = []</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">run_task</span>(<span class="self">self</span>, task):</span>
+<span class="cs-line">        <span class="self">self</span>.history.append(&#123;<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: task&#125;)</span>
+<span class="cs-line">        <span class="kw">while</span> <span class="op">not</span> <span class="self">self</span>.is_complete():</span>
+<span class="cs-line hl-p">            <span class="cmt"># Context grows linearly with every execution log</span></span>
+<span class="cs-line hl-p">            context = <span class="self">self</span>.format_context(<span class="self">self</span>.history)</span>
+<span class="cs-line hl-p">            action = <span class="self">self</span>.llm.generate(context)</span>
+<span class="cs-line hl-p">            result = <span class="self">self</span>.execute(action)</span>
+<span class="cs-line hl-c">            <span class="cmt"># Passive accumulation leads to Out-of-Token failure</span></span>
+<span class="cs-line hl-c">            <span class="self">self</span>.history.append(&#123;<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: action&#125;)</span>
+<span class="cs-line hl-c">            <span class="self">self</span>.history.append(&#123;<span class="str">"role"</span>: <span class="str">"environment"</span>, <span class="str">"content"</span>: result&#125;)</span>
+      </pre>
+    </div>
+    
+    <!-- Panel 2: Hierarchy -->
+    <div class="cs-panel" id="panel-hierarchy">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># manager_agent.py</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">ManagerAgent</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="self">self</span>, sub_agents):</span>
+<span class="cs-line">        <span class="self">self</span>.sub_agents = sub_agents  <span class="cmt"># Cleaner, Featurizer, etc.</span></span>
+<span class="cs-line">        <span class="self">self</span>.global_memory = []</span>
+<span class="cs-line">    </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">delegate</span>(<span class="self">self</span>, subtask_type, instruction):</span>
+<span class="cs-line hl-p">        <span class="cmt"># Manager invokes specific specialized sub-agent</span></span>
+<span class="cs-line hl-p">        sub_agent = <span class="self">self</span>.sub_agents[subtask_type]</span>
+<span class="cs-line hl-p">        result = sub_agent.execute(instruction, <span class="self">self</span>.global_memory)</span>
+<span class="cs-line hl-g">        <span class="cmt"># ACC compressed outcome is returned instead of raw log</span></span>
+<span class="cs-line hl-g">        compressed_result = sub_agent.compress(result)</span>
+<span class="cs-line">        <span class="kw">return</span> compressed_result</span>
+      </pre>
+    </div>
+
+    <!-- Panel 3: ASA -->
+    <div class="cs-panel" id="panel-asa">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># skill_acquisition.py</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">SubAgent</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">execute_with_asa</span>(<span class="self">self</span>, subtask):</span>
+<span class="cs-line">        <span class="kw">if</span> <span class="op">not</span> <span class="self">self</span>.has_matching_skill(subtask):</span>
+<span class="cs-line hl-p">            <span class="cmt"># 1. Synthesis: Generate task-agnostic skill</span></span>
+<span class="cs-line hl-p">            skill = <span class="self">self</span>.synthesize_skill(subtask)</span>
+<span class="cs-line hl-c">            <span class="cmt"># 2. Verification: Execute in sandbox</span></span>
+<span class="cs-line hl-c">            success = <span class="self">self</span>.verify_skill(skill)</span>
+<span class="cs-line">            <span class="kw">if</span> success:</span>
+<span class="cs-line hl-g">                <span class="cmt"># 3. Caching in candidate pool</span></span>
+<span class="cs-line hl-g">                <span class="self">self</span>.cache[skill.name] += <span class="num">1</span></span>
+<span class="cs-line hl-g">                <span class="cmt"># 4. Expansion: Merge permanently if used >= 3 times</span></span>
+<span class="cs-line hl-g">                <span class="kw">if</span> <span class="self">self</span>.cache[skill.name] &gt;= <span class="num">3</span>:</span>
+<span class="cs-line hl-g">                    <span class="self">self</span>.skills.add(skill)</span>
+<span class="cs-line">                <span class="kw">return</span> skill.execute(subtask)</span>
+<span class="cs-line">        <span class="kw">return</span> <span class="self">self</span>.get_skill(subtask).execute(subtask)</span>
+      </pre>
+    </div>
+
+    <!-- Panel 4: ACC -->
+    <div class="cs-panel" id="panel-acc">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># context_compression.py</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">ManagerContext</span>:</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">update</span>(<span class="self">self</span>, action, result, global_goal):</span>
+<span class="cs-line">        <span class="self">self</span>.append(action, result)</span>
+<span class="cs-line hl-p">        <span class="cmt"># ACC: Manager decides *when* to compress using a learned tool</span></span>
+<span class="cs-line hl-p">        <span class="kw">if</span> <span class="self">self</span>.should_compress(global_goal):</span>
+<span class="cs-line hl-g">            <span class="cmt"># Summarization preserves task progress & decisions</span></span>
+<span class="cs-line hl-g">            <span class="self">self</span>.history = <span class="self">self</span>.summarize_context(<span class="self">self</span>.history, global_goal)</span>
+<span class="cs-line">            </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">summarize_context</span>(<span class="self">self</span>, history, goal):</span>
+<span class="cs-line">        prompt = f<span class="str">"Summarize data science decisions aligning with &#123;goal&#125;: &#123;history&#125;"</span></span>
+<span class="cs-line">        <span class="kw">return</span> <span class="self">self</span>.llm.generate(prompt)</span>
+      </pre>
+    </div>
+
+    <!-- Panel 5: GRPO -->
+    <div class="cs-panel" id="panel-grpo">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># grpo_rl.py</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">compute_manager_reward</span>(outcome_score, sub_scores, context_len, turns):</span>
+<span class="cs-line">    <span class="cmt"># Outcome reward (benchmark metric)</span></span>
+<span class="cs-line">    R_outcome = outcome_score </span>
+<span class="cs-line">    <span class="cmt"># Subtask success rate</span></span>
+<span class="cs-line">    R_sub = sum(sub_scores) / len(sub_scores) <span class="kw">if</span> sub_scores <span class="kw">else</span> <span class="num">0.0</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Efficiency and resource penalties</span></span>
+<span class="cs-line hl-p">    P_context = context_len / max_context_tokens</span>
+<span class="cs-line hl-p">    P_turn = turns / max_turns</span>
+<span class="cs-line">    </span>
+<span class="cs-line hl-g">    <span class="cmt"># Hybrid reward formula</span></span>
+<span class="cs-line hl-g">    R_main = R_outcome + <span class="num">0.2</span> * R_sub - <span class="num">0.1</span> * P_context - <span class="num">0.1</span> * P_turn</span>
+<span class="cs-line">    <span class="kw">return</span> R_main</span>
+      </pre>
+    </div>
+
+    <!-- Panel 6: Results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt">// table_results.json</span>
+<span class="cs-line">&#123;</span>
+<span class="cs-line">  <span class="str">"DABench"</span>: &#123; <span class="str">"DataMind-14B"</span>: <span class="num">0.876</span>, <span class="str">"EvoDS-8B"</span>: <span class="num">0.894</span>, <span class="str">"EvoDS-evo-8B"</span>: <span class="num">0.911</span> &#125;,</span>
+<span class="cs-line">  <span class="str">"DA-Code"</span>: &#123; <span class="str">"DataMind-14B"</span>: <span class="num">0.292</span>, <span class="str">"EvoDS-8B"</span>: <span class="num">0.337</span>, <span class="str">"EvoDS-evo-8B"</span>: <span class="num">0.355</span> &#125;,</span>
+<span class="cs-line">  <span class="str">"SABench"</span>: &#123; <span class="str">"DataMind-14B"</span>: <span class="num">0.010</span>, <span class="str">"EvoDS-8B"</span>: <span class="num">0.108</span>, <span class="str">"EvoDS-evo-8B"</span>: <span class="num">0.118</span> &#125;,</span>
+<span class="cs-line">  <span class="str">"MLEDojo"</span>: &#123; <span class="str">"DataMind-14B"</span>: <span class="num">0.136</span>, <span class="str">"EvoDS-8B"</span>: <span class="num">0.302</span>, <span class="str">"EvoDS-evo-8B"</span>: <span class="num">0.311</span> &#125;,</span>
+<span class="cs-line">  <span class="str">"Average"</span>: &#123; <span class="str">"DataMind-14B"</span>: <span class="num">0.329</span>, <span class="str">"EvoDS-8B"</span>: <span class="num">0.410</span>, <span class="str">"EvoDS-evo-8B"</span>: <span class="num">0.424</span> &#125;</span>
+<span class="cs-line">&#125;</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC toggle ──────────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle = document.getElementById('toc-toggle');
+const postGrid = document.getElementById('post-grid');
+
+tocToggle?.addEventListener('click', () => {
+  const collapsed = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', collapsed);
+  tocToggle.textContent = collapsed ? '›' : '‹';
+  tocToggle.title = collapsed ? 'Show contents' : 'Hide contents';
+});
+
+// ── Code sidebar toggle ─────────────────────────────────────────────
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle = document.getElementById('cs-toggle');
+
+csToggle?.addEventListener('click', () => {
+  const collapsed = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', collapsed);
+  csToggle.textContent = collapsed ? '‹' : '›';
+  csToggle.title = collapsed ? 'Show code' : 'Hide code';
+});
+
+// ── Code sidebar tabs ───────────────────────────────────────────────
+const csTabs = document.querySelectorAll('.cs-tab');
+const csPanels = document.querySelectorAll('.cs-panel');
+const csFileLabel = document.getElementById('cs-file-label');
+const csSectionTitle = document.getElementById('cs-section-title');
+
+const tabMeta = {
+  problem:   { file: 'naive_agent.py',       title: 'The Long Horizon' },
+  hierarchy: { file: 'manager_agent.py',     title: 'Specialization' },
+  asa:       { file: 'skill_acquisition.py', title: 'Skill Acquisition' },
+  acc:       { file: 'context_compression.py', title: 'Active Compression' },
+  grpo:      { file: 'grpo_rl.py',           title: 'Agentic GRPO' },
+  results:   { file: 'table_results.json',   title: 'Benchmarks' },
+};
+
+function activateTab(name) {
+  csTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  csPanels.forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m && csFileLabel) csFileLabel.textContent = m.file;
+  if (m && csSectionTitle) csSectionTitle.textContent = m.title;
+}
+
+csTabs.forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.panel));
+});
+
+// ── IntersectionObserver: sync TOC + sidebar ───────────────────────
+const sectionCodeMap = {
+  's-problem':  'problem',
+  's-hierarchy':'hierarchy',
+  's-asa':      'asa',
+  's-acc':      'acc',
+  's-rl':       'grpo',
+  's-results':  'results',
+};
+
+const observer = new IntersectionObserver((entries) => {
+  let best = null, bestRatio = 0;
+  entries.forEach(e => {
+    if (e.isIntersecting && e.intersectionRatio > bestRatio) {
+      best = e.target;
+      bestRatio = e.intersectionRatio;
+    }
+  });
+  if (!best) return;
+  const id = best.id;
+  document.querySelectorAll('.toc-item').forEach(li => {
+    li.classList.toggle('toc-active', li.id === 'toc-' + id);
+  });
+  const panel = sectionCodeMap[id];
+  if (panel) activateTab(panel);
+}, { threshold: [0.15, 0.4] });
+
+document.querySelectorAll('.post-body section[id]').forEach(s => observer.observe(s));
+
+// ── Context Token Canvas Simulation ─────────────────────────────────
+const contextCanvas = document.getElementById('context-canvas');
+if (contextCanvas) {
+  const ctx = contextCanvas.getContext('2d');
+  let animId = null;
+  let running = false;
+  let step = 0;
+  
+  const W_CSS = contextCanvas.clientWidth;
+  const H_CSS = 220;
+  const DPR = window.devicePixelRatio || 1;
+  contextCanvas.width = W_CSS * DPR;
+  contextCanvas.height = H_CSS * DPR;
+  ctx.scale(DPR, DPR);
+  const W = W_CSS, H = H_CSS;
+  
+  // Data trajectories
+  const naiveData = [];
+  const evodsData = [];
+  
+  // Pre-generate steps
+  for (let s = 0; s <= 15; s++) {
+    // Naive goes up linearly
+    naiveData.push(1000 + s * 1800);
+    // EvoDS climbs but drops at 4, 8, 12
+    let evVal = 1000;
+    for (let x = 1; x <= s; x++) {
+      evVal += 1200;
+      if (x % 4 === 0) {
+        evVal = Math.max(1000, evVal - 3500); // Compression
+      }
+    }
+    evodsData.push(evVal);
+  }
+  
+  function drawChart(currStep) {
+    ctx.clearRect(0, 0, W, H);
+    
+    // Axes and grids
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let gx = 40; gx <= W - 20; gx += (W - 60) / 15) {
+      ctx.beginPath(); ctx.moveTo(gx, 10); ctx.lineTo(gx, H - 30); ctx.stroke();
+    }
+    for (let gy = 20; gy <= H - 30; gy += 30) {
+      ctx.beginPath(); ctx.moveTo(40, gy); ctx.lineTo(W - 20, gy); ctx.stroke();
+    }
+    
+    // Y-Axis labels (Token size, max 24,000)
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.textAlign = 'right';
+    ctx.fillText('24K', 32, 23);
+    ctx.fillText('16K', 32, 68);
+    ctx.fillText('8K', 32, 113);
+    ctx.fillText('0K', 32, 158);
+    
+    // Draw limit line (24,000 tokens)
+    ctx.strokeStyle = '#e06c75';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(40, 20);
+    ctx.lineTo(W - 20, 20);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#e06c75';
+    ctx.textAlign = 'left';
+    ctx.fillText('Token Limit (24K)', 45, 16);
+    
+    // Convert data coordinate to pixel coordinate
+    const getX = (idx) => 40 + idx * (W - 60) / 15;
+    const getY = (val) => H - 30 - (val / 26000) * (H - 50);
+    
+    // Draw Naive line
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(naiveData[0]));
+    for (let i = 1; i <= currStep; i++) {
+      if (naiveData[i] <= 24500) {
+        ctx.lineTo(getX(i), getY(naiveData[i]));
+      }
+    }
+    ctx.stroke();
+    
+    // Draw EvoDS line
+    ctx.strokeStyle = 'var(--purple)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(evodsData[0]));
+    for (let i = 1; i <= currStep; i++) {
+      ctx.lineTo(getX(i), getY(evodsData[i]));
+    }
+    ctx.stroke();
+    
+    // Draw dots and annotations
+    for (let i = 0; i <= currStep; i++) {
+      // Naive dot
+      if (naiveData[i] <= 24000) {
+        ctx.beginPath(); ctx.arc(getX(i), getY(naiveData[i]), 3, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
+      } else if (i > 0 && naiveData[i-1] <= 24000) {
+        // Draw failure crash symbol
+        ctx.fillStyle = '#e06c75';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('✘ OOT Failure', getX(i) - 40, getY(24000) + 18);
+      }
+      
+      // EvoDS dot
+      ctx.beginPath(); ctx.arc(getX(i), getY(evodsData[i]), 4, 0, Math.PI*2);
+      ctx.fillStyle = 'var(--purple-l)'; ctx.fill();
+      
+      // Draw compression markers
+      if (i > 0 && i % 4 === 0) {
+        ctx.fillStyle = 'var(--cyan)';
+        ctx.beginPath(); ctx.arc(getX(i), getY(evodsData[i]), 6, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.font = '9px monospace';
+        ctx.fillText('ACC compress', getX(i) - 30, getY(evodsData[i]) - 12);
+      }
+    }
+  }
+  
+  drawChart(0);
+  
+  const playBtn = document.getElementById('canvas-play');
+  const resetBtn = document.getElementById('canvas-reset');
+  const stepVal = document.getElementById('canvas-step-val');
+  const tokensVal = document.getElementById('canvas-tokens-val');
+  
+  function triggerStep() {
+    if (step < 15) {
+      step++;
+      drawChart(step);
+      if (stepVal) stepVal.textContent = String(step);
+      if (tokensVal) tokensVal.textContent = evodsData[step].toLocaleString();
+      animId = setTimeout(triggerStep, 700);
+    } else {
+      running = false;
+      if (playBtn) playBtn.textContent = '▶ Play Simulation';
+    }
+  }
+  
+  playBtn?.addEventListener('click', () => {
+    if (running) {
+      running = false;
+      clearTimeout(animId);
+      playBtn.textContent = '▶ Play Simulation';
+    } else {
+      if (step >= 15) step = 0;
+      running = true;
+      playBtn.textContent = '⏸ Pause';
+      triggerStep();
+    }
+  });
+  
+  resetBtn?.addEventListener('click', () => {
+    running = false;
+    clearTimeout(animId);
+    step = 0;
+    drawChart(0);
+    if (stepVal) stepVal.textContent = '0';
+    if (tokensVal) tokensVal.textContent = '1,000';
+    if (playBtn) playBtn.textContent = '▶ Play Simulation';
+  });
+}
+
+// ── Architecture SVG Click Handling ─────────────────────────────────
+const agentSkills = {
+  manager: {
+    title: "Manager Agent Skills",
+    skills: [
+      { name: "environment_inspection", type: "basic" },
+      { name: "task_decomposition", type: "basic" },
+      { name: "subagent_delegation", type: "basic" },
+      { name: "context_summarize", type: "basic" }
+    ]
+  },
+  cleaner: {
+    title: "Cleaner Agent Skills",
+    skills: [
+      { name: "handle_missing_values", type: "basic" },
+      { name: "detect_outliers_zscore", type: "basic" },
+      { name: "remove_duplicates", type: "basic" },
+      { name: "convert_data_types", type: "basic" },
+      { name: "multimodal_imputation", type: "evolved" }
+    ]
+  },
+  featurizer: {
+    title: "Featurizer Agent Skills",
+    skills: [
+      { name: "one_hot_encoding", type: "basic" },
+      { name: "target_encoding", type: "basic" },
+      { name: "scaling_minmax", type: "basic" },
+      { name: "interaction_features", type: "basic" },
+      { name: "text_embeddings_extraction", type: "evolved" }
+    ]
+  },
+  modeler: {
+    title: "Modeler Agent Skills",
+    skills: [
+      { name: "train_xgboost", type: "basic" },
+      { name: "train_lightgbm", type: "basic" },
+      { name: "tune_hyperparameters", type: "basic" },
+      { name: "imbalanced_classification_smote", type: "evolved" },
+      { name: "catboost_regression", type: "evolved" }
+    ]
+  },
+  visualizer: {
+    title: "Visualizer Agent Skills",
+    skills: [
+      { name: "plot_line", type: "basic" },
+      { name: "plot_bar", type: "basic" },
+      { name: "plot_histogram", type: "basic" },
+      { name: "plot_boxplot", type: "basic" },
+      { name: "plot_scatter", type: "basic" },
+      { name: "plot_roc_curve", type: "evolved" }
+    ]
+  },
+  debugger: {
+    title: "Debugger Agent Skills",
+    skills: [
+      { name: "traceback_parser", type: "basic" },
+      { name: "print_debugger", type: "basic" },
+      { name: "fix_syntax_error", type: "basic" }
+    ]
+  }
+};
+
+function renderSkills(agentName) {
+  const box = document.getElementById('arch-skills-box');
+  const title = document.getElementById('arch-skills-title');
+  const list = document.getElementById('arch-skills-list');
+  const data = agentSkills[agentName];
+  
+  if (data && title && list) {
+    title.textContent = data.title;
+    list.innerHTML = '';
+    data.skills.forEach(s => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.className = `skill-tag tag-${s.type}`;
+      span.textContent = s.type === "basic" ? "basic" : "evolved";
+      li.appendChild(span);
+      li.appendChild(document.createTextNode(" " + s.name));
+      list.appendChild(li);
+    });
+  }
+}
+
+// Initial render
+renderSkills('manager');
+
+document.querySelectorAll('.arch-node').forEach(node => {
+  node.addEventListener('click', () => {
+    document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('active'));
+    node.classList.add('active');
+    const agent = node.dataset.agent;
+    renderSkills(agent);
+  });
+});
+
+// ── Step Navigator Walkthrough (ASA) ───────────────────────────────
+let currentStep = 0;
+const stepEls = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl = document.getElementById('step-prog');
+
+function updateSteps() {
+  stepEls.forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === currentStep) el.classList.add('active');
+    else if (i < currentStep) el.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = currentStep === 0;
+  if (nextBtn) nextBtn.disabled = currentStep === stepEls.length - 1;
+  if (progEl) progEl.textContent = `Step ${currentStep + 1} of ${stepEls.length}`;
+  
+  stepEls.forEach((el, i) => {
+    const numEl = el.querySelector('.step-num');
+    if (numEl && i < currentStep) numEl.textContent = '✓';
+    else if (numEl) numEl.textContent = String(i + 1);
+  });
+}
+
+prevBtn?.addEventListener('click', () => { if (currentStep > 0) { currentStep--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (currentStep < stepEls.length - 1) { currentStep++; updateSteps(); } });
+updateSteps();
+
+// ── Context Summarization Contrast Panel ───────────────────────────
+const rawText = `[MANAGER] Invocating subtask: Cleaner Agent
+[CLEANER] Executing missing values check...
+[CLEANER] Traceback (most recent call):
+  File "clean.py", line 14, in check_missing
+    df = pd.read_csv("dataset.csv")
+FileNotFoundError: [Errno 2] No such file or directory: 'dataset.csv'
+[CLEANER] Debugging: checking directory contents...
+[CLEANER] Files found: ['test.csv', 'train.csv', 'sample_sub.csv']
+[CLEANER] Re-running pandas read on 'train.csv'
+[CLEANER] Missing values report:
+  PassengerId      0
+  Survived         0
+  Pclass           0
+  Name             0
+  Sex              0
+  Age            177
+  SibSp            0
+  Parch            0
+  Ticket           0
+  Fare             0
+  Cabin          687
+  Embarked         2
+[CLEANER] Applying median imputation to 'Age' and mode imputation to 'Embarked'.
+[CLEANER] Drop column 'Cabin' due to excessive missingness (>75%).
+[CLEANER] Validation: checking remaining null values:
+  PassengerId    0
+  Survived       0
+  Pclass         0
+  Age            0
+  Embarked       0
+[CLEANER] Finished execution successfully. Saved clean dataset to 'train_clean.csv'.`;
+
+const distilledText = `- Identified and resolved FileNotFoundError: loaded 'train.csv' after discovering incorrect file reference.
+- Imputed 'Age' using median values and 'Embarked' using mode.
+- Dropped 'Cabin' column due to excessive missing values (77%).
+- Saved clean file to 'train_clean.csv' with 0 null values.`;
+
+const compContent = document.getElementById('comp-content');
+const tabRaw = document.getElementById('tab-raw');
+const tabDistilled = document.getElementById('tab-distilled');
+
+if (compContent) {
+  compContent.textContent = rawText;
+}
+
+tabRaw?.addEventListener('click', () => {
+  tabRaw.classList.add('active');
+  tabDistilled?.classList.remove('active');
+  if (compContent) {
+    compContent.textContent = rawText;
+    compContent.className = "comp-body raw";
+  }
+});
+
+tabDistilled?.addEventListener('click', () => {
+  tabDistilled.classList.add('active');
+  tabRaw?.classList.remove('active');
+  if (compContent) {
+    compContent.textContent = distilledText;
+    compContent.className = "comp-body distilled";
+  }
+});
+
+// ── Empirical Benchmark Bar Chart ───────────────────────────────────
+const benchmarkData = {
+  average: {
+    deepanalyze: 27.9,
+    datamind: 32.9,
+    evods: 41.0,
+    evodsevo: 42.4
+  },
+  dabench: {
+    deepanalyze: 85.6,
+    datamind: 87.6,
+    evods: 89.4,
+    evodsevo: 91.1
+  },
+  dacode: {
+    deepanalyze: 21.7,
+    datamind: 29.2,
+    evods: 33.7,
+    evodsevo: 35.5
+  },
+  sab: {
+    deepanalyze: 0.0,
+    datamind: 1.0,
+    evods: 10.8,
+    evodsevo: 11.8
+  },
+  mledojo: {
+    deepanalyze: 4.4,
+    datamind: 13.6,
+    evods: 30.2,
+    evodsevo: 31.1
+  }
+};
+
+function animateBars(benchName) {
+  const data = benchmarkData[benchName];
+  if (!data) return;
+  
+  const elDA = document.getElementById('bar-deepanalyze');
+  const elDM = document.getElementById('bar-datamind');
+  const elEV = document.getElementById('bar-evods');
+  const elEVE = document.getElementById('bar-evods-evo');
+  
+  if (elDA) {
+    elDA.style.width = data.deepanalyze + '%';
+    const span = elDA.querySelector('span');
+    if (span) span.textContent = data.deepanalyze.toFixed(1) + '%';
+  }
+  if (elDM) {
+    elDM.style.width = data.datamind + '%';
+    const span = elDM.querySelector('span');
+    if (span) span.textContent = data.datamind.toFixed(1) + '%';
+  }
+  if (elEV) {
+    elEV.style.width = data.evods + '%';
+    const span = elEV.querySelector('span');
+    if (span) span.textContent = data.evods.toFixed(1) + '%';
+  }
+  if (elEVE) {
+    elEVE.style.width = data.evodsevo + '%';
+    const span = elEVE.querySelector('span');
+    if (span) span.textContent = data.evodsevo.toFixed(1) + '%';
+  }
+}
+
+// Set up event listeners for benchmark tabs
+document.querySelectorAll('.results-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.results-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const bench = btn.dataset.bench;
+    animateBars(bench);
+  });
+});
+
+// Trigger chart animation via IntersectionObserver
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver((entries, obs) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        animateBars('average');
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

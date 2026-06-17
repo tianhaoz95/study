@@ -1,0 +1,967 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('low-rank-data-selection');
+---
+<BaseLayout
+  title="Low-Rank Data Selection: Picking Training Data Along the Dominant Directions | AI/ML Deep Dives"
+  description="A deep dive into low-rank sensitivity sampling for data selection — why clustering-based coresets miss the dominant directions of variance, and how leverage scores fix it. Interactive."
+  crumb="Low-Rank Data Selection"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.post-body strong{color:var(--text2);font-weight:650}
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.25);border-radius:8px;padding:.9rem 1.1rem;margin:1.5rem 0;font-size:.875rem;color:var(--muted2);line-height:1.7}
+.callout b{color:var(--purple-l)}
+
+/* ── Viz panels ─────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.vp-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1rem}
+.vp-btn{padding:.35rem .85rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.vp-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.vp-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.vp-cap{font-size:.75rem;color:var(--muted);margin-top:.75rem;line-height:1.6;font-family:var(--ff-mono)}
+.vp-slider{display:flex;align-items:center;gap:.75rem;margin-top:1rem;font-family:var(--ff-mono);font-size:.72rem;color:var(--muted2)}
+.vp-slider input[type=range]{flex:1;accent-color:var(--purple)}
+canvas{display:block;width:100%;border-radius:8px}
+
+/* ── Data table ─────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Math block ─────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ─────────────────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* ── Animated bars ──────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+.bars-head{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin:1rem 0 .25rem;letter-spacing:.05em;text-transform:uppercase}
+
+/* ── TOC sidebar ────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .bar-label{width:130px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Data Selection</span>
+    <span class="tag tag-cyan">Low-Rank / Coresets</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Picking Training Data Along the Dominant Directions</h1>
+  <p class="lead">Clustering-based coresets pick training points to <em>cover space</em> — and waste budget on low-variance outliers. This paper reframes data selection around <strong>low-rank structure</strong>: use leverage scores to sample points that lie along the dataset's principal directions of variance, with a coreset guarantee tied to the rank-<em>k</em> approximation error Φ<sub>k</sub>.</p>
+  <div class="post-hero-meta">
+    <span>June 16, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2606.16045</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.16045v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Problem</a></li>
+    <li class="toc-item" id="toc-s-coreset"><a href="#s-coreset"><span class="toc-num">02</span> What a Coreset Must Do</a></li>
+    <li class="toc-item" id="toc-s-lowrank"><a href="#s-lowrank"><span class="toc-num">03</span> Low-Rank Structure & k</a></li>
+    <li class="toc-item" id="toc-s-sensitivity"><a href="#s-sensitivity"><span class="toc-num">04</span> Leverage Scores & the Algorithm</a></li>
+    <li class="toc-item" id="toc-s-tradeoff"><a href="#s-tradeoff"><span class="toc-num">05</span> The Error vs. k Trade-off</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>Clustering covers space. It doesn't follow variance.</h2>
+<p>Training a frontier model on the full dataset is wasteful — carefully chosen subsets reach nearly the same accuracy at a fraction of the cost. The question is <em>which</em> subset. The influential coreset view of <a href="https://arxiv.org/abs/1708.00489" target="_blank" rel="noopener">Sener &amp; Savarese (2018)</a> and the sensitivity-sampling extension of Axiotis et al. (2024) both answer it geometrically: pick points that <strong>cover the data space</strong> — k-center, k-means, farthest-point spreading.</p>
+<p>That works when the dataset's structure is a set of compact clusters. But many modern embedding datasets have a different shape: a <strong>global algebraic structure</strong>, where most of the signal lives along a few dominant directions of variance and the rest is near-noise. On data like that, "cover the space" spends precious budget on the corners and outliers — exactly the low-variance directions that carry the least training signal.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">selection_strategy.viz</span><span class="vp-hint">toggle the two strategies</span></div>
+  <div class="vp-body">
+    <canvas id="cloud-canvas" height="360"></canvas>
+    <div class="vp-controls">
+      <button class="vp-btn active" data-mode="lowrank">Low-rank (spectral)</button>
+      <button class="vp-btn" data-mode="cluster">Clustering (diversity)</button>
+    </div>
+    <div class="vp-cap" id="cloud-cap"></div>
+  </div>
+</div>
+
+<p>Same elongated cloud, same budget of 8 points. <strong>Clustering</strong> fans out to the corners — it grabs off-axis outliers because they maximize spread. <strong>Low-rank</strong> instead picks the extremes <em>along the dominant axis</em>: the points that best reconstruct the dataset's principal direction of variance. When the loss is governed by that direction, those are the points that matter.</p>
+
+<div class="callout">
+<b>The one-line claim.</b> Replace "select for diversity" with "select for spectral leverage." A weighted subset of just <b>Õ(k + 1/ε²)</b> points approximates the full average loss to a (1±ε) factor, plus an additive term that shrinks with Φ<sub>k</sub> — the optimal rank-<i>k</i> approximation error of the embedding matrix.
+</div>
+</section>
+
+<!-- §02 -->
+<section id="s-coreset" data-code="coreset">
+<div class="section-no">02 — What a Coreset Must Do</div>
+<h2>Approximate the loss, not the shape</h2>
+<p>The object we want to preserve isn't the geometry of the points — it's the <strong>sum of losses</strong>. A coreset <em>S</em> with weights <em>w</em> is good if the weighted loss over <em>S</em> matches the total loss over the full dataset <em>D</em>. The gap is the quantity the algorithm directly minimizes:</p>
+
+<div class="math-block">
+<div class="math-label">coreset loss — the thing we minimize</div>
+Δ(<span class="math-var">S</span>) = | Σ<sub>x∈D</sub> ℓ(x) − Σ<sub>x∈S</sub> <span class="math-var">w(x)</span> ℓ(x) |
+<span class="math-comment">  // full total loss vs. weighted subset estimate</span>
+</div>
+
+<p>Why does matching the loss license you to <em>train</em> on the subset? Because the test error decomposes into three terms, and this is the only one the selection algorithm controls:</p>
+<ul>
+  <li><strong>Generalization error</strong> — empirical vs. population loss (a property of the data, not the subset).</li>
+  <li><strong>Training error</strong> — how well the model fits whatever it's given.</li>
+  <li><strong>Coreset loss</strong> — how faithfully <em>S</em> reproduces <em>D</em>'s loss. ← this is Δ(<em>S</em>).</li>
+</ul>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">coreset_loss.viz</span><span class="vp-hint">n weighted points reproduce the full sum</span></div>
+  <div class="vp-body">
+    <canvas id="coreset-canvas" height="240"></canvas>
+    <div class="vp-cap">Each selected point is re-weighted by 1/(s·p(x)) so its contribution stands in for many unselected points — the two loss gauges stay matched even though the right side holds far fewer points.</div>
+  </div>
+</div>
+
+<p>Crucially, the paper scores points by the <strong>current</strong> model's loss, not the loss after retraining. If a weighted subset reproduces the current loss well, it contains representative points along the dominant directions — and training on it then tracks training on all of <em>D</em>, with no assumption about labels or reaching zero training loss.</p>
+</section>
+
+<!-- §03 -->
+<section id="s-lowrank" data-code="lowrank">
+<div class="section-no">03 — Low-Rank Structure &amp; k</div>
+<h2>The knob: how many directions to keep</h2>
+<p>"Low-rank structure" has a precise meaning. Take the embedding matrix <em>D</em> and its singular value decomposition <em>D = UΣVᵀ</em>. The singular values σ<sub>1</sub> ≥ σ<sub>2</sub> ≥ … measure how much variance lives along each direction. Keeping the top <em>k</em> gives the best rank-<em>k</em> approximation; everything you throw away is the residual energy:</p>
+
+<div class="math-block">
+<div class="math-label">rank-k approximation error (Eckart–Young–Mirsky)</div>
+Φ<sub>k</sub>(<span class="math-var">D</span>) = min<sub>rank(B)≤k</sub> ‖<span class="math-var">D</span> − B‖²<sub>F</sub> = Σ<sub>i&gt;k</sub> σ<sub>i</sub>²
+<span class="math-comment">  // the energy in the discarded tail directions</span>
+</div>
+
+<p>This Φ<sub>k</sub> is exactly the additive term in the coreset guarantee. A <strong>nearly low-rank</strong> dataset (sharp singular-value decay) has tiny Φ<sub>k</sub>, so the coreset is nearly lossless. A high-rank, noisy dataset has large Φ<sub>k</sub> — the same fundamental hardness clustering faces with outliers, made explicit.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">singular_spectrum.viz</span><span class="vp-hint">drag k — watch Φₖ shrink</span></div>
+  <div class="vp-body">
+    <canvas id="svd-canvas" height="280"></canvas>
+    <div class="vp-slider">
+      <span>k = <b id="k-val" style="color:var(--purple-l)">3</b></span>
+      <input type="range" id="k-slider" min="1" max="8" value="3" step="1">
+      <span id="k-stats" style="white-space:nowrap"></span>
+    </div>
+    <div class="vp-cap">Purple bars are the kept directions; grey bars are the discarded tail whose squared sum is Φ<sub>k</sub>. The paper sets k ≈ 20–25% of the dataset as landmark points.</div>
+  </div>
+</div>
+
+<p>In the experiments, <em>k</em> isn't a hyperparameter you sweep blindly — it's the number of <strong>landmark points</strong> whose true loss you actually compute (the expensive forward passes). Everything else is reconstructed from cheap embeddings. So <em>k</em> is simultaneously the rank of the sketch and the labeling budget.</p>
+</section>
+
+<!-- §04 -->
+<section id="s-sensitivity" data-code="sensitivity">
+<div class="section-no">04 — Leverage Scores &amp; the Algorithm</div>
+<h2>Decompose each point, then sample by importance</h2>
+<p>Here's the mechanism. Project the subspace <em>V</em> spanned by the landmark directions. Every point <em>x</em> splits into two pieces: its <strong>projection</strong> <em>v(x)</em> inside <em>V</em>, and its <strong>residual</strong> <em>r(x)</em> orthogonal to <em>V</em>. The residual is the part the low-rank sketch can't explain.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">residual_decomposition.viz</span><span class="vp-hint">hover/click a point to decompose it</span></div>
+  <div class="vp-body">
+    <canvas id="decomp-canvas" height="340"></canvas>
+    <div class="vp-cap" id="decomp-cap">Each point is colored by its sensitivity score σ(x). Brighter purple = more likely to be sampled. Click any point to see its projection v(x) (cyan) and residual r(x) (amber).</div>
+  </div>
+</div>
+
+<p>The sensitivity score blends both pieces: the loss explained along the kept directions, plus a penalty λ‖r(x)‖² for the unexplained residual. Sample proportionally to it, then weight inversely to keep the estimator unbiased:</p>
+
+<div class="math-block">
+<div class="math-label">sensitivity score for point x (Algorithm 1)</div>
+σ(<span class="math-var">x</span>) = (γ+1)·(α₁²ℓ(v₁) + … + α<sub>t</sub>²ℓ(v<sub>t</sub>)) + γkξ + λ·‖<span class="math-var">r(x)</span>‖²
+<span class="math-comment">  // projected-loss term  +  basis term  +  residual penalty</span>
+p(<span class="math-var">x</span>) = σ(<span class="math-var">x</span>) / Σ<sub>y</sub> σ(y)      w(<span class="math-var">x</span>) = 1 / (s·p(<span class="math-var">x</span>))
+</div>
+
+<div class="step-list" id="alg-steps">
+  <div class="step-box"><div class="step-num">1</div><div class="step-body"><div class="step-title">Pick landmarks → subspace V</div><div class="step-desc">Choose k rows via leverage-score sampling; span them to form V.</div><div class="step-code">C ⊆ D ; V = span(C)</div></div></div>
+  <div class="step-box"><div class="step-num">2</div><div class="step-body"><div class="step-title">Compute residuals</div><div class="step-desc">For every point, the part orthogonal to V.</div><div class="step-code">r(x) = x − Proj(x, V)</div></div></div>
+  <div class="step-box"><div class="step-num">3</div><div class="step-body"><div class="step-title">Score sensitivity</div><div class="step-desc">Projected loss + residual penalty.</div><div class="step-code">σ(x) = (γ+1)Σαᵢ²ℓ(vᵢ) + γkξ + λ‖r(x)‖²</div></div></div>
+  <div class="step-box"><div class="step-num">4</div><div class="step-body"><div class="step-title">Normalize to probabilities</div><div class="step-desc">Turn scores into a sampling distribution.</div><div class="step-code">p(x) = σ(x) / Σ σ(y)</div></div></div>
+  <div class="step-box"><div class="step-num">5</div><div class="step-body"><div class="step-title">Sample s points, weight them</div><div class="step-desc">Inverse-probability weights → unbiased loss estimate.</div><div class="step-code">w(x) = 1 / (s·p(x))</div></div></div>
+</div>
+<div class="step-nav">
+  <button id="step-prev">‹ Prev</button>
+  <span class="step-prog" id="step-prog">Step 1 of 5</span>
+  <button id="step-next">Next ›</button>
+</div>
+
+<p>Only step 1 and the landmark losses require real model evaluations — k ≈ 20% of the data. Everything else runs on cheap BERT embeddings. Counting a backward pass as 2× a forward pass, selection costs roughly <strong>6.7%</strong> of a full training run.</p>
+</section>
+
+<!-- §05 -->
+<section id="s-tradeoff" data-code="tradeoff">
+<div class="section-no">05 — The Error vs. k Trade-off</div>
+<h2>Low-rank error stays below clustering at every k</h2>
+<p>Is GSM8k actually more low-rank than clustered? The paper tests it directly: for a range of <em>k</em>, compare the average reconstruction error from <em>k</em> cluster centers against the rank-<em>k</em> low-rank approximation, and likewise compare how well each reproduces per-sample loss. Low-rank wins on both, at every <em>k</em>.</p>
+
+<div class="vp">
+  <div class="vp-head"><span class="vp-title">error_vs_k.viz</span><span class="vp-hint">switch the two error metrics</span></div>
+  <div class="vp-body">
+    <canvas id="error-canvas" height="300"></canvas>
+    <div class="vp-controls">
+      <button class="vp-btn active" data-err="proj">Projection / clustering error</button>
+      <button class="vp-btn" data-err="loss">Loss approximation error</button>
+    </div>
+    <div class="vp-cap" id="error-cap"></div>
+  </div>
+</div>
+
+<p>The same picture holds on the classic <strong>Credit Card Default</strong> tabular benchmark (30k rows, 23 features). At a budget of s=1000, low-rank sensitivity sampling cuts the coreset approximation error by an <strong>order of magnitude</strong> versus uniform sampling, and by <strong>~50%</strong> versus clustering — with all methods converging as the budget grows.</p>
+
+<div class="callout">
+<b>Where the knob bites.</b> One subtlety: a large residual weight λ makes the score dominated by geometric distance r, so it starts chasing outliers — and for clustering, adding <i>more</i> clusters then makes it <i>worse</i> (finer partitions shrink r for inliers, biasing selection toward the noise). Low-rank sampling is markedly more robust to λ, which is why it holds up across settings.
+</div>
+</section>
+
+<!-- §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Better coresets → better fine-tuned models</h2>
+<p>The payoff is end-to-end fine-tuning accuracy. On <strong>Llama3-8B</strong> across GSM8k, ViGGO, and SQL generation (BERT embeddings, k = 25% landmarks), low-rank sensitivity sampling beats uniform sampling consistently and edges out clustering-based sensitivity sampling on average. The sharpest single contrast is ViGGO at a 25% data budget:</p>
+
+<div class="results-bars" id="result-bars">
+  <div class="bars-head">ViGGO — validation accuracy @ 25% data (Llama3-8B)</div>
+  <div class="bar-row"><div class="bar-label">Graph Cut</div><div class="bar-track"><div class="bar-fill" data-w="81.7" style="background:rgba(107,114,128,.55)"><span>81.7</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">K-Center</div><div class="bar-track"><div class="bar-fill" data-w="80.3" style="background:rgba(107,114,128,.55)"><span>80.3</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Uniform Sampling</div><div class="bar-track"><div class="bar-fill" data-w="86.3" style="background:rgba(6,182,212,.6)"><span>86.3</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Clustering SS</div><div class="bar-track"><div class="bar-fill" data-w="86.6" style="background:rgba(6,182,212,.6)"><span>86.6</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Low-rank SS (ours)</div><div class="bar-track"><div class="bar-fill" data-w="88.3" style="background:var(--purple)"><span>88.3</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Full data (100%)</div><div class="bar-track"><div class="bar-fill" data-w="94.0" style="background:var(--green)"><span>94.0</span></div></div></div>
+</div>
+
+<p>Across all three tasks, low-rank SS posts the best <em>average</em> at the 25% budget and stays competitive as the budget tightens to 6.25%:</p>
+
+<table class="results-table">
+  <thead><tr><th>Method (Llama3-8B)</th><th>GSM8k 25%</th><th>ViGGO 25%</th><th>SQL 25%</th><th>Avg 25%</th><th>Avg 6.25%</th></tr></thead>
+  <tbody>
+    <tr><td>Uniform Sampling</td><td class="mn">67.7</td><td class="mn">86.3</td><td class="mn">75.6</td><td class="mn">76.5</td><td class="mn">52.0</td></tr>
+    <tr><td>K-Center</td><td class="mn">67.4</td><td class="mn">80.3</td><td class="mn">77.1</td><td class="mn">74.9</td><td class="mn">52.3</td></tr>
+    <tr><td>Graph Cut</td><td class="mn">67.0</td><td class="mn">81.7</td><td class="mn">73.3</td><td class="mn">74.0</td><td class="mn">45.7</td></tr>
+    <tr><td>Clustering SS</td><td class="mn">70.2</td><td class="mn">86.6</td><td class="mn">75.6</td><td class="mn">77.5</td><td class="mn">54.6</td></tr>
+    <tr class="highlight-row"><td>Low-rank SS (ours)</td><td class="mn">68.4</td><td class="mn best">88.3</td><td class="mn">76.1</td><td class="mn best">77.6</td><td class="mn best">54.9</td></tr>
+    <tr><td>Full (100%)</td><td class="mn">69.3</td><td class="mn">94.0</td><td class="mn">79.9</td><td class="mn">81.1</td><td class="mn">—</td></tr>
+  </tbody>
+</table>
+
+<p>On the Credit Card benchmark, logistic regression trained on low-rank coresets reaches <strong>74%</strong> test accuracy at s=5000, versus ~70% for clustering coresets and ~67% for random sampling. The lesson is consistent: when a dataset's signal lives along a few dominant directions — as embedding datasets so often do — selecting for <strong>spectral leverage</strong> beats selecting for diversity, with a clean theoretical guarantee tied to Φ<sub>k</sub> and a selection cost under 7% of a training run.</p>
+
+<div class="callout">
+<b>Takeaway.</b> Coreset selection has long been framed geometrically — "cover the space." This paper shows the more useful question is algebraic — "preserve the dominant directions of variance." Same budget, better data, a guarantee that degrades gracefully exactly when the data is hard (large Φ<sub>k</sub>).
+</div>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Low-Rank Data Selection</h2>
+    <p>Training large models on full datasets is wasteful, so researchers select small representative subsets called coresets. The dominant prior approach, going back to Sener and Savarese, picks points geometrically — clustering or farthest-point sampling to cover the data space. This paper argues that for modern embedding datasets, which carry their signal along a few dominant directions of variance, covering the space wastes budget on low-variance outliers.</p>
+    <p>Instead, the authors select data using low-rank structure. They build a low-rank sketch of the dataset via singular value decomposition, decompose each point into a projection inside the top subspace and a residual orthogonal to it, and assign each point a sensitivity score combining its projected loss with a penalty on the residual. Sampling proportional to that score and weighting inversely gives an unbiased estimate of the total loss. The theory guarantees a weighted subset of order k plus one over epsilon squared points approximates the average loss within a one plus epsilon factor, plus an additive term equal to the optimal rank-k approximation error, Phi-k.</p>
+    <p>Empirically, on the Credit Card Default tabular dataset, low-rank sensitivity sampling cuts coreset error by an order of magnitude over random and about fifty percent over clustering. Fine-tuning Llama3-8B on GSM8k, ViGGO, and SQL generation, it beats uniform sampling and edges out clustering-based sensitivity sampling on average, while costing under seven percent of a full training run to run the selection.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：低秩数据选择</h2>
+    <p>用完整数据集训练大模型代价高昂，因此研究者会挑选一个小而有代表性的子集，称为核心集。以往主流方法源自 Sener 和 Savarese，从几何角度挑点——用聚类或最远点采样去覆盖整个数据空间。本文指出，对于现代的嵌入数据集，其信号往往集中在少数几个主方差方向上，单纯覆盖空间会把预算浪费在低方差的离群点上。</p>
+    <p>作者改用低秩结构来选择数据。他们通过奇异值分解构建数据集的低秩草图，把每个点分解为落在主子空间内的投影部分，以及与之正交的残差部分，并为每个点计算一个敏感度分数，将投影损失与残差惩罚结合起来。按该分数成比例采样、再做反比加权，就能得到对总损失的无偏估计。理论保证：规模约为 k 加上一除以 epsilon 平方的加权子集，可在 1 加 epsilon 的因子内逼近平均损失，外加一个等于最优秩 k 近似误差 Phi-k 的可加项。</p>
+    <p>实验方面，在信用卡违约表格数据集上，低秩敏感度采样将核心集误差相比随机采样降低一个数量级，相比聚类约降低一半。在 GSM8k、ViGGO 和 SQL 生成任务上微调 Llama3-8B 时，它优于均匀采样，平均也略胜基于聚类的敏感度采样，而整个选择过程的开销不到完整训练的百分之七。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">selection.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="coreset">coreset</button>
+    <button class="cs-tab" data-panel="lowrank">lowrank</button>
+    <button class="cs-tab" data-panel="sensitivity">sensitivity</button>
+    <button class="cs-tab" data-panel="tradeoff">tradeoff</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Prior art: select for DIVERSITY</span>
+<span class="cs-line cmt"># (k-center / farthest-point spread)</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">cluster_select</span>(X, s):</span>
+<span class="cs-line">    centers = kmeans(X, k=s)</span>
+<span class="cs-line hl-c">    <span class="cmt"># nearest point to each center</span></span>
+<span class="cs-line">    <span class="kw">return</span> [nearest(X, c) <span class="kw">for</span> c <span class="kw">in</span> centers]</span>
+<span class="cs-line cmt"># -> covers the space, grabs outliers</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># This paper: select for SPECTRAL</span>
+<span class="cs-line cmt"># LEVERAGE along dominant directions</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">lowrank_select</span>(X, s, k):</span>
+<span class="cs-line hl-p">    V = top_k_subspace(X, k)</span>
+<span class="cs-line">    <span class="kw">return</span> sample_by_leverage(X, V, s)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-coreset">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The quantity we minimize: coreset loss</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">coreset_loss</span>(D, S, w, loss):</span>
+<span class="cs-line">    full = <span class="fn">sum</span>(loss(x) <span class="kw">for</span> x <span class="kw">in</span> D)</span>
+<span class="cs-line hl-p">    est  = <span class="fn">sum</span>(w[x]*loss(x) <span class="kw">for</span> x <span class="kw">in</span> S)</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">abs</span>(full - est)   <span class="cmt"># Delta(S)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># test error = generalization</span>
+<span class="cs-line cmt">#            + training</span>
+<span class="cs-line hl-c">#            + coreset_loss   <- we control</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Score by the CURRENT model's loss,</span>
+<span class="cs-line cmt"># not the post-retraining loss.</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-lowrank">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Low-rank structure via SVD</span>
+<span class="cs-line">U, S, Vt = <span class="fn">svd</span>(D)            <span class="cmt"># D = U S Vt</span></span>
+<span class="cs-line cmt"># singular values: how much variance</span>
+<span class="cs-line cmt"># lives along each direction</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># best rank-k approx error (Phi_k)</span>
+<span class="cs-line hl-p">Phi_k = <span class="fn">sum</span>(S[i]**<span class="num">2</span> <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(k, <span class="fn">len</span>(S)))</span>
+<span class="cs-line cmt"># = energy in the discarded tail</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># sharp decay  -> small Phi_k -> tight coreset</span>
+<span class="cs-line cmt"># flat / noisy -> large Phi_k -> harder</span>
+<span class="cs-line hl-c">V = Vt[:k]                <span class="cmt"># top-k subspace</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-sensitivity">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Algorithm 1: low-rank sensitivity sampling</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">select</span>(D, k, s, lam, gam):</span>
+<span class="cs-line">    C = leverage_sample(D, k)   <span class="cmt"># landmarks</span></span>
+<span class="cs-line hl-p">    V = <span class="fn">span</span>(C)</span>
+<span class="cs-line">    p = []</span>
+<span class="cs-line">    <span class="kw">for</span> x <span class="kw">in</span> D:</span>
+<span class="cs-line">        a = <span class="fn">proj_coeffs</span>(x, V)     <span class="cmt"># alpha_i</span></span>
+<span class="cs-line hl-c">        r = x - <span class="fn">proj</span>(x, V)       <span class="cmt"># residual</span></span>
+<span class="cs-line hl-p">        sig = (gam+<span class="num">1</span>)*<span class="fn">sum</span>(ai*ai*loss(vi)</span>
+<span class="cs-line hl-p">                  <span class="kw">for</span> ai,vi <span class="kw">in</span> <span class="fn">zip</span>(a,V)) \</span>
+<span class="cs-line hl-p">              + gam*k*xi + lam*norm(r)**<span class="num">2</span></span>
+<span class="cs-line">        p.append(sig)</span>
+<span class="cs-line">    p = p / <span class="fn">sum</span>(p)</span>
+<span class="cs-line hl-g">    S = sample(D, s, prob=p)</span>
+<span class="cs-line hl-g">    w[x] = <span class="num">1</span>/(s*p[x])  <span class="kw">for</span> x <span class="kw">in</span> S</span>
+<span class="cs-line">    <span class="kw">return</span> S, w</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-tradeoff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Does GSM8k look low-rank or clustered?</span>
+<span class="cs-line"><span class="kw">for</span> k <span class="kw">in</span> k_grid:               <span class="cmt"># 0..50%</span></span>
+<span class="cs-line">    clus = cluster_error(emb, k)</span>
+<span class="cs-line hl-p">    lowr = lowrank_error(emb, k)</span>
+<span class="cs-line hl-p">    <span class="kw">assert</span> lowr &lt; clus       <span class="cmt"># holds at every k</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Credit Card, s=1000:</span>
+<span class="cs-line cmt">#   lowrank error ~ 10x &lt; uniform</span>
+<span class="cs-line cmt">#   lowrank error ~ 2x  &lt; clustering</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># large lambda -> chases outliers;</span></span>
+<span class="cs-line hl-a"><span class="cmt"># low-rank stays robust to lambda</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Llama3-8B fine-tune, val accuracy</span>
+<span class="cs-line cmt"># BERT embeddings, k = 25% landmarks</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">#                 GSM8k ViGGO  SQL   Avg</span>
+<span class="cs-line">uniform     = [  <span class="num">67.7</span>, <span class="num">86.3</span>, <span class="num">75.6</span>, <span class="num">76.5</span> ]</span>
+<span class="cs-line">k_center    = [  <span class="num">67.4</span>, <span class="num">80.3</span>, <span class="num">77.1</span>, <span class="num">74.9</span> ]</span>
+<span class="cs-line">cluster_ss  = [  <span class="num">70.2</span>, <span class="num">86.6</span>, <span class="num">75.6</span>, <span class="num">77.5</span> ]</span>
+<span class="cs-line hl-p">lowrank_ss  = [  <span class="num">68.4</span>, <span class="num">88.3</span>, <span class="num">76.1</span>, <span class="num">77.6</span> ]</span>
+<span class="cs-line hl-g">full_100    = [  <span class="num">69.3</span>, <span class="num">94.0</span>, <span class="num">79.9</span>, <span class="num">81.1</span> ]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Credit Card (logreg @ s=5000):</span>
+<span class="cs-line cmt">#   lowrank 74%  >  cluster 70%  >  rand 67%</span>
+<span class="cs-line cmt"># selection cost: ~6.7% of full training</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tabs ──────────────────────────────────
+const tabMeta = {
+  problem:     { file: 'selection.py',   title: 'The Problem' },
+  coreset:     { file: 'coreset.py',     title: 'Coreset Loss' },
+  lowrank:     { file: 'lowrank.py',     title: 'Low-Rank Structure' },
+  sensitivity: { file: 'algorithm1.py',  title: 'Sensitivity Sampling' },
+  tradeoff:    { file: 'analysis.py',    title: 'Error vs. k' },
+  results:     { file: 'results.py',     title: 'Results' },
+};
+function activateTab(name){
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m){
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + tab ───────────────
+const sectionMap = { 's-problem':'problem','s-coreset':'coreset','s-lowrank':'lowrank','s-sensitivity':'sensitivity','s-tradeoff':'tradeoff','s-results':'results' };
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting){
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Shared helpers ─────────────────────────────────────
+const DPR = window.devicePixelRatio || 1;
+function fitCanvas(cv, h){
+  const w = cv.clientWidth;
+  cv.width = w * DPR; cv.height = h * DPR;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  return { ctx, w, h };
+}
+function seeded(n){ return ((1103515245*n + 12345) & 0x7fffffff) / 0x7fffffff; }
+
+// Generate an elongated 2D cloud (shared by §01, §04)
+const ANG = Math.PI/7;                 // tilt of the dominant axis
+const U = { x: Math.cos(ANG), y: Math.sin(ANG) };   // principal dir
+const PERP = { x: -U.y, y: U.x };
+function makeCloud(N){
+  const pts = [];
+  for (let i=0;i<N;i++){
+    // box-muller-ish from seeded uniforms
+    const a = seeded(i*2+1), b = seeded(i*2+2);
+    const g1 = Math.sqrt(-2*Math.log(a+1e-6))*Math.cos(6.2831853*b);
+    const g2 = Math.sqrt(-2*Math.log(a+1e-6))*Math.sin(6.2831853*b);
+    const along = g1 * 1.0;            // high variance
+    const perp  = g2 * 0.26;           // low variance
+    pts.push({ along, perp });
+  }
+  // a few off-axis outliers
+  const out = [[1.4,0.95],[-1.5,-0.9],[0.2,1.15],[-0.3,-1.1]];
+  out.forEach(o=>pts.push({ along:o[0], perp:o[1] }));
+  return pts;
+}
+function toScreen(p, w, h){
+  const cx = w/2, cy = h/2, sx = w*0.30, sy = h*0.30;
+  return {
+    x: cx + (p.along*U.x + p.perp*PERP.x)*sx,
+    y: cy + (p.along*U.y + p.perp*PERP.y)*sy
+  };
+}
+
+// ════════════════════════════════════════════════════════
+// §01 — selection strategy contrast
+// ════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('cloud-canvas');
+  if (!cv) return;
+  const pts = makeCloud(56);
+  let mode = 'lowrank';
+  const capEl = document.getElementById('cloud-cap');
+
+  // low-rank pick: largest |projection on dominant axis|
+  function lowrankPick(s){
+    return pts.map((p,i)=>({i, key:Math.abs(p.along)}))
+              .sort((a,b)=>b.key-a.key).slice(0,s).map(o=>o.i);
+  }
+  // clustering pick: farthest-point sampling in 2D (covers space)
+  function clusterPick(s){
+    const sel=[0];
+    while(sel.length<s){
+      let best=-1, bd=-1;
+      for(let i=0;i<pts.length;i++){
+        if(sel.includes(i)) continue;
+        let d=1e9;
+        for(const j of sel){
+          const dx=pts[i].along-pts[j].along, dy=pts[i].perp-pts[j].perp;
+          d=Math.min(d, dx*dx+dy*dy);
+        }
+        if(d>bd){bd=d;best=i;}
+      }
+      sel.push(best);
+    }
+    return sel;
+  }
+
+  function draw(){
+    const { ctx, w, h } = fitCanvas(cv, 360);
+    ctx.clearRect(0,0,w,h);
+    // dominant axis line
+    const a0 = toScreen({along:-1.7,perp:0},w,h), a1 = toScreen({along:1.7,perp:0},w,h);
+    ctx.strokeStyle='rgba(139,92,246,.35)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(a0.x,a0.y); ctx.lineTo(a1.x,a1.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(139,92,246,.6)'; ctx.font='11px monospace';
+    ctx.fillText('dominant direction of variance', a1.x-230, a1.y-8);
+
+    const sel = mode==='lowrank' ? lowrankPick(8) : clusterPick(8);
+    const selSet = new Set(sel);
+    // all points
+    pts.forEach((p,i)=>{
+      const s = toScreen(p,w,h);
+      if(selSet.has(i)) return;
+      ctx.beginPath(); ctx.arc(s.x,s.y,3.5,0,6.2832);
+      ctx.fillStyle='rgba(148,163,184,.32)'; ctx.fill();
+    });
+    // selected
+    const col = mode==='lowrank' ? '139,92,246' : '6,182,212';
+    sel.forEach(i=>{
+      const s = toScreen(pts[i],w,h);
+      ctx.beginPath(); ctx.arc(s.x,s.y,7,0,6.2832);
+      ctx.fillStyle=`rgba(${col},.9)`; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle=`rgba(${col},.4)`;
+      ctx.beginPath(); ctx.arc(s.x,s.y,11,0,6.2832); ctx.stroke();
+    });
+    capEl.innerHTML = mode==='lowrank'
+      ? '<b style="color:var(--purple-l)">Low-rank</b> picks the extremes along the dominant axis — the points that reconstruct the principal direction of variance.'
+      : '<b style="color:var(--cyan)">Clustering</b> fans to the corners to maximize spread — spending budget on off-axis outliers carrying little training signal.';
+  }
+  document.querySelectorAll('#s-problem .vp-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('#s-problem .vp-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); mode=b.dataset.mode; draw();
+    });
+  });
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ════════════════════════════════════════════════════════
+// §02 — coreset loss gauges
+// ════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('coreset-canvas');
+  if (!cv) return;
+  function draw(){
+    const { ctx, w, h } = fitCanvas(cv, 240);
+    ctx.clearRect(0,0,w,h);
+    const colL = w*0.27, colR = w*0.73;
+    ctx.textAlign='center'; ctx.font='12px monospace';
+    ctx.fillStyle='var(--muted)';
+    // left: many small points
+    ctx.fillStyle='rgba(148,163,184,.85)';
+    ctx.fillText('full dataset  D  (n points)', colL, 26);
+    let s=0;
+    for(let i=0;i<48;i++){
+      const r = seeded(i+7), ang=seeded(i+99)*6.2832, rad=seeded(i+5)*44+6;
+      const x = colL + Math.cos(ang)*rad, y = 120 + Math.sin(ang)*rad*0.8;
+      ctx.beginPath(); ctx.arc(x,y,2.6,0,6.2832);
+      ctx.fillStyle='rgba(148,163,184,.45)'; ctx.fill();
+    }
+    // right: few weighted points (size = weight)
+    ctx.fillStyle='rgba(167,139,250,.95)';
+    ctx.fillText('coreset  S  (s weighted points)', colR, 26);
+    const wpts=[[0,-22,9],[26,4,11],[-24,8,8],[8,26,12],[-14,-20,7],[20,-14,9]];
+    wpts.forEach((p,i)=>{
+      const x=colR+p[0], y=120+p[1];
+      ctx.beginPath(); ctx.arc(x,y,p[2],0,6.2832);
+      ctx.fillStyle='rgba(139,92,246,.85)'; ctx.fill();
+      ctx.font='9px monospace'; ctx.fillStyle='rgba(255,255,255,.85)';
+      ctx.fillText('w'+(i+1), x, y+3);
+    });
+    // arrow
+    ctx.strokeStyle='rgba(94,234,212,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(colL+62,120); ctx.lineTo(colR-72,120); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(colR-72,120); ctx.lineTo(colR-80,114); ctx.lineTo(colR-80,126); ctx.closePath();
+    ctx.fillStyle='rgba(94,234,212,.5)'; ctx.fill();
+    // matched gauges
+    ctx.font='12px monospace'; ctx.textAlign='center';
+    ctx.fillStyle='var(--muted2)';
+    ctx.fillText('Σ ℓ(x)  =  1.000', colL, 215);
+    ctx.fillStyle='rgba(167,139,250,.95)';
+    ctx.fillText('Σ w·ℓ(x)  ≈  0.991', colR, 215);
+    ctx.fillStyle='rgba(94,234,212,.7)'; ctx.font='11px monospace';
+    ctx.fillText('Δ(S) small', (colL+colR)/2, 215);
+  }
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ════════════════════════════════════════════════════════
+// §03 — singular value spectrum + k knob
+// ════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('svd-canvas');
+  if (!cv) return;
+  const sv = [9.2, 4.1, 2.3, 1.4, 0.9, 0.6, 0.42, 0.3];
+  const totalEnergy = sv.reduce((a,s)=>a+s*s,0);
+  let k = 3;
+  const kVal=document.getElementById('k-val'), kStats=document.getElementById('k-stats'), kSlider=document.getElementById('k-slider');
+  function draw(){
+    const { ctx, w, h } = fitCanvas(cv, 280);
+    ctx.clearRect(0,0,w,h);
+    const m={l:46,r:20,t:24,b:40}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+    const maxv = sv[0];
+    const bw = pw/sv.length*0.62, gap = pw/sv.length;
+    // axes
+    ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(m.l,m.t); ctx.lineTo(m.l,m.t+ph); ctx.lineTo(m.l+pw,m.t+ph); ctx.stroke();
+    ctx.fillStyle='var(--muted)'; ctx.font='10px monospace'; ctx.textAlign='center';
+    let kept=0;
+    sv.forEach((s,i)=>{
+      const bh = s/maxv*ph;
+      const x = m.l + i*gap + (gap-bw)/2, y = m.t+ph-bh;
+      const inK = i < k;
+      ctx.fillStyle = inK ? 'rgba(139,92,246,.85)' : 'rgba(100,116,139,.4)';
+      ctx.fillRect(x,y,bw,bh);
+      ctx.fillStyle='var(--muted)';
+      ctx.fillText('σ'+(i+1), x+bw/2, m.t+ph+15);
+      if(i<k) kept += s*s;
+    });
+    const Phi = totalEnergy - kept;
+    // k divider
+    const dx = m.l + k*gap;
+    ctx.strokeStyle='rgba(139,92,246,.5)'; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(dx,m.t-4); ctx.lineTo(dx,m.t+ph); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(100,116,139,.7)'; ctx.font='11px monospace'; ctx.textAlign='left';
+    ctx.fillText('Φₖ = tail energy', dx+8, m.t+14);
+    kVal.textContent = k;
+    kStats.innerHTML = `variance kept <b style="color:var(--purple-l)">${(kept/totalEnergy*100).toFixed(1)}%</b> &nbsp; Φₖ <b style="color:var(--muted2)">${Phi.toFixed(2)}</b>`;
+  }
+  kSlider?.addEventListener('input', ()=>{ k=+kSlider.value; draw(); });
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ════════════════════════════════════════════════════════
+// §04 — residual decomposition + sensitivity coloring
+// ════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('decomp-canvas');
+  if (!cv) return;
+  const pts = makeCloud(50);
+  const capEl = document.getElementById('decomp-cap');
+  // sensitivity ~ projected loss (along^2) + lambda * residual^2
+  const LAM = 1.4;
+  const sens = pts.map(p => 0.7*p.along*p.along + LAM*p.perp*p.perp + 0.05);
+  const maxS = Math.max(...sens);
+  let active = -1;
+
+  function draw(){
+    const { ctx, w, h } = fitCanvas(cv, 340);
+    ctx.clearRect(0,0,w,h);
+    // axis
+    const a0=toScreen({along:-1.7,perp:0},w,h), a1=toScreen({along:1.7,perp:0},w,h);
+    ctx.strokeStyle='rgba(139,92,246,.3)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(a0.x,a0.y); ctx.lineTo(a1.x,a1.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(139,92,246,.55)'; ctx.font='11px monospace'; ctx.textAlign='left';
+    ctx.fillText('subspace V', a1.x-92, a1.y-8);
+
+    pts.forEach((p,i)=>{
+      const s = toScreen(p,w,h);
+      const t = sens[i]/maxS;
+      ctx.beginPath(); ctx.arc(s.x,s.y, 4+t*4, 0,6.2832);
+      ctx.fillStyle = `rgba(139,92,246,${0.22+t*0.7})`; ctx.fill();
+    });
+    if (active>=0){
+      const p = pts[active];
+      const s = toScreen(p,w,h);
+      const proj = toScreen({along:p.along,perp:0},w,h);
+      // residual (amber) from point to its projection on V
+      ctx.strokeStyle='rgba(245,158,11,.9)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(proj.x,proj.y); ctx.stroke();
+      // projection vector (cyan) from origin-ish along axis
+      const o = toScreen({along:0,perp:0},w,h);
+      ctx.strokeStyle='rgba(6,182,212,.9)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(proj.x,proj.y); ctx.stroke();
+      // markers
+      ctx.fillStyle='rgba(6,182,212,.95)'; ctx.beginPath(); ctx.arc(proj.x,proj.y,5,0,6.2832); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x,s.y,6,0,6.2832); ctx.fill();
+      ctx.strokeStyle='var(--purple)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s.x,s.y,9,0,6.2832); ctx.stroke();
+      ctx.font='11px monospace';
+      ctx.fillStyle='rgba(6,182,212,.95)'; ctx.fillText('v(x)', proj.x+8, proj.y-6);
+      ctx.fillStyle='rgba(245,158,11,.95)'; ctx.fillText('r(x)', (s.x+proj.x)/2+8, (s.y+proj.y)/2);
+      capEl.innerHTML = `Point selected — projection <b style="color:var(--cyan)">v(x)</b> along V, residual <b style="color:var(--amber)">r(x)</b> orthogonal. Sensitivity σ(x) = <b style="color:var(--purple-l)">${sens[active].toFixed(2)}</b> (relative).`;
+    } else {
+      capEl.innerHTML = 'Each point is colored by its sensitivity score σ(x). Brighter / larger purple = more likely to be sampled. Click any point to decompose it into projection v(x) and residual r(x).';
+    }
+  }
+  cv.addEventListener('click', ev=>{
+    const rect = cv.getBoundingClientRect();
+    const mx = ev.clientX-rect.left, my = ev.clientY-rect.top;
+    const w = cv.clientWidth, h=340;
+    let best=-1, bd=1e9;
+    pts.forEach((p,i)=>{ const s=toScreen(p,w,h); const d=(s.x-mx)**2+(s.y-my)**2; if(d<bd){bd=d;best=i;} });
+    active = (bd<400)? best : -1; draw();
+  });
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ── Step navigator (§04) ───────────────────────────────
+(function(){
+  let step=0;
+  const boxes=document.querySelectorAll('#alg-steps .step-box');
+  const prevBtn=document.getElementById('step-prev'), nextBtn=document.getElementById('step-next'), progEl=document.getElementById('step-prog');
+  function upd(){
+    boxes.forEach((b,i)=>{ b.classList.remove('active','done'); if(i===step)b.classList.add('active'); else if(i<step)b.classList.add('done'); const n=b.querySelector('.step-num'); if(n)n.textContent=i<step?'✓':String(i+1); });
+    if(prevBtn)prevBtn.disabled=step===0;
+    if(nextBtn)nextBtn.disabled=step===boxes.length-1;
+    if(progEl)progEl.textContent=`Step ${step+1} of ${boxes.length}`;
+  }
+  prevBtn?.addEventListener('click',()=>{ if(step>0){step--;upd();} });
+  nextBtn?.addEventListener('click',()=>{ if(step<boxes.length-1){step++;upd();} });
+  upd();
+})();
+
+// ════════════════════════════════════════════════════════
+// §05 — error vs k line chart
+// ════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('error-canvas');
+  if (!cv) return;
+  // data approximating Fig 2 (k in %, error)
+  const ks = [0,5,10,15,20,25,30,35,40,45,50];
+  const data = {
+    proj: {
+      cluster: [2.05,1.78,1.55,1.36,1.20,1.06,0.94,0.84,0.74,0.66,0.58],
+      lowrank: [1.62,1.34,1.12,0.95,0.81,0.70,0.61,0.53,0.46,0.40,0.35],
+      ymax: 2.2, label:'avg euclidean reconstruction error from k landmarks'
+    },
+    loss: {
+      cluster: [0.305,0.285,0.268,0.252,0.238,0.226,0.215,0.206,0.198,0.191,0.185],
+      lowrank: [0.255,0.232,0.213,0.198,0.186,0.176,0.168,0.161,0.156,0.151,0.147],
+      ymax: 0.33, label:'avg |true loss − approximated loss|'
+    }
+  };
+  let metric='proj';
+  const capEl=document.getElementById('error-cap');
+  function draw(){
+    const { ctx, w, h } = fitCanvas(cv, 300);
+    ctx.clearRect(0,0,w,h);
+    const d=data[metric];
+    const m={l:52,r:20,t:20,b:38}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+    const X=k=> m.l + (k/50)*pw;
+    const Y=v=> m.t + (1 - v/d.ymax)*ph;
+    // grid
+    ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+    for(let g=0;g<=4;g++){ const y=m.t+ph*g/4; ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+pw,y); ctx.stroke(); }
+    // axes labels
+    ctx.fillStyle='var(--muted)'; ctx.font='10px monospace'; ctx.textAlign='center';
+    [0,10,20,30,40,50].forEach(k=>ctx.fillText(k+'%', X(k), m.t+ph+16));
+    ctx.fillText('k  (% of dataset)', m.l+pw/2, h-4);
+    function line(arr,col){
+      ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.beginPath();
+      ks.forEach((k,i)=>{ const x=X(k),y=Y(arr[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      ctx.stroke();
+      ks.forEach((k,i)=>{ ctx.beginPath(); ctx.arc(X(k),Y(arr[i]),2.4,0,6.2832); ctx.fillStyle=col; ctx.fill(); });
+    }
+    line(d.cluster,'rgba(6,182,212,.9)');
+    line(d.lowrank,'rgba(139,92,246,.95)');
+    // inline labels
+    ctx.font='11px monospace'; ctx.textAlign='left';
+    ctx.fillStyle='rgba(6,182,212,.95)'; ctx.fillText('Cluster SS', X(31)+4, Y(d.cluster[6])-6);
+    ctx.fillStyle='rgba(167,139,250,.95)'; ctx.fillText('Low-rank SS', X(31)+4, Y(d.lowrank[6])+16);
+    capEl.innerHTML = d.label + ' — <b style="color:var(--purple-l)">low-rank stays below clustering at every k</b>.';
+  }
+  document.querySelectorAll('#s-tradeoff .vp-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('#s-tradeoff .vp-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); metric=b.dataset.err; draw();
+    });
+  });
+  draw();
+  window.addEventListener('resize', draw);
+})();
+
+// ════════════════════════════════════════════════════════
+// §06 — animated results bars
+// ════════════════════════════════════════════════════════
+(function(){
+  const sec = document.getElementById('s-results');
+  if (!sec) return;
+  new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        document.querySelectorAll('#result-bars .bar-fill[data-w]').forEach(b=>{
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+})();
+</script>
+</BaseLayout>

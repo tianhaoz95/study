@@ -1,0 +1,1115 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('state-distribution-post-training');
+---
+<BaseLayout
+  title="Post-Training is About States, Not Tokens | AI/ML Deep Dives"
+  description="A state-distribution view of SFT, RL, and on-policy distillation: where supervision is applied matters as much as the loss function. Interactive policy-state-space explorer, a student that beats its degraded teacher, and the drift-vs-retention puzzle."
+  crumb="States, Not Tokens"
+>
+
+<style is:global>
+/* ── Post variables ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.hero-summary-video{width:100%;max-width:380px;border-radius:10px;border:1px solid var(--border);margin-top:1.25rem}
+
+/* ── Three-column layout ────────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.post-body strong{color:var(--text2);font-weight:700}
+.post-body em{color:var(--text2);font-style:italic}
+
+/* ── Viz panels ─────────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── Canvas + controls ──────────────────────────────────── */
+.viz-canvas{display:block;width:100%;border-radius:8px;background:var(--card2)}
+.canvas-controls{display:flex;align-items:center;gap:.6rem;margin-top:.875rem;flex-wrap:wrap}
+.canvas-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .9rem;border-radius:6px;font-size:.74rem;font-family:var(--ff-mono);cursor:pointer;transition:all .2s;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)}
+.canvas-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.canvas-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.canvas-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)}
+.canvas-caption{font-size:.78rem;color:var(--muted2);line-height:1.6;margin-top:.75rem;padding:.6rem .8rem;border-left:2px solid var(--purple);background:var(--purple-dim);border-radius:0 6px 6px 0}
+.canvas-caption b{color:var(--text2)}
+
+/* ── Trajectory chips (§01) ─────────────────────────────── */
+.traj-block{display:flex;flex-direction:column;gap:1.1rem;margin:.5rem 0}
+.traj-row{display:flex;flex-direction:column;gap:.4rem;padding:.75rem .85rem;border-radius:9px;border:1px solid var(--border);background:var(--card2);transition:all .25s}
+.traj-row.dim{opacity:.4}
+.traj-row.hot{border-color:var(--amber);box-shadow:0 0 0 1px rgba(245,158,11,.25)}
+.traj-tag{font-size:.66rem;font-family:var(--ff-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:.45rem}
+.traj-tag.gold::before{content:'';width:8px;height:8px;border-radius:2px;background:var(--green)}
+.traj-tag.roll::before{content:'';width:8px;height:8px;border-radius:2px;background:var(--amber)}
+.traj-states{display:flex;align-items:stretch;flex-wrap:wrap;gap:.35rem}
+.traj-state{font-size:.72rem;font-family:var(--ff-mono);padding:.4rem .6rem;border-radius:6px;background:var(--surface);border:1px solid var(--border-hi);color:var(--text2);display:flex;align-items:center;line-height:1.3}
+.traj-state.ok{border-color:rgba(16,185,129,.4);color:var(--green)}
+.traj-state.bad{border-color:rgba(245,158,11,.5);color:var(--amber)}
+.traj-state.fail{border-color:rgba(239,68,68,.5);color:#f87171}
+.traj-arrow{display:flex;align-items:center;color:var(--muted);font-size:.8rem}
+
+/* ── Axes grid (§02) ────────────────────────────────────── */
+.axes-grid{width:100%;border-collapse:separate;border-spacing:4px;margin:.25rem 0}
+.axes-grid th{font-size:.64rem;font-family:var(--ff-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:.35rem .5rem;text-align:center;vertical-align:bottom}
+.axes-grid th.rowhead{text-align:right;color:var(--cyan);width:130px}
+.axes-grid td{text-align:center;padding:.45rem .35rem;border-radius:7px;background:var(--card2);border:1px solid var(--border);font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);transition:all .25s;min-height:36px}
+.axes-grid td .cellname{color:var(--text2);font-weight:700;font-size:.74rem}
+.axes-grid td.lit{background:var(--purple-dim);border-color:var(--purple);color:var(--purple-l)}
+.axes-grid td.lit .cellname{color:var(--purple-l)}
+.axes-grid td.onpol{box-shadow:inset 0 0 0 1px rgba(16,185,129,.35)}
+.method-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+.legend-row{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:.75rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+.legend-row span{display:inline-flex;align-items:center;gap:.4rem}
+.dot-g{width:9px;height:9px;border-radius:2px;background:var(--green);display:inline-block}
+.dot-r{width:9px;height:9px;border-radius:2px;background:#f87171;display:inline-block}
+.dot-c{width:9px;height:9px;border-radius:2px;background:var(--cyan);display:inline-block}
+
+/* ── Stat pills (§04/§05) ───────────────────────────────── */
+.stat-pills{display:flex;flex-wrap:wrap;gap:.65rem;margin:1.1rem 0}
+.stat-pill{flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:.7rem .85rem}
+.stat-pill .pv{font-size:1.35rem;font-weight:800;font-family:var(--ff-mono);color:var(--text);letter-spacing:-.02em}
+.stat-pill .pl{font-size:.66rem;font-family:var(--ff-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:.2rem}
+.stat-pill.up .pv{color:var(--green)}
+.stat-pill.down .pv{color:#f87171}
+
+/* ── Twin bars (§04 / §06) ──────────────────────────────── */
+.twin-bars{display:flex;flex-direction:column;gap:.55rem;margin:1.25rem 0}
+.tb-row{display:flex;align-items:center;gap:.75rem}
+.tb-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted2);width:185px;flex-shrink:0;text-align:right;line-height:1.3}
+.tb-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.tb-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.tb-fill span{font-size:.64rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9);white-space:nowrap}
+
+/* ── Results bars ───────────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.55rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:185px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.64rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+
+/* ── Results table ──────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .7rem;text-align:left;font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.74rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.results-table .bad{color:#f87171;font-weight:700}
+
+/* ── Math block ─────────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Callout ────────────────────────────────────────────── */
+.callout{border:1px solid var(--border);border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1.5rem 0}
+.callout .ct{font-size:.66rem;font-family:var(--ff-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--purple-l);margin-bottom:.35rem;font-weight:700}
+.callout p{margin:0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+
+/* ── TOC sidebar ────────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}.tb-label,.bar-label{width:120px}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Post-Training</span>
+    <span class="tag tag-cyan">RL &amp; Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Post-Training is About States, Not Tokens</h1>
+  <p class="lead">SFT, RL, and on-policy distillation are usually compared by their loss functions — maximum likelihood, policy gradient, forward or reverse KL. This paper argues a complementary axis matters just as much: <strong>where</strong> the supervision is applied. For an autoregressive model, every update lands on a <em>state</em> — a prompt plus a generated prefix. SFT trains on fixed dataset states; RL and on-policy distillation train on states the learner itself visits. That single distinction explains catastrophic forgetting, why on-policy methods are stable, and how a student can beat its own degraded teacher.</p>
+  <div class="post-hero-meta">
+    <span>June 16, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2605.22731</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.22731" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/ginobilinie/unifyPostTraining" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-intro"><a href="#s-intro"><span class="toc-num">01</span> States, Not Tokens</a></li>
+    <li class="toc-item" id="toc-s-axes"><a href="#s-axes"><span class="toc-num">02</span> Two Axes</a></li>
+    <li class="toc-item" id="toc-s-statespace"><a href="#s-statespace"><span class="toc-num">03</span> Policy State Space</a></li>
+    <li class="toc-item" id="toc-s-sft"><a href="#s-sft"><span class="toc-num">04</span> SFT: Gentle or Destructive</a></li>
+    <li class="toc-item" id="toc-s-opd"><a href="#s-opd"><span class="toc-num">05</span> Beating the Teacher</a></li>
+    <li class="toc-item" id="toc-s-drift"><a href="#s-drift"><span class="toc-num">06</span> Drift Isn't the Story</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">07</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─────────────── §01 ─────────────── -->
+<section id="s-intro" data-code="intro">
+<div class="section-no">01 — States, Not Tokens</div>
+<h2>The same token, two different updates</h2>
+<p>An autoregressive policy <span style="font-family:var(--ff-mono)">π<sub>θ</sub>(y<sub>t</sub> | x, y<sub>&lt;t</sub>)</span> always predicts the next token <em>conditioned on a state</em> — the prompt <span style="font-family:var(--ff-mono)">x</span> plus everything generated so far <span style="font-family:var(--ff-mono)">y<sub>&lt;t</sub></span>. The paper's central move is to stop staring at the loss function and start asking: <strong>which states does the supervision actually land on?</strong></p>
+<p>Why does that matter? Predicting the number <code>72</code> after a <em>correct</em> chain of reasoning and predicting <code>72</code> after an <em>inconsistent</em> chain are different policy updates — they touch different conditioning contexts. The diagram below shows a GSM8K problem. The top row is the gold dataset trajectory SFT trains on. The bottom row is where the model actually <em>is</em> after it makes its own early mistake — and SFT never trained it to recover from there.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">trajectory.gsm8k — gold states vs. the model's own states</span>
+    <span class="vp-hint">toggle</span>
+  </div>
+  <div class="vp-body">
+    <div class="traj-block">
+      <div class="traj-row" id="traj-gold">
+        <div class="traj-tag gold">Gold trajectory (what SFT supervises)</div>
+        <div class="traj-states">
+          <div class="traj-state">Q: Natalia sold 48 clips…</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state ok">half as many: 48/2 = 24</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state ok">total: 48 + 24 = 72</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state ok">#### 72 ✓</div>
+        </div>
+      </div>
+      <div class="traj-row" id="traj-roll">
+        <div class="traj-tag roll">Model rollout (where it actually lives)</div>
+        <div class="traj-states">
+          <div class="traj-state">Q: Natalia sold 48 clips…</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state bad">twice as many: 48×2 = 96</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state bad">total: 96 + 48 = 144</div>
+          <div class="traj-arrow">→</div>
+          <div class="traj-state fail">#### 144 ✗</div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-controls">
+      <button class="canvas-btn active" id="traj-btn">Highlight where the model actually is</button>
+    </div>
+    <div class="canvas-caption" id="traj-cap">
+      Both rows start from the <b>same prompt</b>, but after the model's own error (<b>48×2</b> instead of <b>48/2</b>) it occupies states the gold data never contains. SFT pours dense supervision on the top row — yet at inference the model lives on the bottom row. This is <b>exposure bias recast as a state-distribution mismatch</b>.
+    </div>
+  </div>
+</div>
+
+<p>This is the thesis in one image: post-training is not only about what signal you apply (a label, a reward, a teacher logit) — it is about the <strong>state distribution</strong> that signal is applied on. Get the states wrong and even a perfectly dense, correct label can drag the policy somewhere it can't recover from.</p>
+</section>
+
+<!-- ─────────────── §02 ─────────────── -->
+<section id="s-axes" data-code="axes">
+<div class="section-no">02 — Two Axes</div>
+<h2>State source × signal source</h2>
+<p>Every post-training method is really two independent choices that the algorithm name usually bundles together:</p>
+<ul>
+  <li><strong>State source</strong> — where do the contexts <span style="font-family:var(--ff-mono)">s</span> come from? Dataset, teacher rollouts, or the student's own rollouts?</li>
+  <li><strong>Signal source</strong> — what target is used at those contexts? A gold token, a teacher distribution, or a reward?</li>
+</ul>
+<p>Click a method to see where it sits. The thing to watch: methods that land in <span style="color:var(--green)">green-bordered</span> cells draw their states from the <strong>learner itself</strong> — they are <em>on-policy</em>. OPD and offline KD use the <em>same</em> teacher signal, but live in completely different rows.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">decompose.py — the two axes of post-training</span>
+    <span class="vp-hint">click a method</span>
+  </div>
+  <div class="vp-body">
+    <table class="axes-grid">
+      <thead>
+        <tr>
+          <th class="rowhead">state ↓ &nbsp; signal →</th>
+          <th>Gold token</th>
+          <th>Teacher logits / continuations</th>
+          <th>Reward</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th class="rowhead">Dataset</th>
+          <td data-method="sft"><span class="cellname">SFT</span></td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <th class="rowhead">Teacher rollouts</th>
+          <td>—</td>
+          <td data-method="kd"><span class="cellname">Offline KD</span></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <th class="rowhead">Student rollouts</th>
+          <td class="onpol" data-method="dagger"><span class="cellname">DAgger</span></td>
+          <td class="onpol" data-method="opd"><span class="cellname">OPD</span></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <th class="rowhead">Current policy</th>
+          <td>—</td>
+          <td>—</td>
+          <td class="onpol" data-method="rl"><span class="cellname">RL</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="method-btns">
+      <button class="canvas-btn active" data-m="sft">SFT</button>
+      <button class="canvas-btn" data-m="kd">Offline KD</button>
+      <button class="canvas-btn" data-m="opd">OPD</button>
+      <button class="canvas-btn" data-m="rl">RL</button>
+      <button class="canvas-btn" data-m="dagger">DAgger</button>
+    </div>
+    <div class="legend-row">
+      <span><span class="dot-g"></span> green border = states come from the learner (on-policy)</span>
+    </div>
+    <div class="canvas-caption" id="axes-cap"></div>
+  </div>
+</div>
+
+<p>The punchline of the grid: <strong>OPD is closer to RL than to offline distillation</strong>, even though its loss is written as a supervised teacher–student objective. The signal is the teacher; the <em>states</em> are the student's. That mismatch between how a method is named and where it actually operates is exactly what the loss-function view hides.</p>
+</section>
+
+<!-- ─────────────── §03 ─────────────── -->
+<section id="s-statespace" data-code="statespace">
+<div class="section-no">03 — Policy State Space</div>
+<h2>Where does the gradient land?</h2>
+<p>Here is the whole paper in one picture. The soft green cloud is the <strong>model's reachable region</strong> — the states its own rollouts actually visit. Each method drops supervision markers somewhere in this space. The question that decides everything: <em>do the updates land inside the cloud, or out in territory the model can never recover from?</em></p>
+<p>Flip between the three regimes and watch where the markers fall.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">state_space.viz — on-policy vs. off-policy supervision</span>
+    <span class="vp-hint">switch the regime</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="ss-canvas" class="viz-canvas" height="340"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn active" data-ss="sft">SFT (off-policy)</button>
+      <button class="canvas-btn" data-ss="rl">RL (on-policy)</button>
+      <button class="canvas-btn" data-ss="opd">OPD (student states, teacher signal)</button>
+    </div>
+    <div class="canvas-caption" id="ss-cap"></div>
+  </div>
+</div>
+
+<div class="math-block">
+<div class="math-label">one post-training step</div>
+<span class="math-var">s</span> ~ q<sub>k</sub>(s)<span class="math-comment">      &nbsp;# 1. draw a training state</span><br>
+<span class="math-var">z</span> ~ S(s)<span class="math-comment">         &nbsp;&nbsp;&nbsp;# 2. signal provider gives a target</span><br>
+θ<sub>k+1</sub> = θ<sub>k</sub> − η ∇<sub>θ</sub> ℓ(π<sub>θ</sub>(·|s), <span class="math-var">z</span>)<span class="math-comment">   # 3. update</span><br>
+<br>
+<span class="math-comment"># SFT:  q = d_data      (fixed, learner-independent)</span><br>
+<span class="math-comment"># RL:   q = d^π_θ       (the learner's own rollouts)</span><br>
+<span class="math-comment"># OPD:  q = d^π_student (student rollouts, signal from teacher)</span>
+</div>
+
+<p>SFT's <span style="font-family:var(--ff-mono)">q</span> doesn't depend on the current learner at all — so under pressure it can shove the policy toward red states that sit <em>outside</em> the cloud. RL and OPD draw <span style="font-family:var(--ff-mono)">q</span> from the learner, so every update is a <strong>local repair</strong> on a state the model can actually reach.</p>
+</section>
+
+<!-- ─────────────── §04 ─────────────── -->
+<section id="s-sft" data-code="sft">
+<div class="section-no">04 — SFT: Gentle or Destructive</div>
+<h2>The same algorithm, two outcomes</h2>
+<p>SFT is not inherently destructive. The deciding factor is <strong>training pressure</strong> — epochs, learning rate, and adapter rank. Low pressure keeps the dataset states compatible with the base policy. High pressure repeatedly forces the model toward narrow off-policy prefixes until it drifts away from general behavior — and, strikingly, even hurts the target task. Toggle the knob:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sft_pressure.run — Qwen3-0.6B-Base on GSM8K</span>
+    <span class="vp-hint">turn the pressure up</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls" style="margin-top:0;margin-bottom:.5rem">
+      <span class="canvas-label">training pressure:</span>
+      <button class="canvas-btn active" data-sft="mild">Mild — 1 epoch, lr 2e-5</button>
+      <button class="canvas-btn" data-sft="stress">Stress — 5 epochs, lr 5e-4, rank 64</button>
+    </div>
+    <div class="stat-pills" id="sft-pills"></div>
+    <div class="twin-bars" id="sft-bars">
+      <div class="tb-row">
+        <div class="tb-label">GSM8K (target ↑)</div>
+        <div class="tb-track"><div class="tb-fill" id="sft-bar-gsm" style="background:var(--cyan)"><span></span></div></div>
+      </div>
+      <div class="tb-row">
+        <div class="tb-label">Retention ratio (↑)</div>
+        <div class="tb-track"><div class="tb-fill" id="sft-bar-ret" style="background:var(--green)"><span></span></div></div>
+      </div>
+    </div>
+    <div class="canvas-caption" id="sft-cap"></div>
+  </div>
+</div>
+
+<p>Mild SFT lifts GSM8K from <strong>0.448 → 0.512</strong> with essentially no forgetting (retention ratio 1.0008 — it actually retains slightly <em>more</em>). Stress SFT collapses retention to <strong>0.826</strong> <em>and</em> drops GSM8K to 0.420, <em>below the base model</em>. Catastrophic forgetting here is not caused by maximum likelihood itself — it is caused by dense off-policy updates pushing the policy into regions that interact badly with its own future states.</p>
+</section>
+
+<!-- ─────────────── §05 ─────────────── -->
+<section id="s-opd" data-code="opd">
+<div class="section-no">05 — Beating the Teacher</div>
+<h2>How a student surpasses its own teacher</h2>
+<p>Take the broken stress-SFT model — GSM8K 0.420, TruthfulQA 0.245, MMLU 0.364 — and use it as the <em>only</em> supervision source for an on-policy distillation student. The student beats it on <strong>every</strong> task. How is that possible when the teacher is the only signal?</p>
+<p>Because a teacher's measured score depends on two things: its local conditional distributions <em>and</em> the trajectories it tends to visit. OPD queries only the first. The student samples its own states, then asks the teacher: <em>"given where I am, what comes next?"</em> — never <em>"which states would you have visited instead of me?"</em> The teacher's bad global trajectory is never inherited.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">opd.viz — query the teacher locally, don't copy its path</span>
+    <span class="vp-hint">animated</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="opd-canvas" class="viz-canvas" height="320"></canvas>
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="opd-play">▶ Replay</button>
+      <span class="canvas-label">red = teacher's degraded full trajectory (not copied) · green = student path with local teacher repairs</span>
+    </div>
+    <div class="canvas-caption">
+      The teacher's own rollout (<b>red</b>) wanders into poor states — that's why its global score is low. The student (<b>green</b>) walks its <i>own</i> path and at each step pulls a short <b>cyan</b> continuation from the teacher as a local repair. It harvests the teacher's useful local knowledge while sidestepping the trajectory distribution that made the teacher bad.
+    </div>
+  </div>
+</div>
+
+<div class="stat-pills">
+  <div class="stat-pill"><div class="pv">0.420 → 0.466</div><div class="pl">GSM8K (teacher → student)</div></div>
+  <div class="stat-pill up"><div class="pv">0.245 → 0.275</div><div class="pl">TruthfulQA</div></div>
+  <div class="stat-pill up"><div class="pv">0.364 → 0.430</div><div class="pl">MMLU</div></div>
+</div>
+
+<div class="callout">
+  <div class="ct">Practical recipe</div>
+  <p>One-step next-token KL was too weak — it collapsed to GSM8K <strong>0.040</strong> in their runs. What worked was <strong>continuation-based</strong> OPD: the teacher generates short rollouts from student states and the student learns them with cross-entropy. Dense, trajectory-level signal + on-policy state source. This is DAgger for LLMs.</p>
+</div>
+</section>
+
+<!-- ─────────────── §06 ─────────────── -->
+<section id="s-drift" data-code="drift">
+<div class="section-no">06 — Drift Isn't the Story</div>
+<h2>Equal drift, wildly different forgetting</h2>
+<p>The natural hypothesis: forgetting is just a function of how far the model's rollouts moved, so a scalar drift metric (here, rollout-state MMD with an RBF kernel) should predict it. The data say no. Stress SFT, OPD-from-stress, and RL all produce <strong>nearly identical MMD drift</strong> — yet their forgetting differs by an order of magnitude.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">drift_vs_forgetting.chart — MMD can't explain the gap</span>
+    <span class="vp-hint">scroll to animate</span>
+  </div>
+  <div class="vp-body">
+    <h3 style="margin-top:0">MMD drift (≈ identical)</h3>
+    <div class="twin-bars" id="drift-mmd">
+      <div class="tb-row"><div class="tb-label">Stress SFT</div><div class="tb-track"><div class="tb-fill" data-w="99" style="background:rgba(107,114,128,.65)"><span>0.01093</span></div></div></div>
+      <div class="tb-row"><div class="tb-label">OPD (stress teacher)</div><div class="tb-track"><div class="tb-fill" data-w="99" style="background:rgba(107,114,128,.65)"><span>0.01092</span></div></div></div>
+      <div class="tb-row"><div class="tb-label">On-policy RL</div><div class="tb-track"><div class="tb-fill" data-w="99" style="background:rgba(107,114,128,.65)"><span>0.01098</span></div></div></div>
+    </div>
+    <h3>Forgetting (wildly different)</h3>
+    <div class="twin-bars" id="drift-forget">
+      <div class="tb-row"><div class="tb-label">Stress SFT</div><div class="tb-track"><div class="tb-fill" data-w="100" style="background:#f87171"><span>0.0635</span></div></div></div>
+      <div class="tb-row"><div class="tb-label">OPD (stress teacher)</div><div class="tb-track"><div class="tb-fill" data-w="24" style="background:var(--amber)"><span>0.0155</span></div></div></div>
+      <div class="tb-row"><div class="tb-label">On-policy RL</div><div class="tb-track"><div class="tb-fill" data-w="3" style="background:var(--green)"><span>0.0020</span></div></div></div>
+    </div>
+    <div class="canvas-caption">
+      Same distance moved, <b>32× difference in forgetting</b>. The missing variable isn't <i>how far</i> the rollouts moved — it's <b>which states received supervision</b> and whether they were locally recoverable for the learner. Scalar drift must be read alongside the state source, not instead of it.
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ─────────────── §07 ─────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">07 — Results</div>
+<h2>The full picture</h2>
+<p>All runs use <strong>Qwen3-0.6B-Base</strong> with LoRA adapters on a single RTX 3090. GSM8K is the target; TruthfulQA and MMLU measure retention. Base scores: GSM8K 0.448, TruthfulQA 0.300, MMLU 0.436.</p>
+
+<div class="results-bars" id="result-bars">
+  <div class="bar-row"><div class="bar-label">Base</div><div class="bar-track"><div class="bar-fill" data-w="44.8" style="background:rgba(107,114,128,.55)"><span>0.448</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Mild SFT</div><div class="bar-track"><div class="bar-fill" data-w="51.2" style="background:var(--cyan)"><span>0.512</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">Stress SFT</div><div class="bar-track"><div class="bar-fill" data-w="42.0" style="background:#f87171"><span>0.420</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">OPD ← mild teacher</div><div class="bar-track"><div class="bar-fill" data-w="51.2" style="background:var(--purple)"><span>0.512</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">OPD ← stress teacher</div><div class="bar-track"><div class="bar-fill" data-w="46.6" style="background:var(--purple)"><span>0.466</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">On-policy RL</div><div class="bar-track"><div class="bar-fill" data-w="47.2" style="background:var(--green)"><span>0.472</span></div></div></div>
+</div>
+<p style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono);text-align:center;margin-top:-.5rem">GSM8K accuracy — bars animate on scroll</p>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Run</th><th>GSM8K</th><th>TruthfulQA</th><th>MMLU</th><th>MMD</th><th>Retention</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Base</td><td class="mn">0.448</td><td class="mn">0.300</td><td class="mn">0.436</td><td class="mn">—</td><td class="mn">—</td></tr>
+    <tr><td>Mild SFT</td><td class="mn">0.512</td><td class="mn">0.295</td><td class="mn">0.444</td><td class="mn">0.00956</td><td class="mn best">1.001</td></tr>
+    <tr><td>Stress SFT (teacher)</td><td class="mn bad">0.420</td><td class="mn bad">0.245</td><td class="mn bad">0.364</td><td class="mn">0.01093</td><td class="mn bad">0.826</td></tr>
+    <tr class="highlight-row"><td>OPD ← stress teacher</td><td class="mn">0.466</td><td class="mn">0.275</td><td class="mn">0.430</td><td class="mn">0.01092</td><td class="mn">0.951</td></tr>
+    <tr><td>On-policy RL</td><td class="mn">0.472</td><td class="mn">0.290</td><td class="mn">0.442</td><td class="mn">0.01098</td><td class="mn best">0.990</td></tr>
+  </tbody>
+</table>
+
+<p>The highlighted row is the headline: <strong>OPD beats the degraded teacher it learned from on all three tasks</strong>, despite identical MMD drift to that teacher. Read the table top to bottom and the loss-function vocabulary can't separate stress SFT from OPD — they share the same broken teacher. The state-source view can: one applies supervision off-policy, the other on the learner's own states.</p>
+
+<div class="callout">
+  <div class="ct">The takeaway</div>
+  <p>Post-training is not only about the form of the loss — maximum likelihood, policy gradient, or KL. It is about <strong>where in the model's state space supervision is applied</strong>. On-policy state supervision preserves locality, lets students improve beyond degraded teachers, and keeps general capabilities intact under target-task pressure. The authors note this is a small-scale, single-GPU study (one base model, LoRA, lexical-feature drift) — evidence for a mechanism, not a benchmark claim.</p>
+</div>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Post-Training is About States, Not Tokens</h2>
+    <p>This paper reframes language model post-training. Instead of comparing supervised fine-tuning, reinforcement learning, and distillation by their loss functions, it asks where the supervision is applied. In an autoregressive model every update lands on a state — the prompt plus the generated prefix. SFT trains on fixed dataset states that the model may never visit, while RL and on-policy distillation train on states the learner itself generates.</p>
+    <p>Three findings, all on Qwen3-0.6B-Base with GSM8K as the target and TruthfulQA and MMLU as retention tests. First, mild SFT improves the target with almost no forgetting, but stress SFT — five epochs, high learning rate — degrades both retention and the target task itself. Second, on-policy distillation from that degraded teacher surpasses the teacher on every task, because the student queries the teacher locally on its own states rather than copying the teacher's bad trajectories. Third, lightweight on-policy RL improves the target with negligible forgetting. Strikingly, all three methods produce nearly identical scalar rollout drift, yet forgetting differs by an order of magnitude — proof that distance moved is not the whole story; what matters is which states received supervision.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：后训练关乎状态，而非词元</h2>
+    <p>这篇论文重新审视了语言模型的后训练。它不再用损失函数来比较监督微调、强化学习和蒸馏，而是追问监督被施加在哪里。在自回归模型中，每一次更新都落在一个状态上——即提示加上已生成的前缀。监督微调在固定的数据集状态上训练，而模型可能从不访问这些状态；强化学习和在线策略蒸馏则在学习者自己生成的状态上训练。</p>
+    <p>论文在 Qwen3-0.6B-Base 上得到三个发现，目标任务是 GSM8K，保持能力用 TruthfulQA 和 MMLU 衡量。第一，温和的微调几乎不遗忘地提升目标任务，但高压微调会同时损害保持能力和目标任务本身。第二，从这个退化教师做在线策略蒸馏的学生，在所有任务上都超过了教师，因为学生是在自己的状态上局部询问教师，而非复制教师的糟糕轨迹。第三，轻量的在线策略强化学习几乎不遗忘地提升目标任务。值得注意的是,这三种方法产生几乎相同的标量漂移，但遗忘程度相差一个数量级——这证明移动的距离不是全部，关键在于哪些状态接受了监督。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">states.py</div>
+      <div class="cs-section-title" id="cs-section-title">States, Not Tokens</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="axes">axes</button>
+    <button class="cs-tab" data-panel="statespace">state-space</button>
+    <button class="cs-tab" data-panel="sft">sft</button>
+    <button class="cs-tab" data-panel="opd">opd</button>
+    <button class="cs-tab" data-panel="drift">drift</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <div class="cs-panel active" id="panel-intro"></div>
+    <div class="cs-panel" id="panel-axes"></div>
+    <div class="cs-panel" id="panel-statespace"></div>
+    <div class="cs-panel" id="panel-sft"></div>
+    <div class="cs-panel" id="panel-opd"></div>
+    <div class="cs-panel" id="panel-drift"></div>
+    <div class="cs-panel" id="panel-results"></div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ─────────────── Sidebar code panels ─────────────── */
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda','yield']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','np']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)           out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w)) out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w))out += `<span class="cls">${w}</span>`;
+      else                out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d+(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+const PANELS = {
+  intro: [
+    ["# An autoregressive policy always conditions", "cmt"],
+    ["# on a STATE, not just a token position.", "cmt"],
+    ["", ""],
+    ["#   state  s_t = (x, y_<t)   prompt + prefix", "hl-p"],
+    ["#   action  y_t              the next token", ""],
+    ["", ""],
+    ["def step(policy, x, y_prefix):", ""],
+    ["    state = (x, y_prefix)          # the context", "hl-c"],
+    ["    return policy.next_token(state)", ""],
+    ["", ""],
+    ["# Same target token, different update:", "cmt"],
+    ["#   '72' after a CORRECT chain   != ", "hl-g"],
+    ["#   '72' after an INCONSISTENT chain", "hl-a"],
+    ["# -> they touch different conditioning contexts", "cmt"],
+  ],
+  axes: [
+    ["# Every method = (state source) x (signal source)", "cmt"],
+    ["", ""],
+    ["#  method      state source      signal", "cmt"],
+    ["#  ----------------------------------------", "cmt"],
+    ["#  SFT         dataset           gold token", ""],
+    ["#  Offline KD  teacher rollouts  teacher logits", ""],
+    ["#  OPD         student rollouts  teacher cont.", "hl-g"],
+    ["#  RL          policy rollouts   reward", "hl-g"],
+    ["#  DAgger      learner rollouts  expert action", "hl-g"],
+    ["", ""],
+    ["# The name bundles the two axes together.", "cmt"],
+    ["# OPD and offline KD share the SAME signal", "hl-p"],
+    ["# but OPD draws states from the student ->", "hl-p"],
+    ["# it is on-policy, closer to RL than to KD.", "hl-p"],
+  ],
+  statespace: [
+    ["# Post-training = repeatedly reshaping the", "cmt"],
+    ["# model's state-visitation distribution.", "cmt"],
+    ["", ""],
+    ["for k in range(steps):", ""],
+    ["    s = sample_state(q_k)        # WHERE", "hl-p"],
+    ["    z = signal_provider(s)       # WHAT", "hl-c"],
+    ["    loss = l(policy(s), z)", ""],
+    ["    theta -= lr * grad(loss)", ""],
+    ["", ""],
+    ["# q_k is the whole game:", "cmt"],
+    ["#   SFT : q = d_data       (learner-independent)", "hl-a"],
+    ["#   RL  : q = d_policy      (learner's rollouts)", "hl-g"],
+    ["#   OPD : q = d_student     (student rollouts)", "hl-g"],
+    ["", ""],
+    ["# off-policy q can drag theta OUT of the", "cmt"],
+    ["# region the model can actually reach.", "cmt"],
+  ],
+  sft: [
+    ["# SFT minimizes token loss on DATASET states", "cmt"],
+    ["def sft_loss(policy, dataset):", ""],
+    ["    s = dataset.state            # OFF-policy", "hl-a"],
+    ["    return -log policy(y_gold | s)", ""],
+    ["", ""],
+    ["# Mild pressure -> states stay compatible", "hl-g"],
+    ["#   GSM8K  0.448 -> 0.512", "hl-g"],
+    ["#   retention ratio        1.001", "hl-g"],
+    ["", ""],
+    ["# Stress: 5 epochs, lr 5e-4, LoRA rank 64", "hl-a"],
+    ["#   GSM8K  0.448 -> 0.420   (below base!)", "hl-a"],
+    ["#   retention ratio        0.826", "hl-a"],
+    ["", ""],
+    ["# Forgetting != maximum likelihood itself.", "cmt"],
+    ["# It is dense OFF-policy updates moving theta", "cmt"],
+    ["# where its own future states interact badly.", "cmt"],
+  ],
+  opd: [
+    ["# OPD: student picks states, teacher signals", "cmt"],
+    ["def opd_step(student, teacher, x):", ""],
+    ["    # 1. STUDENT rolls out its own prefix", "hl-g"],
+    ["    s = student.rollout(x)", "hl-g"],
+    ["    # 2. teacher gives a short CONTINUATION", "hl-c"],
+    ["    cont = teacher.generate(s, k=short)", "hl-c"],
+    ["    # 3. student learns it with cross-entropy", ""],
+    ["    return ce_loss(student(s), cont)", ""],
+    ["", ""],
+    ["# 'Given where I AM, what would teacher do?'", "hl-p"],
+    ["# not 'which states would teacher visit?'", ""],
+    ["", ""],
+    ["# Teacher (degraded):  0.420 / 0.245 / 0.364", "hl-a"],
+    ["# Student (beats it!):  0.466 / 0.275 / 0.430", "hl-g"],
+    ["", ""],
+    ["# one-step KL collapsed -> GSM8K 0.040", "cmt"],
+    ["# continuations give dense trajectory signal.", "cmt"],
+  ],
+  drift: [
+    ["# Hypothesis: bigger rollout drift => more", "cmt"],
+    ["# forgetting.  Measure with rollout-state MMD.", "cmt"],
+    ["", ""],
+    ["def mmd_drift(base_states, post_states):", ""],
+    ["    return rbf_mmd(base_states, post_states)", ""],
+    ["", ""],
+    ["#  method        MMD        forgetting", "cmt"],
+    ["#  ------------------------------------", "cmt"],
+    ["#  Stress SFT    0.01093    0.0635", "hl-a"],
+    ["#  OPD (stress)  0.01092    0.0155", "hl-c"],
+    ["#  RL            0.01098    0.0020", "hl-g"],
+    ["", ""],
+    ["# ~identical drift, 32x gap in forgetting.", "hl-p"],
+    ["# scalar distance can't explain it -> WHICH", "hl-p"],
+    ["# states got supervision is what matters.", "hl-p"],
+  ],
+  results: [
+    ["# Qwen3-0.6B-Base + LoRA, single RTX 3090", "cmt"],
+    ["# target=GSM8K  retention=TruthfulQA, MMLU", "cmt"],
+    ["", ""],
+    ["#  run               GSM8K  retention", "cmt"],
+    ["#  --------------------------------------", "cmt"],
+    ["#  Base              0.448   --", ""],
+    ["#  Mild SFT          0.512   1.001", "hl-g"],
+    ["#  Stress SFT        0.420   0.826", "hl-a"],
+    ["#  OPD <- stress     0.466   0.951", "hl-p"],
+    ["#  On-policy RL      0.472   0.990", "hl-g"],
+    ["", ""],
+    ["# OPD beats the teacher it learned from", "hl-p"],
+    ["# on ALL tasks -- same MMD, on-policy states.", "hl-p"],
+    ["", ""],
+    ["# Post-training is about WHERE supervision", "cmt"],
+    ["# lands in state space, not just the loss.", "cmt"],
+  ],
+};
+
+function renderPanels() {
+  for (const [name, lines] of Object.entries(PANELS)) {
+    const el = document.getElementById('panel-' + name);
+    if (!el) continue;
+    el.innerHTML = '<pre class="cs-pre">' + lines.map(([code, cls]) => {
+      const c = cls ? ' ' + cls : '';
+      return `<span class="cs-line${c}">${code ? hl(code) : ''}</span>`;
+    }).join('\n') + '</pre>';
+  }
+}
+renderPanels();
+
+/* ─────────────── Toggles ─────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ─────────────── Tab switching ─────────────── */
+const tabMeta = {
+  intro:      { file: 'states.py',       title: 'States, Not Tokens' },
+  axes:       { file: 'decompose.py',    title: 'Two Axes' },
+  statespace: { file: 'state_space.py',  title: 'Policy State Space' },
+  sft:        { file: 'sft_pressure.py', title: 'SFT: Gentle or Destructive' },
+  opd:        { file: 'opd.py',          title: 'Beating the Teacher' },
+  drift:      { file: 'drift.py',        title: "Drift Isn't the Story" },
+  results:    { file: 'results.py',      title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ─────────────── Scroll sync ─────────────── */
+const sectionMap = {
+  's-intro': 'intro', 's-axes': 'axes', 's-statespace': 'statespace',
+  's-sft': 'sft', 's-opd': 'opd', 's-drift': 'drift', 's-results': 'results'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ─────────────── §01 trajectory toggle ─────────────── */
+(function () {
+  const btn = document.getElementById('traj-btn');
+  const gold = document.getElementById('traj-gold');
+  const roll = document.getElementById('traj-roll');
+  let on = false;
+  btn?.addEventListener('click', () => {
+    on = !on;
+    gold.classList.toggle('dim', on);
+    roll.classList.toggle('hot', on);
+    btn.classList.toggle('active', !on);
+    btn.textContent = on ? 'Show both trajectories' : 'Highlight where the model actually is';
+  });
+})();
+
+/* ─────────────── §02 axes grid ─────────────── */
+(function () {
+  const caps = {
+    sft:    'SFT — dataset states + gold tokens. Dense, efficient, but the states are fixed and off-policy. The learner never trains on its own prefixes.',
+    kd:     'Offline KD — teacher rollouts + teacher logits. The student inherits the teacher\'s entire trajectory distribution, failures included.',
+    opd:    'OPD — student rollouts + teacher continuations. Same teacher signal as KD, but applied on the STUDENT\'s states. On-policy in everything but name.',
+    rl:     'RL — current-policy rollouts + reward. Sparse signal, but applied exactly where the model lives. Naturally local.',
+    dagger: 'DAgger — learner rollouts + expert actions. The classic imitation-learning fix for compounding error; OPD is its LLM cousin.',
+  };
+  const cells = document.querySelectorAll('.axes-grid td[data-method]');
+  const btns  = document.querySelectorAll('.method-btns [data-m]');
+  const cap   = document.getElementById('axes-cap');
+  function set(m) {
+    cells.forEach(c => c.classList.toggle('lit', c.dataset.method === m));
+    btns.forEach(b => b.classList.toggle('active', b.dataset.m === m));
+    if (cap) cap.innerHTML = caps[m];
+  }
+  cells.forEach(c => c.addEventListener('click', () => set(c.dataset.method)));
+  btns.forEach(b => b.addEventListener('click', () => set(b.dataset.m)));
+  set('sft');
+})();
+
+/* ─────────────── §03 state-space canvas ─────────────── */
+(function () {
+  const canvas = document.getElementById('ss-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W = 0, H = 340;
+  function size() {
+    W = canvas.clientWidth;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  function sr(n){ return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  let mode = 'sft', t = 0;
+  const cap = document.getElementById('ss-cap');
+  const caps = {
+    sft: '<b>SFT (off-policy):</b> the red markers — dataset states — sit largely <b>outside</b> the model\'s reachable cloud. Dense updates pull the policy toward them, dragging it out of territory it can recover from. This is how stress SFT forgets.',
+    rl:  '<b>RL (on-policy):</b> every green marker is drawn from the model\'s own rollouts, so all supervision lands <b>inside</b> the cloud. Sparse reward, but local — a safe, recoverable improvement.',
+    opd: '<b>OPD:</b> the student samples states <b>inside</b> the cloud (green), and the teacher fires short cyan continuation-arrows as local repairs. Teacher <i>signal</i>, student <i>states</i> — on-policy where it counts.',
+  };
+
+  // model reachable cloud centroid
+  const cx = () => W * 0.42, cy = () => H * 0.52, rx = () => W * 0.26, ry = () => H * 0.34;
+
+  function inCloud(i, n) {
+    const a = sr(i*3) * Math.PI * 2;
+    const rad = 0.25 + sr(i*3+1) * 0.7;
+    return { x: cx() + Math.cos(a) * rx() * rad, y: cy() + Math.sin(a) * ry() * rad };
+  }
+  function offCloud(i) {
+    // scattered, biased to the right / outside
+    return { x: W*0.62 + sr(i*5+2) * W*0.30, y: H*0.12 + sr(i*5+3) * H*0.76 };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // reachable cloud (soft green radial)
+    const g = ctx.createRadialGradient(cx(), cy(), 10, cx(), cy(), Math.max(rx(), ry()));
+    g.addColorStop(0, 'rgba(16,185,129,0.20)');
+    g.addColorStop(1, 'rgba(16,185,129,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(cx(), cy(), rx()*1.25, ry()*1.25, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(16,185,129,0.35)';
+    ctx.setLineDash([5,5]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(cx(), cy(), rx(), ry(), 0, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(16,185,129,0.8)';
+    ctx.font = '11px monospace';
+    ctx.fillText("model's reachable states", cx()-rx()+4, cy()-ry()-8);
+
+    const pulse = 0.5 + 0.5*Math.sin(t*0.05);
+
+    if (mode === 'sft') {
+      // on-policy faint green dots
+      for (let i=0;i<22;i++){ const p=inCloud(i,22); dot(p.x,p.y,2.5,'rgba(16,185,129,0.25)'); }
+      // off-policy red dataset states + supervision arrows from cloud center
+      for (let i=0;i<14;i++){
+        const p=offCloud(i);
+        // arrow pulling policy toward off-policy state
+        arrow(cx()+ (sr(i*7)-0.5)*rx(), cy()+(sr(i*7+1)-0.5)*ry(), p.x, p.y, `rgba(248,113,113,${0.25+0.35*pulse})`);
+        dot(p.x,p.y,5,'#f87171');
+      }
+      tag('dataset states (off-policy)', W*0.66, H*0.07, '#f87171');
+    } else if (mode === 'rl') {
+      for (let i=0;i<26;i++){
+        const p=inCloud(i,26);
+        dot(p.x,p.y,4.5,`rgba(16,185,129,${0.5+0.4*sr(i*9)})`);
+      }
+      // a few sparse reward stars inside
+      for (let i=0;i<5;i++){ const p=inCloud(i*3+1,26); star(p.x,p.y,7,`rgba(245,158,11,${0.6+0.4*pulse})`); }
+      tag('reward on policy states (sparse)', cx()-rx()+4, H*0.93, 'var');
+    } else {
+      // OPD: student dots in cloud + teacher continuation arrows
+      for (let i=0;i<22;i++){
+        const p=inCloud(i,22);
+        dot(p.x,p.y,4.5,'rgba(16,185,129,0.85)');
+        if (i%2===0){
+          const a = sr(i*11)*Math.PI*2;
+          arrow(p.x,p.y, p.x+Math.cos(a)*26, p.y+Math.sin(a)*22, `rgba(6,182,212,${0.4+0.4*pulse})`);
+        }
+      }
+      // degraded teacher: red dots OUTSIDE, not used as states
+      for (let i=0;i<8;i++){ const p=offCloud(i); dot(p.x,p.y,4,'rgba(248,113,113,0.45)'); }
+      tag('student states + teacher continuations', cx()-rx()+4, H*0.93, '#06b6d4');
+      tag('teacher\'s own bad states (not visited)', W*0.66, H*0.07, '#f87171');
+    }
+    t++;
+    raf = requestAnimationFrame(draw);
+  }
+
+  function dot(x,y,r,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+  function star(x,y,r,c){ ctx.fillStyle=c; ctx.beginPath();
+    for(let k=0;k<10;k++){ const ang=Math.PI/5*k-Math.PI/2; const rr=k%2?r*0.45:r;
+      const px=x+Math.cos(ang)*rr, py=y+Math.sin(ang)*rr; k?ctx.lineTo(px,py):ctx.moveTo(px,py);} ctx.closePath(); ctx.fill(); }
+  function arrow(x1,y1,x2,y2,c){
+    ctx.strokeStyle=c; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    const a=Math.atan2(y2-y1,x2-x1);
+    ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-7*Math.cos(a-0.4),y2-7*Math.sin(a-0.4));
+    ctx.lineTo(x2-7*Math.cos(a+0.4),y2-7*Math.sin(a+0.4)); ctx.closePath(); ctx.fill();
+  }
+  function tag(txt,x,y,col){
+    ctx.font='11px monospace';
+    ctx.fillStyle = col==='var' ? 'rgba(245,158,11,0.85)' : col;
+    ctx.fillText(txt,x,y);
+  }
+
+  let raf;
+  document.querySelectorAll('[data-ss]').forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.ss;
+    document.querySelectorAll('[data-ss]').forEach(x => x.classList.toggle('active', x===b));
+    if (cap) cap.innerHTML = caps[mode];
+  }));
+  if (cap) cap.innerHTML = caps.sft;
+  window.addEventListener('resize', size);
+  size();
+  cancelAnimationFrame(raf); draw();
+})();
+
+/* ─────────────── §04 SFT pressure ─────────────── */
+(function () {
+  const data = {
+    mild:   { gsm: 0.512, ret: 1.001, gsmW: 51.2, retW: 100,
+              cap: '<b>Mild SFT</b> (1 epoch, low lr): GSM8K rises to <b>0.512</b> and retention is <b>1.001</b> — the dataset states stay compatible with the base policy, so nothing breaks. SFT is not inherently destructive.' },
+    stress: { gsm: 0.420, ret: 0.826, gsmW: 42.0, retW: 82.6,
+              cap: '<b>Stress SFT</b> (5 epochs, lr 5e-4, LoRA rank 64): retention collapses to <b>0.826</b> AND GSM8K drops to <b>0.420</b> — below the 0.448 base. Aggressive off-policy pressure damages both general and target behavior.' },
+  };
+  const pills = document.getElementById('sft-pills');
+  const gsmBar = document.getElementById('sft-bar-gsm');
+  const retBar = document.getElementById('sft-bar-ret');
+  const cap = document.getElementById('sft-cap');
+  function set(m) {
+    const d = data[m];
+    document.querySelectorAll('[data-sft]').forEach(b => b.classList.toggle('active', b.dataset.sft === m));
+    const dgsm = (d.gsm - 0.448), dret = (d.ret - 1);
+    pills.innerHTML = `
+      <div class="stat-pill ${dgsm>=0?'up':'down'}"><div class="pv">${d.gsm.toFixed(3)}</div><div class="pl">GSM8K (base 0.448)</div></div>
+      <div class="stat-pill ${dret>=-0.001?'up':'down'}"><div class="pv">${d.ret.toFixed(3)}</div><div class="pl">retention ratio</div></div>
+      <div class="stat-pill ${dgsm>=0?'up':'down'}"><div class="pv">${dgsm>=0?'+':''}${(dgsm).toFixed(3)}</div><div class="pl">Δ GSM8K vs base</div></div>`;
+    gsmBar.style.width = d.gsmW + '%';
+    gsmBar.querySelector('span').textContent = d.gsm.toFixed(3);
+    gsmBar.style.background = m==='stress' ? '#f87171' : 'var(--cyan)';
+    retBar.style.width = d.retW + '%';
+    retBar.querySelector('span').textContent = d.ret.toFixed(3);
+    retBar.style.background = m==='stress' ? '#f87171' : 'var(--green)';
+    if (cap) cap.innerHTML = d.cap;
+  }
+  document.querySelectorAll('[data-sft]').forEach(b => b.addEventListener('click', () => set(b.dataset.sft)));
+  // animate in on scroll
+  const sec = document.getElementById('s-sft');
+  if (sec) new IntersectionObserver((es, ob) => {
+    es.forEach(e => { if (e.isIntersecting) { set('mild'); } });
+  }, { threshold: 0.3 }).observe(sec);
+  set('mild');
+})();
+
+/* ─────────────── §05 OPD canvas ─────────────── */
+(function () {
+  const canvas = document.getElementById('opd-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W = 0, H = 320;
+  function size() {
+    W = canvas.clientWidth; canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  function sr(n){ return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  // teacher path (red): wanders down into bad region
+  // student path (green): steadier, with teacher continuation arrows
+  const N = 6;
+  function teacherPts(){ const a=[]; for(let i=0;i<=N;i++){ const x=W*0.1+i/N*W*0.8; const y=H*0.3 + Math.sin(i*0.9)*H*0.05 + i*H*0.07; a.push({x,y}); } return a; }
+  function studentPts(){ const a=[]; for(let i=0;i<=N;i++){ const x=W*0.1+i/N*W*0.8; const y=H*0.42 - Math.sin(i*0.7)*H*0.04; a.push({x,y}); } return a; }
+
+  let prog = 0, raf, running = false;
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    const T = teacherPts(), S = studentPts();
+    const shown = Math.floor(prog * N) + 1;
+
+    // teacher full faded path
+    ctx.strokeStyle='rgba(248,113,113,0.5)'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
+    ctx.beginPath(); T.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.setLineDash([]);
+    T.forEach((p,i)=>{ ctx.fillStyle='rgba(248,113,113,0.7)'; ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill(); });
+    ctx.fillStyle='rgba(248,113,113,0.95)'; ctx.font='12px monospace';
+    ctx.fillText('teacher: degraded global trajectory (NOT copied)', T[0].x, T[0].y-14);
+    ctx.fillText('✗ bad states', T[N].x-70, T[N].y+22);
+
+    // student path up to shown
+    ctx.strokeStyle='rgba(16,185,129,0.9)'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    for(let i=0;i<Math.min(shown,N+1);i++){ const p=S[i]; i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y); }
+    ctx.stroke();
+    for(let i=0;i<Math.min(shown,N+1);i++){
+      const p=S[i];
+      ctx.fillStyle='#10b981'; ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
+      // teacher continuation arrow (cyan) at each student state
+      if (i>0 && i<N+1){
+        ctx.strokeStyle='rgba(6,182,212,0.9)'; ctx.lineWidth=1.6;
+        const ex=p.x, ey=p.y-30;
+        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(ex,ey); ctx.stroke();
+        ctx.fillStyle='rgba(6,182,212,0.9)'; ctx.beginPath();
+        ctx.moveTo(ex,ey); ctx.lineTo(ex-4,ey+7); ctx.lineTo(ex+4,ey+7); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.fillStyle='rgba(16,185,129,0.95)'; ctx.font='12px monospace';
+    ctx.fillText('student: own states (on-policy)', S[0].x, S[0].y+24);
+    if (shown>N) { ctx.fillStyle='rgba(6,182,212,0.95)'; ctx.fillText('↑ short teacher repairs', S[2].x, S[2].y-40); }
+
+    if (running && prog < 1) { prog += 0.012; raf = requestAnimationFrame(draw); }
+    else if (prog >= 1) running = false;
+  }
+  function play(){ prog = 0; running = true; cancelAnimationFrame(raf); draw(); }
+  document.getElementById('opd-play')?.addEventListener('click', play);
+  window.addEventListener('resize', () => { size(); draw(); });
+  size();
+  const sec = document.getElementById('s-opd');
+  if (sec) new IntersectionObserver((es) => {
+    es.forEach(e => { if (e.isIntersecting && prog === 0) play(); });
+  }, { threshold: 0.4 }).observe(sec);
+  draw();
+})();
+
+/* ─────────────── §06 + §07 bar animations ─────────────── */
+function animateBars(rootId, sel) {
+  const root = document.getElementById(rootId);
+  if (!root) return;
+  new IntersectionObserver((es) => {
+    es.forEach(e => {
+      if (e.isIntersecting) {
+        root.querySelectorAll(sel + '[data-w]').forEach(b => { b.style.width = b.dataset.w + '%'; });
+      }
+    });
+  }, { threshold: 0.3 }).observe(root);
+}
+animateBars('drift-mmd', '.tb-fill');
+animateBars('drift-forget', '.tb-fill');
+animateBars('result-bars', '.bar-fill');
+</script>
+</BaseLayout>

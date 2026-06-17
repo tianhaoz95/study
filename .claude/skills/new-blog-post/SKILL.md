@@ -1172,49 +1172,9 @@ window.__timelines.summary.seek(52);     // jump to scene 4 (CTA)
 window.__timelines.summary.seek(0);      // back to start
 ```
 
-### Render to MP4
+### Video Publishing (Do NOT embed in the post)
 
-```bash
-cd social-media/posts/<post-id>
-npx hyperframes@latest render . -o ./summary.mp4
-```
-
-Output: `social-media/posts/<post-id>/summary.mp4` — ready to upload directly to LinkedIn, Twitter/X, or Instagram. Git-ignored, never committed.
-Requires Node 22+ and FFmpeg. First run downloads Puppeteer (~150 MB).
-
-### Embed in the post (optional)
-
-The video lives in `social-media/` which is git-ignored, so it can't be served directly by Astro. To embed it in the post, copy it into `public/` first:
-
-```bash
-mkdir -p apps/blog/public/posts/<slug>
-cp social-media/posts/<post-id>/summary.mp4 apps/blog/public/posts/<slug>/summary.mp4
-```
-
-`apps/blog/public/posts/<slug>/summary.mp4` **should be committed** (it's a blog asset, not a build artifact). Then add to the post:
-
-```html
-<!-- In the hero body, after .lead -->
-<video class="hero-summary-video" autoplay muted loop playsinline
-       src="/posts/<slug>/summary.mp4"></video>
-
-<!-- In .hero-links -->
-<a class="hero-btn" href="/posts/<slug>/summary.mp4" download>
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-       stroke-linecap="round" stroke-linejoin="round">
-    <polygon points="23 7 16 12 23 17 23 7"/>
-    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-  </svg>
-  Video Summary
-</a>
-```
-
-Add to the post CSS:
-
-```css
-.hero-summary-video{width:100%;max-width:380px;border-radius:10px;
-                    border:1px solid var(--border);margin-top:1.25rem}
-```
+The video is meant to be manually published on a completely different platform (such as LinkedIn, Twitter/X, or Instagram). Do NOT copy `summary.mp4` to the `apps/blog/public/posts/` folder or embed `<video>` elements/download buttons in the blog post.
 
 ---
 
@@ -1257,4 +1217,5 @@ Add to the post CSS:
 - [ ] Each clip fits within its scene window: 5 / 12 / 32 / 14 / 9s (`afplay` check)
 - [ ] `npx hyperframes@latest render . -o ./summary.mp4` exits 0 (EN)
 - [ ] `npx hyperframes@latest render . -o ./summary-zh.mp4` exits 0 (ZH)
-- [ ] If embedded in post: copied to `apps/blog/public/posts/<slug>/summary.mp4` and committed
+- [ ] Verified that `summary.mp4` is NOT copied to `public/` and no video or download tags are added to the blog post
+

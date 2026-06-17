@@ -9,6 +9,10 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "low-rank-data-selection.pdf":           "https://arxiv.org/pdf/2606.16045v1",
+    "state-distribution-post-training.pdf":  "https://arxiv.org/pdf/2605.22731",
+    "buy-kv-cache.pdf":                      "https://arxiv.org/pdf/2606.13361",
+    "evods.pdf":                             "https://arxiv.org/pdf/2606.03841v1",
     "mtp-speculative-decoding.pdf":          "https://arxiv.org/pdf/2602.15763",
     "specforge-drafter-training.pdf":        "https://arxiv.org/pdf/2603.18567",
     "agi-to-asi.pdf":                        "https://arxiv.org/pdf/2606.12683",

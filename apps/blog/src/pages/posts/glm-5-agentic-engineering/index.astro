@@ -1,0 +1,1160 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="GLM-5 & 5.2: From Vibe Coding to Agentic Engineering | AI/ML Deep Dives"
+  description="How GLM-5.2 leverages IndexShare sparse attention, parameter-shared Multi-Token Prediction, and deterministic top-k operators to transition from vibe coding to long-horizon agentic loops."
+  crumb="GLM-5 Agentic Engineering"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+/* Syntax tokens */
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Interactive elements */
+.vp-btn-group{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.vp-btn{padding:.4rem .8rem;border:1px solid var(--border-hi);border-radius:6px;background:var(--surface);color:var(--muted2);font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;transition:all .15s}
+.vp-btn:hover{border-color:var(--purple);color:var(--purple-l)}
+.vp-btn.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple-l);font-weight:600}
+
+/* Speculative Simulator */
+.sim-console{background:#0e0f13;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:var(--ff-mono);font-size:.78rem;min-height:160px;margin-bottom:1rem;overflow-y:auto;color:#abb2bf;line-height:1.6}
+.sim-prompt{color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:.5rem;margin-bottom:.75rem}
+.sim-token{display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;transition:all .25s;font-weight:600}
+.sim-token.draft{border:1px dashed var(--muted);background:rgba(255,255,255,0.05);color:var(--muted);animation:pulse 1s infinite alternate}
+.sim-token.accepted{background:rgba(16,185,129,0.18);border:1px solid var(--green);color:var(--green)}
+.sim-token.rejected{background:rgba(239,68,68,0.18);border:1px solid #ef4444;color:#ef4444;text-decoration:line-through}
+.sim-token.correction{background:rgba(245,158,11,0.18);border:1px solid var(--amber);color:var(--amber)}
+.sim-token.prompt-text{color:#61afef}
+
+.sim-dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;margin-top:1rem}
+.sim-stat{background:var(--surface);border:1px solid var(--border);padding:.75rem;border-radius:8px;text-align:center}
+.sim-stat-val{font-size:1.15rem;font-weight:700;font-family:var(--ff-mono);color:var(--text);margin-bottom:.2rem}
+.sim-stat-val.win{color:var(--green)}
+.sim-stat-lbl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+/* IndexShare Visualizer */
+.idx-container{display:grid;grid-template-columns:1fr 1.2fr;gap:1.5rem;align-items:stretch}
+@media(max-width:768px){.idx-container{grid-template-columns:1fr}}
+.idx-stack{display:flex;flex-direction:column;gap:.75rem;justify-content:center}
+.idx-layer{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;transition:all .3s;position:relative}
+.idx-layer.calc{border-color:var(--amber);background:rgba(245,158,11,0.04);box-shadow:0 0 10px rgba(245,158,11,0.1)}
+.idx-layer.reuse{border-style:dashed;border-color:var(--green);background:rgba(16,185,129,0.02)}
+.idx-layer-lbl{font-size:.78rem;font-family:var(--ff-mono);font-weight:600;color:var(--text2)}
+.idx-layer-action{font-size:.68rem;font-family:var(--ff-mono);padding:2px 8px;border-radius:4px}
+.idx-layer.calc .idx-layer-action{background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}
+.idx-layer.reuse .idx-layer-action{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3)}
+.idx-arrow{position:absolute;left:50%;width:2px;background:var(--green);z-index:2;transition:all .3s}
+.idx-slider-container{margin-bottom:1.25rem}
+.idx-slider{width:100%;height:6px;background:var(--border-hi);border-radius:3px;outline:none;margin-top:.5rem;-webkit-appearance:none;cursor:pointer}
+.idx-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--purple);border:2px solid #fff;box-shadow:0 0 8px rgba(0,0,0,0.5);transition:all .15s}
+.idx-slider::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.idx-chart-box{background:#0e0f13;border:1px solid var(--border);border-radius:8px;padding:.75rem;position:relative;min-height:220px}
+.idx-chart-lbl{position:absolute;top:10px;right:10px;font-size:.65rem;font-family:var(--ff-mono);color:var(--muted)}
+
+.comparison-table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.825rem}
+.comparison-table th{background:var(--surface);border:1px solid var(--border);padding:.6rem .75rem;text-align:left;color:var(--text2);font-family:var(--ff-mono)}
+.comparison-table td{border:1px solid var(--border);padding:.6rem .75rem;color:var(--muted2)}
+.comparison-table tr:hover{background:rgba(255,255,255,0.02)}
+.comparison-table .win{color:var(--green);font-weight:700}
+
+/* Bar chart anim */
+.bar-container{margin:1.25rem 0;display:flex;flex-direction:column;gap:.75rem}
+.bar-row{display:flex;align-items:center;gap:1rem}
+.bar-lbl{width:140px;font-size:.72rem;font-family:var(--ff-mono);color:var(--text2);flex-shrink:0}
+.bar-track{flex:1;height:18px;background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;position:relative}
+.bar-fill{height:100%;width:0%;transition:width 1s cubic-bezier(0.1, 0.8, 0.2, 1);display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;font-size:.68rem;font-weight:700;font-family:var(--ff-mono);color:#fff}
+.bar-fill.purple{background:linear-gradient(90deg, var(--purple-dim), var(--purple))}
+.bar-fill.cyan{background:linear-gradient(90deg, rgba(6,182,212,0.1), var(--cyan))}
+.bar-fill.grey{background:linear-gradient(90deg, rgba(107,114,128,0.1), var(--muted))}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);max-height:500px}
+  .code-sidebar.collapsed{display:none}
+  .post-body{padding:1.5rem 1rem 6rem 1rem}
+}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Agentic AI</span>
+    <span class="tag tag-cyan">Speculative Decoding</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>GLM-5 & 5.2: From Vibe Coding to Agentic Engineering</h1>
+  <p class="lead">How Zhipu AI's next-generation open weights Mixture-of-Experts (MoE) foundation model leverages IndexShare sparse attention, parameter-shared Multi-Token Prediction, and deterministic top-k operators to transition from chatbot conversation to autonomous software development loops.</p>
+  <div class="post-hero-meta">
+    <span>June 17, 2026</span>
+    <span>~11 min read</span>
+    <span>Paper: <code>arXiv:2602.15763</code></span>
+    <span>Model Card: <code>zai-org/GLM-5.2</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2602.15763" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://huggingface.co/zai-org/GLM-5.2" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Model Card (HF)
+    </a>
+    <a class="hero-btn" href="https://github.com/zai-org/GLM-5" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-vibe"><a href="#s-vibe"><span class="toc-num">01</span> The Agentic Era</a></li>
+    <li class="toc-item" id="toc-s-mtp"><a href="#s-mtp"><span class="toc-num">02</span> Shared-Weight MTP</a></li>
+    <li class="toc-item" id="toc-s-indexshare"><a href="#s-indexshare"><span class="toc-num">03</span> IndexShare Attention</a></li>
+    <li class="toc-item" id="toc-s-slime"><a href="#s-slime"><span class="toc-num">04</span> Asynchronous slime RL</a></li>
+    <li class="toc-item" id="toc-s-topk"><a href="#s-topk"><span class="toc-num">05</span> Deterministic top-k</a></li>
+    <li class="toc-item" id="toc-s-distillation"><a href="#s-distillation"><span class="toc-num">06</span> Distill & Benchmarks</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+  <section id="s-vibe" data-code="vibe">
+    <div class="section-no">01 — The Agentic Era</div>
+    <h2>From Vibe Coding to Agentic Engineering</h2>
+    <p>For the past few years, the dominant mode of AI development has been "vibe coding" — typing a prompt into a chat interface, evaluating the code by eye (or "vibes"), copy-pasting the output into an editor, and manually resolving errors. While fast for simple scripts, this workflow breaks down completely in real-world software engineering. Complex tasks require agents to navigate code bases, search directories, invoke terminal commands, parse build logs, and correct errors autonomously.</p>
+    <p>Transitioning from vibe coding to <strong>agentic engineering</strong> changes the load on foundation models. Instead of single-turn completions, models must support long-horizon reasoning loops. They must process context windows spanning entire code repositories (up to 1M tokens in GLM-5.2) and generate code quickly enough to prevent rollout bottlenecks. Zhipu AI's GLM-5 family (744B–753B parameter Mixture-of-Experts backbone with ~40B active parameters) was redesigned from the ground up to solve these engineering bottlenecks.</p>
+    
+    <div class="vp">
+      <div class="vp-head">
+        <span class="vp-title">Agent vs Chatbot Execution Characteristics</span>
+      </div>
+      <div class="vp-body">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Vibe Chatbot (e.g. GLM-4)</th>
+              <th>Agentic Engineer (e.g. GLM-5.2)</th>
+              <th>The Bottleneck</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Context Window</strong></td>
+              <td>8K – 32K tokens</td>
+              <td class="win">1,000,000 tokens (Native)</td>
+              <td>Quadratic attention cost O(L²)</td>
+            </tr>
+            <tr>
+              <td><strong>Average Turns</strong></td>
+              <td>1 – 3 conversational turns</td>
+              <td class="win">30+ tool-sandbox actions</td>
+              <td>Catastrophic forgetting / state drift</td>
+            </tr>
+            <tr>
+              <td><strong>Decoding Load</strong></td>
+              <td>Subjective natural text</td>
+              <td class="win">Syntax-strict programming code</td>
+              <td>High token generation latency</td>
+            </tr>
+            <tr>
+              <td><strong>RL Strategy</strong></td>
+              <td>RLHF (Human preference vibes)</td>
+              <td class="win">Reasoning & Agent Environment RL</td>
+              <td>Synchronous GPU idle bottlenecks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-mtp" data-code="mtp">
+    <div class="section-no">02 — Shared-Weight MTP</div>
+    <h2>Speculative Decoding with Parameter-Shared MTP</h2>
+    <p>Autoregressive generation generates tokens one by one, which is slow for large models. <strong>Speculative Decoding</strong> solves this by using a small "draft" model to guess future tokens (e.g. predicting 3–4 tokens ahead), and a large "target" model to verify them in parallel. However, training a separate draft model is complex. DeepSeek-V3 introduced Multi-Token Prediction (MTP), where additional layers are attached to the target model during pre-training to predict future tokens directly.</p>
+    <p>But traditional MTP has a major flaw: predicting $n$ tokens requires $n$ separate MTP layers, which scales memory and KV cache overhead linearly. To save memory, DeepSeek-V3 trained with only 1 MTP layer but tried to predict 2 tokens at inference, resulting in a training-inference mismatch that degraded the acceptance rate (acceptance length 2.55). GLM-5 overcomes this by introducing <strong>Parameter-Shared MTP</strong>. It trains 3 MTP layers that share the exact same weights. This keeps memory overhead flat (equivalent to a single MTP layer) while increasing the speculative decoding acceptance length to <strong>2.76 tokens</strong> (an 8% to 20% speedup during inference).</p>
+    
+    <div class="vp" id="mtp-sim-panel">
+      <div class="vp-head">
+        <span class="vp-title">Interactive Speculative Decoding Simulator</span>
+        <span class="vp-hint">Adjust steps & select model to simulate accept rates</span>
+      </div>
+      <div class="vp-body">
+        <div class="vp-btn-group" id="mtp-model-ctrls">
+          <button class="vp-btn" data-model="single">Single-Layer MTP (DeepSeek-V3.2)</button>
+          <button class="vp-btn active" data-model="shared">Parameter-Shared MTP (GLM-5.2)</button>
+          <button class="vp-btn" data-model="multi">Traditional MTP (3-Layer Independent)</button>
+        </div>
+
+        <div class="idx-slider-container" style="margin-bottom: 1.5rem;">
+          <div class="flex justify-between" style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); font-family:var(--ff-mono)">
+            <span>Speculative Lookahead Steps (K)</span>
+            <span id="mtp-k-val">3 Steps</span>
+          </div>
+          <input type="range" min="1" max="4" value="3" class="idx-slider" id="mtp-k-slider" />
+        </div>
+
+        <button class="vp-btn active" id="btn-run-sim" style="width: 100%; padding: .6rem; margin-bottom: 1.25rem;">▶ Run Speculative Generation</button>
+
+        <div class="sim-console">
+          <div class="sim-prompt">Prompt: <span class="sim-token prompt-text">def</span> <span class="sim-token prompt-text">binary_search(arr,</span> <span class="sim-token prompt-text">target):</span></div>
+          <div id="sim-text-flow">Click "Run Speculative Generation" to view token verification...</div>
+        </div>
+
+        <div class="sim-dashboard">
+          <div class="sim-stat">
+            <div class="sim-stat-val win" id="stat-speedup">1.82x</div>
+            <div class="sim-stat-lbl">Inference Speedup</div>
+          </div>
+          <div class="sim-stat">
+            <div class="sim-stat-val" id="stat-accept">2.76</div>
+            <div class="sim-stat-lbl">Avg Accepted Tokens</div>
+          </div>
+          <div class="sim-stat">
+            <div class="sim-stat-val" id="stat-mem">0%</div>
+            <div class="sim-stat-lbl">Draft Memory Overhead</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-indexshare" data-code="indexshare">
+    <div class="section-no">03 — IndexShare Attention</div>
+    <h2>IndexShare: Scaling Context to 1 Million Tokens</h2>
+    <p>To process code repositories, GLM-5.2 extends the context window to 1 million tokens. However, standard attention scales quadratically $O(L^2)$ with sequence length, making long context processing slow and expensive. DeepSeek Sparse Attention (DSA) optimizes this by using an <strong>Indexer</strong> that computes token relevance scores and restricts attention calculations to only the top-$k$ ($k=2048$) most important tokens, saving 1.5–2× compute.</p>
+    <p>But at a 1-million-token context length, even computing the indexer for every attention layer becomes a significant computational bottleneck. GLM-5.2 introduces <strong>IndexShare</strong> to solve this. Because token relevance changes slowly across adjacent layers, IndexShare reuses the same indexer routing decision across blocks of four layers. Only Layer 1 (and Layer 5, 9, etc.) computes the sparse indexer, while the next three layers load the indexer results from a cached list. This reduces per-token attention FLOPs by <strong>2.9×</strong> at 1M context length with zero loss in retrieval accuracy.</p>
+    
+    <div class="vp">
+      <div class="vp-head">
+        <span class="vp-title">IndexShare Layer Reuse & FLOPs Visualizer</span>
+        <span class="vp-hint">Drag context slider to observe saving scalability</span>
+      </div>
+      <div class="vp-body">
+        <div class="idx-slider-container">
+          <div class="flex justify-between" style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); font-family:var(--ff-mono)">
+            <span>Sequence Context Length (L)</span>
+            <span id="idx-len-val">1,000,000 Tokens</span>
+          </div>
+          <input type="range" min="4" max="1024" value="1000" class="idx-slider" id="idx-len-slider" />
+        </div>
+
+        <div class="vp-btn-group" id="idx-toggle-ctrls">
+          <button class="vp-btn active" data-mode="on">IndexShare: ON (1/4 Layer Sharing)</button>
+          <button class="vp-btn" data-mode="off">IndexShare: OFF (Per-layer Indexing)</button>
+        </div>
+
+        <div class="idx-container">
+          <!-- Left: Stack visualization -->
+          <div class="idx-stack" id="idx-stack-view">
+            <div class="idx-layer calc" id="idx-layer-0">
+              <span class="idx-layer-lbl">Layer 0 (Sparse)</span>
+              <span class="idx-layer-action">Calculate Indexer</span>
+            </div>
+            <div class="idx-layer reuse" id="idx-layer-1">
+              <span class="idx-layer-lbl">Layer 1 (Sparse)</span>
+              <span class="idx-layer-action">Reuse Cache</span>
+            </div>
+            <div class="idx-layer reuse" id="idx-layer-2">
+              <span class="idx-layer-lbl">Layer 2 (Sparse)</span>
+              <span class="idx-layer-action">Reuse Cache</span>
+            </div>
+            <div class="idx-layer reuse" id="idx-layer-3">
+              <span class="idx-layer-lbl">Layer 3 (Sparse)</span>
+              <span class="idx-layer-action">Reuse Cache</span>
+            </div>
+          </div>
+          <!-- Right: Plot Canvas -->
+          <div class="idx-chart-box">
+            <div class="idx-chart-lbl">Per-Token Attention FLOPs</div>
+            <canvas id="cv-flops-chart" style="width:100%; height:200px; display:block;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-slime" data-code="slime">
+    <div class="section-no">04 — Asynchronous slime RL</div>
+    <h2>Decoupling Generation and Training: The slime Infrastructure</h2>
+    <p>Training agentic models with Reinforcement Learning (RL) presents a system bottleneck. Agent environments (e.g. running code tests, executing search queries) are slow and synchronous. In naive RL pipelines, the expensive training GPUs sit idle (0% utilization) while waiting for the rollout engine to generate trajectories from the environment. This makes training extremely slow.</p>
+    <p>To maximize GPU utilization, GLM-5 adopts the <strong>slime</strong> post-training framework. slime completely decouples the rollout engine (inference nodes) from the training engine (training nodes) via a central Multi-Task Rollout Orchestrator. The rollout engine runs asynchronously on cheaper hardware, generating trajectories and feeding them into a queue. The training engine pulls batches from this queue and updates weights continuously, keeping training GPUs at 100% utilization. To maintain stability during asynchronous training, slime implements a <strong>Token-in-Token-out (TITO)</strong> gateway to align tokenization steps and uses token-level clipping to control off-policy bias.</p>
+  </section>
+
+  <section id="s-topk" data-code="topk">
+    <div class="section-no">05 — Deterministic top-k</div>
+    <h2>The DSA Stability Trick: Deterministic Top-k</h2>
+    <p>During GLM-5's large-scale Reinforcement Learning training on the DSA architecture, researchers encountered severe stability issues. After only a few RL steps, the model's performance would drop drastically, accompanied by a sharp collapse in policy entropy. The culprit was the attention indexer's selection mechanism.</p>
+    <p>To select the top-2048 keys, typical inference engines (like SGLang) use highly optimized CUDA or TileLang top-$k$ operators. Because these operators run parallel reductions across GPU threads, they are <strong>non-deterministic</strong> — the output indices can vary slightly across runs due to floating-point sorting order. While harmless during inference, this non-determinism introduces noise into the GRPO advantage estimates. The policy quickly collapses under this gradient variance. By replacing the custom CUDA kernels with PyTorch's slower but strictly <strong>deterministic</strong> <code>torch.topk</code> operator, the training stabilized, and the model resumed learning reasoning trajectories.</p>
+    
+    <div class="vp">
+      <div class="vp-head">
+        <span class="vp-title">RL Training Entropy Collapse under Top-k Variance</span>
+      </div>
+      <div class="vp-body">
+        <div class="bar-container" id="entropy-bars" style="gap: 1.25rem; margin: 0.5rem 0;">
+          <!-- Row 1 -->
+          <div class="bar-row" style="flex-direction: column; align-items: stretch; gap: 0.35rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: var(--ff-mono);">
+              <span style="color: var(--text2); font-weight: 600;">Non-Det CUDA top-k</span>
+              <span style="color: #ef4444; font-weight: 700;">12% Entropy (Collapsed)</span>
+            </div>
+            <div class="bar-track" style="height: 10px;">
+              <div class="bar-fill" data-w="12" style="background: #ef4444; width: 0%;"></div>
+            </div>
+          </div>
+          <!-- Row 2 -->
+          <div class="bar-row" style="flex-direction: column; align-items: stretch; gap: 0.35rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: var(--ff-mono);">
+              <span style="color: var(--text2); font-weight: 600;">Deterministic torch.topk</span>
+              <span style="color: var(--purple-l); font-weight: 700;">92% Entropy (Stable)</span>
+            </div>
+            <div class="bar-track" style="height: 10px;">
+              <div class="bar-fill purple" data-w="92" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+        <p style="font-size:0.75rem; color:var(--muted); margin-top:0.75rem; text-align:center;">
+          Non-deterministic sorting introduces noise that destroys policy exploration in GRPO within 50 steps.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-distillation" data-code="distillation">
+    <div class="section-no">06 — Distill & Benchmarks</div>
+    <h2>Cross-Stage Distillation & Real-World PAYOFF</h2>
+    <p>GLM-5 is aligned via a sequential RL pipeline: first <strong>Reasoning RL</strong> (math, code, science reasoning), followed by <strong>Agentic RL</strong> (SWE-bench, terminal tasks, multi-hop search), and concluding with <strong>General RL</strong> (human alignment). However, optimizing sequentially causes models to forget previously learned skills (catastrophic forgetting). To solve this, Zhipu AI uses <strong>On-Policy Cross-Stage Distillation</strong>. The checkpoints from SFT and preceding RL stages act as "teacher" models. During training, advantage values are calculated directly as the relative log-ratio between the current policy and the teacher models, allowing the model to quickly recover previously learned skills.</p>
+    <p>Through these optimizations, GLM-5 achieves state-of-the-art results on agentic, coding, and long-horizon reasoning benchmarks, surpassing both open and closed models on complex tasks.</p>
+    
+    <div class="vp" id="s-results">
+      <div class="vp-head">
+        <span class="vp-title">GLM-5 Agentic and Coding Benchmarks</span>
+        <span class="vp-hint">Real benchmark scores from the technical report</span>
+      </div>
+      <div class="vp-body">
+        <div class="bar-container" id="result-bars">
+          <h3 style="margin: 0.5rem 0; font-size: 0.8rem; color: var(--muted);">SWE-bench Verified (Resolved %)</h3>
+          <div class="bar-row">
+            <span class="bar-lbl">GLM-5 (Open)</span>
+            <div class="bar-track">
+              <div class="bar-fill purple" data-w="50.4">50.4%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Claude Opus 4.5</span>
+            <div class="bar-track">
+              <div class="bar-fill cyan" data-w="43.4">43.4%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">DeepSeek-V3.2 (Open)</span>
+            <div class="bar-track">
+              <div class="bar-fill grey" data-w="40.8">40.8%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">GLM-4.7 (Baseline)</span>
+            <div class="bar-track">
+              <div class="bar-fill grey" data-w="30.5">30.5%</div>
+            </div>
+          </div>
+
+          <h3 style="margin: 1.5rem 0 0.5rem 0; font-size: 0.8rem; color: var(--muted);">Terminal-Bench 2.0 (Success %)</h3>
+          <div class="bar-row">
+            <span class="bar-lbl">GLM-5 (Open)</span>
+            <div class="bar-track">
+              <div class="bar-fill purple" data-w="80.9">80.9%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Claude Opus 4.5</span>
+            <div class="bar-track">
+              <div class="bar-fill cyan" data-w="76.2">76.2%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">GPT-5.2 (xhigh)</span>
+            <div class="bar-track">
+              <div class="bar-fill grey" data-w="80.0">80.0%</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">GLM-4.7 (Baseline)</span>
+            <div class="bar-track">
+              <div class="bar-fill grey" data-w="67.8">67.8%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Listen-friendly content (hidden summary played during audio playback) -->
+  <div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+    <div lang="en">
+      <h2>Audio Summary: GLM-5 & 5.2 - From Vibe Coding to Agentic Engineering</h2>
+      <p>This article explores how Zhipu AI's GLM-5 and GLM-5.2 Mixture-of-Experts models are designed to enable autonomous software engineering over long-horizon tasks. We detail two primary architectural breakthroughs. First, parameter-shared multi-token prediction allows speculative decoding K steps ahead during inference without the memory expansion of separate layers, raising acceptance rates to 2.76 tokens. Second, IndexShare sparse attention reuses computed relevance indices across blocks of four layers, achieving a 2.9 times reduction in per-token attention computation at a one-million token context window.</p>
+      <p>We also outline key post-training innovations. The slime framework decouples rollout environments from GPU training nodes, ensuring constant training hardware utilization. We discuss the stabilization of Reinforcement Learning through deterministic top-k operations and on-policy cross-stage distillation to resolve capability forgetting, yielding state-of-the-art results on SWE-bench and Terminal-Bench.</p>
+    </div>
+    <div lang="zh">
+      <h2>语音摘要：GLM-5 & 5.2 - 从 Vibe Coding 迈向智能体工程</h2>
+      <p>本文深入探讨了智谱 AI 推出的 GLM-5 及 GLM-5.2 混合专家（MoE）模型如何通过架构优化支持长程软件智能体工程。文章详细介绍了两项核心架构创新。首先是参数共享的多 Token 预测技术，它允许模型在推理时投机预测多个 Token，而无需增加额外网络层的内存开销，从而将投机接受长度提升至 2.76 个 Token。其次是 IndexShare 稀疏注意力机制，它在每四个注意力层之间复用一次稀疏检索决策，在 100 万 Token 的超长上下文下将每个 Token 的注意力计算量降低了 2.9 倍。</p>
+      <p>此外，文章总结了后训练（Aligning）阶段的关键系统创新，包括通过 slime 异步框架解耦环境 Rollout 生成与 GPU 训练，利用确定性 top-k 操作稳定强化学习（GRPO/IcePop）收敛，以及使用跨阶段链式蒸馏解决灾难性遗忘。这些优化最终在 SWE-bench 和 Terminal-Bench 等复杂智能体与代码评测中取得了超越闭源旗舰模型的效果。</p>
+    </div>
+  </div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">agent_loop.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Agentic Era</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="vibe">vibe</button>
+    <button class="cs-tab" data-panel="mtp">mtp</button>
+    <button class="cs-tab" data-panel="indexshare">indexshare</button>
+    <button class="cs-tab" data-panel="slime">slime</button>
+    <button class="cs-tab" data-panel="topk">topk</button>
+    <button class="cs-tab" data-panel="distillation">distill</button>
+  </div>
+  <div class="cs-body" id="cs-body">
+    <!-- Rendered dynamically -->
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script is:inline>
+const PANELS = {
+  vibe: `# outer execution loop of an agentic engineering task
+import os
+import subprocess
+
+def run_agentic_loop(prompt, max_turns=30):
+    # SFT: Interleaved & Preserved Thinking
+    thinking_history = []
+    
+    # Initialize workspace state
+    state = {"workspace": "/workspace", "status": "running"}
+    
+    for turn in range(max_turns):
+        # 1. Generate next step (thought + action)
+        # GLM-5 preserves thinking blocks across turns to avoid re-deriving
+        response = model.generate(
+            prompt=prompt,
+            history=thinking_history,
+            thinking_mode="Preserved"  # Reuses prior thoughts
+        )
+        
+        # 2. Extract tool call from response
+        tool_call = extract_tool_call(response)
+        if not tool_call:
+            break
+            
+        # 3. Execute tool in sandbox
+        observation = execute_tool(tool_call, state)
+        
+        # 4. Update thinking history
+        thinking_history.append({
+            "turn": turn,
+            "thought": response.thinking_block,
+            "action": tool_call,
+            "observation": observation
+        })
+        
+        if state["status"] == "finished":
+            break`,
+
+  mtp: `# GLM-5 Parameter-Shared MTP Forward Pass
+import torch
+import torch.nn as nn
+
+class SharedMTP(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        # 1. Main backbone model weights
+        self.transformer = config.transformer
+        
+        # 2. Single MTP projection layer shared across K steps
+        # This keeps the parameters flat (0% overhead)
+        self.mtp_projection = nn.Linear(config.hidden_size, config.vocab_size)
+        
+    def forward(self, hidden_states, K=3):
+        # Predict K future tokens in parallel using the SAME weights
+        mtp_logits = []
+        x = hidden_states
+        
+        for step in range(1, K + 1):
+            # Share projection weights across all speculative steps
+            # Target token for step k is x_{t+k}
+            logits = self.mtp_projection(x)
+            mtp_logits.append(logits)
+            
+            # Predict next state representation
+            x = self.transformer.predict_next_hidden(x)
+            
+        return mtp_logits`,
+
+  indexshare: `# GLM-5.2 IndexShare Sparse Attention Layer
+import torch
+import torch.nn as nn
+
+class IndexShareAttention(nn.Module):
+    def __init__(self, config, layer_idx):
+        super().__init__()
+        self.layer_idx = layer_idx
+        self.num_heads = config.num_heads
+        self.head_dim = 256  # MLA-256 variant: wider head, 1/3 fewer heads
+        
+    def forward(self, q, kv_cache, indexer_cache):
+        # IndexShare: Reuse routing decisions across blocks of 4 layers
+        block_idx = self.layer_idx // 4
+        is_indexer_layer = (self.layer_idx % 4 == 0)
+        
+        if is_indexer_layer:
+            # 1. Compute sparse attention indexer (token relevance scores)
+            # This is O(L^2) retrieval overhead, run once per 4 layers
+            sparse_indices = self.run_indexer(q, kv_cache)
+            indexer_cache.store(block_idx, sparse_indices)
+        else:
+            # 2. Reuse cached indices, bypassing indexer calculation
+            # Saves 2.9x FLOPs at 1M context length
+            sparse_indices = indexer_cache.get(block_idx)
+            
+        # 3. Compute attention sparsely over retrieved KV subset
+        out = self.compute_sparse_attn(q, kv_cache, sparse_indices)
+        return out`,
+
+  slime: `# slime framework: Decoupled Rollout & Training Engines
+import queue
+import threading
+
+class SlimeOrchestrator:
+    def __init__(self, config):
+        self.rollout_queue = queue.Queue(maxsize=100)
+        self.training_queue = queue.Queue(maxsize=10)
+        self.tito_gateway = TITOGateway()  # Token-in-Token-out
+        
+    def start_rollout_engines(self, num_servers):
+        # Decouple rollout generation from training
+        for i in range(num_servers):
+            threading.Thread(target=self._rollout_worker, daemon=True).start()
+            
+    def _rollout_worker(self):
+        while True:
+            prompt = self.rollout_queue.get()
+            # Asynchronous rollout on cheap inference nodes
+            trajectory = rollout_engine.generate(prompt)
+            # Preserving action-level correspondence via TITO
+            tito_traj = self.tito_gateway.process(trajectory)
+            self.training_queue.put(tito_traj)
+            
+    def train_step(self, optimizer):
+        # Training engine runs at 100% GPU utilization, no waiting
+        tito_batch = self.training_queue.get()
+        loss = compute_icepop_loss(tito_batch)
+        loss.backward()
+        optimizer.step()`,
+
+  topk: `# DSA Indexer Token Selection: Deterministic vs Non-Deterministic
+import torch
+
+def run_dsa_indexer(query, keys, deterministic=True):
+    # Compute relevance logits
+    logits = torch.matmul(query, keys.transpose(-2, -1))
+    k = 2048  # Large top-k for Indexer compared to MoE
+    
+    if deterministic:
+        # torch.topk is strictly deterministic
+        # Essential for RL stability to avoid training-inference mismatch
+        values, indices = torch.topk(logits, k=k, dim=-1)
+    else:
+        # CUDA/TileLang custom top-k are non-deterministic due to parallel reduction
+        # Breaks RL optimization, causing severe entropy collapse
+        values, indices = cuda_fast_topk(logits, k=k)
+        
+    return indices`,
+
+  distillation: `# GRPO + IcePop with On-Policy Cross-Stage Distillation
+import torch
+
+def compute_icepop_loss(logits_train, logits_infer, advantages, beta=2.0):
+    # 1. Compute training-inference mismatch ratio (rho)
+    probs_train = torch.softmax(logits_train, dim=-1)
+    probs_infer = torch.softmax(logits_infer, dim=-1)
+    rho = probs_train / (probs_infer + 1e-8)
+    
+    # 2. IcePop operator pop(rho, 1/beta, beta)
+    # Suppresses samples where mismatch deviates excessively
+    mask = (rho >= 1/beta) & (rho <= beta)
+    pop_rho = torch.where(mask, rho, torch.zeros_like(rho))
+    
+    # 3. Double-sided Importance Sampling PPO clipping
+    surr1 = pop_rho * advantages
+    surr2 = torch.clamp(pop_rho, 1-0.2, 1+0.28) * advantages
+    loss = -torch.min(surr1, surr2).mean()
+    
+    return loss`
+};
+
+const tabMeta = {
+  vibe:         { file: 'agent_loop.py',     title: 'The Agentic Era' },
+  mtp:          { file: 'shared_mtp.py',     title: 'Shared-Weight MTP' },
+  indexshare:   { file: 'index_share.py',    title: 'IndexShare Attention' },
+  slime:        { file: 'asyn_rl_slime.py',  title: 'Asynchronous slime RL' },
+  topk:         { file: 'dsa_topk.py',       title: 'Deterministic top-k' },
+  distillation: { file: 'icepop_grpo.py',    title: 'Distill & Benchmarks' },
+};
+
+// ---------- Single-pass syntax highlighter ----------
+function hl(raw) {
+  const src = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const KW  = new Set(['def','class','return','if','else','elif','for','while',
+                       'import','from','None','True','False','not','and','or',
+                       'in','is','with','as','self','try','except','raise',
+                       'pass','super','isinstance','lambda']);
+  const CLS = new Set(['int','str','bool','float','dict','list','tuple',
+                       'torch','nn','F','Optional','Dict','Tuple','Tensor','Store']);
+  let out = '', i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '#') {
+      const j = src.indexOf('\n', i);
+      const end = j < 0 ? src.length : j;
+      out += `<span class="cmt">${src.slice(i, end)}</span>`;
+      i = end; continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const tq = ch.repeat(3);
+      const triple = src.slice(i, i + 3) === tq;
+      const delim = triple ? tq : ch;
+      let j = i + delim.length;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (src.slice(j, j + delim.length) === delim) { j += delim.length; break; }
+        j++;
+      }
+      out += `<span class="str">${src.slice(i, j)}</span>`;
+      i = j; continue;
+    }
+    const wm = src.slice(i).match(/^[a-zA-Z_]\w*/);
+    if (wm) {
+      const w = wm[0];
+      const isFn = /^\s*\(/.test(src.slice(i + w.length));
+      if (isFn)            out += `<span class="fn">${w}</span>`;
+      else if (KW.has(w))  out += `<span class="kw">${w}</span>`;
+      else if (CLS.has(w)) out += `<span class="cls">${w}</span>`;
+      else                 out += w;
+      i += w.length; continue;
+    }
+    const nm = src.slice(i).match(/^\d[\d_]*(?:\.\d+)?(?:e-?\d+)?/);
+    if (nm && (i === 0 || !/\w/.test(src[i - 1]))) {
+      out += `<span class="num">${nm[0]}</span>`;
+      i += nm[0].length; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+const csBody = document.getElementById('cs-body');
+function renderPanels() {
+  csBody.innerHTML = Object.keys(PANELS).map(name => {
+    const lines = PANELS[name].split('\n')
+      .map(l => `<span class="cs-line">${hl(l)}</span>`).join('\n');
+    return `<div class="cs-panel${name==='vibe'?' active':''}" id="panel-${name}"><pre class="cs-pre">${lines}</pre></div>`;
+  }).join('');
+}
+renderPanels();
+
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ---------- TOC + sidebar toggles ----------
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ---------- Scroll sync ----------
+const sectionMap = {
+  's-vibe':'vibe','s-mtp':'mtp','s-indexshare':'indexshare',
+  's-slime':'slime','s-topk':'topk','s-distillation':'distillation'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ---------- helper: hi-dpi canvas ----------
+function fitCanvas(cv, h) {
+  const DPR = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || cv.parentElement.clientWidth;
+  cv.width = W * DPR; cv.height = h * DPR;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  return { ctx, W, H: h };
+}
+
+// ============ 02 speculative simulator ============
+(function(){
+  let model = 'shared';
+  let K = 3;
+  let animTimer = null;
+  
+  const mtpKVal = document.getElementById('mtp-k-val');
+  const mtpKSlider = document.getElementById('mtp-k-slider');
+  const simText = document.getElementById('sim-text-flow');
+  const btnRun = document.getElementById('btn-run-sim');
+  const statSpeedup = document.getElementById('stat-speedup');
+  const statAccept = document.getElementById('stat-accept');
+  const statMem = document.getElementById('stat-mem');
+  
+  const modelStats = {
+    single: { speedup: '1.58x', accept: '2.55', mem: '0%' },
+    shared: { speedup: '1.82x', accept: '2.76', mem: '0%' },
+    multi:  { speedup: '1.85x', accept: '2.78', mem: '200%' }
+  };
+  
+  mtpKSlider.addEventListener('input', (e) => {
+    K = +e.target.value;
+    mtpKVal.textContent = `${K} Step${K > 1 ? 's' : ''}`;
+  });
+  
+  document.querySelectorAll('#mtp-model-ctrls .vp-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#mtp-model-ctrls .vp-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      model = b.dataset.model;
+      
+      // Update quick dashboard stats
+      statSpeedup.textContent = modelStats[model].speedup;
+      statAccept.textContent = modelStats[model].accept;
+      statMem.textContent = modelStats[model].mem;
+    });
+  });
+  
+  const simulationCode = [
+    { text: 'low', isAccept: true },
+    { text: '=', isAccept: true },
+    { text: '0', isAccept: true },
+    { text: '\\n    ', isAccept: true, isNewline: true },
+    { text: 'high', isAccept: true },
+    { text: '=', isAccept: true },
+    { text: 'len(arr)', isAccept: true },
+    { text: '-', isAccept: true },
+    { text: '1', isAccept: true },
+    { text: '\\n    ', isAccept: true, isNewline: true },
+    { text: 'while', isAccept: true },
+    { text: 'low', isAccept: true },
+    { text: '<=', isAccept: true, rejectInModel: ['single'] }, // Single-Layer fails here (guesses '<')
+    { text: 'high:', isAccept: true },
+    { text: '\\n        ', isAccept: true, isNewline: true },
+    { text: 'mid', isAccept: true },
+    { text: '=', isAccept: true },
+    { text: '(low', isAccept: true },
+    { text: '+', isAccept: true },
+    { text: 'high)', isAccept: true },
+    { text: '//', isAccept: true },
+    { text: '2', isAccept: true }
+  ];
+  
+  btnRun.addEventListener('click', () => {
+    if (animTimer) clearInterval(animTimer);
+    btnRun.disabled = true;
+    btnRun.textContent = '⚡ Simulating speculative verification...';
+    simText.innerHTML = '';
+    
+    let index = 0;
+    let totalSteps = 0;
+    let acceptedCount = 0;
+    
+    function runNextStep() {
+      if (index >= simulationCode.length) {
+        clearInterval(animTimer);
+        btnRun.disabled = false;
+        btnRun.textContent = '▶ Run Speculative Generation';
+        return;
+      }
+      
+      // Simulate draft block generation
+      let draftTokens = [];
+      let currentK = K;
+      
+      // We generate K draft tokens starting at index
+      for (let offset = 0; offset < currentK; offset++) {
+        const item = simulationCode[index + offset];
+        if (!item) break;
+        draftTokens.push(item);
+      }
+      
+      let stepText = '';
+      let isVerified = true;
+      let acceptedInStep = 0;
+      
+      draftTokens.forEach((tok, offset) => {
+        const spanId = `tok-${index}-${offset}`;
+        if (tok.isNewline) {
+          stepText += `<br>`;
+        } else {
+          stepText += `<span class="sim-token draft" id="${spanId}">${tok.text}</span> `;
+        }
+      });
+      
+      simText.innerHTML += stepText;
+      simText.scrollTop = simText.scrollHeight;
+      
+      // Run target validation after a tiny delay
+      setTimeout(() => {
+        draftTokens.forEach((tok, offset) => {
+          const span = document.getElementById(`tok-${index}-${offset}`);
+          if (!span) return;
+          
+          span.classList.remove('draft');
+          
+          // Check if token is rejected by the selected model
+          const isRejectedByModel = tok.rejectInModel && tok.rejectInModel.includes(model);
+          
+          if (isVerified && !isRejectedByModel) {
+            span.classList.add('accepted');
+            acceptedCount++;
+            acceptedInStep++;
+          } else {
+            if (isVerified) {
+              // First failure point: mark this token as rejected
+              span.classList.add('rejected');
+              isVerified = false;
+              
+              // Target model appends correct token as fallback
+              const corrSpan = document.createElement('span');
+              corrSpan.className = 'sim-token correction';
+              corrSpan.textContent = tok.text; // Target corrects it
+              span.parentNode.insertBefore(corrSpan, span.nextSibling);
+            } else {
+              // Discard subsequent tokens
+              span.style.opacity = '0.3';
+            }
+          }
+        });
+        
+        index += acceptedInStep + (isVerified ? 0 : 1);
+        if (index === 0 && !isVerified) index = 1; // safety increment
+        
+        totalSteps++;
+      }, 500);
+    }
+    
+    animTimer = setInterval(runNextStep, 1000);
+  });
+})();
+
+// ============ 03 IndexShare Visualizer ============
+(function(){
+  const lenSlider = document.getElementById('idx-len-slider');
+  const lenVal = document.getElementById('idx-len-val');
+  const cvChart = document.getElementById('cv-flops-chart');
+  
+  let isSharing = true;
+  let L = 1000000; // Sequence length
+  
+  lenSlider.addEventListener('input', (e) => {
+    L = Math.round(Math.pow(2, (+e.target.value / 100) + 12)); // map slider linearly to logarithmic context
+    if (L > 1000000) L = 1000000;
+    lenVal.textContent = `${L.toLocaleString()} Tokens`;
+    drawChart();
+  });
+  
+  document.querySelectorAll('#idx-toggle-ctrls .vp-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#idx-toggle-ctrls .vp-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      isSharing = b.dataset.mode === 'on';
+      
+      // Update visual layer stack representation
+      const layers = [
+        document.getElementById('idx-layer-0'),
+        document.getElementById('idx-layer-1'),
+        document.getElementById('idx-layer-2'),
+        document.getElementById('idx-layer-3')
+      ];
+      
+      layers.forEach((layer, idx) => {
+        if (!isSharing) {
+          layer.className = 'idx-layer calc';
+          layer.querySelector('.idx-layer-action').textContent = 'Calculate Indexer';
+        } else {
+          if (idx === 0) {
+            layer.className = 'idx-layer calc';
+            layer.querySelector('.idx-layer-action').textContent = 'Calculate Indexer';
+          } else {
+            layer.className = 'idx-layer reuse';
+            layer.querySelector('.idx-layer-action').textContent = 'Reuse Cache';
+          }
+        }
+      });
+      
+      drawChart();
+    });
+  });
+  
+  function drawChart() {
+    if (!cvChart) return;
+    const { ctx, W, H } = fitCanvas(cvChart, 200);
+    ctx.clearRect(0,0,W,H);
+    
+    // Draw axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 10); ctx.lineTo(40, H-30); ctx.lineTo(W-20, H-30);
+    ctx.stroke();
+    
+    // Draw grid lines
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    
+    const xLabels = ['4K', '32K', '128K', '512K', '1M'];
+    const xPositions = [40, (W-60)*0.25+40, (W-60)*0.5+40, (W-60)*0.75+40, W-20];
+    xLabels.forEach((lbl, idx) => {
+      ctx.fillText(lbl, xPositions[idx], H-16);
+      ctx.beginPath();
+      ctx.moveTo(xPositions[idx], H-30);
+      ctx.lineTo(xPositions[idx], H-34);
+      ctx.stroke();
+    });
+    
+    // Plot curves
+    ctx.lineWidth = 2;
+    
+    // Standard DSA Curve (Red/Orange)
+    ctx.strokeStyle = '#f59e0b';
+    ctx.beginPath();
+    for (let x = 40; x <= W-20; x++) {
+      const pct = (x - 40) / (W - 60);
+      const val = Math.pow(pct, 1.8) * 120 + 20; // curve shape
+      const y = H - 30 - val;
+      if (x === 40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#f59e0b'; ctx.textAlign = 'left';
+    ctx.fillText('DSA (No Sharing)', W-120, H-155);
+    
+    // IndexShare Curve (Green)
+    ctx.strokeStyle = '#10b981';
+    ctx.beginPath();
+    for (let x = 40; x <= W-20; x++) {
+      const pct = (x - 40) / (W - 60);
+      const val = Math.pow(pct, 1.8) * 41 + 20; // IndexShare flattens flops
+      const y = H - 30 - val;
+      if (x === 40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('IndexShare (GLM-5.2)', W-120, H-80);
+    
+    // Dot mapping for current L
+    const minL = 4096;
+    const maxL = 1000000;
+    const logMin = Math.log(minL);
+    const logMax = Math.log(maxL);
+    const logVal = Math.log(L);
+    const pct = (logVal - logMin) / (logMax - logMin);
+    
+    const dotX = 40 + pct * (W - 60);
+    
+    // Y positions
+    const yStd = H - 30 - (Math.pow(pct, 1.8) * 120 + 20);
+    const yShare = H - 30 - (Math.pow(pct, 1.8) * 41 + 20);
+    
+    // Draw standard dot
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath(); ctx.arc(dotX, yStd, 5, 0, Math.PI*2); ctx.fill();
+    
+    // Draw share dot
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.arc(dotX, yShare, 5, 0, Math.PI*2); ctx.fill();
+    
+    // Draw dashed connecting line if sharing active
+    if (isSharing) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(dotX, yStd); ctx.lineTo(dotX, yShare); ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Print saving text
+      const saving = (Math.pow(pct, 1.8) * 120 + 20) / (Math.pow(pct, 1.8) * 41 + 20);
+      ctx.fillStyle = '#fff'; ctx.font = '700 10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`${saving.toFixed(1)}x FLOP Saving`, dotX, Math.min(yStd, yShare) - 15);
+    }
+  }
+  
+  drawChart();
+  window.addEventListener('resize', drawChart);
+})();
+
+// ============ 05 entropy bars ============
+(function(){
+  const sec = document.getElementById('s-topk');
+  if (!sec) return;
+  new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        document.querySelectorAll('#entropy-bars .bar-fill[data-w]').forEach(b=>{
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  },{threshold:0.3}).observe(sec);
+})();
+
+// ============ 06 results bars ============
+(function(){
+  const sec = document.getElementById('s-results');
+  if (!sec) return;
+  new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        document.querySelectorAll('#result-bars .bar-fill[data-w]').forEach(b=>{
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  },{threshold:0.3}).observe(sec);
+})();
+</script>
