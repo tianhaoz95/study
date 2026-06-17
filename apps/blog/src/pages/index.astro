@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { postReadTime } from '../lib/readTimes';
+import { postLinks } from '../lib/postLinks';
 
 const BATCH = 20;
 
@@ -12,6 +13,8 @@ interface Post {
   desc: string;
   date: string;
   read: string;
+  github?: boolean;
+  paper?: boolean;
 }
 
 const latestPosts: Post[] = [
@@ -1130,8 +1133,15 @@ const latestPosts: Post[] = [
   },
 ];
 
-const initialPosts = latestPosts.slice(0, BATCH);
-const deferredPosts = latestPosts.slice(BATCH);
+// Enrich every post with build-time GitHub / paper link detection so the
+// listing can be filtered by link availability on the client.
+const enrichedPosts: Post[] = latestPosts.map(p => {
+  const slug = p.href.match(/\/posts\/([^/]+)/)?.[1] ?? '';
+  return { ...p, ...postLinks(slug) };
+});
+
+const initialPosts = enrichedPosts.slice(0, BATCH);
+const deferredPosts = enrichedPosts.slice(BATCH);
 ---
 <BaseLayout title="AI/ML Deep Dives">
 <style is:global>
@@ -1437,6 +1447,101 @@ const deferredPosts = latestPosts.slice(BATCH);
     line-height: 1.7;
   }
   .search-empty strong { color: var(--text2); }
+
+  /* ── Tag autosuggest dropdown ─────────────────────────────────────── */
+  .search-suggest {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    margin: 0;
+    padding: .3rem;
+    list-style: none;
+    background: var(--card);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    box-shadow: 0 14px 36px rgba(0,0,0,.42);
+    max-height: 19rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hi) transparent;
+  }
+  .search-suggest[hidden] { display: none; }
+  .suggest-item {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .45rem .6rem;
+    border-radius: calc(var(--radius) - 4px);
+    cursor: pointer;
+    font-size: .8rem;
+    color: var(--muted2);
+  }
+  .suggest-item[aria-selected="true"],
+  .suggest-item:hover { background: var(--surface); color: var(--text2); }
+  .suggest-item svg { width: 14px; height: 14px; opacity: .8; flex-shrink: 0; }
+  .suggest-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .suggest-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggest-text mark { background: none; color: var(--purple-l); font-weight: 600; }
+  .suggest-kind {
+    font-family: var(--ff-mono);
+    font-size: .58rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .suggest-empty { padding: .65rem; color: var(--muted); font-size: .78rem; }
+
+  /* ── Active filter chips ──────────────────────────────────────────── */
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-bottom: 1rem;
+  }
+  .active-filters[hidden] { display: none; }
+  .active-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .28rem .35rem .28rem .65rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-hi);
+    background: var(--surface);
+    color: var(--text2);
+    font-size: .74rem;
+    line-height: 1;
+  }
+  .active-chip svg { width: 12px; height: 12px; opacity: .85; }
+  .active-chip .active-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,.07);
+    color: inherit;
+    font-size: .8rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .active-chip .active-x:hover { background: rgba(255,255,255,.18); }
+  .active-clear {
+    align-self: center;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-family: var(--ff-mono);
+    font-size: .66rem;
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .active-clear:hover { color: var(--purple-l); }
   .post-progress-bar {
     position: absolute;
     bottom: 0;
@@ -1517,9 +1622,14 @@ const deferredPosts = latestPosts.slice(BATCH);
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
     <input id="post-search" class="search-input" type="search"
-      placeholder="Search posts by title, topic, or tag…"
-      autocomplete="off" spellcheck="false" aria-label="Search posts" />
+      placeholder="Search posts, or type a tag to filter…"
+      autocomplete="off" spellcheck="false" aria-label="Search posts"
+      role="combobox" aria-expanded="false" aria-controls="search-suggest" aria-autocomplete="list" />
+    <ul id="search-suggest" class="search-suggest" role="listbox" aria-label="Tag suggestions" hidden></ul>
   </div>
+
+  <div id="active-filters" class="active-filters" hidden></div>
+
   <div id="search-status" class="search-status" hidden></div>
 
   <div id="posts-list">
@@ -1560,7 +1670,7 @@ const deferredPosts = latestPosts.slice(BATCH);
 {deferredPosts.length > 0 && (
   <script type="application/json" id="deferred-posts" set:html={JSON.stringify(deferredPosts)} />
 )}
-<script type="application/json" id="all-posts" set:html={JSON.stringify(latestPosts)} />
+<script type="application/json" id="all-posts" set:html={JSON.stringify(enrichedPosts)} />
 
 <footer data-i18n="blog-footer">Built with curiosity. Source on GitHub.</footer>
 </BaseLayout>
@@ -1701,6 +1811,8 @@ const deferredPosts = latestPosts.slice(BATCH);
     desc: string;
     date: string;
     read: string;
+    github?: boolean;
+    paper?: boolean;
   }
 
   const searchInput  = document.getElementById('post-search')   as HTMLInputElement | null;
@@ -1774,11 +1886,143 @@ const deferredPosts = latestPosts.slice(BATCH);
       if (sentinelEl) sentinelEl.style.display = active ? 'none' : '';
     }
 
-    searchInput.addEventListener('input', () => {
-      const raw = searchInput.value;
-      const q   = raw.trim().toLowerCase();
+    // ── Active filters + tag autosuggest ──────────────────────────────────
+    const suggestEl = document.getElementById('search-suggest') as HTMLUListElement | null;
+    const activeEl  = document.getElementById('active-filters') as HTMLElement | null;
 
-      if (!q) {
+    const selectedTags = new Set<string>();
+    let needGithub = false;
+    let needPaper  = false;
+
+    function activeFilterCount() {
+      return selectedTags.size + (needGithub ? 1 : 0) + (needPaper ? 1 : 0);
+    }
+
+    // Unique, sorted tag list derived from the corpus, for suggestions.
+    const tagClsMap = new Map<string, string>();
+    for (const p of allPosts) {
+      for (const t of p.tags) if (!tagClsMap.has(t.text)) tagClsMap.set(t.text, t.cls);
+    }
+    const tagList = [...tagClsMap.entries()]
+      .map(([text, cls]) => ({ text, cls }))
+      .sort((a, b) => a.text.localeCompare(b.text));
+
+    // Link facets surface as suggestions when the typed text resembles them.
+    const FACETS = [
+      { id: 'github' as const, label: 'Has GitHub repo', keywords: ['github', 'repo', 'code', 'source'] },
+      { id: 'paper'  as const, label: 'Has paper link',  keywords: ['paper', 'arxiv', 'pdf', 'research'] },
+    ];
+    const GH_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>';
+    const PAPER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+    const facetActive = (id: string) => (id === 'github' ? needGithub : needPaper);
+
+    type Suggestion =
+      | { type: 'tag'; text: string; cls: string }
+      | { type: 'facet'; id: 'github' | 'paper'; label: string };
+
+    let suggestions: Suggestion[] = [];
+    let activeIdx = -1;
+
+    function highlightMatch(text: string, q: string): string {
+      const i = text.toLowerCase().indexOf(q.toLowerCase());
+      if (q === '' || i < 0) return escSearch(text);
+      return escSearch(text.slice(0, i))
+        + '<mark>' + escSearch(text.slice(i, i + q.length)) + '</mark>'
+        + escSearch(text.slice(i + q.length));
+    }
+
+    function closeSuggest() {
+      if (!suggestEl) return;
+      suggestEl.hidden = true;
+      suggestEl.innerHTML = '';
+      suggestions = [];
+      activeIdx = -1;
+      searchInput!.setAttribute('aria-expanded', 'false');
+      searchInput!.removeAttribute('aria-activedescendant');
+    }
+
+    function renderSuggestions(raw: string) {
+      if (!suggestEl) return;
+      const ql = raw.trim().toLowerCase();
+      const out: Suggestion[] = [];
+      if (ql) {
+        for (const f of FACETS) {
+          if (facetActive(f.id)) continue;
+          if (f.keywords.some(k => k.includes(ql) || ql.includes(k))) {
+            out.push({ type: 'facet', id: f.id, label: f.label });
+          }
+        }
+        for (const t of tagList) {
+          if (selectedTags.has(t.text)) continue;
+          if (t.text.toLowerCase().includes(ql)) out.push({ type: 'tag', text: t.text, cls: t.cls });
+        }
+      }
+      suggestions = out.slice(0, 8);
+      activeIdx = -1;
+      if (suggestions.length === 0) { closeSuggest(); return; }
+
+      suggestEl.innerHTML = suggestions.map((s, i) => {
+        const head = `<li class="suggest-item" role="option" id="suggest-${i}" data-idx="${i}" aria-selected="false">`;
+        if (s.type === 'facet') {
+          return head + (s.id === 'github' ? GH_ICON : PAPER_ICON)
+            + `<span class="suggest-text">${escSearch(s.label)}</span><span class="suggest-kind">filter</span></li>`;
+        }
+        return head + `<span class="suggest-dot ${escSearch(s.cls)}"></span>`
+          + `<span class="suggest-text">${highlightMatch(s.text, ql)}</span><span class="suggest-kind">tag</span></li>`;
+      }).join('');
+      suggestEl.hidden = false;
+      searchInput!.setAttribute('aria-expanded', 'true');
+    }
+
+    function setActiveIdx(i: number) {
+      if (!suggestEl) return;
+      activeIdx = i;
+      suggestEl.querySelectorAll<HTMLLIElement>('.suggest-item').forEach((el, idx) => {
+        const on = idx === i;
+        el.setAttribute('aria-selected', String(on));
+        if (on) el.scrollIntoView({ block: 'nearest' });
+      });
+      if (i >= 0) searchInput!.setAttribute('aria-activedescendant', `suggest-${i}`);
+      else searchInput!.removeAttribute('aria-activedescendant');
+    }
+
+    function applySuggestion(s: Suggestion) {
+      if (s.type === 'facet') {
+        if (s.id === 'github') needGithub = true; else needPaper = true;
+      } else {
+        selectedTags.add(s.text);
+      }
+      searchInput!.value = '';
+      closeSuggest();
+      renderActiveFilters();
+      runQuery();
+      searchInput!.focus();
+    }
+
+    // ── Active filter chips (removable) ────────────────────────────────────
+    function renderActiveFilters() {
+      if (!activeEl) return;
+      if (activeFilterCount() === 0) { activeEl.hidden = true; activeEl.innerHTML = ''; return; }
+      const chips: string[] = [];
+      if (needGithub) chips.push(`<span class="active-chip">${GH_ICON}Has GitHub<button class="active-x" type="button" aria-label="Remove GitHub filter" data-remove-facet="github">×</button></span>`);
+      if (needPaper)  chips.push(`<span class="active-chip">${PAPER_ICON}Has paper<button class="active-x" type="button" aria-label="Remove paper filter" data-remove-facet="paper">×</button></span>`);
+      for (const text of selectedTags) {
+        const cls = tagClsMap.get(text) ?? '';
+        chips.push(`<span class="active-chip"><span class="suggest-dot ${escSearch(cls)}"></span>${escSearch(text)}<button class="active-x" type="button" aria-label="Remove tag filter" data-remove-tag="${escSearch(text)}">×</button></span>`);
+      }
+      chips.push(`<button class="active-clear" type="button" id="active-clear">Clear all</button>`);
+      activeEl.innerHTML = chips.join('');
+      activeEl.hidden = false;
+    }
+
+    // The unified query: combines free-text search with the filter facets.
+    function runQuery() {
+      const raw   = searchInput!.value;
+      const q     = raw.trim().toLowerCase();
+      const words = q.split(/\s+/).filter(Boolean);
+      const active = q !== '' || activeFilterCount() > 0;
+
+      if (!active) {
         setSearchMode(false);
         resultsEl.innerHTML = '';
         if (searchStatus) searchStatus.hidden = true;
@@ -1787,16 +2031,22 @@ const deferredPosts = latestPosts.slice(BATCH);
 
       setSearchMode(true);
 
-      const words   = q.split(/\s+/).filter(Boolean);
       const matches = allPosts.filter(p => {
-        const hay = [p.title, p.desc, ...p.tags.map(t => t.text)]
-          .join(' ').toLowerCase();
-        return words.every(w => hay.includes(w));
+        if (needGithub && !p.github) return false;
+        if (needPaper  && !p.paper)  return false;
+        if (selectedTags.size > 0 && !p.tags.some(t => selectedTags.has(t.text))) return false;
+        if (words.length > 0) {
+          const hay = [p.title, p.desc, ...p.tags.map(t => t.text)].join(' ').toLowerCase();
+          if (!words.every(w => hay.includes(w))) return false;
+        }
+        return true;
       });
 
       if (matches.length === 0) {
-        resultsEl.innerHTML =
-          `<div class="search-empty">No posts found for <strong>"${escSearch(raw)}"</strong></div>`;
+        const reason = q !== ''
+          ? `No posts found for <strong>"${escSearch(raw)}"</strong>`
+          : `No posts match the selected filters.`;
+        resultsEl.innerHTML = `<div class="search-empty">${reason}</div>`;
       } else {
         resultsEl.innerHTML = matches.map(buildSearchCard).join('');
         applyReadProgressSearch(resultsEl);
@@ -1807,10 +2057,68 @@ const deferredPosts = latestPosts.slice(BATCH);
 
       if (searchStatus) {
         searchStatus.hidden      = false;
-        searchStatus.textContent = matches.length === 1
-          ? '1 result'
-          : `${matches.length} results`;
+        searchStatus.textContent = matches.length === 1 ? '1 result' : `${matches.length} results`;
+      }
+    }
+
+    searchInput.addEventListener('input', () => {
+      renderSuggestions(searchInput!.value);
+      runQuery();
+    });
+
+    searchInput.addEventListener('focus', () => {
+      if (searchInput!.value.trim()) renderSuggestions(searchInput!.value);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (!suggestEl || suggestEl.hidden || suggestions.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveIdx(activeIdx + 1 >= suggestions.length ? 0 : activeIdx + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveIdx(activeIdx <= 0 ? suggestions.length - 1 : activeIdx - 1);
+      } else if (e.key === 'Enter') {
+        if (activeIdx >= 0 && suggestions[activeIdx]) {
+          e.preventDefault();
+          applySuggestion(suggestions[activeIdx]);
+        }
+      } else if (e.key === 'Escape') {
+        closeSuggest();
       }
     });
+
+    // mousedown (not click) so it fires before the input loses focus.
+    suggestEl?.addEventListener('mousedown', (e) => {
+      const li = (e.target as HTMLElement).closest('.suggest-item') as HTMLElement | null;
+      if (!li) return;
+      e.preventDefault();
+      const idx = parseInt(li.dataset.idx ?? '-1', 10);
+      if (suggestions[idx]) applySuggestion(suggestions[idx]);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!suggestEl || suggestEl.hidden) return;
+      const target = e.target as Node;
+      if (!suggestEl.contains(target) && target !== searchInput) closeSuggest();
+    });
+
+    // Removing / clearing active filter chips.
+    activeEl?.addEventListener('click', (e) => {
+      const el = e.target as HTMLElement;
+      const rmTag = el.closest('[data-remove-tag]') as HTMLElement | null;
+      if (rmTag) { selectedTags.delete(rmTag.dataset.removeTag!); renderActiveFilters(); runQuery(); return; }
+      const rmFacet = el.closest('[data-remove-facet]') as HTMLElement | null;
+      if (rmFacet) {
+        if (rmFacet.dataset.removeFacet === 'github') needGithub = false; else needPaper = false;
+        renderActiveFilters(); runQuery(); return;
+      }
+      if (el.id === 'active-clear') {
+        selectedTags.clear(); needGithub = false; needPaper = false;
+        renderActiveFilters(); runQuery();
+      }
+    });
+
+    renderActiveFilters();
   }
 </script>

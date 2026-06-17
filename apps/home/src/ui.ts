@@ -7,6 +7,7 @@ const HTML      = document.documentElement
 
 const translations: Record<Lang, Record<string, string>> = {
   en: {
+    'nav-brand':      'AI/ML Deep Dives',
     'nav-blog':       'Blog',
     'nav-subscribe':  'Subscribe',
     'hero-tag':       'AI · ML · Research',
@@ -31,6 +32,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'footer-github':  'GitHub',
   },
   zh: {
+    'nav-brand':      'AI/ML 深度解析',
     'nav-blog':       '博客',
     'nav-subscribe':  '订阅',
     'hero-tag':       'AI · 机器学习 · 研究',
