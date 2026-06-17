@@ -52,7 +52,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'footer-github':  'GitHub',
   },
   zh: {
-    'nav-brand':      'AI/ML 深度解析',
+    'nav-brand':      '喵布奇诺.ai',
     'nav-blog':       '博客',
     'nav-subscribe':  '订阅',
     'hero-tag':       'AI · 机器学习 · 研究',

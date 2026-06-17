@@ -33,7 +33,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'error-email':       'Please enter a valid email address.',
   },
   zh: {
-    'nav-brand':         'AI/ML 深度解析',
+    'nav-brand':         '喵布奇诺.ai',
     'nav-blog':          '博客',
     'eyebrow':           '个人研究博客',
     'heading-1':         '深入探索',
