@@ -1,0 +1,1236 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { postReadTime } from '../../../lib/readTimes';
+const readTime = postReadTime('veca-elastic-core-attention');
+---
+<BaseLayout
+  title="VECA: Vision Transformers Without Patch-to-Patch Attention | Catpuccino.ai"
+  description="VECA replaces quadratic ViT self-attention with elastic core-periphery attention: patches never talk directly — all communication flows through a small learned set of core tokens, cutting FLOPs to O(N) while staying competitive with DINOv3. Interactive."
+  crumb="VECA Elastic Core Attention"
+>
+
+<style is:global>
+/* ── Post base ─────────────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ────────────────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.post-body strong{color:var(--text2);font-weight:650}
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.25);border-radius:8px;padding:.9rem 1.1rem;margin:1.5rem 0;font-size:.875rem;color:var(--muted2);line-height:1.7}
+.callout b{color:var(--purple-l)}
+
+/* ── Viz panels ─────────────────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.vp-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.75rem}
+.vp-btn{padding:.35rem .85rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.vp-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.vp-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.vp-cap{font-size:.75rem;color:var(--muted);margin-top:.75rem;line-height:1.6;font-family:var(--ff-mono)}
+.vp-slider{display:flex;align-items:center;gap:.75rem;margin-top:.75rem;font-family:var(--ff-mono);font-size:.72rem;color:var(--muted2)}
+.vp-slider input[type=range]{flex:1;accent-color:var(--purple)}
+canvas{display:block;width:100%;border-radius:8px}
+
+/* ── Data table ─────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Math block ─────────────────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ─────────────────────────────────── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* ── Animated bars ──────────────────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:190px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+.bars-head{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin:1rem 0 .25rem;letter-spacing:.05em;text-transform:uppercase}
+
+/* ── TOC sidebar ────────────────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ───────────────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ── Two-panel comparison ───────────────────────────── */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1rem 0}
+.compare-panel{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem}
+.compare-label{font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem;font-family:var(--ff-mono)}
+.compare-label.red{color:#ef4444}.compare-label.green{color:var(--green)}
+.compare-stat{font-size:1.4rem;font-weight:800;font-family:var(--ff-mono)}
+.compare-sub{font-size:.72rem;color:var(--muted);margin-top:.2rem}
+@media(max-width:560px){.compare-grid{grid-template-columns:1fr}}
+
+/* ── Diagram: attention matrix ──────────────────────── */
+.attn-matrix-wrap{overflow-x:auto;margin:1.25rem 0}
+.attn-matrix-svg{min-width:340px}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Vision Transformers</span>
+    <span class="tag tag-cyan">Efficient Attention</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Vision Transformers Without Patch-to-Patch Attention</h1>
+  <p class="lead">
+    Standard ViTs pay a quadratic O(N²) cost because every patch attends to every other patch.
+    VECA asks: <em>what if patches never talked to each other directly?</em>
+    By routing all communication through a small learned set of C "core tokens",
+    it cuts attention to O(N) — and elastically trades accuracy for speed at inference time — while
+    staying within 2% of DINOv3 on ImageNet and 0.3 mIoU on dense segmentation.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 17, 2026</span>
+    <span>{readTime}</span>
+    <span>Paper: <code>arXiv:2605.12491</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.12491" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-quadratic"><a href="#s-quadratic"><span class="toc-num">01</span> The Quadratic Wall</a></li>
+    <li class="toc-item" id="toc-s-core"><a href="#s-core"><span class="toc-num">02</span> Core-Periphery Attention</a></li>
+    <li class="toc-item" id="toc-s-elastic"><a href="#s-elastic"><span class="toc-num">03</span> Elastic Inference</a></li>
+    <li class="toc-item" id="toc-s-emergent"><a href="#s-emergent"><span class="toc-num">04</span> Emergent Semantics</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─────────────────────────────────────────────────────── §01 -->
+<section id="s-quadratic" data-code="quadratic">
+<div class="section-no">01 — The Quadratic Wall</div>
+<h2>Why ViT Attention Breaks at High Resolution</h2>
+
+<p>
+  Vision Transformers divide an image into a grid of N non-overlapping patches.
+  Standard self-attention lets <strong>every patch attend to every other patch</strong>:
+  N patches × N patches = N² pairwise interactions. For a 256-pixel image with 16-pixel patches,
+  N = 256 and N² = 65,536 — manageable. But for 512 pixels, N = 1,024 and N² = 1,048,576.
+  At 1024 pixels N = 4,096 and N² = 16,777,216. Every doubling of resolution multiplies FLOPs by four.
+</p>
+
+<div class="compare-grid">
+  <div class="compare-panel">
+    <div class="compare-label red">Standard ViT (All-to-All)</div>
+    <div class="compare-stat" style="color:#ef4444">N²</div>
+    <div class="compare-sub">interactions per attention layer</div>
+  </div>
+  <div class="compare-panel">
+    <div class="compare-label green">VECA (Core-Periphery)</div>
+    <div class="compare-stat" style="color:var(--green)">2NC + C²</div>
+    <div class="compare-sub">interactions per attention layer</div>
+  </div>
+</div>
+
+<p>
+  At 512px resolution with C = 64 cores, VECA needs 2 × 1024 × 64 + 64² = 135,168 interactions —
+  <strong>87.1% fewer</strong> than the 1,048,576 of standard self-attention.
+  The key claim: this linear-time approximation loses almost nothing in representation quality.
+</p>
+
+<!-- Interactive: FLOPs vs resolution comparison canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">attention FLOPs vs resolution — all-to-all vs core-periphery</span>
+    <span class="vp-hint">drag slider</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="flops-canvas" height="220"></canvas>
+    <div class="vp-slider">
+      <span>Patch size P =</span>
+      <input type="range" id="patch-slider" min="8" max="32" step="8" value="16">
+      <span id="patch-label">16 px</span>
+    </div>
+    <div class="vp-cap" id="flops-cap">At 512px with P=16: standard = 1,048,576 ops  |  VECA (C=64) = 135,168 ops  (87.1% fewer)</div>
+  </div>
+</div>
+
+<p>
+  Prior efficient-attention methods (sparse windows, low-rank approximations, linear attention)
+  try to <em>approximate</em> the quadratic matrix while preserving its structure.
+  VECA takes a different approach: replace it entirely with a structurally different
+  <strong>core-periphery</strong> attention graph — patches only talk to each other indirectly,
+  mediated by the cores.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── §02 -->
+<section id="s-core" data-code="core">
+<div class="section-no">02 — Core-Periphery Attention</div>
+<h2>Patches Never Talk Directly</h2>
+
+<p>
+  VECA maintains two types of tokens in every layer: <strong>N patch tokens</strong>
+  (the standard image patches) and <strong>C core tokens</strong> (learned from scratch,
+  resolution-invariant). The attention matrix is block-sparse:
+</p>
+
+<ul>
+  <li><strong>Core → Full</strong>: each core token attends to all N patches <em>and</em> all other cores. Cores aggregate global information.</li>
+  <li><strong>Patch → Cores only</strong>: each patch token attends only to the C cores. Patches receive global context through the core interface, never directly from other patches.</li>
+  <li><strong>Patch → Patch: disabled</strong>. The N × N block of the attention matrix is zeroed out entirely.</li>
+</ul>
+
+<!-- Architecture SVG: the block-sparse attention matrix -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">VECA attention block — core-periphery structure</span>
+    <span class="vp-hint">hover cells to see what attends to what</span>
+  </div>
+  <div class="vp-body">
+    <svg id="attn-svg" viewBox="0 0 540 300" style="width:100%;max-width:540px;display:block;margin:0 auto" class="attn-matrix-svg">
+      <!-- Background -->
+      <rect x="0" y="0" width="540" height="300" fill="#12121f" rx="8"/>
+
+      <!-- Labels -->
+      <text x="60" y="22" text-anchor="middle" font-size="11" fill="#6b7280" font-family="monospace">Keys (attend TO)</text>
+      <text x="60" y="34" text-anchor="middle" font-size="10" fill="#6b7280" font-family="monospace">↓</text>
+
+      <!-- Column headers -->
+      <text x="120" y="50" text-anchor="middle" font-size="10" fill="#8b5cf6" font-family="monospace" font-weight="700">CORES (C)</text>
+      <text x="300" y="50" text-anchor="middle" font-size="10" fill="#06b6d4" font-family="monospace" font-weight="700">PATCHES (N)</text>
+
+      <!-- Row headers -->
+      <text x="28" y="110" text-anchor="middle" font-size="10" fill="#8b5cf6" font-family="monospace" font-weight="700" transform="rotate(-90,28,110)">CORES (C)</text>
+      <text x="28" y="220" text-anchor="middle" font-size="10" fill="#06b6d4" font-family="monospace" font-weight="700" transform="rotate(-90,28,220)">PATCHES (N)</text>
+
+      <!-- Queries label -->
+      <text x="14" y="80" text-anchor="middle" font-size="11" fill="#6b7280" font-family="monospace" transform="rotate(-90,14,160)">Queries (attend FROM) →</text>
+
+      <!-- Core-Core block: active (full clique) -->
+      <rect x="60" y="60" width="120" height="100" fill="rgba(139,92,246,0.25)" stroke="#8b5cf6" stroke-width="1.5" rx="4" id="block-cc"/>
+      <text x="120" y="110" text-anchor="middle" font-size="11" fill="#a78bfa" font-family="monospace">✓ ACTIVE</text>
+      <text x="120" y="124" text-anchor="middle" font-size="9" fill="#8b5cf6" font-family="monospace">C² pairs</text>
+
+      <!-- Core-Patch block: active -->
+      <rect x="190" y="60" width="290" height="100" fill="rgba(139,92,246,0.2)" stroke="#8b5cf6" stroke-width="1.5" rx="4" id="block-cp"/>
+      <text x="335" y="110" text-anchor="middle" font-size="11" fill="#a78bfa" font-family="monospace">✓ ACTIVE</text>
+      <text x="335" y="124" text-anchor="middle" font-size="9" fill="#8b5cf6" font-family="monospace">NC pairs — cores read patches</text>
+
+      <!-- Patch-Core block: active -->
+      <rect x="60" y="170" width="120" height="100" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="1.5" rx="4" id="block-pc"/>
+      <text x="120" y="218" text-anchor="middle" font-size="11" fill="#67e8f9" font-family="monospace">✓ ACTIVE</text>
+      <text x="120" y="232" text-anchor="middle" font-size="9" fill="#06b6d4" font-family="monospace">NC pairs — patches read cores</text>
+
+      <!-- Patch-Patch block: DISABLED -->
+      <rect x="190" y="170" width="290" height="100" fill="rgba(239,68,68,0.06)" stroke="#374151" stroke-width="1.5" stroke-dasharray="6,3" rx="4" id="block-pp"/>
+      <text x="335" y="218" text-anchor="middle" font-size="11" fill="#374151" font-family="monospace">✗ DISABLED</text>
+      <text x="335" y="232" text-anchor="middle" font-size="9" fill="#374151" font-family="monospace">N² pairs → 0 in VECA</text>
+
+      <!-- Brace annotations -->
+      <text x="490" y="115" font-size="9" fill="#8b5cf6" font-family="monospace">← cores gather</text>
+      <text x="490" y="125" font-size="9" fill="#8b5cf6" font-family="monospace">   global info</text>
+      <text x="490" y="225" font-size="9" fill="#06b6d4" font-family="monospace">← patches get</text>
+      <text x="490" y="235" font-size="9" fill="#06b6d4" font-family="monospace">   context via cores</text>
+
+      <!-- Total cost annotation -->
+      <text x="300" y="290" text-anchor="middle" font-size="10" fill="#5c6370" font-family="monospace">Total: 2NC + C² interactions  (vs N² for standard ViT)</text>
+    </svg>
+
+    <!-- VECA forward pass step navigator -->
+    <div class="step-list" id="veca-steps">
+      <div class="step-box active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Project patches + initialize cores</div>
+          <div class="step-desc">Image → N patch tokens. C core tokens initialized from scratch with 2D RoPE coordinates covering the image plane.</div>
+          <div class="step-code">X = concat(R_C, Z)  # [C+N, D]</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Cores attend to full sequence</div>
+          <div class="step-desc">Each core queries the entire input X (all cores + all patches) to aggregate global information.</div>
+          <div class="step-code">R' = Attn(R_C, X, X)  # cores update</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Patches attend to cores only</div>
+          <div class="step-desc">Each patch token queries only the updated core tokens, receiving global context without any N² patch-patch interactions.</div>
+          <div class="step-code">Z' = Attn(Z, R', R')  # patches update</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Update core coordinates</div>
+          <div class="step-desc">Core spatial positions are updated via a lightweight coordinate head. Early layers: isotropic coverage. Deep layers: semantic clustering.</div>
+          <div class="step-code">rho_next = rho + alpha * f(r)  # coord update</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <button id="step-next">Next →</button>
+      <span class="step-prog" id="step-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  Information still flows across the full image — just with graph diameter 2 instead of 1.
+  A patch token at the top-left corner can influence a patch at the bottom-right:
+  both attend to the same cores, and those cores attend to both patches.
+  It takes two hops instead of one. The paper shows this is sufficient for competitive performance.
+</p>
+
+<div class="math-block">
+  <div class="math-label">VECA attention cost per layer</div>
+  <span class="math-var">standard ViT:</span>   O(N²)          <span class="math-comment">— e.g. N=1024 → 1,048,576 pairs</span>
+  <span class="math-var">VECA:</span>          O(2NC + C²)    <span class="math-comment">— e.g. N=1024, C=64 → 135,168 pairs</span>
+  <span class="math-var">saving:</span>        87.1%          <span class="math-comment">at 512px resolution</span>
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── §03 -->
+<section id="s-elastic" data-code="elastic">
+<div class="section-no">03 — Elastic Inference</div>
+<h2>Dial the Compute at Test Time</h2>
+
+<p>
+  The VECA model maintains a <strong>bank of M = 64 core tokens</strong>, ordered by importance.
+  During training, a budget C is sampled from a distribution and only the first C cores
+  (the "active prefix") are used. This is nested dropout applied to the core axis:
+  core r₁ is active for <em>every</em> training budget, so it learns to encode the most essential
+  visual information. Core r₂ is active whenever C ≥ 2. Cores at the tail specialize in fine-grained details.
+</p>
+
+<p>
+  The result: at <strong>inference time</strong>, you can vary C from 8 to 64 without retraining.
+  C = 8 gives faster, cheaper inference for global tasks.
+  C = 64 gives maximum fidelity for dense prediction at high resolution.
+</p>
+
+<div class="callout">
+  <b>Key insight:</b> classification accuracy is nearly flat across budgets — C = 8 already hits 79.99%
+  ImageNet-1K (C = 64 gives 81.93%). But dense prediction keeps improving with more cores:
+  C = 8 gives 53.30 mIoU on PASCAL Context vs 57.46 at C = 64. Global recognition
+  needs only a few good cores; dense spatial understanding needs more.
+</div>
+
+<!-- Elastic tradeoff canvas: accuracy + FLOPs vs C -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">elastic accuracy / FLOPs tradeoff — click a budget</span>
+    <span class="vp-hint">click button</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="elastic-canvas" height="240"></canvas>
+    <div class="vp-controls">
+      <button class="vp-btn" id="eb-8">C = 8</button>
+      <button class="vp-btn" id="eb-16">C = 16</button>
+      <button class="vp-btn" id="eb-32">C = 32</button>
+      <button class="vp-btn active" id="eb-64">C = 64</button>
+    </div>
+    <div class="vp-cap" id="elastic-cap">C=64: ImageNet 81.93%  |  Context 57.46 mIoU  |  Attn: 135,168 pairs at 512px  (vs DINOv3: 83.56% / 57.74 mIoU)</div>
+  </div>
+</div>
+
+<p>
+  The nested training also produces a useful side effect: the active cores exhibit increasingly
+  coarse-to-fine spatial behavior as C grows. With C = 8 each core covers a large, coarse region.
+  With C = 64 the coverage becomes fine-grained and semantically specific — visible in the
+  core-to-patch attention maps.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── §04 -->
+<section id="s-emergent" data-code="emergent">
+<div class="section-no">04 — Emergent Semantics</div>
+<h2>Core Tokens Organize Themselves Without Supervision</h2>
+
+<p>
+  The core tokens are not explicitly supervised — they receive no segmentation masks,
+  no object labels, no spatial layout signal beyond RoPE positional encoding.
+  Yet the paper reports a striking emergent behavior across layers:
+</p>
+
+<ul>
+  <li><strong>Layer 3 (early):</strong> core token attention maps are <em>isotropic</em> — diffuse spherical blobs with no clear semantic meaning. Each core attends to a roughly uniform region of the image.</li>
+  <li><strong>Layer 12 (deep):</strong> core tokens have clustered into <em>semantically coherent groups</em>. Different cores specialize to distinct objects: sky, foreground objects, background textures, edges. They look like learned object-centric slots — without any recurrence (unlike Slot Attention).</li>
+</ul>
+
+<p>
+  The paper describes this as "isotropic-to-semantic clustering" and shows it with UMAP visualizations
+  of core token representations. As depth increases, the UMAP cloud transitions from a diffuse sphere
+  to tight semantic clusters — one cluster per semantic category attended to.
+</p>
+
+<!-- Animated canvas: core evolution from isotropic → semantic -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">core token representations — layer depth drives semantic clustering</span>
+    <span class="vp-hint">play animation</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="emerge-canvas" height="280"></canvas>
+    <div class="vp-controls">
+      <button class="vp-btn active" id="emerge-play">▶ Play</button>
+      <button class="vp-btn" id="emerge-reset">↺ Reset</button>
+      <span style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.5rem">Layer depth: <span id="emerge-t-label">0</span>/12</span>
+    </div>
+    <div class="vp-cap">
+      Dots = individual core tokens (C=24). Color = which semantic cluster they will join.
+      Early layers: uniform spread (isotropic). Later layers: tight semantic clusters emerge without any explicit supervision.
+    </div>
+  </div>
+</div>
+
+<p>
+  Additionally, VECA paper shows that cores exhibit <strong>complementary visual roles</strong>:
+  different cores attend to distinct non-overlapping spatial regions of the image (eggs vs. bowl vs. background).
+  This complementarity arises from the competition induced by patch-to-core attention — patches pull
+  cores towards semantically rich regions, and the clique interaction between cores encourages diversity.
+</p>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── §05 -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Results</div>
+<h2>Competitive with the Best Despite No Patch-to-Patch Attention</h2>
+
+<p>
+  VECA is trained with feature distillation from a frozen DINOv3 teacher on unlabeled Objects365 images —
+  no labels, no task-specific fine-tuning. Evaluation freezes the backbone and trains only a linear head.
+</p>
+
+<h3>Dense Prediction (Segmentation & Depth)</h3>
+<div class="bars-head">PASCAL Context-60 semantic segmentation (mIoU ↑, linear probe at 768px)</div>
+<div class="results-bars" id="bars-seg">
+  <div class="bar-row"><div class="bar-label">CLIP-B/16</div><div class="bar-track"><div class="bar-fill" data-w="45.99" style="background:rgba(107,114,128,.5)"><span>45.99</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">DINOv2-B/14</div><div class="bar-track"><div class="bar-fill" data-w="55.11" style="background:rgba(107,114,128,.6)"><span>55.11</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">DINOv2-reg-B/14</div><div class="bar-track"><div class="bar-fill" data-w="55.02" style="background:rgba(107,114,128,.6)"><span>55.02</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">AM-RADIOv2.5-B/16</div><div class="bar-track"><div class="bar-fill" data-w="56.72" style="background:rgba(107,114,128,.65)"><span>56.72</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--text2)">DINOv3-B/16 (teacher)</div><div class="bar-track"><div class="bar-fill" data-w="57.74" style="background:rgba(6,182,212,.55)"><span>57.74</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">VECA-B/16 (C=64)</div><div class="bar-track"><div class="bar-fill" data-w="57.46" style="background:var(--purple)"><span>57.46 (gap: 0.28)</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--amber)">VECA-B/16 (C=8)</div><div class="bar-track"><div class="bar-fill" data-w="53.30" style="background:rgba(245,158,11,.55)"><span>53.30</span></div></div></div>
+</div>
+
+<h3>Image Classification</h3>
+<div class="bars-head">ImageNet-1K Top-1 accuracy (linear probe)</div>
+<div class="results-bars" id="bars-cls">
+  <div class="bar-row"><div class="bar-label">CLIP-B/16</div><div class="bar-track"><div class="bar-fill" data-w="79.33" style="background:rgba(107,114,128,.5)"><span>79.33%</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">DINOv2-B/14</div><div class="bar-track"><div class="bar-fill" data-w="82.41" style="background:rgba(107,114,128,.6)"><span>82.41%</span></div></div></div>
+  <div class="bar-row"><div class="bar-label">SigLIP2-B/16</div><div class="bar-track"><div class="bar-fill" data-w="81.91" style="background:rgba(107,114,128,.55)"><span>81.91%</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--text2)">DINOv3-B/16 (teacher)</div><div class="bar-track"><div class="bar-fill" data-w="83.56" style="background:rgba(6,182,212,.55)"><span>83.56%</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">VECA-B/16 (C=64)</div><div class="bar-track"><div class="bar-fill" data-w="81.93" style="background:var(--purple)"><span>81.93% (gap: 1.87%)</span></div></div></div>
+  <div class="bar-row"><div class="bar-label" style="color:var(--amber)">VECA-B/16 (C=8)</div><div class="bar-track"><div class="bar-fill" data-w="79.99" style="background:rgba(245,158,11,.55)"><span>79.99%</span></div></div></div>
+</div>
+
+<p>
+  The headline result: with <strong>87.1% fewer attention interactions</strong> per layer,
+  VECA reaches within 0.28 mIoU of its DINOv3 teacher on dense segmentation,
+  and within 1.87% on ImageNet classification. This strongly suggests that direct
+  patch-to-patch attention — the defining operation of the ViT — is not strictly
+  necessary for high-quality visual representations.
+</p>
+
+<div class="callout">
+  <b>Implications for scaling:</b> Linear-time attention means VECA can process 4K images with the
+  same FLOPs as a standard ViT processes 1K images. As image resolution keeps growing (medical imaging,
+  satellite imagery, robotics), this O(N) complexity may become decisive. Combined with elastic inference,
+  VECA suggests a future where the compute budget is a <em>dial</em>, not a design choice.
+</div>
+
+<!-- Listen-friendly summary (hidden, for audio playback) -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: VECA — Vision Transformers Without Patch-to-Patch Attention</h2>
+    <p>VECA, or Visual Elastic Core Attention, is a new Vision Transformer architecture that eliminates the quadratic cost of standard self-attention by routing all patch communication through a small set of learned core tokens. Standard ViTs require N-squared pairwise interactions between patches; VECA replaces this with only 2NC plus C-squared interactions, where C is the number of core tokens. At 512-pixel resolution with 64 cores, this means 87 percent fewer attention operations per layer.</p>
+    <p>The core tokens are resolution-invariant and learned from scratch. Patches attend only to cores; cores attend to all patches and to each other. Information still flows across the full image, but with graph diameter two instead of one. A key feature is elastic inference: by varying C from 8 to 64 at test time using nested dropout training, the model trades accuracy for speed without retraining. On ImageNet-1K classification, VECA with 64 cores achieves 81.93 percent versus DINOv3's 83.56 percent. On PASCAL Context segmentation, it achieves 57.46 mIoU versus 57.74 for its teacher, a gap of just 0.28 despite 87 percent fewer attention interactions. Notably, core tokens develop emergent semantic organization across layers without explicit supervision, transitioning from isotropic representations to semantically clustered object-centric structures.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：VECA——无需像素对像素注意力的视觉Transformer</h2>
+    <p>VECA（视觉弹性核心注意力）是一种新型视觉Transformer架构，通过将所有图像块的通信路由到一组小型学习核心令牌，消除了标准自注意力的二次方计算代价。标准ViT需要N²次图像块间的两两交互；VECA用仅2NC加C²次交互取而代之，其中C为核心令牌数量。在512像素分辨率、64个核心令牌的情况下，每层注意力计算量减少87%。</p>
+    <p>核心令牌与分辨率无关，从头开始学习。图像块只关注核心令牌，核心令牌则关注所有图像块和彼此。信息仍然在整幅图像中流通，但图距从1变为2。关键特性是弹性推理：通过在训练时使用嵌套dropout，测试时可在不重新训练的情况下将C从8调整到64，从而在精度和速度之间权衡。在ImageNet-1K分类任务上，64核VECA达到81.93%，而DINOv3为83.56%。在PASCAL Context语义分割上，VECA达到57.46 mIoU，其教师模型为57.74，差距仅0.28，但注意力计算量减少了87%。值得注意的是，核心令牌在无需显式监督的情况下，在各层间展现出从各向同性表示到语义聚类的目标中心结构的涌现性组织能力。</p>
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">veca/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Quadratic Wall</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="quadratic">quadratic</button>
+    <button class="cs-tab" data-panel="core">core-attn</button>
+    <button class="cs-tab" data-panel="elastic">elastic</button>
+    <button class="cs-tab" data-panel="emergent">emergent</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- §01: Quadratic Wall -->
+    <div class="cs-panel active" id="panel-quadratic">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard ViT self-attention complexity</span>
+<span class="cs-line cmt"># N = number of patches = (H/P) * (W/P)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">self_attention</span>(Q, K, V):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Q,K,V shape: [B, N, D]</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Attention matrix: [B, N, N] ← N² pairs</span></span>
+<span class="cs-line">    scores = Q @ K.transpose(-<span class="num">2</span>, -<span class="num">1</span>) / D**<span class="num">0.5</span></span>
+<span class="cs-line">    attn = softmax(scores, dim=-<span class="num">1</span>)   <span class="cmt"># [B,N,N]</span></span>
+<span class="cs-line">    <span class="kw">return</span> attn @ V</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># FLOPs example at different resolutions</span>
+<span class="cs-line cmt"># P=16, so N = (res/16)²</span>
+<span class="cs-line cmt"># res=256:  N=256,   N²=65,536</span>
+<span class="cs-line cmt"># res=512:  N=1024,  N²=1,048,576</span>
+<span class="cs-line cmt"># res=1024: N=4096,  N²=16,777,216</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Every 2× resolution → 4× FLOPs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">──────────────────────────────────────</span>
+<span class="cs-line cmt"># VECA core-periphery complexity</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># C = number of core tokens (fixed, small)</span>
+<span class="cs-line cmt"># Total = 2*N*C + C²</span>
+<span class="cs-line cmt"># res=512, C=64:</span>
+<span class="cs-line hl-g"><span class="cmt">#   2*1024*64 + 64² = 135,168 pairs</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   vs 1,048,576 standard → 87.1% fewer</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Every 2× resolution → 2× FLOPs (linear!)</span>
+      </pre>
+    </div>
+
+    <!-- §02: Core-Periphery Attention -->
+    <div class="cs-panel" id="panel-core">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># VECA core-mediated attention pseudocode</span>
+<span class="cs-line cmt"># Z: patch tokens  [B, N, D]</span>
+<span class="cs-line cmt"># R: core tokens   [B, C, D]</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">veca_block</span>(Z, R, C):</span>
+<span class="cs-line">    <span class="cmt"># Concatenate for core queries</span></span>
+<span class="cs-line hl-p">    X = concat([R, Z], dim=<span class="num">1</span>)   <span class="cmt"># [B,C+N,D]</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># STEP 1: cores attend to FULL sequence</span></span>
+<span class="cs-line hl-c">    R_new = Attn(Q=R, K=X, V=X)    <span class="cmt"># [B,C,D]</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># cost: C*(C+N) ≈ CN pairs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># STEP 2: patches attend ONLY to cores</span></span>
+<span class="cs-line hl-c">    Z_new = Attn(Q=Z, K=R_new, V=R_new)  <span class="cmt"># [B,N,D]</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># cost: N*C pairs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># NO patch-to-patch attention at all!</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># graph diameter = 2, not 1</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Update core spatial coordinates</span></span>
+<span class="cs-line">    rho_next = rho + alpha * f(R_new)</span>
+<span class="cs-line">    u_next = tanh(rho_next)       <span class="cmt"># clamp to [-1,1]²</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> Z_new, R_new, u_next</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">──────────────────────────────────────</span>
+<span class="cs-line cmt"># 2D axial RoPE for positional encoding</span>
+<span class="cs-line cmt"># patch tokens: fixed grid coords</span>
+<span class="cs-line cmt"># core tokens: learned, updated each layer</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Core initialization: uniform grid</span>
+<span class="cs-line cmt"># Core coords after layer 12: semantic clusters</span>
+      </pre>
+    </div>
+
+    <!-- §03: Elastic Inference -->
+    <div class="cs-panel" id="panel-elastic">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Budget-adaptive training via nested dropout</span>
+<span class="cs-line cmt"># M = max core capacity (e.g. 64)</span>
+<span class="cs-line cmt"># C ~ p_C(·) sampled each training step</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">sample_budget</span>():</span>
+<span class="cs-line">    <span class="cmt"># Sample active prefix size C ≤ M</span></span>
+<span class="cs-line hl-p">    C = sample_from(p_C)   <span class="cmt"># e.g. {8,16,32,64}</span></span>
+<span class="cs-line hl-p">    R_active = R_bank[: C] <span class="cmt"># ordered prefix</span></span>
+<span class="cs-line">    <span class="kw">return</span> R_active, C</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why this works:</span>
+<span class="cs-line cmt"># r_1 is active for ALL budgets → learns</span>
+<span class="cs-line cmt"># most universal visual information</span>
+<span class="cs-line cmt"># r_64 is active only at max budget →</span>
+<span class="cs-line cmt"># specializes in fine spatial detail</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">──────────────────────────────────────</span>
+<span class="cs-line cmt"># Inference: just pick C</span>
+<span class="cs-line cmt"># No retraining, no fine-tuning</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Classification task (global):</span>
+<span class="cs-line cmt">#  C=8:  79.99% IN1K  (6.3% of full attn)</span>
+<span class="cs-line hl-c"><span class="cmt">#  C=64: 81.93% IN1K  (full budget)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Dense prediction task (spatial):</span>
+<span class="cs-line cmt">#  C=8:  53.30 mIoU Context  (1.6% attn)</span>
+<span class="cs-line hl-g"><span class="cmt">#  C=64: 57.46 mIoU Context  (full budget)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># First core r_1 is used as [CLS] token</span>
+<span class="cs-line cmt"># for global classification output</span>
+      </pre>
+    </div>
+
+    <!-- §04: Emergent Semantics -->
+    <div class="cs-panel" id="panel-emergent">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Core token coordinate dynamics</span>
+<span class="cs-line cmt"># (Eq. 3 in paper)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># rho: unconstrained 2D coordinate state</span>
+<span class="cs-line cmt"># u: bounded coord in [-1,1]² for RoPE</span>
+<span class="cs-line cmt"># f_l: lightweight coordinate head (MLP)</span>
+<span class="cs-line cmt"># alpha_l: learned layer-wise scalar</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">for</span> layer l <span class="kw">in</span> range(L):</span>
+<span class="cs-line hl-p">    rho_next = rho + alpha[l] * f[l](r[l])</span>
+<span class="cs-line hl-p">    u_next   = tanh(rho_next)   <span class="cmt"># clamp</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Effect across layers:</span>
+<span class="cs-line cmt"># Layer 3: u positions are roughly</span>
+<span class="cs-line cmt">#   uniform / spherical (isotropic)</span>
+<span class="cs-line cmt"># Layer 12: u positions cluster into</span>
+<span class="cs-line cmt">#   semantically coherent groups</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">──────────────────────────────────────</span>
+<span class="cs-line cmt"># Emergent behaviors observed:</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Object-centric cores:</span>
+<span class="cs-line hl-c"><span class="cmt">#    Different cores → distinct objects</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    (e.g. eggs / bowl / background)</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    No segmentation supervision!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Isotropic → semantic clustering:</span>
+<span class="cs-line hl-g"><span class="cmt">#    UMAP shows cores go from spherical</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    blobs to tight semantic clusters</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    as depth increases</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. Budget affects granularity:</span>
+<span class="cs-line cmt">#    C=8:  each core → large coarse region</span>
+<span class="cs-line cmt">#    C=64: fine-grained semantic patches</span>
+      </pre>
+    </div>
+
+    <!-- §05: Results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key results: VECA-B/16 vs baselines</span>
+<span class="cs-line cmt"># (linear probe, frozen backbone)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## Segmentation mIoU (PASCAL Context-60)</span>
+<span class="cs-line cmt"># Method              mIoU  gap</span>
+<span class="cs-line cmt"># DINOv2-B/14         55.02</span>
+<span class="cs-line cmt"># AM-RADIOv2.5-B/16   56.72</span>
+<span class="cs-line cmt"># DINOv3-B/16         57.74  ← teacher</span>
+<span class="cs-line hl-p"><span class="cmt"># VECA-B/16 (C=64)    57.46  -0.28</span></span>
+<span class="cs-line cmt"># VECA-B/16 (C=8)     53.30  -4.44</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## Classification Top-1 (ImageNet-1K)</span>
+<span class="cs-line cmt"># Method              Acc%  gap</span>
+<span class="cs-line cmt"># DINOv2-B/14         82.41</span>
+<span class="cs-line cmt"># SigLIP2-B/16        81.91</span>
+<span class="cs-line cmt"># DINOv3-B/16         83.56  ← teacher</span>
+<span class="cs-line hl-p"><span class="cmt"># VECA-B/16 (C=64)    81.93  -1.87</span></span>
+<span class="cs-line cmt"># VECA-B/16 (C=8)     79.99  -3.81</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## Depth Estimation RMSE (NYUv2)</span>
+<span class="cs-line cmt"># DINOv3-B/16         0.3684</span>
+<span class="cs-line hl-g"><span class="cmt"># VECA-B/16 (C=64)    0.3705  +0.0021</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">## Attention interaction reduction</span>
+<span class="cs-line cmt"># At 512px, P=16 (N=1024)</span>
+<span class="cs-line hl-c"><span class="cmt"># Standard ViT:  1,048,576 pairs</span></span>
+<span class="cs-line hl-c"><span class="cmt"># VECA (C=64):     135,168 pairs</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Reduction:            87.1%</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ───────── TOC + sidebar toggles ───────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ───────── Code sidebar tab switching ───────── */
+const tabMeta = {
+  quadratic: { file: 'veca/complexity.py',   title: 'The Quadratic Wall' },
+  core:      { file: 'veca/attention.py',    title: 'Core-Periphery Attention' },
+  elastic:   { file: 'veca/elastic.py',      title: 'Elastic Inference' },
+  emergent:  { file: 'veca/core_dynamics.py',title: 'Emergent Semantics' },
+  results:   { file: 'veca/results.py',      title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ───────── IntersectionObserver — sync TOC + sidebar tab ───────── */
+const sectionMap = {
+  's-quadratic': 'quadratic',
+  's-core':      'core',
+  's-elastic':   'elastic',
+  's-emergent':  'emergent',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ═══════════════════════════════════════════════════════
+   §01 — FLOPs vs Resolution canvas
+═══════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('flops-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  const resolutions = [128, 192, 256, 320, 384, 448, 512, 640, 768, 1024];
+  const PURPLE = '#8b5cf6', CYAN = '#06b6d4', MUTED = '#374151';
+  const C = 64;
+
+  function patchCount(res, P) { return Math.floor(res / P) * Math.floor(res / P); }
+  function standardOps(N) { return N * N; }
+  function vecaOps(N, c) { return 2 * N * c + c * c; }
+
+  let currentP = 16;
+
+  function draw(P) {
+    const w = canvas.clientWidth; const h = 220;
+    if (canvas.width !== w * DPR || canvas.height !== h * DPR) {
+      canvas.width = w * DPR; canvas.height = h * DPR; ctx.scale(DPR, DPR);
+    }
+    W = w; H = h;
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD = { t: 20, r: 20, b: 40, l: 65 };
+    const pw = W - PAD.l - PAD.r;
+    const ph = H - PAD.t - PAD.b;
+
+    const dataStd  = resolutions.map(r => standardOps(patchCount(r, P)));
+    const dataVeca = resolutions.map(r => vecaOps(patchCount(r, P), C));
+    const maxVal = Math.max(...dataStd);
+
+    // Grid lines
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD.t + ph - (i / 4) * ph;
+      ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+      const val = (i / 4) * maxVal;
+      const label = val >= 1e6 ? (val/1e6).toFixed(1)+'M' : val >= 1e3 ? (val/1e3).toFixed(0)+'K' : val.toFixed(0);
+      ctx.fillStyle = '#4b5563'; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'right';
+      ctx.fillText(label, PAD.l - 5, y + 4);
+    }
+
+    // X-axis labels
+    resolutions.forEach((r, i) => {
+      const x = PAD.l + (i / (resolutions.length - 1)) * pw;
+      if (r === 256 || r === 512 || r === 768 || r === 1024) {
+        ctx.fillStyle = '#4b5563'; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'center';
+        ctx.fillText(r + 'px', x, H - PAD.b + 15);
+      }
+    });
+
+    // Draw standard line
+    ctx.beginPath();
+    resolutions.forEach((r, i) => {
+      const x = PAD.l + (i / (resolutions.length - 1)) * pw;
+      const y = PAD.t + ph - (dataStd[i] / maxVal) * ph;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Draw VECA line
+    ctx.beginPath();
+    resolutions.forEach((r, i) => {
+      const x = PAD.l + (i / (resolutions.length - 1)) * pw;
+      const y = PAD.t + ph - (dataVeca[i] / maxVal) * ph;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = PURPLE; ctx.lineWidth = 2; ctx.stroke();
+
+    // Highlight 512px point
+    const idx512 = resolutions.indexOf(512);
+    if (idx512 >= 0) {
+      const x = PAD.l + (idx512 / (resolutions.length - 1)) * pw;
+      const yStd  = PAD.t + ph - (dataStd[idx512]  / maxVal) * ph;
+      const yVeca = PAD.t + ph - (dataVeca[idx512] / maxVal) * ph;
+      ctx.beginPath(); ctx.arc(x, yStd,  4, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, yVeca, 4, 0, Math.PI*2); ctx.fillStyle = PURPLE;    ctx.fill();
+      // Dashed vertical
+      ctx.beginPath(); ctx.setLineDash([4,3]); ctx.moveTo(x, yVeca); ctx.lineTo(x, yStd);
+      ctx.strokeStyle = 'rgba(139,92,246,.4)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Legend
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(PAD.l, PAD.t, 12, 3);
+    ctx.fillStyle = '#9ca3af'; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'left';
+    ctx.fillText('Standard ViT (O(N²))', PAD.l + 16, PAD.t + 4);
+    ctx.fillStyle = PURPLE; ctx.fillRect(PAD.l + 160, PAD.t, 12, 3);
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText('VECA (O(N), C=64)', PAD.l + 176, PAD.t + 4);
+
+    // Update cap
+    const N512 = patchCount(512, P);
+    const std512 = standardOps(N512).toLocaleString();
+    const vc512  = vecaOps(N512, C).toLocaleString();
+    const pct = (100 * (1 - vecaOps(N512, C) / standardOps(N512))).toFixed(1);
+    document.getElementById('flops-cap').textContent =
+      `At 512px with P=${P}: standard = ${std512} ops  |  VECA (C=64) = ${vc512} ops  (${pct}% fewer)`;
+  }
+
+  draw(16);
+
+  const slider = document.getElementById('patch-slider');
+  slider?.addEventListener('input', () => {
+    currentP = parseInt(slider.value);
+    document.getElementById('patch-label').textContent = currentP + ' px';
+    draw(currentP);
+  });
+  window.addEventListener('resize', () => draw(currentP));
+})();
+
+/* ═══════════════════════════════════════════════════════
+   §02 — VECA Step Navigator
+═══════════════════════════════════════════════════════ */
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('.step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length-1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+/* ═══════════════════════════════════════════════════════
+   §03 — Elastic Inference canvas
+═══════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('elastic-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  // Data: [C, IN1K%, Context mIoU, attnOps@512]
+  const data = {
+    8:  { cls: 79.99, seg: 53.30, ops: 2*1024*8   + 8*8   },
+    16: { cls: 80.52, seg: 54.80, ops: 2*1024*16  + 16*16 },
+    32: { cls: 81.20, seg: 56.30, ops: 2*1024*32  + 32*32 },
+    64: { cls: 81.93, seg: 57.46, ops: 2*1024*64  + 64*64 },
+  };
+  const teacher = { cls: 83.56, seg: 57.74 };
+  let activeC = 64;
+
+  const caps = {
+    8:  'C=8: ImageNet 79.99%  |  Context 53.30 mIoU  |  16,448 attn pairs  (1.6% of full)',
+    16: 'C=16: ImageNet 80.52%  |  Context 54.80 mIoU  |  33,024 attn pairs  (3.1% of full)',
+    32: 'C=32: ImageNet 81.20%  |  Context 56.30 mIoU  |  66,560 attn pairs  (6.3% of full)',
+    64: 'C=64: ImageNet 81.93%  |  Context 57.46 mIoU  |  135,168 attn pairs  (vs DINOv3: 83.56% / 57.74)',
+  };
+
+  function draw(c) {
+    const w = canvas.clientWidth; const h = 240;
+    if (canvas.width !== w * DPR || canvas.height !== h * DPR) {
+      canvas.width = w * DPR; canvas.height = h * DPR; ctx.scale(DPR, DPR);
+    }
+    ctx.clearRect(0, 0, w, h);
+
+    const d = data[c];
+    const barW  = Math.min((w - 80) / 3.5, 140);
+    const GAP   = 20;
+    const baseX = (w - 2 * barW - GAP) / 2;
+    const maxH  = h - 80;
+
+    // Draw two bars: classification and segmentation
+    const bars = [
+      { label: 'ImageNet-1K', val: d.cls, max: 100, ref: teacher.cls, unit: '%', color: '#8b5cf6', refLabel: 'DINOv3 83.56' },
+      { label: 'Context mIoU', val: d.seg, max: 65, ref: teacher.seg, unit: '',  color: '#06b6d4', refLabel: 'DINOv3 57.74' },
+    ];
+
+    bars.forEach((bar, i) => {
+      const x = baseX + i * (barW + GAP);
+      const barH = (bar.val / bar.max) * maxH;
+      const refH = (bar.ref / bar.max) * maxH;
+
+      // Reference line (teacher)
+      const refY = h - 40 - refH;
+      ctx.beginPath(); ctx.moveTo(x - 8, refY); ctx.lineTo(x + barW + 8, refY);
+      ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.setLineDash([5, 3]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#4b5563'; ctx.font = `${9*DPR/DPR}px monospace`; ctx.textAlign = 'right';
+      ctx.fillText(bar.refLabel, x - 10, refY + 3);
+
+      // Bar
+      const barY = h - 40 - barH;
+      ctx.fillStyle = bar.color + '55';
+      ctx.fillRect(x, barY, barW, barH);
+      ctx.fillStyle = bar.color;
+      ctx.fillRect(x, barY, barW, 3);
+
+      // Value label
+      ctx.fillStyle = '#e5e7eb'; ctx.font = `bold ${13*DPR/DPR}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText(bar.val + bar.unit, x + barW / 2, barY - 6);
+
+      // Axis label
+      ctx.fillStyle = '#6b7280'; ctx.font = `${10*DPR/DPR}px monospace`;
+      ctx.fillText(bar.label, x + barW / 2, h - 10);
+    });
+
+    // C indicator
+    ctx.fillStyle = '#8b5cf6'; ctx.font = `bold ${14*DPR/DPR}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(`C = ${c} core tokens`, w / 2, 18);
+
+    // Ops
+    const opsK = (d.ops / 1000).toFixed(1);
+    ctx.fillStyle = '#4b5563'; ctx.font = `${9*DPR/DPR}px monospace`;
+    ctx.fillText(`attention pairs @ 512px: ${d.ops.toLocaleString()}`, w / 2, 30);
+
+    document.getElementById('elastic-cap').textContent = caps[c];
+  }
+
+  draw(64);
+
+  ['8','16','32','64'].forEach(c => {
+    document.getElementById('eb-' + c)?.addEventListener('click', () => {
+      document.querySelectorAll('.vp-btn[id^="eb-"]').forEach(b => b.classList.remove('active'));
+      document.getElementById('eb-' + c).classList.add('active');
+      activeC = parseInt(c);
+      draw(activeC);
+    });
+  });
+  window.addEventListener('resize', () => draw(activeC));
+})();
+
+/* ═══════════════════════════════════════════════════════
+   §04 — Emergent Semantics canvas
+═══════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('emerge-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const NC = 24;  // number of core dots
+
+  // Seeded PRNG for reproducibility
+  function seededRand(n) { return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff; }
+
+  // Semantic clusters in deep layer
+  const clusters = [
+    { cx: 0.25, cy: 0.35, color: '#8b5cf6', label: 'sky/background' },
+    { cx: 0.65, cy: 0.28, color: '#06b6d4', label: 'foreground obj.' },
+    { cx: 0.45, cy: 0.70, color: '#10b981', label: 'ground/texture' },
+    { cx: 0.78, cy: 0.65, color: '#f59e0b', label: 'edges/boundary' },
+  ];
+
+  // Assign each dot to a cluster
+  const dots = Array.from({ length: NC }, (_, i) => ({
+    startX: seededRand(i * 4),
+    startY: seededRand(i * 4 + 1),
+    cluster: Math.floor(seededRand(i * 4 + 2) * clusters.length),
+    jitter: { x: (seededRand(i * 4 + 3) - 0.5) * 0.08, y: (seededRand(i * 100) - 0.5) * 0.08 },
+  }));
+
+  let t = 0; // 0 = isotropic (early), 1 = semantic (deep)
+  let animId = null;
+  let playing = false;
+
+  function easeInOut(t) { return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; }
+
+  function drawFrame(rawT) {
+    const w = canvas.clientWidth; const h = 280;
+    if (canvas.width !== w * DPR || canvas.height !== h * DPR) {
+      canvas.width = w * DPR; canvas.height = h * DPR; ctx.scale(DPR, DPR);
+    }
+    ctx.clearRect(0, 0, w, h);
+
+    const eased = easeInOut(rawT);
+    const layerNum = Math.round(rawT * 12);
+    document.getElementById('emerge-t-label').textContent = layerNum;
+
+    // Draw cluster labels at t > 0.6
+    if (eased > 0.4) {
+      const labelAlpha = Math.max(0, (eased - 0.4) / 0.3);
+      clusters.forEach(cl => {
+        const cx = cl.cx * w;
+        const cy = cl.cy * h;
+        ctx.globalAlpha = labelAlpha * 0.55;
+        ctx.beginPath(); ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+        ctx.fillStyle = cl.color;
+        ctx.fill();
+        ctx.globalAlpha = labelAlpha;
+        ctx.fillStyle = cl.color; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'center';
+        ctx.fillText(cl.label, cx, cy + 42);
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    // Draw dots
+    dots.forEach((dot, i) => {
+      const cl = clusters[dot.cluster];
+      // Interpolate from random start position to cluster center + jitter
+      const tx = dot.startX * w;
+      const ty = dot.startY * h;
+      const ex = cl.cx * w + dot.jitter.x * w;
+      const ey = cl.cy * h + dot.jitter.y * h;
+      const x = tx + (ex - tx) * eased;
+      const y = ty + (ey - ty) * eased;
+
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = cl.color;
+      ctx.globalAlpha = 0.5 + eased * 0.5;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // Layer depth indicator
+    ctx.fillStyle = '#4b5563'; ctx.font = `${10*DPR/DPR}px monospace`; ctx.textAlign = 'left';
+    ctx.fillText(eased < 0.3 ? 'isotropic — no semantic structure' : eased > 0.7 ? 'semantic clusters emerging' : 'transitioning...', 10, h - 8);
+  }
+
+  drawFrame(0);
+
+  const playBtn = document.getElementById('emerge-play');
+  const resetBtn = document.getElementById('emerge-reset');
+
+  function animate() {
+    t += 0.008;
+    if (t >= 1) { t = 1; drawFrame(t); playing = false; playBtn.textContent = '▶ Play'; return; }
+    drawFrame(t);
+    animId = requestAnimationFrame(animate);
+  }
+
+  playBtn?.addEventListener('click', () => {
+    if (playing) {
+      cancelAnimationFrame(animId); playing = false; playBtn.textContent = '▶ Play';
+    } else {
+      if (t >= 1) t = 0;
+      playing = true; playBtn.textContent = '⏸ Pause';
+      animate();
+    }
+  });
+  resetBtn?.addEventListener('click', () => {
+    cancelAnimationFrame(animId); playing = false; t = 0;
+    playBtn.textContent = '▶ Play'; drawFrame(0);
+    document.getElementById('emerge-t-label').textContent = '0';
+  });
+  window.addEventListener('resize', () => drawFrame(t));
+})();
+
+/* ═══════════════════════════════════════════════════════
+   §05 — Animated bar charts
+═══════════════════════════════════════════════════════ */
+(function() {
+  const MAX_VAL = 60; // scale for segmentation bars
+
+  // For seg bars, scale to 60 mIoU as 100%
+  document.querySelectorAll('#bars-seg .bar-fill').forEach(b => {
+    const w = parseFloat(b.dataset.w);
+    b.style.setProperty('--target-w', (w / MAX_VAL * 100) + '%');
+  });
+  // For cls bars, scale to 100%
+  document.querySelectorAll('#bars-cls .bar-fill').forEach(b => {
+    const w = parseFloat(b.dataset.w);
+    b.style.setProperty('--target-w', w + '%');
+  });
+
+  function triggerBars(container) {
+    container.querySelectorAll('.bar-fill').forEach(b => {
+      b.style.width = b.style.getPropertyValue('--target-w');
+    });
+  }
+
+  const segSection = document.getElementById('s-results');
+  if (segSection) {
+    new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          triggerBars(document.getElementById('bars-seg'));
+          triggerBars(document.getElementById('bars-cls'));
+        }
+      });
+    }, { threshold: 0.2 }).observe(segSection);
+  }
+})();
+</script>
+</BaseLayout>

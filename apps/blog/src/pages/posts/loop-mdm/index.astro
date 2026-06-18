@@ -1,0 +1,1396 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="LoopMDM: Looped Masked Diffusion Language Models | Catpuccino.ai"
+  description="Selectively looping early-middle transformer layers gives masked diffusion models 3.3× training efficiency and +8.5 points on GSM8K — at zero extra parameters."
+  crumb="LoopMDM"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:.5rem 0 .2rem;font-family:var(--ff-mono)}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* ── Sudoku grid ── */
+.sudoku-wrap{overflow-x:auto;display:flex;justify-content:center;padding:.5rem 0}
+.sudoku-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;background:#2a2a40;border:3px solid rgba(139,92,246,.5);border-radius:6px;padding:3px;max-width:370px;min-width:280px;width:100%}
+.sudoku-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-family:var(--ff-mono);font-size:.85rem;font-weight:700;border-radius:3px;transition:background .3s,color .3s}
+.sudoku-cell.given{background:rgba(255,255,255,.06);color:var(--text)}
+.sudoku-cell.correct{background:rgba(16,185,129,.18);color:#34d399}
+.sudoku-cell.wrong{background:rgba(239,68,68,.22);color:#f87171}
+.sudoku-cell.border-right{border-right:2px solid rgba(139,92,246,.5)}
+.sudoku-cell.border-bottom{border-bottom:2px solid rgba(139,92,246,.5)}
+.sudoku-error-count{text-align:center;font-family:var(--ff-mono);font-size:.82rem;padding:.5rem 0;margin-top:.5rem}
+.sudoku-btns{display:flex;gap:.5rem;justify-content:center;margin-bottom:.75rem}
+.sudoku-btn{padding:.3rem .9rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.sudoku-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.sudoku-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LM</span>
+    <span class="tag tag-cyan">Looped Transformer</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>LoopMDM: Selectively Looping Masked Diffusion Models</h1>
+  <p class="lead">
+    Sharing weights across a small block of early-middle transformer layers — and applying it S times per denoising step — gives masked diffusion language models 3.3× better training efficiency and +8.5 points on GSM8K math, all without adding a single parameter. The key: masked positions act as a parallel workspace that iterative loops allow to talk and revise each other.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 17, 2026</span>
+    <span>~11 min read</span>
+    <span>Paper: <code>arXiv:2605.26106</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.26106" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-intro"><a href="#s-intro"><span class="toc-num">01</span> The Iteration Gap</a></li>
+    <li class="toc-item" id="toc-s-background"><a href="#s-background"><span class="toc-num">02</span> MDM Primer</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> LoopMDM Architecture</a></li>
+    <li class="toc-item" id="toc-s-workspace"><a href="#s-workspace"><span class="toc-num">04</span> Masks as Workspace</a></li>
+    <li class="toc-item" id="toc-s-selective"><a href="#s-selective"><span class="toc-num">05</span> Where &amp; How Much</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 -->
+<section id="s-intro" data-code="intro">
+<div class="section-no">01 — The Iteration Gap</div>
+<h2>Why a single forward pass isn't enough</h2>
+<p>
+  Masked Diffusion Models (MDMs) generate text by iteratively unmasking tokens over many denoising steps. At each step, the transformer runs a forward pass and predicts every masked position <em>simultaneously</em>. This parallelism is powerful — but it has a hidden limitation.
+</p>
+<p>
+  Within a single forward pass, masked positions can't revise each other. Once the network computes a hidden state for position 3, that hidden state can't incorporate what position 7 "figured out" — the two positions reason from whatever they learned in the previous step. For short, locally-constrained text this is fine. For globally-constrained problems — Sudoku, arithmetic, multi-hop reasoning — it's a bottleneck.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">single-step vs. looped prediction</span>
+    <span class="vp-hint">click to switch mode</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="intro-canvas" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;gap:.5rem;margin-top:.75rem;justify-content:center">
+      <button class="sudoku-btn active" id="intro-btn-single" onclick="setIntroMode('single')">S = 1 (no loops)</button>
+      <button class="sudoku-btn" id="intro-btn-loop" onclick="setIntroMode('loop')">S = 12 (with loops)</button>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:var(--muted);margin:.5rem 0 0;font-family:var(--ff-mono)">
+      "The cat ___ on the ___ near ___ Paris" — globally constrained prediction
+    </p>
+  </div>
+</div>
+
+<p>
+  Looped architectures solve this by applying a <em>shared</em> transformer block S times per step. Each loop pass can incorporate the refined predictions of the previous pass, letting masked positions gradually converge on a globally consistent answer.
+</p>
+<p>
+  LoopMDM (Lee et al., 2026) is the first systematic application of looped transformers to masked diffusion language models, and the results are striking: 3.3× fewer training FLOPs to reach the same quality, +8.5 points on GSM8K math, at zero additional parameter cost.
+</p>
+</section>
+
+<!-- §02 -->
+<section id="s-background" data-code="background">
+<div class="section-no">02 — MDM Primer</div>
+<h2>Masked Diffusion Language Models</h2>
+<p>
+  Before diving into the loop, here's the MDM setup. Given a clean token sequence x₀, the <strong>forward process</strong> randomly replaces each token with a special [MASK] token with probability (1 − αₜ) at noise level t. At t = 1, everything is masked; at t = 0, the text is clean.
+</p>
+<div class="math-block">
+  <div class="math-label">Forward masking process</div>
+  q(<span class="math-var">xᵢₜ</span> | <span class="math-var">xᵢ₀</span>) = <span class="math-var">αₜ</span> · δ(<span class="math-var">xᵢ₀</span>) + (1 − <span class="math-var">αₜ</span>) · δ([MASK])
+  <div class="math-comment">  &nbsp;&nbsp;&nbsp;← keeps token with prob αₜ, masks with prob (1 − αₜ)</div>
+</div>
+<p>
+  The <strong>reverse process</strong> starts from a fully-masked sequence and iteratively unmasks. At each step, the denoising network pθ predicts the clean token at each masked position, and some masked tokens are "committed" to their predicted value. After T steps, all masks are resolved and we have generated text.
+</p>
+<p>
+  The training objective is the <strong>negative ELBO (NELBO)</strong> — a sum over masked positions, weighted by the noise schedule derivative α′ₜ/(1 − αₜ):
+</p>
+<div class="math-block">
+  <div class="math-label">NELBO training loss</div>
+  ℒ = 𝔼<sub>t,xₜ</sub> [∑<sub>i</sub> I[<span class="math-var">xᵢₜ</span> = MASK] · <span class="math-var">αₜ′</span>/(1 − <span class="math-var">αₜ</span>) · log &lt;p<sub>θ</sub>(<span class="math-var">x₀ᵢ</span> | xₜ, t), <span class="math-var">x₀ᵢ</span>&gt;]
+  <div class="math-comment">  &nbsp;&nbsp;&nbsp;← only penalizes predictions at masked positions</div>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">progressive unmasking animation</span>
+    <span class="vp-hint">watch the denoising steps</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="unmask-canvas" style="width:100%;height:140px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;gap:.5rem;margin-top:.75rem;justify-content:center">
+      <button class="sudoku-btn active" id="unmask-play-btn" onclick="startUnmask()">▶ Play</button>
+      <button class="sudoku-btn" onclick="resetUnmask()">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The critical design challenge: what should the <em>architecture</em> of pθ look like? Prior work focused on training objectives and noise schedules; LoopMDM addresses the architecture directly, asking: can repeated computation within a single denoising step improve quality?
+</p>
+</section>
+
+<!-- §03 -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — LoopMDM Architecture</div>
+<h2>Shared mid-block, repeated S times</h2>
+<p>
+  LoopMDM divides the denoising transformer into three groups: a <strong>head</strong> of nₕ layers (run once, builds initial representations), a <strong>mid-block</strong> of n_m layers with <em>shared weights applied S times in a loop</em>, and a <strong>tail</strong> that produces the final token distributions.
+</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">LoopMDM architecture</span>
+    <span class="vp-hint">parameter count unchanged vs. baseline</span>
+  </div>
+  <div class="vp-body" style="padding:.75rem">
+    <svg viewBox="0 0 620 200" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg">
+      <!-- Input -->
+      <rect x="10" y="80" width="80" height="40" rx="6" fill="rgba(107,114,128,.15)" stroke="rgba(107,114,128,.4)" stroke-width="1.2"/>
+      <text x="50" y="97" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">masked</text>
+      <text x="50" y="110" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">tokens xₜ</text>
+      <!-- Arrow -->
+      <line x1="90" y1="100" x2="118" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Head block -->
+      <rect x="118" y="68" width="88" height="64" rx="7" fill="rgba(6,182,212,.12)" stroke="rgba(6,182,212,.5)" stroke-width="1.5"/>
+      <text x="162" y="89" text-anchor="middle" fill="#06b6d4" font-size="9.5" font-family="monospace" font-weight="700">HEAD</text>
+      <text x="162" y="104" text-anchor="middle" fill="rgba(6,182,212,.7)" font-size="8.5" font-family="monospace">nₕ layers</text>
+      <text x="162" y="118" text-anchor="middle" fill="rgba(6,182,212,.5)" font-size="7.5" font-family="monospace">applied once</text>
+      <!-- Arrow -->
+      <line x1="206" y1="100" x2="232" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Mid block -->
+      <rect x="232" y="50" width="132" height="100" rx="7" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.6)" stroke-width="2"/>
+      <text x="298" y="75" text-anchor="middle" fill="#a78bfa" font-size="9.5" font-family="monospace" font-weight="700">MID-BLOCK</text>
+      <text x="298" y="91" text-anchor="middle" fill="rgba(139,92,246,.8)" font-size="8.5" font-family="monospace">nₘ layers (shared)</text>
+      <text x="298" y="107" text-anchor="middle" fill="rgba(139,92,246,.8)" font-size="8.5" font-family="monospace" font-weight="700">× S loops</text>
+      <text x="298" y="123" text-anchor="middle" fill="rgba(139,92,246,.5)" font-size="7.5" font-family="monospace">same weights every loop</text>
+      <!-- Loop arrow (curved back) -->
+      <path d="M298 50 Q298 24 338 24 Q378 24 378 50" fill="none" stroke="rgba(139,92,246,.6)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrp)"/>
+      <text x="338" y="17" text-anchor="middle" fill="rgba(139,92,246,.6)" font-size="8" font-family="monospace">repeat S times</text>
+      <!-- Arrow -->
+      <line x1="364" y1="100" x2="390" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Tail block -->
+      <rect x="390" y="68" width="88" height="64" rx="7" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.45)" stroke-width="1.5"/>
+      <text x="434" y="89" text-anchor="middle" fill="#10b981" font-size="9.5" font-family="monospace" font-weight="700">TAIL</text>
+      <text x="434" y="104" text-anchor="middle" fill="rgba(16,185,129,.7)" font-size="8.5" font-family="monospace">nₒ layers</text>
+      <text x="434" y="118" text-anchor="middle" fill="rgba(16,185,129,.5)" font-size="7.5" font-family="monospace">applied once</text>
+      <!-- Arrow -->
+      <line x1="478" y1="100" x2="504" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Output -->
+      <rect x="504" y="80" width="106" height="40" rx="6" fill="rgba(107,114,128,.15)" stroke="rgba(107,114,128,.4)" stroke-width="1.2"/>
+      <text x="557" y="97" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">token probs</text>
+      <text x="557" y="110" text-anchor="middle" fill="#9ca3af" font-size="9" font-family="monospace">pθˢ(x₀|xₜ)</text>
+      <!-- Defs -->
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4b5563"/></marker>
+        <marker id="arrp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(139,92,246,.6)"/></marker>
+      </defs>
+      <!-- Param annotation -->
+      <text x="298" y="170" text-anchor="middle" fill="rgba(245,158,11,.75)" font-size="8.5" font-family="monospace">↳ S = 12 loops → effective depth nₕ + 12·nₘ + nₒ</text>
+      <text x="298" y="183" text-anchor="middle" fill="rgba(245,158,11,.55)" font-size="8" font-family="monospace">parameter count = same as non-looped nₕ + nₘ + nₒ model</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The <strong>stochastic training trick</strong>: during training, the loop count S is drawn uniformly from &#123;1, …, S_max&#125; at each step. This forces the shared mid-block to produce useful representations at any loop depth, making the model deployable with any S at inference — including values beyond S_max = 12 (which still helps, showing the operator generalizes).
+</p>
+
+<div class="step-list">
+  <div class="step-box active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Head: one-time setup</div>
+      <div class="step-desc">Maps masked input tokens xₜ into initial hidden states H₀. Low-level embedding and positional encoding. Not shared.</div>
+      <div class="step-code">H₀ = head(xₜ)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Mid-block loop: S passes of shared computation</div>
+      <div class="step-desc">The same nₘ-layer block is applied S times. Each pass refines H using the current state — masked positions can "revise" based on other positions' updates.</div>
+      <div class="step-code">for k in 1..S: Hᵏ = mid(Hᵏ⁻¹) &nbsp;&nbsp;# same weights</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Tail: decode to token distributions</div>
+      <div class="step-desc">Maps the final hidden state Hˢ to per-position token probabilities. Then the reverse diffusion step unmasks some tokens using these predictions.</div>
+      <div class="step-code">pθˢ(x₀|xₜ) = tail(Hˢ)</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 3</span>
+  <button id="step-next">Next →</button>
+</div>
+</section>
+
+<!-- §04 -->
+<section id="s-workspace" data-code="workspace">
+<div class="section-no">04 — Masks as a Parallel Workspace</div>
+<h2>How loops let masked tokens reason together</h2>
+<p>
+  Why does looping help at all? The key insight: <strong>masked positions act as a parallel scratchpad</strong>. In each loop pass, masked tokens can incorporate what other masked tokens are "thinking" — their current hidden states. Repeated loops let this information propagate across the entire masked sequence before committing to predictions.
+</p>
+<p>
+  The Sudoku puzzle below makes this concrete. MDMs can normally solve Sudoku by choosing easy cells first (adaptive unmasking). LoopMDM researchers disabled that advantage by enforcing <em>left-to-right generation</em> — identical to how autoregressive models work — so any improvement must come purely from within-step reasoning. Under this constraint, a 1-layer model without looping gets only 10.9% accuracy. With loops, errors shrink step by step:
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sudoku: loop count vs. errors (left-to-right generation order)</span>
+    <span class="vp-hint">click S buttons to see errors decrease</span>
+  </div>
+  <div class="vp-body">
+    <div class="sudoku-btns">
+      <button class="sudoku-btn active" id="sb1" onclick="setSudokuS(1)">S = 1 &nbsp;(24 err)</button>
+      <button class="sudoku-btn" id="sb2" onclick="setSudokuS(2)">S = 2 &nbsp;(7 err)</button>
+      <button class="sudoku-btn" id="sb3" onclick="setSudokuS(3)">S = 3 &nbsp;(0 err)</button>
+    </div>
+    <div class="sudoku-wrap">
+      <div class="sudoku-grid" id="sudoku-grid"></div>
+    </div>
+    <div class="sudoku-error-count" id="sudoku-ec">
+      <span style="color:#f87171;font-weight:700">24 errors</span> — locally plausible guesses, globally inconsistent
+    </div>
+  </div>
+</div>
+
+<p>
+  After loop 1, the model's predictions are locally reasonable but violate Sudoku constraints globally — "sat" and "mat" both look fine from their own context, but collide row-wise. Loop 2 can see the states from loop 1 at every masked position simultaneously, spot the collision, and revise. Loop 3 achieves a globally consistent solution with zero errors.
+</p>
+
+<h3>Mask-to-mask attention grows with loop count</h3>
+<p>
+  The mechanism behind this: as loop count S increases, the fraction of attention mass flowing from masked positions to <em>other</em> masked positions grows steadily. At S = 1 (equivalent to a plain MDM forward pass), each masked position mostly attends to unmasked context. At S = 12, masked positions spend significantly more attention on each other — building up a shared reasoning space.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">mask-to-mask attention vs. loop count</span>
+    <span class="vp-hint">attention among masked positions increases with S</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="attn-canvas" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  The attention saturates near S_max = 12, consistent with the training distribution. Even beyond S_max = 12, the trend holds — suggesting the loop operator has learned a general refinement procedure, not one that overfits to a specific loop count.
+</p>
+</section>
+
+<!-- §05 -->
+<section id="s-selective" data-code="selective">
+<div class="section-no">05 — Where &amp; How Much to Loop</div>
+<h2>Selective placement is critical — not all layers are equal</h2>
+<p>
+  Looping every layer sounds like the obvious choice, but it's actually counterproductive. The paper's ablation (Table 4) shows a clear pattern: the loop must be placed at <strong>early-middle layers</strong>, applied to a <strong>small number of layers</strong>, with a <strong>moderate maximum loop count</strong>. Deviating in any direction hurts.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">NLL vs. loop position (lower is better; baseline = 3.798)</span>
+    <span class="vp-hint">positions 1–2 are the sweet spot</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="pos-canvas" style="width:100%;height:220px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  Positions 0 (closest to the input embedding) and 9–10 (closest to the output head) both underperform. The sweet spot at positions 1–2 captures the gains: the head has already built basic token representations, but the tail hasn't yet specialized for final prediction. Repeated computation in this "middle" zone is most effective.
+</p>
+
+<h3>How many looped layers? Two is enough.</h3>
+<p>
+  Adding more layers to the looped block is also counterproductive. With n_m = 2 mid-layers and S_max = 12 loops, the effective depth is 24 extra "virtual layers" — far more than adding 2 real layers. But looping 6+ layers underperforms the baseline, because each loop is more expensive and the fixed FLOP budget buys fewer training steps.
+</p>
+
+<h3>Adaptive loops: 12 → 5.1 average, same performance</h3>
+<p>
+  Not every denoising timestep needs the full S = 12 loops. The NLL gain from additional loops peaks at intermediate noise levels (where the model has both context and unresolved positions) and is small near t = 0 (nearly clean) or t = 1 (nearly fully masked).
+</p>
+<p>
+  The paper proposes a simple adaptive rule: monitor the relative hidden-state change between loop iterations. If ‖H⁽ᵏ⁾ − H⁽ᵏ⁻¹⁾‖/‖H⁽ᵏ⁾‖ falls below ε = 0.1, stop early. This reduces the average loop count from 12 to just 5.1 while preserving essentially the same performance.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">adaptive vs. fixed loop count</span>
+    <span class="vp-hint">same performance, 2.4× faster at inference</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="adapt-canvas" style="width:100%;height:180px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+</section>
+
+<!-- §06 -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>3.3× FLOPs saved, +8.5% on math reasoning</h2>
+<p>
+  All experiments use a 170M-parameter diffusion transformer (rotary PE, adaptive LayerNorm), matched in parameter count and total training FLOPs against a non-looped MDM baseline. The loop is applied to mid-layers 1–2 with S_max = 12. Results are averaged over five random seeds.
+</p>
+
+<h3>Training compute efficiency</h3>
+<p>
+  The headline result: on FineWeb-Edu, LoopMDM reaches the same test NLL as the MDM baseline using <strong>3.34× fewer training FLOPs</strong>. On OpenWebText: 2.95×. On LM1B: 2.34×. When trained at matched total FLOPs, LoopMDM consistently outperforms.
+</p>
+
+<div class="results-bars" id="flop-bars">
+  <div class="bar-group-label">Training FLOPs needed to match baseline NLL</div>
+  <div class="bar-row">
+    <div class="bar-label">MDM baseline (FineWeb-Edu)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>1.0×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LoopMDM S=12 (FineWeb-Edu)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="30" style="background:var(--purple)"><span>0.30× (3.34× saved)</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">MDM baseline (OpenWebText)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>1.0×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LoopMDM S=12 (OWT)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="34" style="background:var(--purple)"><span>0.34× (2.95× saved)</span></div></div>
+  </div>
+</div>
+
+<h3>Math reasoning: GSM8K</h3>
+<p>
+  The gains are most dramatic on math. On GSM8K, LoopMDM (14-layer, S=16) improves over the same-size MDM baseline by <strong>+8.5 points</strong>. It also outperforms a 21-layer MDM — which has the same per-step FLOPs as LoopMDM — by +3.4 points, showing the gains don't just come from deeper networks.
+</p>
+
+<div class="results-bars" id="gsm-bars">
+  <div class="bar-group-label">GSM8K accuracy — Top-3 unmasking</div>
+  <div class="bar-row">
+    <div class="bar-label">MDM 14L (baseline)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="58" style="background:rgba(107,114,128,.45)"><span>~58%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">MDM 21L (matched per-step FLOPs)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="63" style="background:rgba(6,182,212,.5)"><span>~63%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LoopMDM S=8</div>
+    <div class="bar-track"><div class="bar-fill" data-w="65.7" style="background:rgba(139,92,246,.6)"><span>~65.7%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LoopMDM S=16 (beyond training max)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="66.4" style="background:var(--purple)"><span>+8.5 pts vs baseline</span></div></div>
+  </div>
+</div>
+
+<h3>Downstream task accuracy (S = 12 vs. baseline)</h3>
+<table class="results-table">
+  <thead>
+    <tr><th>Benchmark</th><th>MDM baseline</th><th>LoopMDM S=6</th><th>LoopMDM S=12</th><th>Δ</th></tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td>BoolQ</td>
+      <td class="mn">46.6</td>
+      <td class="mn">53.8</td>
+      <td class="mn best">57.4</td>
+      <td class="mn" style="color:var(--green)">+10.8</td>
+    </tr>
+    <tr>
+      <td>RACE</td>
+      <td class="mn">28.5</td>
+      <td class="mn">31.3</td>
+      <td class="mn best">31.7</td>
+      <td class="mn" style="color:var(--green)">+3.2</td>
+    </tr>
+    <tr>
+      <td>PIQA</td>
+      <td class="mn">60.6</td>
+      <td class="mn">58.9</td>
+      <td class="mn best">61.1</td>
+      <td class="mn" style="color:var(--green)">+0.5</td>
+    </tr>
+    <tr>
+      <td>HellaSwag</td>
+      <td class="mn">31.9</td>
+      <td class="mn">32.5</td>
+      <td class="mn best">32.7</td>
+      <td class="mn" style="color:var(--green)">+0.8</td>
+    </tr>
+    <tr>
+      <td>SIQA</td>
+      <td class="mn">36.8</td>
+      <td class="mn">37.4</td>
+      <td class="mn best">37.3</td>
+      <td class="mn" style="color:var(--green)">+0.5</td>
+    </tr>
+    <tr>
+      <td>WinoGrande</td>
+      <td class="mn">51.3</td>
+      <td class="mn">51.4</td>
+      <td class="mn best">51.5</td>
+      <td class="mn" style="color:var(--green)">+0.2</td>
+    </tr>
+    <tr>
+      <td><strong>Average (9 tasks)</strong></td>
+      <td class="mn">40.0</td>
+      <td class="mn">40.7</td>
+      <td class="mn best">41.4</td>
+      <td class="mn" style="color:var(--green)">+1.4</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The breadth of improvement is notable: LoopMDM at S = 12 matches or exceeds the baseline on all nine benchmarks despite seeing fewer training tokens (since training runs for fewer steps under matched total FLOPs). The per-step looping compute appears to fully compensate for reduced token exposure.
+</p>
+</section>
+
+<!-- Listen-friendly hidden summary -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: LoopMDM — Looped Masked Diffusion Language Models</h2>
+    <p>Masked Diffusion Language Models generate text by progressively unmasking tokens over many denoising steps. At each step, the transformer predicts all masked positions simultaneously — but cannot revise predictions within a single step, limiting performance on globally-constrained tasks.</p>
+    <p>LoopMDM solves this by sharing a small block of early-middle transformer layers and applying it S times per denoising step. This gives the model an effective depth far greater than its parameter count, and lets masked positions iteratively refine each other's predictions. On a Sudoku puzzle with left-to-right generation order, errors drop from 24 at S=1, to 7 at S=2, to 0 at S=3. On language benchmarks, LoopMDM matches baseline quality with 3.3x fewer training FLOPs and improves GSM8K math accuracy by 8.5 points. An adaptive strategy that monitors hidden-state convergence reduces the average loop count from 12 to 5.1 with minimal accuracy loss.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：LoopMDM——循环掩码扩散语言模型</h2>
+    <p>掩码扩散语言模型通过在多个去噪步骤中逐步揭示掩码标记来生成文本。在每一步中，Transformer会同时预测所有掩码位置——但无法在单步内修正预测结果，这限制了模型在全局约束任务中的表现。</p>
+    <p>LoopMDM通过共享一小组早中期Transformer层并在每个去噪步骤中循环应用S次来解决这一问题。这使模型的有效深度远超其参数量，并允许掩码位置迭代地相互修正预测。在强制从左到右生成顺序的数独谜题上，错误数从S=1时的24个，降至S=2时的7个，再到S=3时的0个。在语言基准测试上，LoopMDM以少3.3倍的训练算力达到基线质量，并将GSM8K数学准确率提升8.5个百分点。一种监控隐藏状态收敛的自适应策略可将平均循环次数从12次减少至5.1次，而性能损失极小。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">loop_mdm/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Iteration Gap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="intro">intro</button>
+    <button class="cs-tab" data-panel="background">background</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="workspace">workspace</button>
+    <button class="cs-tab" data-panel="selective">selective</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-intro">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard MDM: predict all masks in ONE forward pass</span>
+<span class="cs-line cmt"># No within-step revision possible.</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">mdm_step</span><span class="cs-line">(model, x_t, t):</span>
+<span class="cs-line hl-p">    logits = model(x_t, t)  <span class="cmt"># single forward pass</span></span>
+<span class="cs-line">    probs = softmax(logits)  <span class="cmt"># predictions at all masks</span></span>
+<span class="cs-line cmt">    # Commit some tokens based on reverse diffusion rule.</span>
+<span class="cs-line cmt">    # Masked positions predicted independently — no revision.</span>
+<span class="cs-line">    <span class="kw">return</span> commit_tokens(probs, x_t, t)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The problem: position 3 predicts "sat" based on context.</span>
+<span class="cs-line cmt"># Position 7 predicts "mat" based on context.</span>
+<span class="cs-line cmt"># Neither can incorporate the other's prediction within this step.</span>
+<span class="cs-line cmt"># For globally constrained text → inconsistencies.</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># LoopMDM solution: apply a shared mid-block S times</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">loop_mdm_step</span><span class="cs-line">(model, x_t, t, S):</span>
+<span class="cs-line hl-c">    H = model.head(x_t, t)   <span class="cmt"># initial hidden states</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(S):       <span class="cmt"># loop S times</span></span>
+<span class="cs-line hl-p">        H = model.mid(H)       <span class="cmt"># same weights, refined H</span></span>
+<span class="cs-line hl-g">    probs = model.tail(H)     <span class="cmt"># decode after S loops</span></span>
+<span class="cs-line">    <span class="kw">return</span> commit_tokens(probs, x_t, t)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-background">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MDM forward (masking) process</span>
+<span class="cs-line cmt"># αₜ: schedule s.t. α₀≈1 (clean), α₁≈0 (all masked)</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">forward_mask</span><span class="cs-line">(x0, t, alpha_t):</span>
+<span class="cs-line">    masked = []</span>
+<span class="cs-line">    <span class="kw">for</span> tok <span class="kw">in</span> x0:</span>
+<span class="cs-line hl-a">        <span class="kw">if</span> rand() &lt; alpha_t:   <span class="cmt"># keep with prob αₜ</span></span>
+<span class="cs-line">            masked.append(tok)</span>
+<span class="cs-line hl-c">        <span class="kw">else</span>:                   <span class="cmt"># mask with prob 1-αₜ</span></span>
+<span class="cs-line">            masked.append(MASK)</span>
+<span class="cs-line">    <span class="kw">return</span> masked</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Reverse: commit some masks given pθ predictions</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">reverse_step</span><span class="cs-line">(x_t, probs, s, t):</span>
+<span class="cs-line">    alpha_s_t = (1 - alpha(s)) / (1 - alpha(t))</span>
+<span class="cs-line">    x_s = []</span>
+<span class="cs-line">    <span class="kw">for</span> i, tok <span class="kw">in</span> <span class="fn">enumerate</span>(x_t):</span>
+<span class="cs-line">        <span class="kw">if</span> tok != MASK: x_s.append(tok)  <span class="cmt"># keep unmasked</span></span>
+<span class="cs-line hl-p">        <span class="kw">else</span>:  <span class="cmt"># either stay masked or commit</span></span>
+<span class="cs-line hl-p">            <span class="kw">if</span> rand() &lt; alpha_s_t: x_s.append(MASK)</span>
+<span class="cs-line hl-p">            <span class="kw">else</span>: x_s.append(<span class="fn">sample</span>(probs[i]))</span>
+<span class="cs-line">    <span class="kw">return</span> x_s</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># NELBO training loss (simplified)</span>
+<span class="cs-line cmt"># Weighted cross-entropy at masked positions only</span>
+<span class="cs-line kw">def</span> <span class="cs-line fn">nelbo_loss</span><span class="cs-line">(model, x0, t):</span>
+<span class="cs-line">    x_t = <span class="fn">forward_mask</span>(x0, t)</span>
+<span class="cs-line">    probs = model(x_t, t)</span>
+<span class="cs-line">    weight = alpha_prime(t) / (1 - alpha(t))</span>
+<span class="cs-line hl-g">    loss = sum(</span>
+<span class="cs-line hl-g">        weight * -<span class="fn">log</span>(probs[i][x0[i]])</span>
+<span class="cs-line hl-g">        <span class="kw">for</span> i <span class="kw">if</span> x_t[i] == MASK</span>
+<span class="cs-line hl-g">    )  <span class="cmt"># only penalize masked positions</span></span>
+<span class="cs-line">    <span class="kw">return</span> loss</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LoopMDM forward pass (eq. 4 in paper)</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">class</span> <span class="cs-line cls">LoopMDM</span><span class="cs-line">(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, nh, nm, no, S_max):</span>
+<span class="cs-line">        <span class="kw">super</span>().__init__()</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.head = TransformerStack(nh)  <span class="cmt"># not shared</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.mid  = TransformerStack(nm)  <span class="cmt"># SHARED block</span></span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.tail = TransformerStack(no)  <span class="cmt"># not shared</span></span>
+<span class="cs-line">        <span class="kw">self</span>.S_max = S_max</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, x_t, S=<span class="kw">None</span>):</span>
+<span class="cs-line">        <span class="kw">if</span> S <span class="kw">is</span> <span class="kw">None</span>:</span>
+<span class="cs-line hl-a">            S = randint(1, <span class="kw">self</span>.S_max)  <span class="cmt"># stochastic training</span></span>
+<span class="cs-line hl-c">        H = <span class="kw">self</span>.head(x_t)      <span class="cmt"># (0) initial hidden states</span></span>
+<span class="cs-line hl-p">        <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(S):      <span class="cmt"># loop S times</span></span>
+<span class="cs-line hl-p">            H = <span class="kw">self</span>.mid(H)     <span class="cmt"># same weights each time</span></span>
+<span class="cs-line hl-g">        <span class="kw">return</span> <span class="kw">self</span>.tail(H)    <span class="cmt"># decode to token probs</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Effective depth at S=12 (nh=1, nm=2, no=1):</span>
+<span class="cs-line cmt">#   1 + 2×12 + 1 = 26 effective layers</span>
+<span class="cs-line cmt"># Param count = 1 + 2 + 1 = 4-layer equivalent</span>
+<span class="cs-line cmt"># → 6.5× depth amplification at no extra cost!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training FLOP cost (eq. 6 in paper):</span>
+<span class="cs-line cmt"># F_loop = F_base + (E[S]-1) · nm · F_layer</span>
+<span class="cs-line cmt"># E[S] = (S_max+1)/2 under uniform sampling</span>
+<span class="cs-line cmt"># → Offset by training fewer steps to match total FLOPs</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-workspace">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Why loops help: mask-to-mask attention</span>
+<span class="cs-line cmt"># Each loop pass, masked queries attend to masked keys</span>
+<span class="cs-line cmt"># → information flows among all unresolved positions</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Sudoku experiment (left-to-right generation):</span>
+<span class="cs-line cmt"># Baseline MDM (no loops): 10.9% solve rate</span>
+<span class="cs-line cmt"># LoopMDM at S=1:           10.6% (same as baseline)</span>
+<span class="cs-line cmt"># LoopMDM at S=2:           ~50%  (7 errors in demo)</span>
+<span class="cs-line cmt"># LoopMDM at S=3:           ~100% (0 errors in demo)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Adaptive early-stop rule:</span>
+<span class="cs-line kw">def</span> <span class="fn">adaptive_loop</span><span class="cs-line">(model, H_0, S_max, eps=0.1):</span>
+<span class="cs-line">    H = H_0</span>
+<span class="cs-line">    <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(S_max):</span>
+<span class="cs-line">        H_prev = H</span>
+<span class="cs-line hl-p">        H = model.mid(H)</span>
+<span class="cs-line hl-a">        delta = norm(H - H_prev) / norm(H)</span>
+<span class="cs-line hl-g">        <span class="kw">if</span> delta &lt; eps: <span class="kw">break</span>  <span class="cmt"># hidden states stable</span></span>
+<span class="cs-line">    <span class="kw">return</span> H</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Result: avg loops drops 12 → 5.1</span>
+<span class="cs-line cmt"># Zero-shot PPL:  52.9  vs 51.7 (matched)</span>
+<span class="cs-line cmt"># Gen. PPL:       39.11 vs 38.53 (matched)</span>
+<span class="cs-line cmt"># Downstream acc: 41.3  vs 41.4  (matched)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-selective">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Ablation: NLL by loop position (Table 4a)</span>
+<span class="cs-line cmt"># MDM baseline NLL = 3.798 (dashed line)</span>
+<span class="cs-line cmt"># Lower = better</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Position (0-indexed from input)</span>
+<span class="cs-line">position_nll = &#123;</span>
+<span class="cs-line">    0:  3.744,  <span class="cmt"># good, near input</span></span>
+<span class="cs-line hl-g">    1:  3.729,  <span class="cmt"># BEST — early-middle</span></span>
+<span class="cs-line hl-g">    2:  3.729,  <span class="cmt"># BEST — early-middle</span></span>
+<span class="cs-line">    3:  3.733,</span>
+<span class="cs-line">    4:  3.734,</span>
+<span class="cs-line">    5:  3.734,</span>
+<span class="cs-line">    6:  3.735,</span>
+<span class="cs-line">    7:  3.739,</span>
+<span class="cs-line">    8:  3.747,</span>
+<span class="cs-line hl-a">    9:  3.756,  <span class="cmt"># degrading near output</span></span>
+<span class="cs-line hl-a">   10:  3.777,  <span class="cmt"># degrading near output</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: NLL by # looped layers (nm)</span>
+<span class="cs-line cmt"># Best: nm=2; nm>6 underperforms baseline!</span>
+<span class="cs-line">nm_nll = &#123;1:3.743, 2:3.729, 3:3.734,</span>
+<span class="cs-line">          4:3.793, 5:3.794, 6:3.784,</span>
+<span class="cs-line">          7:3.857, 8:3.825, 9:3.842&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: NLL by max loop count Smax</span>
+<span class="cs-line cmt"># Best: Smax=12; too small or too large hurts</span>
+<span class="cs-line">smax_nll = &#123;4:3.741, 8:3.733, 12:3.729,</span>
+<span class="cs-line">            16:3.740, 20:3.763, 24:3.800&#125;</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key results — 170M param, FineWeb-Edu</span>
+<span class="cs-line cmt"># All models: iso-parameter, iso-total-FLOPs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training efficiency: FLOPs to match baseline NLL</span>
+<span class="cs-line cmt"># FineWeb-Edu:  3.34× fewer FLOPs</span>
+<span class="cs-line cmt"># OpenWebText:  2.95× fewer FLOPs</span>
+<span class="cs-line cmt"># LM1B:         2.34× fewer FLOPs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Downstream accuracy (S=12 vs baseline)</span>
+<span class="cs-line">results = &#123;</span>
+<span class="cs-line hl-p">    <span class="str">"BoolQ"</span>:      (46.6, 57.4),  <span class="cmt"># +10.8 pts</span></span>
+<span class="cs-line hl-g">    <span class="str">"RACE"</span>:       (28.5, 31.7),  <span class="cmt"># +3.2 pts</span></span>
+<span class="cs-line">    <span class="str">"HellaSwag"</span>:  (31.9, 32.7),  <span class="cmt"># +0.8 pts</span></span>
+<span class="cs-line">    <span class="str">"PIQA"</span>:       (60.6, 61.1),  <span class="cmt"># +0.5 pts</span></span>
+<span class="cs-line">    <span class="str">"ARC-e"</span>:      (47.7, 47.7),  <span class="cmt"># matched</span></span>
+<span class="cs-line">    <span class="str">"WinoGrande"</span>: (51.3, 51.5),  <span class="cmt"># +0.2 pts</span></span>
+<span class="cs-line">    <span class="str">"SIQA"</span>:       (36.8, 37.3),  <span class="cmt"># +0.5 pts</span></span>
+<span class="cs-line">    <span class="str">"OBQA"</span>:       (30.8, 28.0),  <span class="cmt"># -2.8 pts (only loss)</span></span>
+<span class="cs-line">    <span class="str">"ARC-c"</span>:      (25.5, 25.3),  <span class="cmt"># matched</span></span>
+<span class="cs-line hl-c">    <span class="str">"Average"</span>:    (40.0, 41.4),  <span class="cmt"># +1.4 pts overall</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GSM8K (125M, TinyGSM dataset)</span>
+<span class="cs-line cmt"># MDM 14L baseline:      ~58% (Top-3)</span>
+<span class="cs-line cmt"># MDM 21L (matched FLOPs): ~63%</span>
+<span class="cs-line hl-p">  <span class="cmt"># LoopMDM S=16:  ~66.5% (+8.5 vs 14L, +3.4 vs 21L)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Generative PPL (256 steps, S=12):</span>
+<span class="cs-line cmt"># MDM baseline: 79.43 → LoopMDM: 56.45 (-22.98)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ─── TOC + sidebar toggles ─── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ─── Code sidebar tab switching ─── */
+const tabMeta = {
+  intro:      { file: 'loop_mdm/model.py',      title: 'The Iteration Gap' },
+  background: { file: 'loop_mdm/training.py',   title: 'MDM Background' },
+  arch:       { file: 'loop_mdm/architecture.py', title: 'LoopMDM Architecture' },
+  workspace:  { file: 'loop_mdm/workspace.py',  title: 'Masks as Workspace' },
+  selective:  { file: 'loop_mdm/ablation.py',   title: 'Selective Placement' },
+  results:    { file: 'loop_mdm/results.py',    title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ─── IntersectionObserver — sync TOC + sidebar tab on scroll ─── */
+const sectionMap = {
+  's-intro':     'intro',
+  's-background':'background',
+  's-arch':      'arch',
+  's-workspace': 'workspace',
+  's-selective': 'selective',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ─── Step navigator (arch section) ─── */
+let step = 0;
+const boxes   = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step>0){step--;updateSteps();} });
+nextBtn?.addEventListener('click', () => { if (step<boxes.length-1){step++;updateSteps();} });
+updateSteps();
+
+/* ─── Intro canvas: single-step vs looped prediction ─── */
+let introMode = 'single';
+const introCanvas = document.getElementById('intro-canvas');
+if (introCanvas) {
+  const ictx = introCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function initIntroCanvas() {
+    const W = introCanvas.clientWidth, H = 200;
+    introCanvas.width = W * DPR; introCanvas.height = H * DPR;
+    ictx.scale(DPR, DPR);
+    return { W, H };
+  }
+  function drawIntro(mode) {
+    const { W, H } = initIntroCanvas();
+    ictx.clearRect(0, 0, W, H);
+    const tokens = ['The', 'cat', '[M]', 'on', 'the', '[M]', 'near', '[M]', 'Paris'];
+    const correct = ['The', 'cat', 'sat', 'on', 'the', 'mat', 'near', 'old', 'Paris'];
+    const wrong_s1 = ['The', 'cat', 'ran', 'on', 'the', 'grass', 'near', 'the', 'Paris'];
+    const cellW = Math.min(60, (W - 20) / tokens.length);
+    const startX = (W - cellW * tokens.length) / 2;
+    const isMasked = [false, false, true, false, false, true, false, true, false];
+    ictx.font = `600 11px var(--ff-mono, monospace)`;
+    ictx.textAlign = 'center';
+    ictx.textBaseline = 'middle';
+    // Title
+    ictx.font = `600 10px var(--ff-mono, monospace)`;
+    ictx.fillStyle = 'rgba(107,114,128,.7)';
+    ictx.textAlign = 'left';
+    ictx.fillText(mode === 'single' ? 'S = 1 (no loops) — predictions commit independently' : 'S = 12 (looped) — masks refine each other before committing', 10, 16);
+    ictx.textAlign = 'center';
+    // Draw token row
+    tokens.forEach((tok, i) => {
+      const cx = startX + cellW * i + cellW / 2;
+      const cy = 70;
+      const isMask = isMasked[i];
+      // Cell background
+      let bg, textColor, label;
+      if (!isMask) {
+        bg = 'rgba(255,255,255,.04)';
+        textColor = '#9ca3af';
+        label = tok;
+      } else if (mode === 'single') {
+        // Wrong predictions for single-step
+        bg = 'rgba(239,68,68,.18)';
+        textColor = '#f87171';
+        label = wrong_s1[i];
+      } else {
+        // Correct predictions with loops
+        bg = 'rgba(16,185,129,.18)';
+        textColor = '#34d399';
+        label = correct[i];
+      }
+      ictx.fillStyle = bg;
+      ictx.beginPath();
+      ictx.roundRect(startX + cellW * i + 2, cy - 17, cellW - 4, 34, 5);
+      ictx.fill();
+      if (isMask) {
+        ictx.strokeStyle = mode === 'single' ? 'rgba(239,68,68,.4)' : 'rgba(16,185,129,.4)';
+        ictx.lineWidth = 1.2;
+        ictx.stroke();
+      }
+      ictx.font = `700 10px var(--ff-mono, monospace)`;
+      ictx.fillStyle = textColor;
+      ictx.fillText(label.slice(0,5), cx, cy - 2);
+      // Original token below for masked positions
+      if (isMask) {
+        ictx.font = `400 8.5px var(--ff-mono, monospace)`;
+        ictx.fillStyle = 'rgba(107,114,128,.6)';
+        ictx.fillText(tok, cx, cy + 14);
+      }
+    });
+    // Status message
+    const msg = mode === 'single'
+      ? '⚠  Independent predictions — "ran" and "grass" are inconsistent with each other'
+      : '✓  Looped predictions — "sat" and "mat" agreed through iterative revision';
+    ictx.font = `500 9.5px var(--ff-mono, monospace)`;
+    ictx.fillStyle = mode === 'single' ? 'rgba(239,68,68,.7)' : 'rgba(16,185,129,.7)';
+    ictx.textAlign = 'center';
+    ictx.fillText(msg, W/2, 130);
+    // Loop arrows for looped mode
+    if (mode === 'loop') {
+      const maskCols = [2, 5, 7];
+      maskCols.forEach(i => {
+        const cx = startX + cellW * i + cellW / 2;
+        ictx.beginPath();
+        ictx.arc(cx, 155, 12, 0, Math.PI * 2);
+        ictx.strokeStyle = 'rgba(139,92,246,.5)';
+        ictx.lineWidth = 1.5;
+        ictx.stroke();
+        ictx.fillStyle = 'rgba(139,92,246,.3)';
+        ictx.fill();
+        ictx.font = `600 8px var(--ff-mono, monospace)`;
+        ictx.fillStyle = '#a78bfa';
+        ictx.fillText('×S', cx, 155);
+      });
+      ictx.font = `400 8.5px var(--ff-mono, monospace)`;
+      ictx.fillStyle = 'rgba(139,92,246,.5)';
+      ictx.fillText('← masks loop S=12 times to reach consensus →', W/2, 180);
+    }
+  }
+  window.setIntroMode = function(mode) {
+    introMode = mode;
+    document.querySelectorAll('#intro-btn-single, #intro-btn-loop').forEach(b => b.classList.remove('active'));
+    document.getElementById(mode === 'single' ? 'intro-btn-single' : 'intro-btn-loop').classList.add('active');
+    drawIntro(mode);
+  };
+  drawIntro('single');
+}
+
+/* ─── Unmask canvas (§02 background) ─── */
+const unmaskCanvas = document.getElementById('unmask-canvas');
+let unmaskAnim = null;
+let unmaskPhase = 0;
+if (unmaskCanvas) {
+  const uc = unmaskCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const tokens = ['Paris', 'is', 'the', 'capital', 'of', 'beautiful', 'France', 'today'];
+  let revealed = new Array(tokens.length).fill(false);
+  function initUC() {
+    const W = unmaskCanvas.clientWidth, H = 140;
+    unmaskCanvas.width = W * DPR; unmaskCanvas.height = H * DPR;
+    uc.scale(DPR, DPR);
+    return { W, H };
+  }
+  function drawUnmask(W, H, frac) {
+    uc.clearRect(0, 0, W, H);
+    const cellW = Math.min(72, (W - 20) / tokens.length);
+    const startX = (W - cellW * tokens.length) / 2;
+    uc.font = '400 9px monospace';
+    uc.fillStyle = 'rgba(107,114,128,.6)';
+    uc.textAlign = 'center';
+    uc.fillText(`t = ${(1 - frac).toFixed(2)} — noise level`, W / 2, 18);
+    tokens.forEach((tok, i) => {
+      const cx = startX + cellW * i + cellW / 2;
+      const cy = 70;
+      const show = revealed[i];
+      const bg = show ? 'rgba(16,185,129,.18)' : 'rgba(139,92,246,.15)';
+      const border = show ? 'rgba(16,185,129,.4)' : 'rgba(139,92,246,.4)';
+      uc.fillStyle = bg;
+      uc.beginPath();
+      uc.roundRect(startX + cellW * i + 2, cy - 18, cellW - 4, 36, 5);
+      uc.fill();
+      uc.strokeStyle = border;
+      uc.lineWidth = 1.2;
+      uc.stroke();
+      uc.font = `${show ? 700 : 400} 10px monospace`;
+      uc.fillStyle = show ? '#34d399' : '#7c3aed';
+      uc.textAlign = 'center';
+      uc.fillText(show ? tok : '[M]', cx, cy);
+    });
+    // Progress bar
+    uc.fillStyle = 'rgba(139,92,246,.2)';
+    uc.fillRect(20, 112, W - 40, 8);
+    uc.fillStyle = 'rgba(16,185,129,.6)';
+    uc.fillRect(20, 112, (W - 40) * frac, 8);
+    uc.font = '400 9px monospace';
+    uc.fillStyle = 'rgba(107,114,128,.6)';
+    uc.textAlign = 'center';
+    uc.fillText('← all masked (t=1)                                           clean (t=0) →', W / 2, 132);
+  }
+  window.resetUnmask = function() {
+    clearInterval(unmaskAnim);
+    unmaskAnim = null;
+    revealed = new Array(tokens.length).fill(false);
+    unmaskPhase = 0;
+    const { W, H } = initUC();
+    drawUnmask(W, H, 0);
+    document.getElementById('unmask-play-btn').textContent = '▶ Play';
+    document.getElementById('unmask-play-btn').classList.add('active');
+  };
+  window.startUnmask = function() {
+    if (unmaskAnim) { clearInterval(unmaskAnim); unmaskAnim = null; return; }
+    if (unmaskPhase >= tokens.length) { resetUnmask(); return; }
+    document.getElementById('unmask-play-btn').textContent = '⏸ Pause';
+    const { W, H } = initUC();
+    const order = [2, 6, 0, 5, 3, 4, 1, 7]; // reveal order (capital, France first)
+    unmaskAnim = setInterval(() => {
+      if (unmaskPhase >= tokens.length) {
+        clearInterval(unmaskAnim); unmaskAnim = null;
+        document.getElementById('unmask-play-btn').textContent = '↺ Reset';
+        return;
+      }
+      revealed[order[unmaskPhase]] = true;
+      unmaskPhase++;
+      drawUnmask(W, H, unmaskPhase / tokens.length);
+    }, 600);
+  };
+  const { W: uw, H: uh } = initUC();
+  drawUnmask(uw, uh, 0);
+}
+
+/* ─── Sudoku interactive (§04) ─── */
+const GIVEN = [
+  [5,3,0,0,7,0,0,0,0],
+  [6,0,0,1,9,5,0,0,0],
+  [0,9,8,0,0,0,0,6,0],
+  [8,0,0,0,6,0,0,0,3],
+  [4,0,0,8,0,3,0,0,1],
+  [7,0,0,0,2,0,0,0,6],
+  [0,6,0,0,0,0,2,8,0],
+  [0,0,0,4,1,9,0,0,5],
+  [0,0,0,0,8,0,0,7,9]
+];
+const SOL = [
+  [5,3,4,6,7,8,9,1,2],
+  [6,7,2,1,9,5,3,4,8],
+  [1,9,8,3,4,2,5,6,7],
+  [8,5,9,7,6,1,4,2,3],
+  [4,2,6,8,5,3,7,9,1],
+  [7,1,3,9,2,4,8,5,6],
+  [9,6,1,5,3,7,2,8,4],
+  [2,8,7,4,1,9,6,3,5],
+  [3,4,5,2,8,6,1,7,9]
+];
+// S=1: 24 wrong non-given cells — key: r*9+c, val: wrong prediction
+const V1 = {
+  2:7, 3:5, 5:3, 6:4, 7:3, 8:6,         // row 0: cols 2,3,5,6,7,8
+  10:4,11:5,15:7,16:2,17:3,              // row 1: cols 1,2,6,7,8
+  18:3,21:5,22:6,                        // row 2: cols 0,3,4
+  28:3,29:1,30:5,32:4,                   // row 3: cols 1,2,3,5
+  37:5,38:3,40:8,                        // row 4: cols 1,2,4
+  46:3,47:5,                             // row 5: cols 1,2
+  54:4                                   // row 6: col 0
+};
+// S=2: 7 wrong non-given cells — harder-to-fix ones remain
+const V2 = {
+  2:7,   // row 0 col 2 (should be 4)
+  5:3,   // row 0 col 5 (should be 8)
+  11:5,  // row 1 col 2 (should be 2)
+  18:3,  // row 2 col 0 (should be 1)
+  29:1,  // row 3 col 2 (should be 9)
+  38:3,  // row 4 col 2 (should be 6)
+  47:5   // row 5 col 2 (should be 3)
+};
+let curS = 1;
+function renderSudoku(s) {
+  const grid = document.getElementById('sudoku-grid');
+  if (!grid) return;
+  const ec = document.getElementById('sudoku-ec');
+  const errors = s === 1 ? V1 : s === 2 ? V2 : {};
+  let errCount = Object.keys(errors).length;
+  grid.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'sudoku-cell';
+      const key = r * 9 + c;
+      const isGiven = GIVEN[r][c] !== 0;
+      const correct = SOL[r][c];
+      const isWrong = !isGiven && (key in errors);
+      const val = isGiven ? GIVEN[r][c] : (isWrong ? errors[key] : correct);
+      cell.textContent = val;
+      if (isGiven) cell.classList.add('given');
+      else if (isWrong) cell.classList.add('wrong');
+      else cell.classList.add('correct');
+      if ((c + 1) % 3 === 0 && c < 8) cell.classList.add('border-right');
+      if ((r + 1) % 3 === 0 && r < 8) cell.classList.add('border-bottom');
+      grid.appendChild(cell);
+    }
+  }
+  if (ec) {
+    if (errCount === 0) {
+      ec.innerHTML = '<span style="color:#34d399;font-weight:700">0 errors</span> — globally consistent solution through iterative revision';
+    } else {
+      ec.innerHTML = `<span style="color:#f87171;font-weight:700">${errCount} errors</span> — ${s===1?'locally plausible guesses, globally inconsistent':'most conflicts resolved; a few tricky positions remain'}`;
+    }
+  }
+  [1,2,3].forEach(n => {
+    const btn = document.getElementById('sb'+n);
+    if (btn) btn.classList.toggle('active', n === s);
+  });
+}
+window.setSudokuS = function(s) { curS = s; renderSudoku(s); };
+renderSudoku(1);
+
+/* ─── Mask-to-mask attention canvas (§04) ─── */
+const attnCanvas = document.getElementById('attn-canvas');
+if (attnCanvas) {
+  const ac = attnCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const AW = attnCanvas.clientWidth, AH = 200;
+  attnCanvas.width = AW * DPR; attnCanvas.height = AH * DPR;
+  ac.scale(DPR, DPR);
+  // Data from paper Figure 5 left — approximate values
+  const sVals = [1,2,3,4,5,6,7,8,9,10,11,12,14,16,18,20,24];
+  const mid0  = [0.062,0.075,0.087,0.099,0.109,0.118,0.126,0.133,0.139,0.144,0.148,0.151,0.154,0.157,0.158,0.159,0.160];
+  const mid1  = [0.048,0.059,0.070,0.081,0.090,0.099,0.106,0.113,0.118,0.123,0.127,0.130,0.133,0.135,0.136,0.137,0.138];
+  const pad = { l:50, r:20, t:24, b:36 };
+  const cw = AW - pad.l - pad.r, ch = AH - pad.t - pad.b;
+  const maxS = 24, minAttn = 0.04, maxAttn = 0.17;
+  function sx(s) { return pad.l + (s - 1) / (maxS - 1) * cw; }
+  function sy(v) { return pad.t + ch - (v - minAttn) / (maxAttn - minAttn) * ch; }
+  // Grid
+  ac.strokeStyle = 'rgba(255,255,255,.04)';
+  ac.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = pad.t + g * ch / 4;
+    ac.beginPath(); ac.moveTo(pad.l, y); ac.lineTo(pad.l + cw, y); ac.stroke();
+  }
+  // Smax reference line
+  ac.setLineDash([4,3]);
+  ac.strokeStyle = 'rgba(245,158,11,.4)';
+  ac.lineWidth = 1.2;
+  const sMaxX = sx(12);
+  ac.beginPath(); ac.moveTo(sMaxX, pad.t); ac.lineTo(sMaxX, pad.t + ch); ac.stroke();
+  ac.setLineDash([]);
+  ac.font = '8px monospace'; ac.fillStyle = 'rgba(245,158,11,.6)'; ac.textAlign = 'center';
+  ac.fillText('S_max=12', sMaxX, pad.t - 6);
+  // Draw lines
+  function drawLine(data, color) {
+    ac.beginPath();
+    sVals.forEach((s, i) => {
+      i === 0 ? ac.moveTo(sx(s), sy(data[i])) : ac.lineTo(sx(s), sy(data[i]));
+    });
+    ac.strokeStyle = color; ac.lineWidth = 2; ac.stroke();
+    // Dot at last training point
+    const lastTrain = 12;
+    const idx = sVals.indexOf(lastTrain);
+    if (idx >= 0) {
+      ac.beginPath(); ac.arc(sx(lastTrain), sy(data[idx]), 4, 0, Math.PI*2);
+      ac.fillStyle = color; ac.fill();
+    }
+  }
+  drawLine(mid0, '#8b5cf6');
+  drawLine(mid1, '#06b6d4');
+  // Labels
+  ac.font = '9px monospace'; ac.textAlign = 'right'; ac.fillStyle = '#8b5cf6';
+  ac.fillText('mid[0]', pad.l - 4, sy(mid0[mid0.length-1]) + 3);
+  ac.fillStyle = '#06b6d4';
+  ac.fillText('mid[1]', pad.l - 4, sy(mid1[mid1.length-1]) + 3);
+  // Axes
+  ac.strokeStyle = 'rgba(107,114,128,.3)'; ac.lineWidth = 1;
+  ac.beginPath(); ac.moveTo(pad.l, pad.t); ac.lineTo(pad.l, pad.t+ch); ac.lineTo(pad.l+cw, pad.t+ch); ac.stroke();
+  ac.font = '8px monospace'; ac.fillStyle = 'rgba(107,114,128,.6)'; ac.textAlign = 'center';
+  [1,6,12,18,24].forEach(s => {
+    ac.fillText(String(s), sx(s), pad.t + ch + 14);
+  });
+  ac.fillText('loop count S', pad.l + cw/2, AH - 4);
+  ac.save(); ac.translate(12, pad.t + ch/2); ac.rotate(-Math.PI/2);
+  ac.fillText('mask-to-mask attention', 0, 0); ac.restore();
+  ac.font = '8.5px monospace'; ac.fillStyle = 'rgba(107,114,128,.5)'; ac.textAlign = 'right';
+  ac.fillText('Increases monotonically with S, saturates near training max', pad.l + cw, pad.t - 8);
+}
+
+/* ─── Loop position NLL chart (§05) ─── */
+const posCanvas = document.getElementById('pos-canvas');
+if (posCanvas) {
+  const pc = posCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const PW = posCanvas.clientWidth, PH = 220;
+  posCanvas.width = PW * DPR; posCanvas.height = PH * DPR;
+  pc.scale(DPR, DPR);
+  const positions = [0,1,2,3,4,5,6,7,8,9,10];
+  const nlls = [3.744,3.729,3.729,3.733,3.734,3.734,3.735,3.739,3.747,3.756,3.777];
+  const baseline = 3.798;
+  const pad2 = { l:52, r:20, t:24, b:36 };
+  const w2 = PW - pad2.l - pad2.r, h2 = PH - pad2.t - pad2.b;
+  const minNLL = 3.72, maxNLL = 3.81;
+  function px2(i) { return pad2.l + i / (positions.length - 1) * w2; }
+  function py2(v) { return pad2.t + h2 - (v - minNLL) / (maxNLL - minNLL) * h2; }
+  // Grid
+  pc.strokeStyle = 'rgba(255,255,255,.04)'; pc.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = pad2.t + g * h2 / 4;
+    pc.beginPath(); pc.moveTo(pad2.l, y); pc.lineTo(pad2.l + w2, y); pc.stroke();
+    const v = maxNLL - g * (maxNLL - minNLL) / 4;
+    pc.font = '8px monospace'; pc.fillStyle = 'rgba(107,114,128,.5)'; pc.textAlign = 'right';
+    pc.fillText(v.toFixed(3), pad2.l - 4, y + 3);
+  }
+  // Baseline line
+  pc.setLineDash([4,3]);
+  pc.strokeStyle = 'rgba(239,68,68,.5)'; pc.lineWidth = 1.5;
+  const by = py2(baseline);
+  pc.beginPath(); pc.moveTo(pad2.l, by); pc.lineTo(pad2.l + w2, by); pc.stroke();
+  pc.setLineDash([]);
+  pc.font = '8px monospace'; pc.fillStyle = 'rgba(239,68,68,.7)'; pc.textAlign = 'right';
+  pc.fillText('MDM baseline (3.798)', pad2.l + w2, by - 4);
+  // Draw bars
+  const barW = w2 / positions.length * 0.6;
+  positions.forEach((p, i) => {
+    const x = px2(i) - barW/2;
+    const y0 = py2(Math.min(nlls[i], baseline));
+    const y1 = py2(Math.max(nlls[i], baseline));
+    // Color: positions 1-2 = green, 0 = amber, others = muted
+    let color;
+    if (i === 1 || i === 2) color = 'rgba(16,185,129,.75)';
+    else if (i === 0) color = 'rgba(245,158,11,.6)';
+    else if (nlls[i] > baseline) color = 'rgba(239,68,68,.6)';
+    else color = 'rgba(139,92,246,.5)';
+    pc.fillStyle = color;
+    pc.beginPath();
+    pc.roundRect(x, py2(nlls[i]), barW, py2(baseline) - py2(nlls[i]), 2);
+    pc.fill();
+    // NLL value
+    pc.font = '7.5px monospace'; pc.fillStyle = color; pc.textAlign = 'center';
+    pc.fillText(nlls[i].toFixed(3), x + barW/2, py2(nlls[i]) - 4);
+    // Position label
+    pc.fillStyle = 'rgba(107,114,128,.6)';
+    pc.fillText('pos '+p, x + barW/2, pad2.t + h2 + 15);
+  });
+  // Best annotation
+  pc.font = '8.5px monospace'; pc.fillStyle = 'rgba(16,185,129,.7)'; pc.textAlign = 'center';
+  pc.fillText('★ best (pos 1–2)', px2(1.5), py2(3.729) - 16);
+  // Axes
+  pc.strokeStyle = 'rgba(107,114,128,.3)'; pc.lineWidth = 1;
+  pc.beginPath(); pc.moveTo(pad2.l, pad2.t); pc.lineTo(pad2.l, pad2.t+h2); pc.lineTo(pad2.l+w2, pad2.t+h2); pc.stroke();
+  pc.font = '8px monospace'; pc.fillStyle = 'rgba(107,114,128,.5)'; pc.textAlign = 'center';
+  pc.fillText('loop position (0 = nearest input, 10 = nearest output)', pad2.l + w2/2, PH - 4);
+  pc.save(); pc.translate(10, pad2.t + h2/2); pc.rotate(-Math.PI/2);
+  pc.fillText('test NLL (↓ better)', 0, 0); pc.restore();
+}
+
+/* ─── Adaptive loop canvas (§05) ─── */
+const adaptCanvas = document.getElementById('adapt-canvas');
+if (adaptCanvas) {
+  const ada = adaptCanvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  const ADA_W = adaptCanvas.clientWidth, ADA_H = 180;
+  adaptCanvas.width = ADA_W * DPR; adaptCanvas.height = ADA_H * DPR;
+  ada.scale(DPR, DPR);
+  const metrics = [
+    { label: 'Zero-shot PPL', fixed: 51.7, adaptive: 52.9, pct_fixed: 0.64, pct_adapt: 0.62 },
+    { label: 'Generative PPL', fixed: 38.53, adaptive: 39.11, pct_fixed: 0.72, pct_adapt: 0.71 },
+    { label: 'Downstream Acc', fixed: 41.4, adaptive: 41.3, pct_fixed: 0.81, pct_adapt: 0.81 },
+  ];
+  const rowH = 44, startY = 24, barH = 16;
+  const barStart = 160, barEnd = ADA_W - 80;
+  const bw = barEnd - barStart;
+  ada.font = '8px monospace'; ada.fillStyle = 'rgba(107,114,128,.6)'; ada.textAlign = 'center';
+  ada.fillText('Fixed S=12 vs Adaptive S̄≈5.1 — same performance, fewer loops', ADA_W/2, 14);
+  metrics.forEach((m, i) => {
+    const y = startY + i * rowH + 12;
+    // Label
+    ada.font = '9px monospace'; ada.fillStyle = '#9ca3af'; ada.textAlign = 'right';
+    ada.fillText(m.label, barStart - 8, y + 4);
+    // Fixed bar
+    ada.fillStyle = 'rgba(139,92,246,.5)';
+    ada.fillRect(barStart, y - barH/2 + 2, bw * m.pct_fixed, barH/2 - 1);
+    ada.font = '8.5px monospace'; ada.fillStyle = 'rgba(139,92,246,.9)'; ada.textAlign = 'left';
+    ada.fillText(`S=12: ${m.fixed}`, barStart + bw * m.pct_fixed + 4, y - 2);
+    // Adaptive bar
+    ada.fillStyle = 'rgba(16,185,129,.5)';
+    ada.fillRect(barStart, y + 2, bw * m.pct_adapt, barH/2 - 1);
+    ada.font = '8.5px monospace'; ada.fillStyle = 'rgba(16,185,129,.9)'; ada.textAlign = 'left';
+    ada.fillText(`S̄≈5.1: ${m.adaptive}`, barStart + bw * m.pct_adapt + 4, y + barH/2 - 1);
+  });
+  // Legend
+  ada.font = '8px monospace'; ada.textAlign = 'left';
+  ada.fillStyle = 'rgba(139,92,246,.7)'; ada.fillRect(barStart, startY + 3*rowH + 8, 20, 9); ada.fillStyle = '#9ca3af'; ada.fillText('Fixed S=12', barStart + 24, startY + 3*rowH + 16);
+  ada.fillStyle = 'rgba(16,185,129,.7)'; ada.fillRect(barStart + 120, startY + 3*rowH + 8, 20, 9); ada.fillStyle = '#9ca3af'; ada.fillText('Adaptive S̄≈5.1  (2.4× faster)', barStart + 144, startY + 3*rowH + 16);
+}
+
+/* ─── Animated bars for results section ─── */
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w)) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.25 }).observe(resultsSection);
+}
+</script>
+
+</BaseLayout>
