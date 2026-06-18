@@ -9,6 +9,8 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "kveraser.pdf":                             "https://arxiv.org/pdf/2606.17034v1",
+    "vibethinker-3b.pdf":                        "https://arxiv.org/pdf/2606.16140",
     "dream-reasoner.pdf":                       "https://arxiv.org/pdf/2606.19257v1",
     "sumi-udlm.pdf":                            "https://arxiv.org/pdf/2606.19005",
     "decentmem.pdf":                            "https://arxiv.org/pdf/2605.22721",
