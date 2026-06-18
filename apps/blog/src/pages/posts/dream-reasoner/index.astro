@@ -1,0 +1,1348 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="DreamReasoner-8B: Block-Size Curriculum for Diffusion Reasoning | Catpuccino.ai"
+  description="Block diffusion LLMs promise parallel token generation but collapse on reasoning with large blocks. DreamReasoner-8B uses block-size curriculum learning — train fine-to-coarse — to match Qwen3-8B-Thinking while gaining 3× parallel decoding efficiency."
+  crumb="DreamReasoner"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* Block size buttons */
+.btn-group{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.bsz-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);transition:all .15s}
+.bsz-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.bsz-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button[disabled]:hover{border-color:var(--border-hi);color:var(--muted2);background:var(--surface)}
+.step-nav button[disabled]{opacity:.35;cursor:default}
+.step-progress{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* Callout box */
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Reasoning</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>DreamReasoner-8B: Why Block Diffusion Needs a Curriculum</h1>
+  <p class="lead">Block diffusion promises to generate many tokens in parallel — but naively training with large blocks destroys reasoning ability entirely. DreamReasoner-8B fixes this with a simple curriculum: start fine-grained, finish coarse-grained. The result matches Qwen3-8B-Thinking on math and code while delivering 3× higher token-per-forward-pass efficiency.</p>
+  <div class="post-hero-meta">
+    <span>June 18, 2026</span>
+    <span>~12 min read</span>
+    <span>Paper: <code>arXiv:2606.19257</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.19257v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/DreamLM/DreamReasoner" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Parallelism Trap</a></li>
+    <li class="toc-item" id="toc-s-blockdiff"><a href="#s-blockdiff"><span class="toc-num">02</span> Block Diffusion</a></li>
+    <li class="toc-item" id="toc-s-collapse"><a href="#s-collapse"><span class="toc-num">03</span> The Granularity Collapse</a></li>
+    <li class="toc-item" id="toc-s-curriculum"><a href="#s-curriculum"><span class="toc-num">04</span> Curriculum Fix</a></li>
+    <li class="toc-item" id="toc-s-relaxed"><a href="#s-relaxed"><span class="toc-num">05</span> RelaxedConfidence</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01 The Problem ─────────────────────────────────────────── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Parallelism Trap</div>
+<h2>Autoregressive decoding is serial by construction</h2>
+<p>Every autoregressive (AR) language model generates tokens one at a time, left to right. Token 42 cannot be predicted until tokens 1–41 are finalized. This strict sequentiality is the <em>fundamental efficiency bottleneck</em> for LLM inference — even a 1000-token response requires 1000 sequential forward passes.</p>
+<p>Diffusion language models offer an alternative: instead of generating left-to-right, they start with all tokens masked and iteratively unmask them in parallel. A single forward pass can commit dozens of tokens simultaneously, giving a theoretical speedup proportional to the number of tokens unmasked per step.</p>
+<p>But full-sequence diffusion — where <em>every</em> token in the response is denoised jointly — struggles with long chain-of-thought reasoning. Without a left-to-right causal spine, the model cannot reliably build on its own earlier reasoning steps, causing incoherence in extended problem-solving.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">serial vs parallel decoding — the trade-off</span>
+    <span class="vp-hint">hover / click to explore</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-tradeoff" style="width:100%;height:200px;display:block;border-radius:6px;cursor:pointer"></canvas>
+  </div>
+</div>
+
+<p>The key question DreamReasoner asks: <strong>can we get parallel generation without sacrificing reasoning?</strong> The answer turns out to hinge entirely on how you train — specifically on what <em>block size</em> you use.</p>
+</section>
+
+<!-- ─── §02 Block Diffusion ──────────────────────────────────────── -->
+<section id="s-blockdiff" data-code="blockdiff">
+<div class="section-no">02 — Block Diffusion</div>
+<h2>A hybrid: autoregressive across blocks, diffusion within each block</h2>
+<p>Block diffusion is an architectural compromise between pure AR and pure diffusion. The output sequence is partitioned into <strong>K contiguous blocks</strong>, each containing <strong>B tokens</strong>. Blocks are generated autoregressively (block 2 only starts after block 1 finishes), but <em>within</em> each block all B tokens are denoised in parallel using bidirectional context.</p>
+
+<div class="math-block">
+<div class="math-label">Block diffusion factorization</div>
+<span class="math-var">p</span>θ(x₀) = ∏<sub>k=1..K</sub> <span class="math-var">p</span>θ(b<sup>k</sup>₀ | b<sup>&lt;k</sup>₀)  <span class="math-comment">← autoregressive across blocks</span>
+<br>
+<span class="math-var">p</span>θ(b<sup>k</sup>₀ | b<sup>&lt;k</sup>₀) = diffusion denoising  <span class="math-comment">← parallel within each block</span>
+<br><br>
+Block size B=1 → pure autoregressive  <span class="math-comment">(1 token per block)</span>
+Block size B=N → pure diffusion  <span class="math-comment">(all N tokens in one block)</span>
+</div>
+
+<p>Block size <strong>B</strong> is the key knob. Small B ≈ AR (safe, slow). Large B ≈ full diffusion (fast, risky). The efficiency metric is <strong>tokens per forward pass (TPF)</strong> — how many tokens get committed in each forward pass of the model. AR has TPF = 1. Full diffusion can have TPF = many dozens. Block diffusion sits in between, with TPF scaling with B.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">block diffusion — interactive structure</span>
+    <span class="vp-hint">click a block size to see the structure</span>
+  </div>
+  <div class="vp-body">
+    <div class="btn-group" id="block-size-btns">
+      <button class="bsz-btn" data-bs="1">B=1 (AR)</button>
+      <button class="bsz-btn active" data-bs="4">B=4</button>
+      <button class="bsz-btn" data-bs="8">B=8</button>
+      <button class="bsz-btn" data-bs="16">B=16</button>
+      <button class="bsz-btn" data-bs="32">B=32 (large)</button>
+    </div>
+    <canvas id="canvas-blockdiff" style="width:100%;height:160px;display:block;border-radius:6px"></canvas>
+    <div id="block-info" style="font-size:.75rem;color:var(--muted);margin-top:.75rem;font-family:var(--ff-mono)"></div>
+  </div>
+</div>
+</section>
+
+<!-- ─── §03 Granularity Collapse ─────────────────────────────────── -->
+<section id="s-collapse" data-code="collapse">
+<div class="section-no">03 — The Granularity Collapse</div>
+<h2>Training with large blocks destroys reasoning ability</h2>
+<p>Here is the paper's central empirical finding — a result that is stark enough to be called a <em>collapse</em>. When you train a diffusion language model with a fixed large block size (B=32), reasoning performance on hard benchmarks like AIME drops catastrophically:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">AIME 2024 accuracy — training block size vs inference block size</span>
+    <span class="vp-hint">choose a training configuration</span>
+  </div>
+  <div class="vp-body">
+    <div class="btn-group" id="collapse-train-btns">
+      <button class="bsz-btn active" data-train="4">Trained B=4 (fine)</button>
+      <button class="bsz-btn" data-train="32">Trained B=32 (coarse)</button>
+      <button class="bsz-btn" data-train="curr">Curriculum 4→32</button>
+    </div>
+    <canvas id="canvas-collapse" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+    <div id="collapse-label" style="font-size:.73rem;color:var(--muted);margin-top:.75rem;font-family:var(--ff-mono);text-align:center"></div>
+  </div>
+</div>
+
+<p>The contrast is dramatic. A model trained on small blocks (B=4) achieves <strong>47.1% on AIME 2024</strong> under diffusion decoding — and maintains that even when you swap inference to large blocks. But the same architecture trained with large blocks (B=32) collapses to <strong>20.0%</strong> under fine-grained inference — a 57% relative drop.</p>
+
+<div class="callout">
+  <strong>Why does large-block training cause this?</strong> When B=32, the model learns to rely on long-range intra-block attention — it sees 32 tokens simultaneously and builds dependencies that span the whole block. But at inference time with smaller blocks, those long-range dependencies are unavailable. The model has overfit to a decoding structure it can't fall back from.
+</div>
+
+<p>Conversely, small-block training builds <em>local causal structure</em>: the model learns tight sequential dependencies within 4-token windows. This knowledge transfers naturally to larger blocks — it can still generate 32 tokens in parallel, just using the robust local patterns it learned from 4-token training.</p>
+</section>
+
+<!-- ─── §04 Curriculum Fix ──────────────────────────────────────── -->
+<section id="s-curriculum" data-code="curriculum">
+<div class="section-no">04 — The Curriculum Fix</div>
+<h2>Start fine-grained, finish coarse-grained</h2>
+<p>The fix is conceptually simple: instead of training at a fixed large block size, train in a <em>curriculum</em> that starts at B=4 (building strong local causal reasoning) and then gradually exposes the model to larger blocks (B=8, 16, 32) to build coarse-grained parallel decoding capability.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">curriculum training pipeline — step through each phase</span>
+    <span class="vp-hint">click Next to advance</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="curriculum-steps">
+      <div class="step-box active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Continual Pre-training from Qwen3-8B-Base</div>
+          <div class="step-desc">Initialize from Qwen3-8B-Base and pre-train on 160B tokens as a block diffusion model. Fixed block size B=32 throughout. This establishes a reproducible foundation without the need for full training from scratch.</div>
+          <div class="step-code">base_model = "Qwen3-8B-Base"  # 8B parameters<br>corpus = "160B tokens"  # curated reasoning data<br>block_size = 32  # fixed for pre-training</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">SFT Phase 1 — Fine-Grained Anchoring (B=4)</div>
+          <div class="step-desc">Fine-tune on PromptCoT 2.0 (4.8M math + code samples, 16K context) using block size B=4. This phase forces the model to build tight local sequential dependencies — the bedrock of reliable chain-of-thought reasoning.</div>
+          <div class="step-code">block_size = 4  # fine-grained anchoring<br>dataset = "PromptCoT 2.0"  # 4.8M samples<br>context_len = 16384  # long CoT</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">SFT Phase 2 — Mixed-Granularity Expansion</div>
+          <div class="step-desc">Continue fine-tuning on the same data but randomly sample block size from &#123;4, 8, 16, 32&#125; for each training example. This teaches the model to maintain sequential fidelity across multiple granularities simultaneously.</div>
+          <div class="step-code">block_sizes = [4, 8, 16, 32]  # sampled uniformly<br>strategy = "random per batch"<br># preserves fine-grained + enables coarse</div>
+        </div>
+      </div>
+      <div class="step-box" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Inference — Block Size as a Deployment Knob</div>
+          <div class="step-desc">The curriculum-trained model is robust to any inference block size B∈&#123;4,8,16,32&#125;. Choose B based on your efficiency needs: B=32 gives ~3× TPF over B=4 with only ~7% accuracy drop on AIME. One model, tunable at inference time.</div>
+          <div class="step-code">model = "DreamReasoner-8B"<br>B = 32  # tune this at inference time<br>TPF_B4 = 1.6, TPF_B32 = 2.4  # tokens/pass</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <button id="step-next">Next →</button>
+      <span class="step-progress" id="step-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>The curriculum approach achieves <strong>50.0% on AIME 2024</strong> under diffusion decoding with B=4 inference, and <strong>48.3% with B=32 inference</strong> — better than the fixed B=4 baseline at large-block inference (42.5%), and far better than fixed B=32 training (20.0%). One model covers the full efficiency-quality Pareto frontier.</p>
+</section>
+
+<!-- ─── §05 RelaxedConfidence ──────────────────────────────────── -->
+<section id="s-relaxed" data-code="relaxed">
+<div class="section-no">05 — RelaxedConfidence Decoding</div>
+<h2>Conservative thresholds leave efficiency on the table</h2>
+<p>Block diffusion uses a <em>confidence-threshold</em> decoding strategy: at each denoising step, a token is committed if its predicted confidence exceeds threshold τ (typically 0.95). Tokens below τ remain masked and get another denoising pass.</p>
+<p>The problem: this threshold treats every token independently. In practice, <strong>contiguous spans of tokens</strong> reach implicit stability together — a sequence like "the answer is 42" either stabilizes as a unit or not. The 0.95 threshold is overly conservative for the middle tokens in such a span.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">RelaxedConfidence — spatial support lowers the per-token threshold</span>
+    <span class="vp-hint">hover over a token to see its effective threshold</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-relaxed" style="width:100%;height:220px;display:block;border-radius:6px;cursor:crosshair"></canvas>
+    <div id="relaxed-info" style="font-size:.73rem;color:var(--muted);margin-top:.75rem;font-family:var(--ff-mono);text-align:center">hover over a token above</div>
+  </div>
+</div>
+
+<p>RelaxedConfidence introduces a <strong>position-specific threshold</strong> τᵢ that depends on how many <em>reliable neighbors</em> surround position i. Tokens flanked by already-decoded or high-confidence neighbors get a lower effective threshold (down to τ_min), while isolated tokens still need to pass the full τ=0.95 bar.</p>
+
+<div class="math-block">
+<div class="math-label">RelaxedConfidence threshold formula</div>
+Sᵢ = (Σ<sub>j∈Nr(i)∩R</sub> wᵢⱼ) / (Σ<sub>j∈Nr(i)</sub> wᵢⱼ)   <span class="math-comment">← spatial support score</span>
+<br>
+τᵢ = τ − (τ − τ_min) · Sᵢ   <span class="math-comment">← position-specific threshold</span>
+<br><br>
+Sᵢ=0 (isolated): τᵢ = τ = 0.95   <span class="math-comment">← full threshold</span>
+Sᵢ=1 (well-supported): τᵢ = τ_min   <span class="math-comment">← relaxed threshold</span>
+</div>
+
+<p>This yields substantial TPF gains with minimal accuracy cost. During the <strong>answering phase</strong> — where outputs are structured and lexically constrained — RelaxedConfidence raises TPF from ~2.4 to ~3.6 on AIME 2025 (+50%) and from ~3.9 to ~6.2 on LiveCodeBench (+59%).</p>
+</section>
+
+<!-- ─── §06 Results ──────────────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Competitive with Qwen3-8B-Thinking, beating all diffusion baselines</h2>
+<p>DreamReasoner-8B is evaluated across math reasoning (AIME 2024/2025) and code generation (LiveCodeBench Oct 2024–May 2025). The key comparison is at block size B=4 (conservative, closest to AR) and B=32 (aggressive parallelism).</p>
+
+<h3>vs Autoregressive baselines</h3>
+<div class="results-bars" id="bars-ar">
+  <div class="bar-row">
+    <div class="bar-label">DeepSeek-R1-Distill-7B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="55.5"><span>55.5%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">MiMo-7B-RL</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="68.2"><span>68.2%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">AceReason-7B</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="72.6"><span>72.6%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-8B-Thinking</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.5)" data-w="76.0"><span>76.0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">DreamReasoner-8B (B=4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="73.8"><span>73.8%</span></div></div>
+  </div>
+</div>
+<p style="font-size:.8rem;color:var(--muted);margin-top:-.5rem">AIME 2024 — Pass@1 (%)</p>
+
+<h3>vs Diffusion baselines (AIME 2024)</h3>
+<div class="results-bars" id="bars-diff">
+  <div class="bar-row">
+    <div class="bar-label">Dream-7B-Instruct</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.25)" data-w="0"><span>0.0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LLaDA-8B-Instruct</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.25)" data-w="0"><span>0.0%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SDAR-8B-Chat (B=4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.25)" data-w="13.3"><span>13.3%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">TraDo-8B-Thinking (B=4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.25)" data-w="35.5"><span>35.5%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SDAR-30B-A3B-Sci (B=4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.25)" data-w="73.4"><span>73.4%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">DreamReasoner-8B (B=4)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="73.8"><span>73.8%</span></div></div>
+  </div>
+</div>
+<p style="font-size:.8rem;color:var(--muted);margin-top:-.5rem">AIME 2024 — DreamReasoner-8B outperforms SDAR-30B with 4× fewer parameters</p>
+
+<h3>Efficiency vs accuracy trade-off (inference block size)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Block Size</th>
+      <th>AIME 2024</th>
+      <th>AIME 2025</th>
+      <th>LiveCodeBench</th>
+      <th>TPF (approx)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mn">B=4</td>
+      <td class="mn best">73.8%</td>
+      <td class="mn">65.0%</td>
+      <td class="mn">51.3%</td>
+      <td class="mn">1.6×</td>
+    </tr>
+    <tr>
+      <td class="mn">B=8</td>
+      <td class="mn">71.7%</td>
+      <td class="mn best">64.6%</td>
+      <td class="mn best">53.9%</td>
+      <td class="mn">1.9×</td>
+    </tr>
+    <tr>
+      <td class="mn">B=16</td>
+      <td class="mn">71.7%</td>
+      <td class="mn">62.9%</td>
+      <td class="mn">53.6%</td>
+      <td class="mn">2.1×</td>
+    </tr>
+    <tr class="highlight-row">
+      <td class="mn">B=32</td>
+      <td class="mn">68.3%</td>
+      <td class="mn">63.3%</td>
+      <td class="mn">50.4%</td>
+      <td class="mn best">2.4×</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The curriculum-trained model maintains strong performance across all block sizes. Going from B=4 to B=32 costs only ~7% accuracy on AIME while delivering 50% more tokens per forward pass. This is the key contribution: <strong>decoupling inference block size from reasoning quality</strong>.</p>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: DreamReasoner-8B — Block-Size Curriculum for Diffusion Reasoning</h2>
+    <p>Autoregressive language models generate tokens one at a time — strictly serial. Diffusion language models can generate many tokens in parallel by iteratively denoising a masked sequence, but full-sequence diffusion struggles with long chain-of-thought reasoning. Block diffusion is a compromise: it generates blocks of B tokens in parallel via diffusion while keeping blocks sequential like autoregressive generation.</p>
+    <p>The paper's key finding is that training with large block sizes — say B=32 — causes reasoning ability to collapse entirely. A model trained with B=32 achieves only 20% on AIME 2024 under fine-grained inference, versus 47% for the same model trained with B=4. The fix is block-size curriculum learning: train first with small blocks to build tight local reasoning patterns, then expose the model to larger blocks. The curriculum-trained DreamReasoner-8B matches Qwen3-8B-Thinking on math and code while delivering up to 3× tokens per forward pass at B=32. The paper also introduces RelaxedConfidence decoding, which lowers the per-token commitment threshold for tokens surrounded by confident neighbors, yielding up to 59% additional throughput during structured answering phases.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：DreamReasoner-8B——扩散推理模型的块大小课程学习</h2>
+    <p>自回归语言模型每次只生成一个词元，严格串行执行。扩散语言模型通过对掩码序列的迭代去噪，可以并行生成多个词元，但全序列扩散在长链式思维推理上表现欠佳。块扩散是一种折衷方案：在块内并行去噪B个词元，块间保持自回归顺序。</p>
+    <p>论文的核心发现是：使用较大块（如B=32）训练会导致推理能力完全崩溃。使用B=32训练的模型在细粒度推理下AIME 2024仅得20%，而B=4训练则达47%。解决方案是块大小课程学习：先以小块训练建立紧密的局部推理模式，再逐渐引入更大块。课程训练的DreamReasoner-8B在数学和代码任务上与Qwen3-8B-Thinking相当，同时B=32下每次前向传播的词元数达到3倍。论文还提出RelaxedConfidence解码，为被高置信度邻居包围的词元降低承诺阈值，在结构化回答阶段额外提升最高59%的吞吐量。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dream_reasoner/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Parallelism Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="blockdiff">block-diff</button>
+    <button class="cs-tab" data-panel="collapse">collapse</button>
+    <button class="cs-tab" data-panel="curriculum">curriculum</button>
+    <button class="cs-tab" data-panel="relaxed">relaxed</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Autoregressive: strictly serial</span>
+<span class="cs-line cmt"># Cannot start token_42 until 1..41 done</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">ar_generate</span>(model, prompt, n):</span>
+<span class="cs-line hl-p">    tokens = prompt.copy()</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(n):  <span class="cmt"># n forward passes</span></span>
+<span class="cs-line hl-p">        next_tok = model(tokens)[-<span class="num">1</span>]</span>
+<span class="cs-line hl-p">        tokens.append(next_tok)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> tokens  <span class="cmt"># TPF = 1.0 always</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Diffusion: mask all, then iteratively unmask</span>
+<span class="cs-line cmt"># Many tokens per forward pass (high TPF)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">diffusion_generate</span>(model, prompt, n, steps):</span>
+<span class="cs-line hl-c">    x = [MASK] * n  <span class="cmt"># start fully masked</span></span>
+<span class="cs-line hl-c">    <span class="kw">for</span> t <span class="kw">in</span> <span class="fn">range</span>(steps):  <span class="cmt"># &lt;&lt; n forward passes</span></span>
+<span class="cs-line hl-c">        logits = model(prompt + x)</span>
+<span class="cs-line hl-c">        x = <span class="fn">unmask_high_conf</span>(x, logits)</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> x  <span class="cmt"># TPF = n/steps >> 1</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem: full-sequence diffusion loses</span>
+<span class="cs-line cmt"># sequential coherence for long CoT</span>
+<span class="cs-line cmt"># → block diffusion is the solution</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-blockdiff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Block diffusion training objective</span>
+<span class="cs-line cmt"># Weighted cross-entropy on masked positions</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">block_diffusion_loss</span>(model, x0, B):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Partition sequence into K blocks of size B</span></span>
+<span class="cs-line hl-p">    blocks = <span class="fn">partition</span>(x0, block_size=B)</span>
+<span class="cs-line hl-p">    loss = <span class="num">0</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> k, block <span class="kw">in</span> <span class="fn">enumerate</span>(blocks):</span>
+<span class="cs-line hl-p">        prefix = blocks[:k]  <span class="cmt"># clean context</span></span>
+<span class="cs-line hl-p">        t = <span class="fn">uniform</span>(<span class="num">0</span>, <span class="num">1</span>)</span>
+<span class="cs-line hl-p">        xt = <span class="fn">corrupt</span>(block, t)  <span class="cmt"># mask tokens</span></span>
+<span class="cs-line hl-p">        logits = <span class="fn">model</span>(prefix, xt)  <span class="cmt"># bidirectional</span></span>
+<span class="cs-line hl-p">        loss += <span class="fn">cross_entropy</span>(logits, block)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> loss</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Block size B controls the trade-off:</span>
+<span class="cs-line cmt"># B=1  → pure AR (TPF=1, max accuracy)</span>
+<span class="cs-line cmt"># B=4  → fine-grained parallel (TPF≈1.6)</span>
+<span class="cs-line cmt"># B=16 → medium (TPF≈2.1)</span>
+<span class="cs-line cmt"># B=32 → coarse-grained (TPF≈2.4)</span>
+<span class="cs-line cmt"># B=N  → pure diffusion (max TPF)</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="cmt"># Tokens per forward pass (TPF)</span></span>
+<span class="cs-line hl-c">TPF = generated_tokens / total_forward_passes</span>
+<span class="cs-line hl-c"><span class="cmt"># AR: TPF=1. Block B=32: TPF≈2.4</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-collapse">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The granularity collapse — empirical results</span>
+<span class="cs-line cmt"># AIME 2024 accuracy under LowConf decoding</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training B=4, Inference B=4: 47.1%  ← strong</span>
+<span class="cs-line cmt"># Training B=4, Inference B=32: 42.5% ← stable</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a"><span class="cmt"># Training B=32, Inference B=4: 20.0% ← COLLAPSE</span></span>
+<span class="cs-line hl-a"><span class="cmt"># Training B=32, Inference B=32: 42.5% ← ok here</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why? Large-block training learns</span>
+<span class="cs-line cmt"># long-range intra-block dependencies:</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">large_block_issue</span>():</span>
+<span class="cs-line hl-p">    <span class="cmt"># At B=32: model sees all 32 tokens at once</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Learns: token[15] depends on token[28]</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># At inference B=4: token[3] is last in block</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Token[7..28] are in a FUTURE block — absent!</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Model is lost → random-like outputs</span></span>
+<span class="cs-line hl-p">    <span class="kw">pass</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># The AR decoding fallback partially recovers:</span>
+<span class="cs-line cmt"># B=32 train, AR decode: 48.3% (not 20%)</span>
+<span class="cs-line cmt"># But AR defeats the purpose of block diffusion</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-curriculum">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Block-size curriculum learning for SFT</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">curriculum_train</span>(base_model, data):</span>
+<span class="cs-line hl-p">    model = base_model  <span class="cmt"># DreamReasoner-8B-Base</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">    <span class="cmt"># Phase 1: fine-grained anchoring</span></span>
+<span class="cs-line hl-c">    model = <span class="fn">sft</span>(model, data,</span>
+<span class="cs-line hl-c">                block_size=<span class="num">4</span>,     <span class="cmt"># always B=4</span></span>
+<span class="cs-line hl-c">                context_len=<span class="num">16384</span>)</span>
+<span class="cs-line hl-c">    <span class="cmt"># Builds: tight local causal dependencies</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Result: reliable CoT under fine-grained decode</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">    <span class="cmt"># Phase 2: mixed-granularity expansion</span></span>
+<span class="cs-line hl-g">    block_sizes = [<span class="num">4</span>, <span class="num">8</span>, <span class="num">16</span>, <span class="num">32</span>]</span>
+<span class="cs-line hl-g">    model = <span class="fn">sft</span>(model, data,</span>
+<span class="cs-line hl-g">                block_size=<span class="fn">random_choice</span>(block_sizes),</span>
+<span class="cs-line hl-g">                context_len=<span class="num">16384</span>)</span>
+<span class="cs-line hl-g">    <span class="cmt"># Builds: coarse-grained parallel decoding</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># Retains: fine-grained reasoning from phase 1</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">return</span> model  <span class="cmt"># robust to any inference B</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Result — AIME 2024 (LowConf decode):</span>
+<span class="cs-line cmt"># Curriculum B=4 inf: 50.0%  ← best!</span>
+<span class="cs-line cmt"># Curriculum B=32 inf: 48.3% ← stable</span>
+<span class="cs-line cmt"># vs fixed B=4 → B=32 inf: 42.5%</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-relaxed">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># RelaxedConfidence decoding</span>
+<span class="cs-line cmt"># Lowers per-token threshold when neighbors are stable</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">relaxed_threshold</span>(i, conf, decoded, tau=<span class="num">0.95</span>,</span>
+<span class="cs-line hl-p">                      tau_min=<span class="num">0.7</span>, r=<span class="num">3</span>, kappa=<span class="num">0.8</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Reliable neighbors: decoded OR high-conf</span></span>
+<span class="cs-line hl-p">    R = decoded | &#123;j <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(conf))</span>
+<span class="cs-line hl-p">                  <span class="kw">if</span> conf[j] &gt;= kappa&#125;</span>
+<span class="cs-line hl-p">    Nr = &#123;j <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(conf))</span>
+<span class="cs-line hl-p">          <span class="kw">if</span> <span class="num">0</span> &lt; <span class="fn">abs</span>(i-j) &lt;= r&#125;</span>
+<span class="cs-line hl-p">    <span class="cmt"># Proximity-weighted support score</span></span>
+<span class="cs-line hl-c">    weights = &#123;j: r - <span class="fn">abs</span>(i-j) + <span class="num">1</span> <span class="kw">for</span> j <span class="kw">in</span> Nr&#125;</span>
+<span class="cs-line hl-c">    Si = (<span class="fn">sum</span>(weights[j] <span class="kw">for</span> j <span class="kw">in</span> Nr &amp; R)</span>
+<span class="cs-line hl-c">          / <span class="fn">sum</span>(weights.values()))</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> tau - (tau - tau_min) * Si</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># TPF gains (RelaxedConf vs LowConf, B=32):</span>
+<span class="cs-line cmt"># Thinking phase:</span>
+<span class="cs-line hl-g"><span class="cmt">#   AIME25:  2.1 → 2.8 TPF  (+33%)</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   CodeBench: 1.7 → 1.9 TPF (+12%)</span></span>
+<span class="cs-line cmt"># Answering phase:</span>
+<span class="cs-line hl-g"><span class="cmt">#   AIME25:  2.4 → 3.6 TPF  (+50%)</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   CodeBench: 3.9 → 6.2 TPF (+59%)</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DreamReasoner-8B — key numbers</span>
+<span class="cs-line cmt"># vs Autoregressive baselines (AIME 2024)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AR Models:</span>
+<span class="cs-line">DeepSeek-R1-Distill-7B = <span class="num">55.5</span>%</span>
+<span class="cs-line">MiMo-7B-RL             = <span class="num">68.2</span>%</span>
+<span class="cs-line">AceReason-Nemotron-7B  = <span class="num">72.6</span>%</span>
+<span class="cs-line">Qwen3-8B-Thinking      = <span class="num">76.0</span>%  <span class="cmt"># target</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">DreamReasoner-8B (B=<span class="num">4</span>)  = <span class="num">73.8</span>%  <span class="cmt"># ours</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Diffusion frontier: 8B model beats 30B</span>
+<span class="cs-line">SDAR-30B-A3B-Sci (B=<span class="num">4</span>) = <span class="num">73.4</span>%  <span class="cmt"># 4× params</span></span>
+<span class="cs-line hl-p">DreamReasoner-8B (B=<span class="num">4</span>)  = <span class="num">73.8</span>%  <span class="cmt"># ours!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LiveCodeBench pass@1:</span>
+<span class="cs-line">SDAR-30B-A3B-Sci (B=<span class="num">4</span>)   = <span class="num">29.0</span>%</span>
+<span class="cs-line hl-g">DreamReasoner-8B (B=<span class="num">4</span>)    = <span class="num">51.3</span>%  <span class="cmt"># +76%!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Efficiency curve (inference B):</span>
+<span class="cs-line">B= <span class="num">4</span>: AIME=<span class="num">73.8</span>%, TPF=<span class="num">1.6</span>×</span>
+<span class="cs-line">B= <span class="num">8</span>: AIME=<span class="num">71.7</span>%, TPF=<span class="num">1.9</span>×</span>
+<span class="cs-line">B=<span class="num">16</span>: AIME=<span class="num">71.7</span>%, TPF=<span class="num">2.1</span>×</span>
+<span class="cs-line hl-g">B=<span class="num">32</span>: AIME=<span class="num">68.3</span>%, TPF=<span class="num">2.4</span>×  <span class="cmt"># sweet spot</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ─────────────────────────────────
+const tabMeta = {
+  problem:    { file: 'dream_reasoner/problem.py',    title: 'The Parallelism Trap' },
+  blockdiff:  { file: 'dream_reasoner/block_diff.py', title: 'Block Diffusion' },
+  collapse:   { file: 'dream_reasoner/collapse.py',   title: 'Granularity Collapse' },
+  curriculum: { file: 'dream_reasoner/curriculum.py', title: 'Curriculum Training' },
+  relaxed:    { file: 'dream_reasoner/relaxed.py',    title: 'RelaxedConfidence' },
+  results:    { file: 'dream_reasoner/results.py',    title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar on scroll ────────
+const sectionMap = {
+  's-problem':    'problem',
+  's-blockdiff':  'blockdiff',
+  's-collapse':   'collapse',
+  's-curriculum': 'curriculum',
+  's-relaxed':    'relaxed',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Canvas §01: AR vs Diffusion trade-off ─────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-tradeoff');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // Background
+    ctx.fillStyle = 'rgba(20,20,36,0.5)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Two sides: AR (left) and Diffusion (right)
+    const midX = W / 2;
+
+    // ── AR side (left): show serial generation ──
+    const arTokens = 8;
+    const tokenW = Math.min(36, (midX - 40) / arTokens - 6);
+    const tokenH = 24;
+    const startY = H / 2 - tokenH / 2;
+
+    // Label
+    ctx.font = `600 11px var(--ff-mono, monospace)`;
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'center';
+    ctx.fillText('AUTOREGRESSIVE', midX / 2, 22);
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.fillText('TPF = 1.0  (1 token / pass)', midX / 2, 36);
+
+    const arStartX = 20;
+    for (let i = 0; i < arTokens; i++) {
+      const x = arStartX + i * (tokenW + 6);
+      const done = i < 5;
+      ctx.fillStyle = done ? 'rgba(139,92,246,0.6)' : 'rgba(255,255,255,0.05)';
+      ctx.strokeStyle = done ? '#8b5cf6' : '#374151';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, startY, tokenW, tokenH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      if (done) {
+        ctx.fillStyle = '#f0f0f8';
+        ctx.font = `600 9px var(--ff-mono, monospace)`;
+        ctx.textAlign = 'center';
+        ctx.fillText('t' + (i + 1), x + tokenW / 2, startY + 16);
+      } else if (i === 5) {
+        // Arrow indicating current
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('↓', x + tokenW / 2, startY - 4);
+      }
+    }
+
+    // "1 pass at a time" annotation
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('← one pass →', arStartX + 4 * (tokenW + 6) + tokenW / 2, startY + tokenH + 16);
+
+    // ── Divider ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(midX, 10);
+    ctx.lineTo(midX, H - 10);
+    ctx.stroke();
+
+    // ── Diffusion side (right): show parallel unmasking ──
+    const diffTokens = 8;
+    const diffStartX = midX + 20;
+    const dtW = Math.min(36, (W - midX - 40) / diffTokens - 6);
+
+    ctx.font = `600 11px var(--ff-mono, monospace)`;
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'center';
+    ctx.fillText('BLOCK DIFFUSION', midX + (W - midX) / 2, 22);
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.fillText('TPF = 2.4×  (B=32)', midX + (W - midX) / 2, 36);
+
+    for (let i = 0; i < diffTokens; i++) {
+      const x = diffStartX + i * (dtW + 6);
+      const committed = i < 3 || i === 5 || i === 7;
+      ctx.fillStyle = committed ? 'rgba(6,182,212,0.6)' : 'rgba(139,92,246,0.25)';
+      ctx.strokeStyle = committed ? '#06b6d4' : '#8b5cf6';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, startY, dtW, tokenH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = committed ? '#f0f0f8' : '#8b5cf6';
+      ctx.font = committed ? '600 9px var(--ff-mono, monospace)' : '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(committed ? 't' + (i + 1) : '?', x + dtW / 2, startY + 16);
+    }
+
+    // Bracket showing "one pass" commits many
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 1.5;
+    const bx1 = diffStartX, bx2 = diffStartX + 7 * (dtW + 6) + dtW;
+    const by = startY + tokenH + 10;
+    ctx.beginPath();
+    ctx.moveTo(bx1, by); ctx.lineTo(bx1, by + 6);
+    ctx.moveTo(bx1, by + 6); ctx.lineTo(bx2, by + 6);
+    ctx.moveTo(bx2, by + 6); ctx.lineTo(bx2, by);
+    ctx.stroke();
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('one pass commits many tokens', (bx1 + bx2) / 2, by + 20);
+  }
+
+  draw();
+  window.addEventListener('resize', () => {
+    const newW = canvas.clientWidth;
+    canvas.width = newW * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  });
+})();
+
+// ── Canvas §02: Block diffusion structure ─────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-blockdiff');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  let currentBS = 4;
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth;
+    const H = 160;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawBlocks(ctx, W, H, currentBS);
+  }
+
+  function drawBlocks(ctx, W, H, bs) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(20,20,36,0.4)';
+    ctx.fillRect(0, 0, W, H);
+
+    const totalTokens = 32;
+    const numBlocks = totalTokens / bs;
+    const pad = 12;
+    const totalW = W - 2 * pad;
+    const blockW = totalW / numBlocks;
+    const tokenW = blockW / bs - 2;
+    const rowY = H / 2 - 18;
+
+    const colors = ['rgba(139,92,246,0.7)', 'rgba(6,182,212,0.6)', 'rgba(16,185,129,0.6)', 'rgba(245,158,11,0.6)',
+                    'rgba(239,68,68,0.6)', 'rgba(168,85,247,0.7)', 'rgba(59,130,246,0.6)', 'rgba(20,184,166,0.6)'];
+    const borderColors = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#3b82f6', '#14b8a6'];
+
+    for (let b = 0; b < numBlocks; b++) {
+      const blockX = pad + b * blockW;
+      // Block background
+      ctx.fillStyle = colors[b % colors.length].replace('0.7', '0.1').replace('0.6', '0.08');
+      ctx.strokeStyle = borderColors[b % borderColors.length];
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(blockX + 2, rowY, blockW - 4, 36, 5);
+      } else {
+        ctx.rect(blockX + 2, rowY, blockW - 4, 36);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Tokens within block
+      for (let t = 0; t < bs; t++) {
+        const tokenX = blockX + 2 + t * (blockW - 4) / bs + 2;
+        const tW = (blockW - 8) / bs;
+        ctx.fillStyle = colors[b % colors.length];
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(tokenX, rowY + 7, Math.max(tW, 4), 22, 3);
+        } else {
+          ctx.rect(tokenX, rowY + 7, Math.max(tW, 4), 22);
+        }
+        ctx.fill();
+      }
+
+      // Block label
+      if (blockW > 30) {
+        ctx.fillStyle = '#abb2bf';
+        ctx.font = `600 9px var(--ff-mono, monospace)`;
+        ctx.textAlign = 'center';
+        ctx.fillText('B' + (b + 1), blockX + blockW / 2, rowY - 5);
+      }
+    }
+
+    // AR arrows between blocks
+    if (numBlocks > 1 && blockW > 20) {
+      ctx.strokeStyle = 'rgba(245,158,11,0.6)';
+      ctx.lineWidth = 1.5;
+      for (let b = 0; b < numBlocks - 1; b++) {
+        const x1 = pad + (b + 1) * blockW - 4;
+        const x2 = pad + (b + 1) * blockW + 4;
+        const y = rowY + 18;
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x2, y);
+        // Arrowhead
+        ctx.moveTo(x2 - 4, y - 3);
+        ctx.lineTo(x2, y);
+        ctx.lineTo(x2 - 4, y + 3);
+        ctx.stroke();
+      }
+    }
+
+    // Info line
+    const infoEl = document.getElementById('block-info');
+    if (infoEl) {
+      const tpfMap = { 1: '1.0', 4: '1.6', 8: '1.9', 16: '2.1', 32: '2.4' };
+      const qualMap = { 1: 'pure AR (max quality)', 4: 'fine-grained parallel', 8: 'medium parallel', 16: 'coarse parallel', 32: 'max parallel' };
+      infoEl.innerHTML = `B=${bs}: ${numBlocks} blocks × ${bs} tokens — TPF ≈ ${tpfMap[bs] || '?'}× | ${qualMap[bs] || ''}`;
+    }
+  }
+
+  document.querySelectorAll('#block-size-btns .bsz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#block-size-btns .bsz-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentBS = parseInt(btn.dataset.bs);
+      resizeAndDraw();
+    });
+  });
+
+  resizeAndDraw();
+  window.addEventListener('resize', resizeAndDraw);
+})();
+
+// ── Canvas §03: Granularity collapse ─────────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-collapse');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  // Data: [infer_B4, infer_B32] for each training config (LowConf decoding, AIME 2024)
+  const data = {
+    '4':    { b4: 47.1, b32: 42.5, label: 'Trained B=4 (fine-grained)', color: '#8b5cf6' },
+    '32':   { b4: 20.0, b32: 42.5, label: 'Trained B=32 (large block)', color: '#ef4444' },
+    'curr': { b4: 50.0, b32: 48.3, label: 'Curriculum 4→32',            color: '#10b981' },
+  };
+  let currentTrain = '4';
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth, H = 200;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawCollapse(ctx, W, H, currentTrain);
+  }
+
+  function drawCollapse(ctx, W, H, trainKey) {
+    ctx.clearRect(0, 0, W, H);
+    const d = data[trainKey];
+    const pad = 30, barW = Math.min(80, (W - 100) / 4), gap = 40;
+    const maxVal = 55, chartH = H - 70;
+    const chartTop = 30;
+
+    // Axis
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    [10, 20, 30, 40, 50].forEach(v => {
+      const y = chartTop + chartH * (1 - v / maxVal);
+      ctx.beginPath();
+      ctx.moveTo(pad, y);
+      ctx.lineTo(W - pad, y);
+      ctx.stroke();
+      ctx.fillStyle = '#4b5563';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText(v + '%', pad - 5, y + 3);
+    });
+
+    // Two bars: inference B=4 and B=32
+    const configs = [
+      { label: 'Inference B=4', val: d.b4, x: W / 2 - barW - 20 },
+      { label: 'Inference B=32', val: d.b32, x: W / 2 + 20 },
+    ];
+
+    configs.forEach(c => {
+      const barH = (c.val / maxVal) * chartH;
+      const y = chartTop + chartH - barH;
+      ctx.fillStyle = d.color.replace(')', ', 0.75)').replace('#', 'rgba(').replace('rgba(#', 'rgba(');
+      // Draw bar
+      const col = d.color;
+      ctx.fillStyle = col + '99';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(c.x, y, barW, barH, [4, 4, 0, 0]);
+      else ctx.rect(c.x, y, barW, barH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Value label
+      ctx.fillStyle = '#f0f0f8';
+      ctx.font = `700 12px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(c.val.toFixed(1) + '%', c.x + barW / 2, y - 6);
+
+      // X-axis label
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.fillText(c.label, c.x + barW / 2, chartTop + chartH + 16);
+    });
+
+    // Collapse annotation for B=32 training
+    if (trainKey === '32') {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      const refY = chartTop + chartH * (1 - 47.1 / maxVal);
+      ctx.moveTo(pad, refY);
+      ctx.lineTo(W - pad, refY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ef4444';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText('B=4 baseline (47.1%)', W - pad - 4, refY - 4);
+
+      // Drop arrow
+      const xDrop = configs[0].x + barW / 2;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xDrop, refY + 4);
+      ctx.lineTo(xDrop, chartTop + chartH - (20 / maxVal) * chartH - 4);
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.font = '700 10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText('−57%', xDrop + 24, refY + 20);
+    }
+
+    // Legend
+    ctx.fillStyle = '#abb2bf';
+    ctx.font = `600 11px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillText(d.label, W / 2, H - 8);
+
+    const labelEl = document.getElementById('collapse-label');
+    if (labelEl) {
+      const msgs = {
+        '4':    'Fine-grained training (B=4): 47.1% at B=4 inference, stable at 42.5% for B=32',
+        '32':   '⚠ Large-block training (B=32): collapses to 20.0% at B=4 inference — a 57% drop',
+        'curr': '✓ Curriculum (4→32): best of both worlds — 50.0% at B=4, 48.3% at B=32',
+      };
+      labelEl.textContent = msgs[trainKey];
+    }
+  }
+
+  document.querySelectorAll('#collapse-train-btns .bsz-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#collapse-train-btns .bsz-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTrain = btn.dataset.train;
+      resizeAndDraw();
+    });
+  });
+
+  resizeAndDraw();
+  window.addEventListener('resize', resizeAndDraw);
+})();
+
+// ── Step navigator §04: Curriculum ───────────────────────────
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('.step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── Canvas §05: RelaxedConfidence ─────────────────────────────
+(function() {
+  const canvas = document.getElementById('canvas-relaxed');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+
+  // Example token sequence: "the answer is 42 so we conclude"
+  const tokens = ['the', 'answer', 'is', '42', 'so', 'we', 'conclude', '.'];
+  const confidence = [0.98, 0.96, 0.97, 0.99, 0.91, 0.88, 0.93, 0.99];
+  const decoded = new Set([0, 1, 2, 3]); // first 4 already decoded
+  const tau = 0.95, tauMin = 0.7, r = 3, kappa = 0.8;
+  let hoveredIdx = -1;
+
+  function computeThreshold(i) {
+    const R = new Set([...decoded, ...tokens.map((_, j) => j).filter(j => confidence[j] >= kappa)]);
+    const Nr = tokens.map((_, j) => j).filter(j => j !== i && Math.abs(i - j) <= r);
+    const totalW = Nr.reduce((s, j) => s + (r - Math.abs(i - j) + 1), 0);
+    const suppW = Nr.filter(j => R.has(j)).reduce((s, j) => s + (r - Math.abs(i - j) + 1), 0);
+    const Si = totalW > 0 ? suppW / totalW : 0;
+    return { Si, tau: tau - (tau - tauMin) * Si };
+  }
+
+  function resizeAndDraw() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+    drawRelaxed(ctx, W, H);
+  }
+
+  function drawRelaxed(ctx, W, H) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(20,20,36,0.4)';
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = 20, tokenH = 44, rowY = 30;
+    const tokenW = (W - 2 * pad) / tokens.length - 4;
+
+    // Title
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('token confidence & effective threshold (τ=0.95, τ_min=0.70)', W / 2, 18);
+
+    tokens.forEach((tok, i) => {
+      const x = pad + i * (tokenW + 4);
+      const isDecoded = decoded.has(i);
+      const { Si, tau: effTau } = computeThreshold(i);
+      const conf = confidence[i];
+      const willCommit = !isDecoded && conf >= effTau;
+      const hovered = i === hoveredIdx;
+
+      // Token box
+      let fillCol, strokeCol;
+      if (isDecoded) {
+        fillCol = 'rgba(6,182,212,0.3)'; strokeCol = '#06b6d4';
+      } else if (willCommit) {
+        fillCol = 'rgba(16,185,129,0.3)'; strokeCol = '#10b981';
+      } else {
+        fillCol = 'rgba(139,92,246,0.15)'; strokeCol = '#8b5cf6';
+      }
+      if (hovered) { fillCol = fillCol.replace('0.3', '0.5').replace('0.15', '0.35'); }
+
+      ctx.fillStyle = fillCol;
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = hovered ? 2 : 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(x, rowY, tokenW, tokenH, 5);
+      else ctx.rect(x, rowY, tokenW, tokenH);
+      ctx.fill(); ctx.stroke();
+
+      // Token text
+      ctx.fillStyle = isDecoded ? '#06b6d4' : willCommit ? '#10b981' : '#8b5cf6';
+      ctx.font = `600 ${Math.min(11, tokenW / 3)}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(tok, x + tokenW / 2, rowY + 14);
+
+      // Confidence
+      ctx.fillStyle = '#abb2bf';
+      ctx.font = `9px var(--ff-mono, monospace)`;
+      ctx.fillText((conf * 100).toFixed(0) + '%', x + tokenW / 2, rowY + 28);
+
+      // Effective threshold (for non-decoded)
+      if (!isDecoded) {
+        ctx.fillStyle = effTau < tau - 0.01 ? '#f59e0b' : '#6b7280';
+        ctx.fillText('τ=' + effTau.toFixed(2), x + tokenW / 2, rowY + 40);
+      } else {
+        ctx.fillStyle = '#5c6370';
+        ctx.fillText('done', x + tokenW / 2, rowY + 40);
+      }
+    });
+
+    // Threshold line
+    ctx.strokeStyle = 'rgba(239,68,68,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    const threshY = rowY + tokenH + 20;
+    // Draw the bar chart of thresholds below
+    const chartH = H - threshY - 20;
+    tokens.forEach((_, i) => {
+      const x = pad + i * (tokenW + 4);
+      if (!decoded.has(i)) {
+        const { Si, tau: effTau } = computeThreshold(i);
+        const barH = ((tau - effTau) / (tau - tauMin)) * chartH * 0.8;
+        if (barH > 2) {
+          ctx.fillStyle = 'rgba(245,158,11,0.4)';
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') ctx.roundRect(x, threshY + chartH - barH, tokenW, barH, [2, 2, 0, 0]);
+          else ctx.rect(x, threshY + chartH - barH, tokenW, barH);
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = '8px var(--ff-mono, monospace)';
+          ctx.textAlign = 'center';
+          ctx.fillText('-' + ((tau - effTau) * 100).toFixed(0) + '%', x + tokenW / 2, threshY + chartH - barH - 3);
+        }
+      }
+    });
+    ctx.setLineDash([]);
+
+    // Legend
+    ctx.textAlign = 'left';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.fillStyle = '#06b6d4'; ctx.fillText('■ decoded', pad, H - 6);
+    ctx.fillStyle = '#10b981'; ctx.fillText('■ will commit', pad + 70, H - 6);
+    ctx.fillStyle = '#8b5cf6'; ctx.fillText('■ needs more passes', pad + 160, H - 6);
+    ctx.fillStyle = '#f59e0b'; ctx.fillText('■ threshold relaxed (amber bar = relaxation amount)', pad, H - 6 + 14);
+  }
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left);
+    const pad = 20, tokenW = (canvas.clientWidth - 2 * pad) / tokens.length - 4;
+    const idx = Math.floor((mx - pad) / (tokenW + 4));
+    hoveredIdx = idx >= 0 && idx < tokens.length ? idx : -1;
+
+    const infoEl = document.getElementById('relaxed-info');
+    if (infoEl && hoveredIdx >= 0) {
+      const i = hoveredIdx;
+      if (decoded.has(i)) {
+        infoEl.textContent = `"${tokens[i]}" — already decoded`;
+      } else {
+        const { Si, tau: effTau } = computeThreshold(i);
+        const willCommit = confidence[i] >= effTau;
+        infoEl.textContent = `"${tokens[i]}" — conf=${(confidence[i]*100).toFixed(0)}%, support Si=${Si.toFixed(2)}, τᵢ=${effTau.toFixed(2)} → ${willCommit ? '✓ commit' : '✗ re-mask'}`;
+      }
+    } else if (infoEl) {
+      infoEl.textContent = 'hover over a token above';
+    }
+    resizeAndDraw();
+  });
+  canvas.addEventListener('mouseleave', () => { hoveredIdx = -1; resizeAndDraw(); });
+
+  resizeAndDraw();
+  window.addEventListener('resize', resizeAndDraw);
+})();
+
+// ── Bar chart §06: animate on scroll ─────────────────────────
+(function() {
+  const section = document.getElementById('s-results');
+  if (!section) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 76) * 100 + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(section);
+})();
+</script>
+</BaseLayout>
