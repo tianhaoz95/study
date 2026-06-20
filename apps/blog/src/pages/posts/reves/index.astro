@@ -1,0 +1,1310 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="REVES: Teaching LLMs to Recover from Mistakes | Catpuccino.ai"
+  description="Standard RL trains on single-shot rewards while models are deployed in multi-step revision loops. REVES fixes the mismatch: each wrong intermediate answer becomes a standalone recovery training task, delivering +6.5 points on LiveCodeBench and matching Gemini-2.0 Pro on circle packing with a 4B model."
+  crumb="REVES"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Canvas controls */
+.canvas-controls{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0 .5rem}
+.ctrl-btn{padding:.28rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ctrl-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Highlight callout */
+.callout{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:6px;padding:.875rem 1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.65}
+.callout strong{color:var(--text2)}
+.callout-cyan{border-left-color:var(--cyan)}
+.callout-green{border-left-color:var(--green)}
+.callout-amber{border-left-color:var(--amber)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Reinforcement Learning</span>
+    <span class="tag tag-cyan">Test-Time Scaling</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>REVES: Training LLMs to Recover from Their Own Mistakes</h1>
+  <p class="lead">
+    Standard RL trains models on single-shot rewards — but at test time, models iterate through sequential revision loops.
+    REVES fixes this mismatch: each wrong intermediate answer becomes a standalone recovery training task, delivering +6.5 points on LiveCodeBench and matching Gemini-2.0 Pro on circle packing with a 4B model.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 19, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2606.18910</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.18910" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/yxliu02/REVES.git" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-gap"><a href="#s-gap"><span class="toc-num">01</span> The Deployment Gap</a></li>
+    <li class="toc-item" id="toc-s-credit"><a href="#s-credit"><span class="toc-num">02</span> The Credit Blur</a></li>
+    <li class="toc-item" id="toc-s-recovery"><a href="#s-recovery"><span class="toc-num">03</span> Near-Miss Recovery</a></li>
+    <li class="toc-item" id="toc-s-algorithm"><a href="#s-algorithm"><span class="toc-num">04</span> Two-Stage Algorithm</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Results</a></li>
+    <li class="toc-item" id="toc-s-transfer"><a href="#s-transfer"><span class="toc-num">06</span> Transfer to All TTS</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 — The Deployment Gap -->
+<section id="s-gap" data-code="gap">
+<div class="section-no">01 — The Deployment Gap</div>
+<h2>Models are trained one way, deployed another</h2>
+<p>
+  Standard reinforcement learning for LLMs — RLHF, RLVR, GRPO — optimizes a single objective:
+  given a problem <em>x</em>, produce a response <em>y</em> that maximizes reward <em>r*(x, y)</em>.
+  One question. One answer. One gradient step.
+</p>
+<p>
+  But real-world deployments don't stop there. Code assistants run programs, catch errors, and retry.
+  Math solvers attempt a proof, check it, and revise. Planning agents try a schedule, get feedback on
+  cost constraints, and iterate. These systems — sequential revision, MCTS, Mind Evolution — all share
+  a single primitive: given a previous attempt and feedback, produce an improved response.
+</p>
+<p>
+  This creates a fundamental mismatch. A model optimized for JOneShot may still struggle at JφSR:
+  two policies can be indistinguishable under single-shot metrics, yet one might be dramatically
+  better at multi-step revision (Theorem 3.2). Training on one-shot rewards simply doesn't teach
+  the skill that deployment actually needs.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">training vs deployment</span>
+    <span class="vp-hint">the gap visualized</span>
+  </div>
+  <div class="vp-body" style="padding:1.5rem">
+    <svg id="gap-svg" viewBox="0 0 680 220" style="width:100%;max-width:680px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+      <!-- Training side -->
+      <text x="115" y="22" text-anchor="middle" font-size="10" font-family="monospace" fill="#6b7280" letter-spacing="2">TRAINING (JOneShot)</text>
+      <!-- Boxes -->
+      <rect x="20" y="35" width="70" height="34" rx="5" fill="#1a1a2e" stroke="#374151"/>
+      <text x="55" y="56" text-anchor="middle" font-size="10" font-family="monospace" fill="#f0f0f8">x</text>
+      <text x="55" y="67" text-anchor="middle" font-size="7.5" font-family="monospace" fill="#6b7280">question</text>
+
+      <rect x="120" y="35" width="70" height="34" rx="5" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.5)"/>
+      <text x="155" y="56" text-anchor="middle" font-size="10" font-family="monospace" fill="#a78bfa">πθ</text>
+      <text x="155" y="67" text-anchor="middle" font-size="7.5" font-family="monospace" fill="#6b7280">model</text>
+
+      <rect x="220" y="35" width="70" height="34" rx="5" fill="#1a1a2e" stroke="#374151"/>
+      <text x="255" y="56" text-anchor="middle" font-size="10" font-family="monospace" fill="#f0f0f8">y</text>
+      <text x="255" y="67" text-anchor="middle" font-size="7.5" font-family="monospace" fill="#6b7280">response</text>
+
+      <rect x="20" y="100" width="270" height="26" rx="4" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.25)"/>
+      <text x="155" y="117" text-anchor="middle" font-size="9" font-family="monospace" fill="#10b981">reward r*(x, y) → gradient update</text>
+
+      <!-- Arrows training -->
+      <line x1="90" y1="52" x2="118" y2="52" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="190" y1="52" x2="218" y2="52" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="255" y1="69" x2="255" y2="98" stroke="#10b981" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arr-g)"/>
+      <line x1="155" y1="98" x2="155" y2="91" stroke="#10b981" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arr-g2)"/>
+
+      <!-- Divider -->
+      <line x1="340" y1="10" x2="340" y2="210" stroke="#374151" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- Deployment side -->
+      <text x="510" y="22" text-anchor="middle" font-size="10" font-family="monospace" fill="#6b7280" letter-spacing="2">DEPLOYMENT (JφSR)</text>
+
+      <!-- Chain boxes -->
+      <rect x="355" y="35" width="50" height="30" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="380" y="53" text-anchor="middle" font-size="9" font-family="monospace" fill="#f0f0f8">x</text>
+
+      <rect x="423" y="35" width="56" height="30" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="451" y="47" text-anchor="middle" font-size="9" font-family="monospace" fill="#f87171">y₁ ✗</text>
+      <text x="451" y="60" text-anchor="middle" font-size="7" font-family="monospace" fill="#6b7280">wrong</text>
+
+      <rect x="497" y="35" width="56" height="30" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="525" y="47" text-anchor="middle" font-size="9" font-family="monospace" fill="#f87171">y₂ ✗</text>
+      <text x="525" y="60" text-anchor="middle" font-size="7" font-family="monospace" fill="#6b7280">wrong</text>
+
+      <rect x="571" y="35" width="56" height="30" rx="4" fill="#1a1a2e" stroke="rgba(16,185,129,.5)"/>
+      <text x="599" y="47" text-anchor="middle" font-size="9" font-family="monospace" fill="#10b981">y₃ ✓</text>
+      <text x="599" y="60" text-anchor="middle" font-size="7" font-family="monospace" fill="#6b7280">correct</text>
+
+      <!-- Feedback arcs below -->
+      <path d="M451 65 Q451 95 451 90" stroke="#f59e0b" stroke-width="1" fill="none" stroke-dasharray="2,2"/>
+      <text x="451" y="108" text-anchor="middle" font-size="7" font-family="monospace" fill="#f59e0b">feedback₁</text>
+      <path d="M525 65 Q525 95 525 90" stroke="#f59e0b" stroke-width="1" fill="none" stroke-dasharray="2,2"/>
+      <text x="525" y="108" text-anchor="middle" font-size="7" font-family="monospace" fill="#f59e0b">feedback₂</text>
+
+      <!-- Arrows deployment -->
+      <line x1="405" y1="50" x2="421" y2="50" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="479" y1="50" x2="495" y2="50" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="553" y1="50" x2="569" y2="50" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- πθ labels on deployment arrows -->
+      <text x="456" y="44" font-size="7" font-family="monospace" fill="#8b5cf6">πθ</text>
+      <text x="530" y="44" font-size="7" font-family="monospace" fill="#8b5cf6">πθ</text>
+      <text x="604" y="44" font-size="7" font-family="monospace" fill="#8b5cf6">πθ</text>
+
+      <!-- Budget label -->
+      <text x="510" y="130" text-anchor="middle" font-size="9" font-family="monospace" fill="#6b7280">same πθ called up to K times — must handle all revision contexts</text>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#374151"/>
+        </marker>
+        <marker id="arr-g" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#10b981"/>
+        </marker>
+        <marker id="arr-g2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="90">
+          <path d="M0,6 L3,0 L6,6 Z" fill="#10b981"/>
+        </marker>
+      </defs>
+    </svg>
+    <p style="font-size:.72rem;color:var(--muted);text-align:center;margin:.5rem 0 0">
+      Left: training sees one call, one reward. Right: deployment chains the same πθ through multiple revision steps with feedback at each — a fundamentally different objective.
+    </p>
+  </div>
+</div>
+
+<p>
+  The key insight: <em>Jϕ (the deployment objective for revision-using algorithm ϕ) and JOneShot (the training objective) are different functions of the policy</em>.
+  There exist policies that are identical under JOneShot but differ substantially under JφSR. Training only on JOneShot leaves the revision capability entirely to chance.
+</p>
+</section>
+
+<!-- §02 — The Credit Blur -->
+<section id="s-credit" data-code="credit">
+<div class="section-no">02 — The Credit Blur</div>
+<h2>Multi-turn RL assigns the same credit to bad steps</h2>
+<p>
+  The natural fix for the deployment gap is multi-turn reinforcement learning: run sequential revision rollouts,
+  observe the final reward, and backpropagate credit through all steps. But this creates a subtle and harmful problem.
+</p>
+<p>
+  Consider a trajectory: <em>wrong answer y₁</em> → <em>wrong answer y₂</em> → <em>correct answer y₃</em>.
+  The final reward is +1. Multi-turn RL propagates this reward backward through all three turns — including the
+  two wrong ones. The gradient for "produce wrong answer y₁ from question x" receives the same positive signal
+  as "produce correct answer y₃ from revision state."
+</p>
+<p>
+  This credit is valid in expectation — across many rollouts, the biases cancel. But per-rollout, it is
+  a noisy and coarse signal for teaching the model to revise well at each intermediate state.
+  The model isn't learning "how to recover from mistake y₁" — it's learning "produce whatever led to
+  eventual success," which is a much harder target to pin down.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">credit assignment comparison</span>
+    <span class="vp-hint">click buttons to switch view</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls">
+      <button class="ctrl-btn active" id="btn-multiturn">Multi-turn RL</button>
+      <button class="ctrl-btn" id="btn-reves">REVES</button>
+    </div>
+    <canvas id="credit-canvas" style="width:100%;height:240px;border-radius:6px;display:block"></canvas>
+    <p id="credit-caption" style="font-size:.72rem;color:var(--muted);margin:.5rem 0 0;text-align:center">
+      Multi-turn RL: all steps receive the same +1 reward signal, including the wrong ones.
+    </p>
+  </div>
+</div>
+
+<p>
+  REVES takes a different view: the wrong intermediate answers are not <em>actions to imitate</em>
+  — they are <em>states from which the model should learn to recover</em>.
+  Instead of assigning credit at the trajectory level, REVES asks a local question at each near-miss:
+  <em>from this wrong answer, how likely is the model to produce a correct revision?</em>
+  This one-step recovery probability is what REVES directly trains.
+</p>
+</section>
+
+<!-- §03 — Near-Miss Recovery -->
+<section id="s-recovery" data-code="recovery">
+<div class="section-no">03 — Near-Miss Recovery</div>
+<h2>Each near-miss is a standalone revision training task</h2>
+<p>
+  REVES builds on a clean mathematical decomposition (Lemma 4.1): the sequential revision objective
+  JφSR factors exactly into a weighted sum of per-state one-step recovery probabilities along visited trajectories.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Lemma 4.1 — Hazard Decomposition</div>
+  <span class="math-var">J</span><sup>SR</sup><sub>ϕ</sub>(<span class="math-var">θ</span>) = ∑<sub>z</sub> <span class="math-var">ρ</span><sub>θ</sub>(<span class="math-var">z</span>) · <span class="math-var">V</span><sub>π</sub>(<span class="math-var">z</span>)
+  <br>
+  <span style="color:var(--muted);font-size:.72rem">where z = (x, y<sub>prev</sub>, feedback) is a revision state, ρ<sub>θ</sub>(z) is how often z is visited, and V<sub>π</sub>(z) = Pr<sub>y'~π(·|z)</sub>[r*(x,y')=1] is the one-step recovery probability at z.</span>
+</div>
+
+<p>
+  This decomposition reveals the algorithm: <strong>raise V(z) at any visited state z and JφSR goes up</strong>,
+  without any horizon credit assignment. Each near-miss answer produces an independent, tractable
+  training signal — simply sample fresh responses from the revision state and train on their outcomes.
+</p>
+<p>
+  Concretely: if the model is stuck on "write a function to sort by second element of a tuple" and
+  produces a wrong answer y₁, the revision state is z = (question, y₁, "test case 3 fails").
+  Draw M fresh responses from πθ at z. Some succeed (green), some fail (red).
+  V(z) = fraction that succeed. Train to raise this fraction.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">per-state recovery probability V(z)</span>
+    <span class="vp-hint">adjust branches M</span>
+  </div>
+  <div class="vp-body">
+    <div class="canvas-controls">
+      <button class="ctrl-btn active" id="btn-m3">M = 3</button>
+      <button class="ctrl-btn" id="btn-m5">M = 5</button>
+      <button class="ctrl-btn" id="btn-m10">M = 10</button>
+    </div>
+    <canvas id="recovery-canvas" style="width:100%;height:300px;border-radius:6px;display:block"></canvas>
+    <p id="recovery-caption" style="font-size:.72rem;color:var(--muted);margin:.5rem 0 0;text-align:center">
+      M=3 branches from revision state z — 1 succeeds (green), 2 fail (red) → V(z) ≈ 0.33
+    </p>
+  </div>
+</div>
+
+<p>
+  The key insight is that the wrong intermediate answer is <em>not discarded or penalized</em> —
+  it becomes a revision state that the model learns to escape from.
+  This converts one successful long-horizon trajectory into several short-horizon single-turn revision problems,
+  each with a clear and unambiguous training signal.
+</p>
+
+<div class="callout">
+  <strong>Theorem 3.2 — Objective Mismatch:</strong> For any revision length K ≥ 2, there exist policies π₁, π₂ and a problem distribution such that
+  JOneShot(π₁) = JOneShot(π₂) while JφSR(π₂) − JφSR(π₁) ≥ Δ(K) > 0.
+  Two policies indistinguishable on single-shot benchmarks can differ substantially on sequential revision.
+</div>
+</section>
+
+<!-- §04 — Two-Stage Algorithm -->
+<section id="s-algorithm" data-code="algorithm">
+<div class="section-no">04 — Two-Stage Algorithm</div>
+<h2>Stage I generates near-misses; Stage II trains on them</h2>
+<p>
+  REVES realizes the per-state training signal with a two-stage iterative loop that alternates between
+  data augmentation (Stage I) and policy optimization (Stage II).
+  Critically, <strong>augmentation must be continual</strong>: once the model stops making earlier mistakes,
+  static augmented data becomes uninformative. Each epoch refreshes the near-miss states to match
+  the model's current failure modes.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">REVES two-stage loop</span>
+    <span class="vp-hint">step through the algorithm</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="step-list">
+
+      <div class="step-box active" id="step-0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Run Sequential Revision Rollouts</div>
+          <div class="step-desc">
+            Under the current policy πθ, generate revision trajectories: y₁ ~ πθ(·|x), then
+            y_t ~ πθ(·|x, y_&#123;t-1&#125;, feedback(y_&#123;t-1&#125;)) for t=2..K, stopping at first correct response or budget K.
+          </div>
+          <div class="step-code">for x in training_set: rollout = sr_rollout(π, x, K=budget)</div>
+        </div>
+      </div>
+
+      <div class="step-box" id="step-1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Filter: Keep Only Successful Trajectories</div>
+          <div class="step-desc">
+            Discard rollouts that fail entirely (no correct answer within K steps), and skip any that
+            succeed on the first try. Retained trajectories have at least one near-miss before success,
+            guaranteeing at least one useful recovery target.
+          </div>
+          <div class="step-code">retained = [r for r in rollouts if r.first_correct_step &gt; 1]</div>
+        </div>
+      </div>
+
+      <div class="step-box" id="step-2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Extract: Revision + Verification Prompts</div>
+          <div class="step-desc">
+            From each retained trajectory (x, y₁, …, y_ℓ) with y_ℓ correct, build two prompt types:
+            (i) revision prompts asking the model to improve each y_i;
+            (ii) verification prompts asking whether y_i is correct.
+            The verification prompts train self-stopping — no oracle needed at test time.
+          </div>
+          <div class="step-code">revision_data = [(revise_prompt(x, y_i), y_&#123;i+1&#125;) for y_i in y_1..y_&#123;l-1&#125;]
+verify_data  = [(verify_prompt(x, y_i), label_i) for y_i in trajectory]</div>
+        </div>
+      </div>
+
+      <div class="step-box" id="step-3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Stage II: Single-Turn RL on Augmented Set</div>
+          <div class="step-desc">
+            Train πθ on the union of original RL prompts and the Stage I prompts using standard single-turn RL (GRPO).
+            No sequential rollouts inside the RL step — just one (prompt, response) pair per gradient step.
+            The updated policy becomes the rollout policy for the next epoch's Stage I.
+          </div>
+          <div class="step-code">augmented = original_prompts + revision_data + verify_data
+new_policy = grpo_train(π, augmented)  # single-turn RL only
+# → repeat Stage I with new_policy</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="step-nav">
+      <button id="step-prev" disabled>← Prev</button>
+      <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+      <button id="step-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<h3>Why single-turn RL is cheaper than multi-turn</h3>
+<p>
+  Standard multi-turn RL requires online sequential rollouts at every gradient step — the dominant cost
+  is the serial K-step revision chain in the inner loop.
+  REVES generates augmented data once per epoch in Stage I (which can run <em>in parallel with RL training</em>
+  on the previous epoch's data), then trains entirely on single-turn (prompt, response) pairs.
+  No per-step sequential rollout is needed during RL training.
+</p>
+
+<h3>Verification prompts enable test-time self-stopping</h3>
+<p>
+  At test time, the oracle stopping signal (ground-truth answer) is usually unavailable.
+  REVES trains the model to self-stop using two surrogate signals. For math: the <em>Tail Confidence</em>
+  score (token-level confidence averaged over the tail positions of the response — a higher score
+  means more concentrated, confident predictions). For code: public test cases as execution feedback.
+  The verification prompt training improves AUROC from 72.1% (revision-only) to 74.1% (REVES),
+  calibrating the model's self-assessment more accurately.
+</p>
+</section>
+
+<!-- §05 — Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Results</div>
+<h2>+6.5 points on LiveCodeBench; 4B matches Gemini-2.0 Pro</h2>
+<p>
+  REVES is evaluated on three task families: coding (LiveCodeBench, CodeContest),
+  mathematics (AIME24/25, MATH500), and out-of-distribution puzzles (n_queens, mini_sudoku).
+  All experiments use publicly available models (Qwen3-4B, Qwen2.5-7B, Qwen2.5-3B) and
+  data (Skywork RL dataset, 8313 examples).
+</p>
+
+<h3>LiveCodeBench — sequential revision (TC-32)</h3>
+<div class="results-bars" id="lcb-bars">
+  <div class="bar-row">
+    <div class="bar-label">Qwen3-4B base</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.35)" data-w="27.8"><span>27.8</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ RL baseline</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.55)" data-w="41.7"><span>41.7</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ Multi-turn</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.45)" data-w="49.5"><span>49.5</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ PAG</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.35)" data-w="43.6"><span>43.6</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">+ REVES (ours)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="50.9"><span>50.9</span></div></div>
+  </div>
+</div>
+<p style="font-size:.75rem;color:var(--muted);margin-top:-.5rem">
+  TC-32 = sequential revision with budget 32, using execution-based test cases as verifier. Scale: 0–60 pass rate.
+  REVES outperforms multi-turn RL despite training only on single-turn RL gradient steps.
+</p>
+
+<h3>AIME24 — oracle sequential revision (Oracle-32)</h3>
+<div class="results-bars" id="aime-bars">
+  <div class="bar-row">
+    <div class="bar-label">Qwen2.5-7B-RL</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.55)" data-w="33.5"><span>33.5</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ Multi-turn</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.45)" data-w="30.3"><span>30.3</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ PAG</div>
+    <div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.35)" data-w="31.1"><span>31.1</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">+ REVES (ours)</div>
+    <div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="45.7"><span>45.7</span></div></div>
+  </div>
+</div>
+<p style="font-size:.75rem;color:var(--muted);margin-top:-.5rem">
+  Oracle-32: stop as soon as a verified-correct answer is produced (isolates revision capability). Scale: 0–55. REVES gains +12.2 over RL, while Multi-turn and PAG both regress.
+</p>
+
+<h3>Circle packing — 4B matches the frontier</h3>
+<div class="callout callout-green">
+  <strong>Circle packing (n=26):</strong> pack n unit-area circles into a unit square to maximize sum of radii.
+  REVES on Qwen3-4B reaches <strong>2.635983</strong> — matching AlphaEvolve V2 (Gemini-2.0 Pro + Flash)
+  and ThetaEvolve (R1-Qwen3-8B), the previously reported best, using the smallest model and far fewer rollouts.
+</div>
+
+<h3>Out-of-distribution puzzle generalization</h3>
+<p>
+  Using checkpoints trained only on math and coding data (no puzzle-specific training), REVES substantially
+  improves performance on n_queens (59.7% → 73.3%) and mini_sudoku (42.5% → 47.0%) under verifier-based stopping.
+  The model's ability to recover from structured mistakes transfers across domains.
+</p>
+</section>
+
+<!-- §06 — Transfer to All TTS -->
+<section id="s-transfer" data-code="transfer">
+<div class="section-no">06 — Transfer to All Revision-Using TTS</div>
+<h2>Better revision → every algorithm that uses revision gets better</h2>
+<p>
+  One of the cleanest results in the paper: a model trained with REVES improves
+  not just sequential revision, but <em>every</em> test-time algorithm that involves revision —
+  MCTS, AB-MCTS (Beta, Gaussian, and Mixed variants), and Mind Evolution.
+  This is predicted by Theorem 3.1 and confirmed empirically.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>SeqRev</th>
+      <th>BoN</th>
+      <th>MCTS</th>
+      <th>MindEvo</th>
+      <th>ABM-A(β)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Qwen2.5-7B-RL</td>
+      <td class="mn">23.0</td>
+      <td class="mn">27.8</td>
+      <td class="mn">22.7</td>
+      <td class="mn">25.7</td>
+      <td class="mn">26.0</td>
+    </tr>
+    <tr>
+      <td>Multi-turn</td>
+      <td class="mn">25.5</td>
+      <td class="mn">28.7</td>
+      <td class="mn">26.1</td>
+      <td class="mn">27.0</td>
+      <td class="mn">28.6</td>
+    </tr>
+    <tr>
+      <td>PAG</td>
+      <td class="mn">25.7</td>
+      <td class="mn">30.4</td>
+      <td class="mn">26.4</td>
+      <td class="mn">27.7</td>
+      <td class="mn">29.7</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>REVES (ours)</strong></td>
+      <td class="mn best">29.5</td>
+      <td class="mn best">29.3</td>
+      <td class="mn best">28.9</td>
+      <td class="mn best">29.0</td>
+      <td class="mn best">31.0</td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:.75rem;color:var(--muted)">LiveCodeBench TC-32. REVES-trained model outperforms all baselines across every test-time algorithm, not just sequential revision.</p>
+
+<p>
+  The intuition: sequential revision capability is the <em>backbone</em> of all revision-using TTS algorithms.
+  MCTS branches and AB-MCTS's adaptive search both ultimately invoke the policy on revision prompts.
+  A model that is better at one-step recovery gives every downstream TTS algorithm a higher-quality
+  starting point for each branch.
+</p>
+
+<div class="callout callout-amber">
+  <strong>Why continual augmentation matters:</strong> Augmenting data only at epoch 0 and reusing it
+  leads to substantially worse performance than refreshing every epoch. Once the model stops making
+  earlier mistakes, stale augmented data is uninformative — the near-miss states no longer reflect
+  the model's current failure modes. REVES keeps the supervision aligned with where the model
+  currently struggles.
+</div>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: REVES — Training LLMs to Recover from Mistakes</h2>
+    <p>Standard reinforcement learning trains language models on single-shot rewards — given a question, produce an answer and receive feedback. But at test time, models operate in sequential revision loops: they attempt a problem, get feedback on failure, and try again, repeatedly. This training-deployment gap means that optimizing single-shot performance doesn't necessarily improve multi-step revision capability.</p>
+    <p>REVES addresses this by decomposing the sequential revision objective into per-state one-step recovery probabilities. Each wrong intermediate answer in a successful trajectory becomes a standalone revision training task. The algorithm runs in two stages: Stage I generates revision rollouts and extracts near-miss states from successful trajectories; Stage II trains on these augmented prompts using standard single-turn RL. Crucially, augmentation must be refreshed every epoch to track the model's current failure modes.</p>
+    <p>Empirically, REVES delivers plus 6.5 points on LiveCodeBench over the RL baseline and plus 4 points over multi-turn RL. On AIME24 with oracle stopping and budget 32, a Qwen2.5-7B gains 12 percentage points over the RL baseline. On the circle packing benchmark, a Qwen3-4B model trained with REVES matches the best results from Gemini-2.0 Pro and Qwen3-8B evolutionary search systems — the smallest model to reach this level. Gains also transfer to MCTS, AB-MCTS, and Mind Evolution, confirming that sequential revision capability improves every revision-using test-time algorithm.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：REVES — 训练大模型从错误中恢复</h2>
+    <p>标准强化学习以单次奖励训练语言模型——给定问题，生成答案，获得反馈。但测试时，模型在序列修正循环中运行：尝试问题、根据失败反馈进行修正，反复迭代。这一训练-部署差距意味着优化单次性能不一定能提升多步修正能力。</p>
+    <p>REVES通过将序列修正目标分解为逐状态的单步恢复概率来解决这一问题。成功轨迹中每一个错误的中间答案都成为独立的修正训练任务。算法分为两个阶段：第一阶段生成修正轨迹，从成功轨迹中提取"近失"状态；第二阶段使用标准单步强化学习对这些增强提示进行训练。关键在于，每个训练轮次都必须刷新数据增强，以跟踪模型当前的失败模式。</p>
+    <p>实验上，REVES在LiveCodeBench上比RL基线提升6.5分，比多步RL提升4分。在预算为32的AIME24测试中，Qwen2.5-7B在Oracle停止条件下比RL基线提升12个百分点。在圆形填充基准测试中，使用REVES训练的Qwen3-4B模型达到了Gemini-2.0 Pro和Qwen3-8B进化搜索系统的最佳结果——以最小的模型达到同等水平。这些收益还延伸至MCTS、AB-MCTS和Mind Evolution，证实序列修正能力可提升所有基于修正的测试时算法。</p>
+  </div>
+</div>
+
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">reves/train.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Deployment Gap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="gap">gap</button>
+    <button class="cs-tab" data-panel="credit">credit</button>
+    <button class="cs-tab" data-panel="recovery">recovery</button>
+    <button class="cs-tab" data-panel="algorithm">algorithm</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="transfer">transfer</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-gap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The objective mismatch (Theorem 3.2)</span>
+<span class="cs-line cmt"># Two policies can be equal on JOneShot</span>
+<span class="cs-line cmt"># yet very different on JφSR.</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Standard training objective</span></span>
+<span class="cs-line">J_oneshot = E[r_star(x, y)]</span>
+<span class="cs-line"><span class="cmt"># where y ~ π(·|x)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Sequential revision objective</span></span>
+<span class="cs-line">J_SR = E[r_star(x, y_tau)]</span>
+<span class="cs-line"><span class="cmt"># where y_1 ~ π(·|x)</span></span>
+<span class="cs-line"><span class="cmt">#       y_t ~ π(·|x, y_&#123;t-1&#125;, f_&#123;t-1&#125;)</span></span>
+<span class="cs-line"><span class="cmt">#       τ = first correct or budget K</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Deployment uses JφSR (or similar)</span>
+<span class="cs-line cmt"># Training optimizes JOneShot → gap!</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cmt"># Example gap:</span></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">sr_rollout</span>(policy, x, K=32):</span>
+<span class="cs-line">    y = policy(x)            <span class="cmt"># attempt 1</span></span>
+<span class="cs-line">    <span class="kw">for</span> t <span class="kw">in</span> range(2, K+1):</span>
+<span class="cs-line">        <span class="kw">if</span> is_correct(y): <span class="kw">return</span> y</span>
+<span class="cs-line">        f = feedback(x, y)   <span class="cmt"># e.g. error</span></span>
+<span class="cs-line">        y = policy(x, y, f)  <span class="cmt"># revise</span></span>
+<span class="cs-line">    <span class="kw">return</span> y</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-credit">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Multi-turn RL credit assignment</span>
+<span class="cs-line cmt"># wrong→wrong→correct trajectory</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Multi-turn RL gradient (biased!)</span></span>
+<span class="cs-line"><span class="cmt"># All turns receive the same credit</span></span>
+<span class="cs-line"><span class="kw">for</span> t <span class="kw">in</span> [1, 2, 3]:  <span class="cmt"># τ=3 (correct)</span></span>
+<span class="cs-line">    <span class="cmt"># gradient = r_terminal * log π(y_t|s_t)</span></span>
+<span class="cs-line">    grad += r_final * log_prob(y_t, s_t)</span>
+<span class="cs-line"><span class="cmt"># wrong y_1: also gets +1 gradient</span></span>
+<span class="cs-line"><span class="cmt"># wrong y_2: also gets +1 gradient</span></span>
+<span class="cs-line"><span class="cmt"># correct y_3: gets +1 gradient</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># REVES: per-state recovery signal</span></span>
+<span class="cs-line"><span class="kw">for</span> z <span class="kw">in</span> [z_1, z_2]:  <span class="cmt"># near-miss states</span></span>
+<span class="cs-line">    <span class="cmt"># z = (x, y_wrong, feedback)</span></span>
+<span class="cs-line">    samples = [policy(z) <span class="kw">for</span> _ <span class="kw">in</span> range(M)]</span>
+<span class="cs-line">    V_z = mean([is_correct(y) <span class="kw">for</span> y <span class="kw">in</span> samples])</span>
+<span class="cs-line">    <span class="cmt"># Train to maximize V_z with GRPO</span></span>
+<span class="cs-line">    grpo_step(policy, z, samples)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># No trajectory-level credit assignment</span>
+<span class="cs-line cmt"># Each state is an independent problem</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-recovery">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Lemma 4.1 — Hazard Decomposition</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># J_SR decomposes into per-state factors</span></span>
+<span class="cs-line">J_SR(θ) = Σ_z ρ_θ(z) · V_π(z)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ρ_θ(z): expected visit count to state z</span>
+<span class="cs-line cmt">#          (controlled by the SR rollout policy)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># V_π(z): one-step recovery probability at z</span>
+<span class="cs-line cmt">#          V_π(z) = Pr[y~π(·|z) is correct]</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Key property: raising V(z) at any z</span></span>
+<span class="cs-line hl-c"><span class="cmt"># directly raises J_SR(θ)</span></span>
+<span class="cs-line hl-c"><span class="cmt"># → no horizon credit assignment needed</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">estimate_V</span>(policy, z, M=5):</span>
+<span class="cs-line">    <span class="str">"""One-step recovery probability at z"""</span></span>
+<span class="cs-line">    ys = [policy(z) <span class="kw">for</span> _ <span class="kw">in</span> range(M)]</span>
+<span class="cs-line">    <span class="kw">return</span> mean([is_correct(x, y) <span class="kw">for</span> y <span class="kw">in</span> ys])</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># z = (x, y_wrong, feedback)</span>
+<span class="cs-line cmt"># fresh samples from π at z → V(z) = 2/5</span>
+<span class="cs-line cmt"># train to maximize V(z) → raise J_SR</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-algorithm">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># REVES Two-Stage Training Loop</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">for</span> epoch <span class="kw">in</span> range(num_epochs):</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">    <span class="cmt"># Stage I: Data Augmentation</span></span>
+<span class="cs-line">    near_miss_data = []</span>
+<span class="cs-line">    <span class="kw">for</span> x <span class="kw">in</span> training_set:</span>
+<span class="cs-line">        traj = sr_rollout(policy, x, K)</span>
+<span class="cs-line">        <span class="cmt"># skip: failed or correct on 1st try</span></span>
+<span class="cs-line">        <span class="kw">if</span> <span class="kw">not</span> traj.has_near_miss(): <span class="kw">continue</span></span>
+<span class="cs-line">        <span class="cmt"># revision prompts from near-misses</span></span>
+<span class="cs-line">        rev = revision_prompts(x, traj)</span>
+<span class="cs-line">        <span class="cmt"># verification prompts for self-stop</span></span>
+<span class="cs-line">        ver = verification_prompts(x, traj)</span>
+<span class="cs-line">        near_miss_data += rev + ver</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># Stage II: Single-Turn RL</span></span>
+<span class="cs-line">    augmented = original_rl + near_miss_data</span>
+<span class="cs-line">    policy = grpo_train(policy, augmented)</span>
+<span class="cs-line">    <span class="cmt"># new policy → Stage I next epoch</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Augment EVERY epoch — stale data hurts!</span>
+<span class="cs-line cmt"># One-shot augmentation ≈ -6pp AIME24</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key numbers from the paper</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># LiveCodeBench TC-32 (Qwen3-4B)</span></span>
+<span class="cs-line">base       = 27.8</span>
+<span class="cs-line">RL         = 41.7  <span class="cmt"># +13.9 vs base</span></span>
+<span class="cs-line">multi_turn = 49.5  <span class="cmt"># +7.8 vs RL</span></span>
+<span class="cs-line">PAG        = 43.6</span>
+<span class="cs-line">REVES      = 50.9  <span class="cmt"># +6.5 vs RL, +9.2</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># AIME24 Oracle-32 (Qwen2.5-7B)</span></span>
+<span class="cs-line">RL         = 33.5</span>
+<span class="cs-line">multi_turn = 30.3  <span class="cmt"># regresses!</span></span>
+<span class="cs-line">REVES      = 45.7  <span class="cmt"># +12.2 vs RL</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># Circle packing (n=26, sum of radii)</span></span>
+<span class="cs-line">AlphaEvolve_V2  = 2.635983  <span class="cmt"># Gemini Pro</span></span>
+<span class="cs-line">ThetaEvolve     = 2.635983  <span class="cmt"># Qwen3-8B</span></span>
+<span class="cs-line">REVES_Qwen3_4B  = 2.635983  <span class="cmt"># 4B model!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># OOD generalization (Qwen2.5-7B)</span>
+<span class="cs-line">n_queens_RL    = 59.7  <span class="cmt">→ REVES  73.3%</span></span>
+<span class="cs-line">mini_sudoku_RL = 42.5  <span class="cmt">→ REVES  47.0%</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-transfer">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Theorem 3.1 — Transfer Guarantee</span>
+<span class="cs-line cmt"># SR gains transfer to all ϕ ∈ ΦR</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Conditions:</span></span>
+<span class="cs-line"><span class="cmt"># (C1) ϕ covers SR's revision inputs</span></span>
+<span class="cs-line"><span class="cmt"># (C2) Monotone recovery improvement</span></span>
+<span class="cs-line"><span class="cmt">#       V_&#123;π1&#125;(z) ≥ V_&#123;π0&#125;(z) everywhere</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># Guarantee:</span></span>
+<span class="cs-line">J_ϕ(π1) - J_ϕ(π0) ≥</span>
+<span class="cs-line">    (1/C_ϕ) * (J_SR(π1) - J_SR(π0))</span>
+<span class="cs-line">    - drift_terms</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Empirical transfer (LCB TC-32)</span>
+<span class="cs-line cmt"># Qwen2.5-7B, REVES vs RL baseline:</span>
+<span class="cs-line">SeqRev   : 23.0 → 29.5  (+6.5)</span>
+<span class="cs-line">MCTS     : 22.7 → 28.9  (+6.2)</span>
+<span class="cs-line">MindEvo  : 25.7 → 29.0  (+3.3)</span>
+<span class="cs-line">ABM-A(β) : 26.0 → 31.0  (+5.0)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># All revision-using algorithms improve</span></span>
+<span class="cs-line hl-g"><span class="cmt"># — training SR is training the backbone</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──
+const tabMeta = {
+  gap:       { file: 'reves/objectives.py',  title: 'The Deployment Gap' },
+  credit:    { file: 'reves/credit.py',       title: 'Credit Assignment' },
+  recovery:  { file: 'reves/recovery.py',    title: 'Near-Miss Recovery' },
+  algorithm: { file: 'reves/train.py',       title: 'Two-Stage Algorithm' },
+  results:   { file: 'reves/results.py',     title: 'Results' },
+  transfer:  { file: 'reves/transfer.py',    title: 'Transfer to All TTS' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver — sync TOC + sidebar ──
+const sectionMap = {
+  's-gap':      'gap',
+  's-credit':   'credit',
+  's-recovery': 'recovery',
+  's-algorithm':'algorithm',
+  's-results':  'results',
+  's-transfer': 'transfer',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── Credit Canvas ──
+(function() {
+  const canvas = document.getElementById('credit-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+  let mode = 'multiturn'; // or 'reves'
+
+  function drawRoundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+
+  function drawArrow(x1, y1, x2, y2, color, dashed) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    if (dashed) ctx.setLineDash([4,3]); else ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    // arrowhead
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 8 * Math.cos(angle - 0.4), y2 - 8 * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - 8 * Math.cos(angle + 0.4), y2 - 8 * Math.sin(angle + 0.4));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    const bw = 90, bh = 36, br = 6;
+    const cy = H / 2 - 10;
+    const gap = (W - 60 - 3 * bw) / 2;
+    const x1 = 30, x2 = x1 + bw + gap, x3 = x2 + bw + gap;
+
+    // Boxes
+    const boxes = [
+      { x: x1, label: 'y₁', sublabel: 'wrong', color: '#f87171', border: 'rgba(248,113,113,.5)' },
+      { x: x2, label: 'y₂', sublabel: 'wrong', color: '#f87171', border: 'rgba(248,113,113,.5)' },
+      { x: x3, label: 'y₃', sublabel: 'correct', color: '#10b981', border: 'rgba(16,185,129,.5)' },
+    ];
+
+    boxes.forEach(b => {
+      drawRoundRect(b.x, cy, bw, bh, br, '#1a1a2e', b.border);
+      ctx.fillStyle = b.color;
+      ctx.font = `bold 13px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(b.label, b.x + bw / 2, cy + 15);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = `10px monospace`;
+      ctx.fillText(b.sublabel, b.x + bw / 2, cy + 29);
+    });
+
+    // Arrows between boxes
+    drawArrow(x1 + bw, cy + bh/2, x2, cy + bh/2, '#374151');
+    drawArrow(x2 + bw, cy + bh/2, x3, cy + bh/2, '#374151');
+
+    if (mode === 'multiturn') {
+      // Reward box at right
+      const rx = x3 + bw + 20, ry = cy;
+      drawRoundRect(rx, ry, 60, bh, br, 'rgba(16,185,129,.12)', 'rgba(16,185,129,.4)');
+      ctx.fillStyle = '#10b981'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('+1', rx + 30, ry + 15);
+      ctx.fillStyle = '#6b7280'; ctx.font = '9px monospace';
+      ctx.fillText('reward', rx + 30, ry + 29);
+
+      // Credit arrows from reward box back to each step
+      const creditColor = 'rgba(16,185,129,.75)';
+      // draw arc back to y3
+      drawArrow(rx, cy + bh/2, x3 + bw, cy + bh/2, creditColor);
+      // arc below to y2
+      ctx.save(); ctx.strokeStyle = creditColor; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(x3 + bw/2, cy + bh);
+      ctx.bezierCurveTo(x3 + bw/2, cy + bh + 40, x2 + bw/2, cy + bh + 40, x2 + bw/2, cy + bh);
+      ctx.stroke(); ctx.restore();
+      // arc below to y1
+      ctx.save(); ctx.strokeStyle = creditColor; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(x3 + bw/2, cy + bh + 5);
+      ctx.bezierCurveTo(x3 + bw/2, cy + bh + 60, x1 + bw/2, cy + bh + 60, x1 + bw/2, cy + bh);
+      ctx.stroke(); ctx.restore();
+      // arrowheads at y2 and y1 bottoms
+      ctx.fillStyle = creditColor;
+      ctx.beginPath(); ctx.moveTo(x2+bw/2, cy+bh); ctx.lineTo(x2+bw/2-4, cy+bh+10); ctx.lineTo(x2+bw/2+4, cy+bh+10); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x1+bw/2, cy+bh); ctx.lineTo(x1+bw/2-4, cy+bh+10); ctx.lineTo(x1+bw/2+4, cy+bh+10); ctx.closePath(); ctx.fill();
+
+      // Labels
+      ctx.fillStyle = '#10b981'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('+1', x2 + bw/2, cy + bh + 75);
+      ctx.fillText('+1', x1 + bw/2, cy + bh + 75);
+      ctx.fillText('+1', x3 + bw + 30, cy - 12);
+
+      // Label
+      ctx.fillStyle = '#f59e0b'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('same credit to all steps — including wrong ones', W/2, cy - 25);
+    } else {
+      // REVES mode: highlight y1 and y2 as revision states, draw branches
+      // Glow on y1 and y2
+      [{ x: x1 }, { x: x2 }].forEach(b => {
+        ctx.save();
+        const grad = ctx.createRadialGradient(b.x + bw/2, cy + bh/2, 5, b.x + bw/2, cy + bh/2, 50);
+        grad.addColorStop(0, 'rgba(139,92,246,.25)');
+        grad.addColorStop(1, 'rgba(139,92,246,0)');
+        ctx.fillStyle = grad; ctx.fillRect(b.x - 20, cy - 20, bw + 40, bh + 40);
+        ctx.restore();
+        // Purple border
+        drawRoundRect(b.x, cy, bw, bh, br, null, 'rgba(139,92,246,.8)');
+        ctx.fillStyle = '#8b5cf6'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('revision state', b.x + bw/2, cy - 6);
+      });
+
+      // Branches from y1: 2 attempts, 1 green 1 red
+      const branchY1 = cy - 55;
+      ctx.save(); ctx.strokeStyle = 'rgba(139,92,246,.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(x1+bw/2, cy); ctx.lineTo(x1+bw/2-22, branchY1+16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1+bw/2, cy); ctx.lineTo(x1+bw/2+22, branchY1+16); ctx.stroke();
+      ctx.restore();
+      // Branch circles
+      ctx.beginPath(); ctx.arc(x1+bw/2-22, branchY1+8, 8, 0, Math.PI*2);
+      ctx.fillStyle='rgba(248,113,113,.3)'; ctx.fill(); ctx.strokeStyle='#f87171'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x1+bw/2+22, branchY1+8, 8, 0, Math.PI*2);
+      ctx.fillStyle='rgba(16,185,129,.3)'; ctx.fill(); ctx.strokeStyle='#10b981'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle='#10b981'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+      ctx.fillText('✓', x1+bw/2+22, branchY1+12);
+      ctx.fillStyle='#f87171'; ctx.fillText('✗', x1+bw/2-22, branchY1+12);
+      ctx.fillStyle='#8b5cf6'; ctx.font='9px monospace';
+      ctx.fillText('V(z₁)=0.50', x1+bw/2, branchY1-6);
+
+      // Branches from y2: 3 attempts, 2 green 1 red
+      const branchY2 = cy - 55;
+      ctx.save(); ctx.strokeStyle = 'rgba(139,92,246,.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(x2+bw/2, cy); ctx.lineTo(x2+bw/2-32, branchY2+16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x2+bw/2, cy); ctx.lineTo(x2+bw/2, branchY2+16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x2+bw/2, cy); ctx.lineTo(x2+bw/2+32, branchY2+16); ctx.stroke();
+      ctx.restore();
+      [[x2+bw/2-32,'red'],[x2+bw/2,'green'],[x2+bw/2+32,'green']].forEach(([bx, c]) => {
+        ctx.beginPath(); ctx.arc(bx, branchY2+8, 8, 0, Math.PI*2);
+        ctx.fillStyle = c==='green'?'rgba(16,185,129,.3)':'rgba(248,113,113,.3)'; ctx.fill();
+        ctx.strokeStyle = c==='green'?'#10b981':'#f87171'; ctx.lineWidth=1; ctx.stroke();
+        ctx.fillStyle = c==='green'?'#10b981':'#f87171'; ctx.font='bold 9px monospace';
+        ctx.fillText(c==='green'?'✓':'✗', bx, branchY2+12);
+      });
+      ctx.fillStyle='#8b5cf6'; ctx.font='9px monospace'; ctx.textAlign='center';
+      ctx.fillText('V(z₂)=0.67', x2+bw/2, branchY2-6);
+
+      // Label
+      ctx.fillStyle = '#a78bfa'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('each near-miss state → fresh branches → local V(z) training signal', W/2, cy - 80);
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  document.getElementById('btn-multiturn')?.addEventListener('click', () => {
+    mode = 'multiturn';
+    document.getElementById('btn-multiturn').classList.add('active');
+    document.getElementById('btn-reves').classList.remove('active');
+    document.getElementById('credit-caption').textContent =
+      'Multi-turn RL: all steps receive the same +1 reward signal, including the wrong ones.';
+    draw();
+  });
+  document.getElementById('btn-reves')?.addEventListener('click', () => {
+    mode = 'reves';
+    document.getElementById('btn-reves').classList.add('active');
+    document.getElementById('btn-multiturn').classList.remove('active');
+    document.getElementById('credit-caption').textContent =
+      'REVES: y₁ and y₂ become revision states. Fresh branches estimate V(z) — train to raise recovery probability locally.';
+    draw();
+  });
+})();
+
+// ── Recovery Canvas ──
+(function() {
+  const canvas = document.getElementById('recovery-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    draw();
+  }
+
+  // seeded PRNG for deterministic outcomes
+  function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  let M = 3;
+  // Fixed outcomes: indices 0,2,5,7 succeed; rest fail (for up to 10 branches)
+  const succeedSet = new Set([0, 2, 5, 7, 9]);
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Center box
+    const bw = 220, bh = 60, bx = (W - bw) / 2, by = H - 90;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 8);
+    ctx.fillStyle = 'rgba(139,92,246,.1)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(139,92,246,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.fillStyle = '#f0f0f8'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('revision state z', bx + bw/2, by + 18);
+    ctx.fillStyle = '#6b7280'; ctx.font = '9px monospace';
+    ctx.fillText('x = "sort by 2nd element"', bx + bw/2, by + 33);
+    ctx.fillText('y_wrong · feedback: "test 3 fails"', bx + bw/2, by + 47);
+
+    // V(z) display
+    const successes = Array.from({length: M}, (_, i) => succeedSet.has(i));
+    const nSucc = successes.filter(Boolean).length;
+    const vz = (nSucc / M).toFixed(2);
+
+    const vbx = bx + bw + 20, vby = by + 10, vbw = Math.min(100, W - vbx - 20), vbh = 40;
+    if (vbw > 50) {
+      ctx.beginPath(); ctx.roundRect(vbx, vby, vbw, vbh, 6);
+      ctx.fillStyle = 'rgba(139,92,246,.15)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(139,92,246,.4)'; ctx.stroke();
+      ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('V(z)', vbx + vbw/2, vby + 16);
+      ctx.fillStyle = '#f0f0f8'; ctx.font = 'bold 14px monospace';
+      ctx.fillText(vz, vbx + vbw/2, vby + 33);
+    }
+
+    // Branches fanning upward from the state box
+    const spread = Math.min(W - 80, 560);
+    const branchTopY = 30;
+    const cx0 = bx + bw / 2;
+
+    for (let i = 0; i < M; i++) {
+      const frac = M === 1 ? 0.5 : i / (M - 1);
+      const tx = (cx0 - spread/2) + frac * spread;
+      const ty = branchTopY;
+      const ok = successes[i];
+
+      // Line
+      ctx.save(); ctx.strokeStyle = 'rgba(139,92,246,.25)'; ctx.lineWidth = 1.2;
+      ctx.setLineDash([4,3]); ctx.beginPath();
+      ctx.moveTo(cx0, by); ctx.lineTo(tx, ty + 26); ctx.stroke(); ctx.restore();
+
+      // Circle
+      ctx.beginPath(); ctx.arc(tx, ty + 14, 14, 0, Math.PI*2);
+      ctx.fillStyle = ok ? 'rgba(16,185,129,.2)' : 'rgba(248,113,113,.2)'; ctx.fill();
+      ctx.strokeStyle = ok ? '#10b981' : '#f87171'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = ok ? '#10b981' : '#f87171'; ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center'; ctx.fillText(ok ? '✓' : '✗', tx, ty + 18);
+
+      // Sample label
+      ctx.fillStyle = '#6b7280'; ctx.font = '8px monospace';
+      ctx.fillText('y\'_' + (i+1), tx, ty + 36);
+    }
+
+    // Legend
+    ctx.fillStyle = '#10b981'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('green = correct', 20, H - 15);
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('red = incorrect', 20 + 130, H - 15);
+    ctx.fillStyle = '#a78bfa'; ctx.textAlign = 'center'; ctx.font = 'bold 10px monospace';
+    ctx.fillText('V(z) = ' + nSucc + '/' + M + ' = ' + vz + '  → train to raise this', W/2, H - 15);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  const captions = { 3: 'M=3 branches from z — 1 success, 2 fails → V(z) = 0.33', 5: 'M=5 branches — 2 succeed, 3 fail → V(z) = 0.40', 10: 'M=10 branches — 4 succeed, 6 fail → V(z) = 0.40 (more stable estimate)' };
+  [['btn-m3',3],['btn-m5',5],['btn-m10',10]].forEach(([id, m]) => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      M = m;
+      document.querySelectorAll('#btn-m3,#btn-m5,#btn-m10').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      document.getElementById('recovery-caption').textContent = captions[m];
+      resize();
+    });
+  });
+})();
+
+// ── Step navigator ──
+(function() {
+  let step = 0;
+  const boxes = document.querySelectorAll('.step-box');
+  const prevBtn = document.getElementById('step-prev');
+  const nextBtn = document.getElementById('step-next');
+  const progEl  = document.getElementById('step-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active','done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i+1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── Animated bar charts ──
+function triggerBars(containerId) {
+  const section = document.getElementById(containerId);
+  if (!section) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 60 * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(section);
+}
+// lcb bars: scale is 0–60
+document.getElementById('lcb-bars')?.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) b.style.width = (parseFloat(b.dataset.w) / 60 * 100) + '%'; });
+  }, { threshold: 0.3 }).observe(b);
+});
+// aime bars: scale is 0–55
+document.getElementById('aime-bars')?.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) b.style.width = (parseFloat(b.dataset.w) / 55 * 100) + '%'; });
+  }, { threshold: 0.3 }).observe(b);
+});
+</script>
+</BaseLayout>

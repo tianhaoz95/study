@@ -1,0 +1,1383 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="SoftMoE: Soft Differentiable Routing for Mixture-of-Experts | Catpuccino.ai"
+  description="Standard sparse MoE fixes the number of active experts per layer before training. SoftMoE makes expert routing fully differentiable via LapSum relaxation — letting the model discover on its own that later layers need 4× more experts than early ones."
+  crumb="SoftMoE"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Allocation canvas extras ── */
+.alloc-btns{display:flex;gap:.5rem;flex-wrap:wrap}
+.alloc-btn{padding:.28rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.alloc-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.alloc-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+
+/* ── Mode toggle (hard vs soft) ── */
+.mode-btns{display:flex;gap:.5rem}
+.mode-btn{padding:.28rem .75rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.mode-btn.active{border-color:var(--purple);background:var(--purple-dim);color:var(--purple-l)}
+
+/* ── Results bars ── */
+.results-bars{margin:1.25rem 0;display:flex;flex-direction:column;gap:.55rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.63rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.65rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:.6rem 0 .25rem;font-family:var(--ff-mono)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Architecture SVG ── */
+.arch-svg{width:100%;height:auto;min-width:560px}
+.arch-box{rx:6;ry:6}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Mixture-of-Experts</span>
+    <span class="tag tag-cyan">Efficient LLMs</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>SoftMoE: Let the Model Learn Its Own Expert Allocation</h1>
+  <p class="lead">Every sparse MoE layer activates the same hard-wired k experts per token — regardless of whether that layer does trivial syntax or deep semantic reasoning. SoftMoE replaces discrete top-k routing with a continuous LapSum relaxation, making expert selection fully differentiable. The model discovers, entirely from data, that later layers need 4× more experts than early ones.</p>
+  <div class="post-hero-meta">
+    <span>June 19, 2026</span>
+    <span>~11 min read</span>
+    <span>Paper: <code>arXiv:2606.17952</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.17952" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/dlcuda/SoftMoE" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Fixed-k Problem</a></li>
+    <li class="toc-item" id="toc-s-routing"><a href="#s-routing"><span class="toc-num">02</span> MoE Routing Basics</a></li>
+    <li class="toc-item" id="toc-s-lapsum"><a href="#s-lapsum"><span class="toc-num">03</span> The LapSum Soft Top-k</a></li>
+    <li class="toc-item" id="toc-s-allocation"><a href="#s-allocation"><span class="toc-num">04</span> Learned Allocation</a></li>
+    <li class="toc-item" id="toc-s-token"><a href="#s-token"><span class="toc-num">05</span> Per-Token Compute</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 — The Fixed-k Problem -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Fixed-k Problem</div>
+<h2>Every Layer Gets the Same Experts — Regardless of What It Does</h2>
+<p>Mixture-of-Experts architectures scale transformer capacity efficiently: instead of one giant MLP, each layer contains many smaller "expert" networks and only activates a subset per token. The standard recipe — inherited from Switch Transformer — picks the top-k scoring experts per token per layer, where k is a hyperparameter fixed before training starts.</p>
+<p>The problem is that this choice is arbitrary. Layer 1 of a deep language model encodes simple positional and syntactic patterns. Layer 10 integrates global semantic relationships. Claiming that both layers need exactly the same number of experts is a strong, unjustified assumption — yet that is what every sparse MoE model in production today does.</p>
+<p>SoftMoE relaxes this constraint by making the number of active experts differentiable. The model can then learn the optimal expert budget for each layer end-to-end from data. The result is striking: given a global budget of 20 expert-activations across 10 layers, the trained model concentrates roughly 50% — ten activations — in just the final three layers, leaving the first seven to share the other half.</p>
+
+<!-- Allocation contrast canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">per-layer expert allocation — 10-layer model, 32 experts per layer</span>
+    <div class="alloc-btns" id="alloc-btns-compare">
+      <button class="alloc-btn active" data-mode="sparse">Sparse MoE (fixed k=2)</button>
+      <button class="alloc-btn" data-mode="soft">SoftMoE (learned)</button>
+    </div>
+  </div>
+  <div class="vp-body">
+    <canvas id="alloc-compare-canvas" style="width:100%;height:280px;display:block"></canvas>
+    <p style="margin:.75rem 0 0;font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)">
+      <span id="alloc-compare-caption">Sparse MoE: every layer activates exactly 2 experts, regardless of layer depth or token complexity.</span>
+    </p>
+  </div>
+</div>
+
+<p>The non-uniform allocation is not something a researcher specified — it emerged from gradient descent. Early layers handling syntax settle for a single expert; the final layers reasoning about meaning demand four or five. This finding aligns with decades of interpretability research showing that transformer depth encodes progressively more semantic content.</p>
+</section>
+
+<!-- §02 — MoE Routing Basics -->
+<section id="s-routing" data-code="routing">
+<div class="section-no">02 — MoE Routing Basics</div>
+<h2>How Expert Selection Works — and Where Gradients Get Stuck</h2>
+<p>In a standard sparse MoE layer, the gating network scores every expert for a given input token, then the top-k operator picks the highest-scoring k. Only those k experts do any computation; the rest are skipped. The token's output is a weighted average of the k active experts.</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">sparse MoE layer — data flow and gradient blockage</span>
+    <span class="vp-hint">discrete top-k breaks the gradient path</span>
+  </div>
+  <div class="vp-body" style="overflow-x:auto">
+    <svg class="arch-svg" viewBox="0 0 740 200" xmlns="http://www.w3.org/2000/svg" style="min-width:560px;font-family:var(--ff-mono)">
+      <!-- Token input -->
+      <rect x="10" y="75" width="90" height="50" rx="6" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.5)" stroke-width="1.2"/>
+      <text x="55" y="96" text-anchor="middle" font-size="9" fill="#06b6d4">token</text>
+      <text x="55" y="110" text-anchor="middle" font-size="9" fill="#06b6d4">x ∈ ℝ^d</text>
+      <!-- Arrow -->
+      <line x1="100" y1="100" x2="130" y2="100" stroke="rgba(255,255,255,.2)" stroke-width="1.2"/>
+      <polygon points="130,96 138,100 130,104" fill="rgba(255,255,255,.2)"/>
+      <!-- Gating matrix -->
+      <rect x="138" y="68" width="110" height="64" rx="6" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.5)" stroke-width="1.2"/>
+      <text x="193" y="91" text-anchor="middle" font-size="9" fill="#a78bfa">Gating</text>
+      <text x="193" y="104" text-anchor="middle" font-size="9" fill="#a78bfa">r = x · W_g</text>
+      <text x="193" y="117" text-anchor="middle" font-size="9" fill="#a78bfa">r ∈ ℝ^n</text>
+      <!-- Arrow -->
+      <line x1="248" y1="100" x2="278" y2="100" stroke="rgba(255,255,255,.2)" stroke-width="1.2"/>
+      <polygon points="278,96 286,100 278,104" fill="rgba(255,255,255,.2)"/>
+      <!-- top-k box — RED gradient block -->
+      <rect x="286" y="68" width="100" height="64" rx="6" fill="rgba(239,68,68,.12)" stroke="rgba(239,68,68,.5)" stroke-width="1.2"/>
+      <text x="336" y="91" text-anchor="middle" font-size="9" fill="#f87171">top-k</text>
+      <text x="336" y="104" text-anchor="middle" font-size="9" fill="#f87171">discrete</text>
+      <text x="336" y="117" text-anchor="middle" font-size="9" fill="#f87171">non-diff.</text>
+      <!-- Gradient stop marker -->
+      <text x="336" y="58" text-anchor="middle" font-size="8" fill="#f87171">⚠ gradient stops here</text>
+      <line x1="286" y1="63" x2="386" y2="63" stroke="rgba(239,68,68,.4)" stroke-width="1" stroke-dasharray="3,2"/>
+      <!-- Arrow to experts -->
+      <line x1="386" y1="100" x2="416" y2="100" stroke="rgba(255,255,255,.2)" stroke-width="1.2"/>
+      <polygon points="416,96 424,100 416,104" fill="rgba(255,255,255,.2)"/>
+      <!-- Experts group -->
+      <rect x="424" y="40" width="80" height="32" rx="5" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+      <text x="464" y="58" text-anchor="middle" font-size="8.5" fill="#10b981">Expert 1</text>
+      <rect x="424" y="84" width="80" height="32" rx="5" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+      <text x="464" y="102" text-anchor="middle" font-size="8.5" fill="#10b981">Expert k</text>
+      <text x="464" y="78" text-anchor="middle" font-size="8" fill="rgba(255,255,255,.25)">· · ·</text>
+      <!-- Inactive experts (grey) -->
+      <rect x="424" y="128" width="80" height="32" rx="5" fill="rgba(107,114,128,.08)" stroke="rgba(107,114,128,.25)" stroke-width="1"/>
+      <text x="464" y="146" text-anchor="middle" font-size="8" fill="#4b5563">Expert n (skip)</text>
+      <!-- Arrows from experts to output -->
+      <line x1="504" y1="56" x2="540" y2="88" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <line x1="504" y1="100" x2="540" y2="100" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+      <!-- Output -->
+      <rect x="548" y="68" width="90" height="64" rx="6" fill="rgba(245,158,11,.13)" stroke="rgba(245,158,11,.45)" stroke-width="1.2"/>
+      <text x="593" y="93" text-anchor="middle" font-size="9" fill="#fbbf24">Σ wᵢEᵢ(x)</text>
+      <text x="593" y="107" text-anchor="middle" font-size="9" fill="#fbbf24">output y</text>
+      <!-- Legend -->
+      <rect x="648" y="150" width="10" height="10" rx="2" fill="rgba(239,68,68,.3)" stroke="rgba(239,68,68,.6)" stroke-width="1"/>
+      <text x="662" y="159" font-size="8" fill="#6b7280">non-differentiable</text>
+      <rect x="648" y="165" width="10" height="10" rx="2" fill="rgba(16,185,129,.2)" stroke="rgba(16,185,129,.5)" stroke-width="1"/>
+      <text x="662" y="174" font-size="8" fill="#6b7280">active experts</text>
+    </svg>
+  </div>
+</div>
+
+<p>The critical issue is the red box: top-k is non-differentiable. Gradients from the loss function can flow back into the gating weights <em>before</em> expert selection (via the pre-softmax scores), but they cannot flow <em>through</em> the selection itself. This means two things are forever locked:</p>
+<ul>
+  <li>The number of active experts k must be fixed before training — it can never be learned</li>
+  <li>The same k must apply to every layer — more-complex layers cannot request extra budget</li>
+</ul>
+<p>SoftMoE's insight is that if you replace the discrete step with a continuous relaxation, both constraints vanish. The routing becomes end-to-end differentiable, and the budget k per layer becomes a learnable parameter like any other weight.</p>
+
+<div class="math-block">
+  <div class="math-label">Standard sparse MoE gate</div>
+  G(x) = Topk(softmax(x · <span class="math-var">W_g</span>), k)   <span class="math-comment">← k is fixed, ∂G/∂k = 0</span><br>
+  <br>
+  y = Σᵢ G(x)ᵢ · Eᵢ(x)   <span class="math-comment">← only k of n experts fire</span>
+</div>
+</section>
+
+<!-- §03 — The LapSum Soft Top-k -->
+<section id="s-lapsum" data-code="lapsum">
+<div class="section-no">03 — The LapSum Soft Top-k</div>
+<h2>Continuous Weights That Still Sum to k</h2>
+<p>The LapSum operator (Struski et al., 2025) is a differentiable relaxation of the top-k function. Instead of a binary mask, it produces soft weights in [0, 1] that <em>still sum to k</em> — preserving the sparsity budget while enabling gradient flow.</p>
+<p>The key idea: define a threshold x̃ by solving LapSum(x̃) = k, where LapSum is a sum of Laplace CDFs over the expert scores. The routing weights become F_Lap(rᵢ − x̃), each lying between 0 and 1. Crucially, this threshold has a closed-form solution — no sorting, no iterative solver, O(n) complexity. And because x̃ is differentiable with respect to the selection parameter k, gradients can now flow all the way through to k itself.</p>
+
+<!-- Hard vs. Soft canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">hard top-k vs. soft top-k — 8 experts, k = 2</span>
+    <div class="mode-btns" id="lapsum-mode-btns">
+      <button class="mode-btn active" data-mode="hard">Hard top-k</button>
+      <button class="mode-btn" data-mode="soft">Soft top-k</button>
+    </div>
+  </div>
+  <div class="vp-body">
+    <canvas id="lapsum-canvas" style="width:100%;height:200px;display:block"></canvas>
+    <p style="margin:.75rem 0 0;font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)" id="lapsum-caption">
+      Hard: binary mask — exactly 2 experts get weight 1.0, rest get 0. Non-differentiable at the selection boundary.
+    </p>
+  </div>
+</div>
+
+<p>After computing soft weights, SoftMoE applies a truncation operator T(z) = z · [z &gt; τ] that zeros out any weight below a learned threshold τ. Active experts (above τ) receive full gradient; inactive ones receive zero — recovering sparsity while keeping the routing differentiable with respect to k.</p>
+
+<div class="math-block">
+  <div class="math-label">SoftMoE gate — LapSum relaxation</div>
+  x̃ : LapSum(x̃) = Σᵢ <span class="math-var">F_Lap</span>(rᵢ − x̃) = k   <span class="math-comment">← solve for threshold</span><br>
+  p̃ᵢ = F_Lap(rᵢ − x̃)   &nbsp; p̃ᵢ ∈ [0,1],  Σp̃ᵢ = k   <span class="math-comment">← soft weights, still sum to k</span><br>
+  <br>
+  G(x) = T(p̃)   <span class="math-comment">← truncate below threshold τ</span><br>
+  ∂k/∂η available   <span class="math-comment">← k is now learnable via reparameterization</span>
+</div>
+
+<p>Unlike prior soft-routing methods (e.g. Puigcerver et al.), SoftMoE processes each token independently using only that token's own scores. There is no mixing of information across token positions, which is why it remains fully compatible with autoregressive language modeling — a requirement that many soft-routing approaches break.</p>
+</section>
+
+<!-- §04 — Learned Allocation -->
+<section id="s-allocation" data-code="allocation">
+<div class="section-no">04 — Learned Allocation</div>
+<h2>Layers That Need More Experts Get More Experts</h2>
+<p>Once the number of active experts k per layer is differentiable, we can optimize it. SoftMoE parameterizes a vector η ∈ ℝᴸ — one scalar per layer — and maps it to per-layer allocations via a softmax reparameterization:</p>
+<div class="math-block">
+  <div class="math-label">per-layer allocation under global budget K</div>
+  π = softmax(η)   <span class="math-comment">← unconstrained, end-to-end trainable</span><br>
+  kₗ = πₗ · (K − L) + 1   <span class="math-comment">← ensures kₗ ≥ 1 and Σkₗ = K</span>
+</div>
+<p>The budget K is the global total of expert activations across all L layers. Setting K = 2L matches the compute of a sparse MoE with k=2. The competition is what matters: if layer 10 claims more experts, layers 1–9 must collectively give them up. Gradient descent resolves this competition by discovering which layers benefit most from additional capacity.</p>
+
+<!-- Allocation evolution canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">learned expert allocation evolving during training (10-layer model, K=20)</span>
+    <div class="alloc-btns" id="alloc-step-btns">
+      <button class="alloc-btn active" data-step="0">Step 0</button>
+      <button class="alloc-btn" data-step="1">Step 25k</button>
+      <button class="alloc-btn" data-step="2">Step 75k</button>
+      <button class="alloc-btn" data-step="3">Step 164k</button>
+    </div>
+  </div>
+  <div class="vp-body">
+    <canvas id="alloc-evolution-canvas" style="width:100%;height:260px;display:block"></canvas>
+    <p style="margin:.75rem 0 0;font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)" id="alloc-caption">
+      Step 0: all layers initialized at k=2 (uniform allocation).
+    </p>
+  </div>
+</div>
+
+<p>The redistribution happens fast: most of the expert budget shifts to later layers within the first 25,000 training steps. The final converged pattern is striking — layers 8, 9, and 10 each absorb 3–4× more experts than layers 1 and 2. The top three layers together account for roughly 50% of the total expert budget.</p>
+<p>This is not a parameter the authors tuned. It is an emergent discovery by gradient descent, corroborated by interpretability research: early transformer layers encode syntax and shallow phrase structure; later layers encode high-level semantics that benefit from a richer mixture of specialized sub-networks.</p>
+</section>
+
+<!-- §05 — Per-Token Compute -->
+<section id="s-token" data-code="token">
+<div class="section-no">05 — Per-Token Adaptive Compute</div>
+<h2>Simple Tokens Use Fewer Experts Than Complex Ones</h2>
+<p>Learned per-layer allocation changes how many experts a <em>layer</em> uses on average — but soft routing also adapts compute at the <em>token</em> level. Because the truncation threshold τ applies a fixed cut, the actual number of experts that fire for any given token depends on the distribution of its routing scores.</p>
+<p>For simple, predictable tokens — articles like "the", common prepositions like "of" — the gating network learns to concentrate weight on a single dominant expert. The rest fall below τ and are skipped. For semantically rich tokens where many experts plausibly apply — "photosynthesis", "Schrödinger", "amalgamate" — weights spread more evenly and more experts fire.</p>
+
+<!-- Per-token canvas -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">routing weight distribution — simple vs complex token</span>
+    <div class="alloc-btns" id="token-btns">
+      <button class="alloc-btn active" data-token="simple">"the" (simple)</button>
+      <button class="alloc-btn" data-token="medium">"running" (medium)</button>
+      <button class="alloc-btn" data-token="complex">"photosynthesis" (complex)</button>
+    </div>
+  </div>
+  <div class="vp-body">
+    <canvas id="token-canvas" style="width:100%;height:200px;display:block"></canvas>
+    <p style="margin:.75rem 0 0;font-size:.72rem;color:var(--muted);font-family:var(--ff-mono)" id="token-caption">
+      Simple token: gating concentrates weight on 1 expert (threshold τ skips the rest). Compute cost ≈ 1 expert.
+    </p>
+  </div>
+</div>
+
+<p>During training on C4, the average number of active experts per token per layer <em>increases</em> as training progresses — the model learns to use more of its available capacity as it develops more complex internal representations. This is the opposite of what one might expect from a sparsity-focused system: the soft routing finds richer token-specialist patterns over time.</p>
+<p>The theoretical worst case — a token with perfectly uniform routing scores — would activate all 32 experts. SoftMoE prevents this with an expansion factor α: the maximum active experts per layer is capped at ⌈kₗ · α⌉ where α ∈ {2, 4}. In practice, near-uniform routing is rare.</p>
+</section>
+
+<!-- §06 — Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Better Performance, Fewer Active Experts</h2>
+<p>SoftMoE is evaluated on C4 (206B tokens) and OpenWebText (9B tokens) using a 10-layer decoder-only architecture with 32 experts per block, each expert containing 5M parameters (1.63B total). Downstream evaluation covers PIQA, HellaSwag, and ARC-E in zero-shot.</p>
+
+<!-- Results bars — HellaSwag OWT ≤4 experts -->
+<h3>HellaSwag (OpenWebText, ≤4 expert budget)</h3>
+<div class="results-bars" id="results-bars">
+  <div class="bar-group-label">Baseline</div>
+  <div class="bar-row">
+    <div class="bar-label">Sparse MoE k=4<br><span style="color:var(--muted);font-size:.62rem">4.0 active experts</span></div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.23" style="background:rgba(107,114,128,.5)"><span>47.23%</span></div></div>
+  </div>
+  <div class="bar-group-label" style="color:var(--purple-l)">SoftMoE — differentiable routing</div>
+  <div class="bar-row">
+    <div class="bar-label">SoftMoE* k<sub>init</sub>=2<br><span style="color:var(--muted);font-size:.62rem">2.91 active experts (−27%)</span></div>
+    <div class="bar-track"><div class="bar-fill" data-w="48.05" style="background:linear-gradient(90deg,rgba(139,92,246,.6),rgba(139,92,246,.8))"><span>48.05%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">SoftMoE* k<sub>init</sub>=1<br><span style="color:var(--muted);font-size:.62rem">3.60 active experts (−10%)</span></div>
+    <div class="bar-track"><div class="bar-fill" data-w="48.48" style="background:linear-gradient(90deg,rgba(6,182,212,.6),rgba(6,182,212,.8))"><span>48.48% ★</span></div></div>
+  </div>
+</div>
+
+<!-- Full results table -->
+<h3>C4 dataset — full comparison (grouped by active-expert budget)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Budget</th>
+      <th>Train-AE</th>
+      <th>Infer-AE</th>
+      <th>HellaSwag</th>
+      <th>PIQA</th>
+      <th>Loss ↓</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Sparse MoE k=2</td><td class="mn">≤2</td>
+      <td class="mn">2.00</td><td class="mn">2.00</td>
+      <td class="mn">31.50</td><td class="mn">62.40</td><td class="mn">2.79</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SoftMoE* k<sub>init</sub>=1.5</td><td class="mn">≤2</td>
+      <td class="mn best">1.53</td><td class="mn best">1.73</td>
+      <td class="mn best">32.13</td><td class="mn best">62.62</td><td class="mn best">2.78</td>
+    </tr>
+    <tr>
+      <td>Sparse MoE k=4</td><td class="mn">≤4</td>
+      <td class="mn">4.00</td><td class="mn">4.00</td>
+      <td class="mn">32.36</td><td class="mn">63.87</td><td class="mn">2.75</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SoftMoE* k<sub>init</sub>=1</td><td class="mn">≤4</td>
+      <td class="mn best">3.64</td><td class="mn best">3.73</td>
+      <td class="mn best">33.68</td><td class="mn">63.93</td><td class="mn best">2.70</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SoftMoE* k<sub>init</sub>=2</td><td class="mn">≤4</td>
+      <td class="mn best">2.62</td><td class="mn best">3.12</td>
+      <td class="mn">32.50</td><td class="mn">63.82</td><td class="mn">2.75</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The headline result: SoftMoE* with budget ≤4 achieves 2.70 validation loss on C4 — better than any sparse MoE configuration, including the one with k=4 fixed experts — while using only 3.64 active experts on average in training (−9% compute) and 3.73 at inference. On HellaSwag OWT it reaches 48.48% vs. the Sparse MoE k=4 baseline of 47.23%, with ~10% fewer active experts.</p>
+<p>Adding learned per-layer allocation (full SoftMoE with optimized η) typically improves downstream tasks further while concentrating compute in later layers. The trade-off: average active experts slightly increases as the model claims more budget for semantic-heavy final layers.</p>
+</section>
+
+<!-- LISTEN FRIENDLY -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: SoftMoE — Soft Differentiable Routing for Mixture-of-Experts</h2>
+    <p>Standard sparse Mixture-of-Experts models choose a fixed number of expert networks to activate per token per layer, hard-coded before training starts. This discrete top-k selection is non-differentiable, so gradients cannot flow through the expert-selection process. Every layer must use the same expert count regardless of whether it handles simple syntax or complex semantic reasoning.</p>
+    <p>SoftMoE replaces the discrete top-k with a continuous LapSum relaxation. The LapSum function finds a differentiable threshold that assigns soft weights to all experts — weights that still sum to k, but can vary between 0 and 1 instead of snapping to binary. This makes the number of active experts per layer fully differentiable and therefore learnable.</p>
+    <p>When trained on C4 with a global budget of 20 expert-activations across 10 layers, SoftMoE discovers that later layers benefit far more from additional experts than early ones. The top three of ten layers claim roughly 50 percent of the total expert budget, while early layers settle for one or two. This non-uniform pattern emerges from gradient descent, not from any human-specified prior.</p>
+    <p>Experimentally, SoftMoE matches or outperforms standard sparse MoE on language modeling and downstream reasoning benchmarks while activating 10 to 27 percent fewer experts. On HellaSwag with OpenWebText, SoftMoE reaches 48.48 percent versus the sparse MoE baseline of 47.23 percent, using roughly 10 percent fewer active experts during inference.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：SoftMoE——专家混合模型的软可微分路由</h2>
+    <p>标准稀疏专家混合（MoE）模型在训练开始前就固定了每个层、每个词元激活的专家数量k。这种离散的top-k选择是不可微的，梯度无法流经专家选择过程。因此，每层必须使用相同数量的专家，无论该层处理的是简单句法还是复杂语义推理。</p>
+    <p>SoftMoE用连续的LapSum松弛替换了离散的top-k选择。LapSum函数求解一个可微分阈值，为所有专家分配软权重——这些权重之和仍等于k，但每个值可以在0到1之间连续变化，而非强制为二进制。这使每层激活的专家数量完全可微，因此可以通过梯度下降学习。</p>
+    <p>在C4数据集上以10层全局预算K=20训练时，SoftMoE发现较深的层从额外专家中受益远多于浅层。前10层中的最后3层占据了约50%的专家预算，而浅层仅需1-2个专家。这种非均匀分配模式完全由梯度下降自动涌现，而非人为指定。</p>
+    <p>实验表明，SoftMoE在语言建模和推理基准测试中匹配或超越标准稀疏MoE，同时减少10%至27%的激活专家数。在OpenWebText的HellaSwag任务上，SoftMoE以少约10%的推理专家激活数，实现48.48%的准确率，优于稀疏MoE基线的47.23%。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">soft_moe/routing.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Fixed-k Problem</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="routing">routing</button>
+    <button class="cs-tab" data-panel="lapsum">lapsum</button>
+    <button class="cs-tab" data-panel="allocation">allocation</button>
+    <button class="cs-tab" data-panel="token">token</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- problem panel -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard sparse MoE: k fixed before training</span>
+<span class="cs-line cmt"># Every layer gets exactly the same k — forever</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">SparseMoELayer</span>:</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(self, n_experts, d, k=<span class="num">2</span>):</span>
+<span class="cs-line">        self.k = k  <span class="cmt"># frozen hyperparameter</span></span>
+<span class="cs-line">        self.Wg = nn.Linear(d, n_experts)</span>
+<span class="cs-line">        self.experts = nn.ModuleList([...])</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a">    <span class="kw">def</span> <span class="fn">forward</span>(self, x):</span>
+<span class="cs-line hl-a">        r = self.Wg(x)        <span class="cmt"># routing scores</span></span>
+<span class="cs-line hl-a">        topk_vals, topk_idx = \</span>
+<span class="cs-line hl-a">            torch.topk(r, self.k) <span class="cmt"># discrete!</span></span>
+<span class="cs-line">        <span class="cmt"># ∂(topk_idx)/∂r = 0 — gradient blocked</span></span>
+<span class="cs-line">        weights = F.softmax(topk_vals, dim=-<span class="num">1</span>)</span>
+<span class="cs-line">        <span class="kw">return</span> sum(</span>
+<span class="cs-line">            weights[i] * experts[topk_idx[i]](x)</span>
+<span class="cs-line">            <span class="kw">for</span> i <span class="kw">in</span> range(self.k))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># What you can't do:</span>
+<span class="cs-line cmt">#   k_layer_1 != k_layer_10  # ← impossible</span>
+<span class="cs-line cmt">#   optimizer.step(k)         # ← k not in graph</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Learned allocation (SoftMoE) reveals:</span>
+<span class="cs-line cmt">#   Layer 1:  k ≈ 1.0  (syntax)</span>
+<span class="cs-line cmt">#   Layer 5:  k ≈ 1.5  (phrase)</span>
+<span class="cs-line cmt">#   Layer 10: k ≈ 4.0  (semantics)</span>
+<span class="cs-line cmt"># → 50% of budget in top 3 layers</span>
+      </pre>
+    </div>
+
+    <!-- routing panel -->
+    <div class="cs-panel" id="panel-routing">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard MoE gating — Switch Transformer</span>
+<span class="cs-line cmt"># Fedus et al. 2022; all modern sparse MoEs</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">sparse_gate</span>(x, Wg, k):</span>
+<span class="cs-line">    r = x @ Wg       <span class="cmt"># [d] → [n_experts]</span></span>
+<span class="cs-line">    p = softmax(r)   <span class="cmt"># pre-selection softmax</span></span>
+<span class="cs-line hl-a">    idx = topk(p, k) <span class="cmt"># ← DISCRETE, non-diff</span></span>
+<span class="cs-line">    <span class="kw">return</span> p[idx], idx</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Output: weighted sum of active experts</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">moe_forward</span>(x, Wg, experts, k):</span>
+<span class="cs-line">    weights, idx = sparse_gate(x, Wg, k)</span>
+<span class="cs-line">    y = <span class="num">0</span></span>
+<span class="cs-line">    <span class="kw">for</span> i, wi <span class="kw">in</span> zip(idx, weights):</span>
+<span class="cs-line">        y += wi * experts[i](x)</span>
+<span class="cs-line">    <span class="kw">return</span> y</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training loss: cross-entropy + balance loss</span>
+<span class="cs-line cmt"># Balance loss prevents expert collapse</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">balance_loss</span>(router_probs, dispatch):</span>
+<span class="cs-line">    f = dispatch.mean(<span class="num">0</span>)   <span class="cmt"># expert load</span></span>
+<span class="cs-line">    P = router_probs.mean(<span class="num">0</span>)</span>
+<span class="cs-line">    <span class="kw">return</span> n_experts * (f * P).sum()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Model: GPT-2 decoder, 10 layers, 32 experts</span>
+<span class="cs-line cmt"># Each expert: 5M params; total: 1.63B</span>
+<span class="cs-line cmt"># Training: Megatron-LM, C4 (164k steps)</span>
+      </pre>
+    </div>
+
+    <!-- lapsum panel -->
+    <div class="cs-panel" id="panel-lapsum">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># LapSum: differentiable top-k</span>
+<span class="cs-line cmt"># Struski et al. 2025</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">laplace_cdf</span>(r, x, beta=<span class="num">1.0</span>):</span>
+<span class="cs-line">    <span class="cmt"># F_Lap(r - x) ∈ [0, 1]</span></span>
+<span class="cs-line">    <span class="kw">return</span> <span class="num">0.5</span> * (<span class="num">1</span> + torch.tanh((r - x) / beta))</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">lapsum</span>(x, r):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Σ F_Lap(rᵢ - x) — smooth count above x</span></span>
+<span class="cs-line hl-c">    <span class="kw">return</span> laplace_cdf(r, x).sum()</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">soft_topk</span>(r, k):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Find x̃ s.t. lapsum(x̃, r) = k</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Closed-form inverse: O(n), fully diff</span></span>
+<span class="cs-line hl-p">    x_tilde = lapsum_inverse(r, k)</span>
+<span class="cs-line hl-p">    p_tilde = laplace_cdf(r, x_tilde)</span>
+<span class="cs-line hl-p">    <span class="cmt"># p_tilde ∈ [0,1], Σp_tilde = k</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> p_tilde</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">truncate</span>(p, tau):</span>
+<span class="cs-line">    <span class="cmt"># T(z) = z · [z &gt; τ]  (shifted ReLU)</span></span>
+<span class="cs-line">    <span class="cmt"># Gradient: 1 if z &gt; τ, else 0</span></span>
+<span class="cs-line">    mask = (p &gt; tau).float()</span>
+<span class="cs-line">    <span class="kw">return</span> p * mask</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># SoftMoE gate:</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">soft_gate</span>(x, Wg, k, tau):</span>
+<span class="cs-line">    r = x @ Wg</span>
+<span class="cs-line">    p_tilde = soft_topk(r, k) <span class="cmt"># differentiable</span></span>
+<span class="cs-line">    <span class="kw">return</span> truncate(p_tilde, tau)</span>
+<span class="cs-line cmt"># ∂G/∂k ≠ 0  → k is now trainable!</span>
+      </pre>
+    </div>
+
+    <!-- allocation panel -->
+    <div class="cs-panel" id="panel-allocation">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Learned per-layer allocation</span>
+<span class="cs-line cmt"># Budget K = total expert-activations across L layers</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">SoftMoE</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(self, L, n, d, K):</span>
+<span class="cs-line">        self.L = L    <span class="cmt"># 10 layers</span></span>
+<span class="cs-line">        self.K = K    <span class="cmt"># budget (e.g. 20)</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># Unconstrained allocation params</span></span>
+<span class="cs-line hl-p">        self.eta = nn.Parameter(torch.zeros(L))</span>
+<span class="cs-line">        self.layers = nn.ModuleList([</span>
+<span class="cs-line">            SoftMoELayer(n, d) <span class="kw">for</span> _ <span class="kw">in</span> range(L)])</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c">    <span class="kw">def</span> <span class="fn">compute_k</span>(self):</span>
+<span class="cs-line hl-c">        pi = F.softmax(self.eta, dim=<span class="num">0</span>)</span>
+<span class="cs-line hl-c">        <span class="cmt"># kl ≥ 1, Σkl = K</span></span>
+<span class="cs-line hl-c">        <span class="kw">return</span> pi * (self.K - self.L) + <span class="num">1</span></span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(self, x):</span>
+<span class="cs-line">        k_per_layer = self.compute_k()</span>
+<span class="cs-line">        <span class="kw">for</span> l, layer <span class="kw">in</span> <span class="fn">enumerate</span>(self.layers):</span>
+<span class="cs-line">            x = layer(x, k=k_per_layer[l])</span>
+<span class="cs-line">        <span class="kw">return</span> x</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Converged allocation (K=20, L=10):</span>
+<span class="cs-line cmt"># L1:  1.0  L2:  1.0  L3:  1.1</span>
+<span class="cs-line cmt"># L4:  1.2  L5:  1.4  L6:  1.5</span>
+<span class="cs-line cmt"># L7:  2.0  L8:  3.0  L9:  3.8</span>
+<span class="cs-line cmt"># L10: 4.0</span>
+<span class="cs-line cmt"># Top 3 layers: 10.8 / 20 = 54%</span>
+      </pre>
+    </div>
+
+    <!-- token panel -->
+    <div class="cs-panel" id="panel-token">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Per-token compute adaptation</span>
+<span class="cs-line cmt"># Active experts depend on routing score spread</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">count_active</span>(weights, tau):</span>
+<span class="cs-line">    <span class="kw">return</span> (weights &gt; tau).sum().item()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example: 8 experts, tau = 0.12</span>
+<span class="cs-line cmt"></span>
+<span class="cs-line cmt"># "the" — simple, predictable</span>
+<span class="cs-line hl-g">scores_the = [<span class="num">0.82</span>, <span class="num">0.08</span>, <span class="num">0.04</span>, <span class="num">0.02</span>,</span>
+<span class="cs-line hl-g">               <span class="num">0.01</span>, <span class="num">0.01</span>, <span class="num">0.01</span>, <span class="num">0.01</span>]</span>
+<span class="cs-line hl-g"><span class="cmt"># Active: 1 expert (cost ≈ 1 MLP pass)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># "running" — morphologically rich</span>
+<span class="cs-line">scores_run = [<span class="num">0.35</span>, <span class="num">0.28</span>, <span class="num">0.18</span>, <span class="num">0.10</span>,</span>
+<span class="cs-line">               <span class="num">0.05</span>, <span class="num">0.02</span>, <span class="num">0.01</span>, <span class="num">0.01</span>]</span>
+<span class="cs-line"><span class="cmt"># Active: 3 experts</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># "photosynthesis" — specialized, complex</span>
+<span class="cs-line hl-c">scores_photo = [<span class="num">0.22</span>, <span class="num">0.20</span>, <span class="num">0.18</span>, <span class="num">0.16</span>,</span>
+<span class="cs-line hl-c">                 <span class="num">0.14</span>, <span class="num">0.07</span>, <span class="num">0.02</span>, <span class="num">0.01</span>]</span>
+<span class="cs-line hl-c"><span class="cmt"># Active: 5 experts (more compute)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Safety cap: max active ≤ ⌈k·α⌉</span>
+<span class="cs-line cmt"># α ∈ {2, 4} expansion factor</span>
+<span class="cs-line cmt"># Prevents OOM on uniform-score tokens</span>
+      </pre>
+    </div>
+
+    <!-- results panel -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key results — Table 1 from the paper</span>
+<span class="cs-line cmt"># OpenWebText (OWT), ≤4 expert budget</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># HellaSwag zero-shot accuracy</span>
+<span class="cs-line">Sparse MoE   k=4  AE=4.00  → <span class="num">47.23</span>%</span>
+<span class="cs-line">SoftMoE*  k=<span class="num">2</span>  AE=<span class="num">2.91</span>  → <span class="num">48.05</span>% ↑ <span class="num">0.82</span>pp</span>
+<span class="cs-line hl-g">SoftMoE*  k=<span class="num">1</span>  AE=<span class="num">3.60</span>  → <span class="num">48.48</span>% ↑ <span class="num">1.25</span>pp</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># C4, ≤4 expert budget — validation loss</span>
+<span class="cs-line">Sparse MoE k=<span class="num">4</span>  AE=<span class="num">4.00</span>  loss=<span class="num">2.75</span></span>
+<span class="cs-line hl-g">SoftMoE*  k=<span class="num">1</span>  AE=<span class="num">3.64</span>  loss=<span class="num">2.70</span>  ★</span>
+<span class="cs-line">SoftMoE*  k=<span class="num">2</span>  AE=<span class="num">2.62</span>  loss=<span class="num">2.75</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># C4, ≤2 expert budget</span>
+<span class="cs-line">Sparse MoE k=<span class="num">2</span>  AE=<span class="num">2.00</span>  loss=<span class="num">2.79</span></span>
+<span class="cs-line hl-c">SoftMoE*  k=<span class="num">1.5</span> AE=<span class="num">1.53</span>  loss=<span class="num">2.78</span>  ↓<span class="num">24</span>% AE</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key: −17% to −24% active experts</span>
+<span class="cs-line cmt"># with matching or better performance</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Architecture</span>
+<span class="cs-line">arch = {</span>
+<span class="cs-line">    <span class="str">"layers"</span>:     <span class="num">10</span>,</span>
+<span class="cs-line">    <span class="str">"experts"</span>:    <span class="num">32</span>,</span>
+<span class="cs-line">    <span class="str">"expert_params"</span>: <span class="str">"5M"</span>,</span>
+<span class="cs-line">    <span class="str">"total_params"</span>: <span class="str">"1.63B"</span>,</span>
+<span class="cs-line">    <span class="str">"vocab"</span>:      <span class="num">32000</span>,</span>
+<span class="cs-line">    <span class="str">"C4_steps"</span>:   <span class="num">164000</span>,</span>
+<span class="cs-line">}</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──
+const tabMeta = {
+  problem:    { file: 'soft_moe/routing.py',    title: 'The Fixed-k Problem' },
+  routing:    { file: 'soft_moe/sparse_gate.py', title: 'MoE Routing Basics' },
+  lapsum:     { file: 'soft_moe/lapsum.py',      title: 'LapSum Soft Top-k' },
+  allocation: { file: 'soft_moe/allocation.py',  title: 'Learned Allocation' },
+  token:      { file: 'soft_moe/token_compute.py', title: 'Per-Token Compute' },
+  results:    { file: 'soft_moe/results.py',     title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar ──
+const sectionMap = {
+  's-problem':    'problem',
+  's-routing':    'routing',
+  's-lapsum':     'lapsum',
+  's-allocation': 'allocation',
+  's-token':      'token',
+  's-results':    'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─────────────────────────────────────────────
+// CANVAS 1: Allocation compare (sparse vs soft)
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('alloc-compare-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight || 280;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  const N = 10;
+  const sparseK = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
+  const softK   = [1.0, 1.0, 1.1, 1.2, 1.4, 1.5, 2.0, 3.0, 3.8, 4.0];
+  let currentMode = 'sparse';
+  let currentData = sparseK.slice();
+  let animData    = sparseK.slice();
+  let animTarget  = sparseK.slice();
+  let animFrame   = null;
+  let animT = 1;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+  function drawAlloc(data) {
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD_L = 52, PAD_R = 20, PAD_T = 30, PAD_B = 40;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const barW = chartW / N - 6;
+    const maxK = 5;
+
+    // Grid lines
+    for (let k = 0; k <= maxK; k++) {
+      const y = PAD_T + chartH - (k / maxK) * chartH;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y);
+      ctx.strokeStyle = k === 0 ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.04)';
+      ctx.lineWidth = k === 0 ? 1 : 0.5;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.25)';
+      ctx.font = `${10}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'right';
+      ctx.fillText(k.toFixed(0), PAD_L - 6, y + 4);
+    }
+
+    // Bars
+    for (let i = 0; i < N; i++) {
+      const x = PAD_L + i * (chartW / N) + 3;
+      const kVal = data[i];
+      const barH = (kVal / maxK) * chartH;
+      const y = PAD_T + chartH - barH;
+
+      // Color: purple-to-cyan gradient based on layer depth
+      const frac = i / (N - 1);
+      const r = Math.round(lerp(139, 6, frac));
+      const g = Math.round(lerp(92, 182, frac));
+      const b = Math.round(lerp(246, 212, frac));
+      ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, 3);
+      ctx.fill();
+
+      // Top glow
+      ctx.fillStyle = `rgba(${r},${g},${b},0.3)`;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, Math.min(6, barH), 3);
+      ctx.fill();
+
+      // Value label
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.font = `bold ${9}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(kVal.toFixed(1), x + barW / 2, y - 5);
+
+      // Layer label
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      ctx.font = `${9}px var(--ff-mono, monospace)`;
+      ctx.fillText('L' + (i + 1), x + barW / 2, PAD_T + chartH + 16);
+    }
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(14, PAD_T + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(255,255,255,.3)';
+    ctx.font = `9px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.fillText('active experts kₗ', 0, 0);
+    ctx.restore();
+  }
+
+  function animate() {
+    animT += 0.04;
+    if (animT >= 1) { animT = 1; animData = animTarget.slice(); cancelAnimationFrame(animFrame); }
+    else animFrame = requestAnimationFrame(animate);
+    const e = ease(Math.min(animT, 1));
+    const data = currentData.map((v, i) => lerp(v, animTarget[i], e));
+    drawAlloc(data);
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    const from = animData.slice();
+    currentData = from;
+    animTarget = mode === 'sparse' ? sparseK.slice() : softK.slice();
+    animT = 0;
+    cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(animate);
+
+    const cap = document.getElementById('alloc-compare-caption');
+    if (cap) {
+      cap.textContent = mode === 'sparse'
+        ? 'Sparse MoE: every layer activates exactly 2 experts, regardless of layer depth or token complexity.'
+        : 'SoftMoE (learned): later layers claim 4× more experts — top 3 layers absorb ~54% of the total budget.';
+    }
+    document.querySelectorAll('#alloc-btns-compare .alloc-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+  }
+
+  drawAlloc(sparseK);
+  document.querySelectorAll('#alloc-btns-compare .alloc-btn').forEach(b =>
+    b.addEventListener('click', () => setMode(b.dataset.mode)));
+})();
+
+// ─────────────────────────────────────────────
+// CANVAS 2: LapSum hard vs soft top-k
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('lapsum-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = 200;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  // Expert routing scores (fixed for illustration)
+  const scores = [0.72, 0.58, 0.35, 0.28, 0.22, 0.14, 0.09, 0.05];
+  const N = scores.length;
+  const K = 2;
+  let mode = 'hard';
+  let animT = 1;
+  let animFrom = null;
+  let animTarget = null;
+  let animFrame = null;
+
+  function hardWeights(sc, k) {
+    const sorted = sc.slice().sort((a, b) => b - a);
+    const thresh = sorted[k - 1];
+    return sc.map(s => s >= thresh ? 1 : 0);
+  }
+
+  function softWeights(sc, k, beta=0.05) {
+    // Approximate LapSum inverse via bisection
+    let lo = -2, hi = 2;
+    for (let iter = 0; iter < 30; iter++) {
+      const mid = (lo + hi) / 2;
+      const sum = sc.reduce((acc, r) => acc + 0.5 * (1 + Math.tanh((r - mid) / beta)), 0);
+      if (sum > k) lo = mid; else hi = mid;
+    }
+    const x = (lo + hi) / 2;
+    return sc.map(r => Math.max(0, Math.min(1, 0.5 * (1 + Math.tanh((r - x) / beta)))));
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+  function drawLapsum(weights) {
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD_L = 40, PAD_R = 20, PAD_T = 20, PAD_B = 36;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const barW = chartW / N - 8;
+
+    // K=2 reference line
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const yKline = PAD_T + chartH - (K / N) * chartH * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, PAD_T + chartH * 0.2);
+    ctx.lineTo(W - PAD_R, PAD_T + chartH * 0.2);
+    ctx.strokeStyle = 'rgba(245,158,11,.35)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,.6)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText('weight=1.0', W - PAD_R - 60, PAD_T + chartH * 0.2 - 5);
+
+    // Bars
+    for (let i = 0; i < N; i++) {
+      const x = PAD_L + i * (chartW / N) + 4;
+      const w = weights[i];
+      const barH = w * chartH * 0.8;
+      const y = PAD_T + chartH - barH;
+
+      const isActive = mode === 'hard' ? w > 0.5 : w > 0.12;
+      const col = isActive ? 'rgba(139,92,246,0.8)' : 'rgba(107,114,128,0.4)';
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, 2);
+      ctx.fill();
+
+      // Value
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.font = `9px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(w.toFixed(2), x + barW / 2, y - 4);
+
+      // Expert label
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.font = `8px var(--ff-mono, monospace)`;
+      ctx.fillText('E' + (i + 1), x + barW / 2, H - 6);
+    }
+
+    // Sum annotation
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font = `9px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'right';
+    ctx.fillText('Σ = ' + sum.toFixed(2), W - PAD_R, PAD_T + 12);
+
+    // Y label
+    ctx.save();
+    ctx.translate(12, PAD_T + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('routing weight', 0, 0);
+    ctx.restore();
+  }
+
+  function setLapsumMode(m) {
+    mode = m;
+    const hw = hardWeights(scores, K);
+    const sw = softWeights(scores, K);
+    const from = animFrom || (m === 'hard' ? sw : hw);
+    animFrom = from.slice();
+    animTarget = m === 'hard' ? hw : sw;
+    animT = 0;
+    cancelAnimationFrame(animFrame);
+
+    const cap = document.getElementById('lapsum-caption');
+    if (cap) {
+      cap.textContent = m === 'hard'
+        ? 'Hard: binary mask — exactly 2 experts get weight 1.0, rest get 0. Non-differentiable at the selection boundary.'
+        : 'Soft (LapSum): continuous weights — top experts near 1.0, others taper smoothly. Sum = 2.00. Fully differentiable w.r.t. k.';
+    }
+    document.querySelectorAll('#lapsum-mode-btns .mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === m));
+
+    function step() {
+      animT += 0.05;
+      if (animT >= 1) { animT = 1; animFrom = animTarget.slice(); }
+      else animFrame = requestAnimationFrame(step);
+      const e = ease(Math.min(animT, 1));
+      drawLapsum(animFrom.map((v, i) => lerp(v, animTarget[i], e)));
+    }
+    animFrame = requestAnimationFrame(step);
+  }
+
+  drawLapsum(hardWeights(scores, K));
+  animFrom = hardWeights(scores, K);
+  document.querySelectorAll('#lapsum-mode-btns .mode-btn').forEach(b =>
+    b.addEventListener('click', () => setLapsumMode(b.dataset.mode)));
+})();
+
+// ─────────────────────────────────────────────
+// CANVAS 3: Allocation evolution over training
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('alloc-evolution-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = 260;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  const STEPS = [
+    // Step 0k: uniform
+    [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+    // Step 25k: early redistribution begins
+    [1.4, 1.5, 1.5, 1.6, 1.8, 2.0, 2.2, 2.6, 3.0, 2.5],
+    // Step 75k: strong gradient toward later layers
+    [1.1, 1.2, 1.3, 1.4, 1.6, 1.8, 2.2, 2.8, 3.5, 3.2],
+    // Step 164k: converged allocation
+    [1.0, 1.0, 1.1, 1.2, 1.4, 1.5, 2.0, 3.0, 3.8, 4.0],
+  ];
+  const STEP_LABELS = ['Step 0', 'Step 25k', 'Step 75k', 'Step 164k'];
+  const CAPTIONS = [
+    'Step 0: all layers initialized at k=2 (uniform allocation).',
+    'Step 25k: redistribution begins — later layers start claiming more budget.',
+    'Step 75k: strong skew toward final layers; early layers approaching k=1.',
+    'Step 164k: converged — top 3 layers hold 54% of expert budget (10.8 of 20).',
+  ];
+  let currentStep = 0;
+  let animFrom = STEPS[0].slice();
+  let animTarget = STEPS[0].slice();
+  let animT = 1;
+  let animFrame = null;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+  function drawEvolution(data) {
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const N = 10;
+    const PAD_L = 52, PAD_R = 20, PAD_T = 28, PAD_B = 40;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const barW = chartW / N - 6;
+    const maxK = 5;
+
+    // Grid
+    for (let k = 0; k <= maxK; k++) {
+      const y = PAD_T + chartH - (k / maxK) * chartH;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y);
+      ctx.strokeStyle = k === 2 ? 'rgba(245,158,11,.3)' : (k === 0 ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.04)');
+      ctx.lineWidth = k === 0 ? 1 : 0.5;
+      ctx.setLineDash(k === 2 ? [4, 3] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = k === 2 ? 'rgba(245,158,11,.6)' : 'rgba(255,255,255,.25)';
+      ctx.font = `9px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'right';
+      ctx.fillText(k.toFixed(0) + (k === 2 ? ' (init)' : ''), PAD_L - 5, y + 4);
+    }
+
+    // Bars
+    for (let i = 0; i < N; i++) {
+      const x = PAD_L + i * (chartW / N) + 3;
+      const kVal = data[i];
+      const barH = (kVal / maxK) * chartH;
+      const y = PAD_T + chartH - barH;
+
+      const frac = i / (N - 1);
+      const r = Math.round(lerp(139, 6, frac));
+      const g = Math.round(lerp(92, 182, frac));
+      const b = Math.round(lerp(246, 212, frac));
+      ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, 3);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.font = `bold 8px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(kVal.toFixed(1), x + barW / 2, y - 4);
+
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.font = `9px var(--ff-mono, monospace)`;
+      ctx.fillText('L' + (i + 1), x + barW / 2, PAD_T + chartH + 16);
+    }
+
+    // Top-3 bracket
+    const b3x = PAD_L + 7 * (chartW / N) + 3;
+    const b3e = W - PAD_R;
+    ctx.beginPath();
+    ctx.moveTo(b3x, PAD_T + 10);
+    ctx.lineTo(b3e, PAD_T + 10);
+    ctx.strokeStyle = 'rgba(245,158,11,.4)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    const sum3 = data.slice(7).reduce((a, b) => a + b, 0);
+    ctx.fillStyle = 'rgba(245,158,11,.7)';
+    ctx.font = `9px var(--ff-mono, monospace)`;
+    ctx.textAlign = 'center';
+    const pct = ((sum3 / 20) * 100).toFixed(0);
+    ctx.fillText(`top 3 → ${sum3.toFixed(1)} / 20 = ${pct}%`, b3x + (b3e - b3x) / 2, PAD_T + 6);
+
+    // Y label
+    ctx.save();
+    ctx.translate(14, PAD_T + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('experts kₗ', 0, 0);
+    ctx.restore();
+  }
+
+  function setStep(step) {
+    currentStep = step;
+    animFrom = (() => {
+      // current interpolated state
+      const e = ease(Math.min(animT, 1));
+      return animFrom.map((v, i) => lerp(v, animTarget[i], e));
+    })();
+    animTarget = STEPS[step].slice();
+    animT = 0;
+    cancelAnimationFrame(animFrame);
+
+    const cap = document.getElementById('alloc-caption');
+    if (cap) cap.textContent = CAPTIONS[step];
+
+    document.querySelectorAll('#alloc-step-btns .alloc-btn').forEach(b =>
+      b.classList.toggle('active', +b.dataset.step === step));
+
+    function step_fn() {
+      animT += 0.04;
+      if (animT >= 1) { animT = 1; animFrom = animTarget.slice(); }
+      else animFrame = requestAnimationFrame(step_fn);
+      const e = ease(Math.min(animT, 1));
+      drawEvolution(animFrom.map((v, i) => lerp(v, animTarget[i], e)));
+    }
+    animFrame = requestAnimationFrame(step_fn);
+  }
+
+  drawEvolution(STEPS[0]);
+  document.querySelectorAll('#alloc-step-btns .alloc-btn').forEach(b =>
+    b.addEventListener('click', () => setStep(+b.dataset.step)));
+})();
+
+// ─────────────────────────────────────────────
+// CANVAS 4: Per-token routing weight distribution
+// ─────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('token-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = 200;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+  resize();
+
+  const TOKENS = {
+    simple:  { scores: [0.82, 0.08, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01], tau: 0.12, col: [16, 185, 129] },
+    medium:  { scores: [0.35, 0.28, 0.18, 0.10, 0.05, 0.02, 0.01, 0.01], tau: 0.12, col: [139, 92, 246] },
+    complex: { scores: [0.22, 0.20, 0.18, 0.16, 0.14, 0.07, 0.02, 0.01], tau: 0.12, col: [6, 182, 212] },
+  };
+  const CAPTIONS = {
+    simple:  'Simple token: gating concentrates weight on 1 expert (threshold τ skips the rest). Compute cost ≈ 1 expert.',
+    medium:  '"running": weight spreads across 3 active experts — verb morphology draws on syntax, tense, and semantic experts.',
+    complex: '"photosynthesis": 5 experts fire — specialized biology, chemistry, Greek-root, long-token, and noun-phrase experts all contribute.',
+  };
+  let currentToken = 'simple';
+  let animFrom = TOKENS.simple.scores.slice();
+  let animTarget = TOKENS.simple.scores.slice();
+  let animT = 1;
+  let animFrame = null;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+  function drawToken(scores, col, tau) {
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.clearRect(0, 0, W, H);
+
+    const N = 8;
+    const PAD_L = 38, PAD_R = 20, PAD_T = 20, PAD_B = 32;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const barW = chartW / N - 6;
+
+    // Tau line
+    const yTau = PAD_T + chartH - tau * chartH;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, yTau); ctx.lineTo(W - PAD_R, yTau);
+    ctx.strokeStyle = 'rgba(245,158,11,.5)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,.7)';
+    ctx.font = '8px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    ctx.fillText('τ (threshold)', PAD_L - 4, yTau - 2);
+
+    // Grid
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const y = PAD_T + chartH - v * chartH;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y);
+      ctx.strokeStyle = 'rgba(255,255,255,.04)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.font = '8px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText(v.toFixed(2), PAD_L - 4, y + 4);
+    });
+
+    let active = 0;
+    for (let i = 0; i < N; i++) {
+      const x = PAD_L + i * (chartW / N) + 3;
+      const sc = scores[i];
+      const barH = sc * chartH;
+      const y = PAD_T + chartH - barH;
+      const isActive = sc > tau;
+      if (isActive) active++;
+      const alpha = isActive ? 0.8 : 0.2;
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, 2);
+      ctx.fill();
+
+      ctx.fillStyle = isActive ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.2)';
+      ctx.font = '8px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText(sc.toFixed(2), x + barW / 2, y - 3);
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.fillText('E' + (i + 1), x + barW / 2, H - 5);
+    }
+
+    // Active count badge
+    ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},.15)`;
+    ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},.4)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(W - 100, 8, 80, 22, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},1)`;
+    ctx.font = 'bold 9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText(active + ' expert' + (active === 1 ? '' : 's') + ' active', W - 60, 23);
+  }
+
+  function setToken(t) {
+    currentToken = t;
+    const from = (() => {
+      const e = ease(Math.min(animT, 1));
+      return animFrom.map((v, i) => lerp(v, animTarget[i], e));
+    })();
+    animFrom = from;
+    animTarget = TOKENS[t].scores.slice();
+    animT = 0;
+    cancelAnimationFrame(animFrame);
+
+    document.querySelectorAll('#token-btns .alloc-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.token === t));
+    const cap = document.getElementById('token-caption');
+    if (cap) cap.textContent = CAPTIONS[t];
+
+    const col = TOKENS[t].col;
+    const tau = TOKENS[t].tau;
+
+    function step() {
+      animT += 0.05;
+      if (animT >= 1) { animT = 1; animFrom = animTarget.slice(); }
+      else animFrame = requestAnimationFrame(step);
+      const e = ease(Math.min(animT, 1));
+      drawToken(animFrom.map((v, i) => lerp(v, animTarget[i], e)), col, tau);
+    }
+    animFrame = requestAnimationFrame(step);
+  }
+
+  drawToken(TOKENS.simple.scores, TOKENS.simple.col, TOKENS.simple.tau);
+  document.querySelectorAll('#token-btns .alloc-btn').forEach(b =>
+    b.addEventListener('click', () => setToken(b.dataset.token)));
+})();
+
+// ─────────────────────────────────────────────
+// Results bars IntersectionObserver
+// ─────────────────────────────────────────────
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          const w = parseFloat(b.dataset.w);
+          const maxVal = 50;
+          b.style.width = (w / maxVal * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>

@@ -9,6 +9,14 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "opsd-overview.pdf":                         "https://arxiv.org/pdf/2605.18141",
+    "dasd.pdf":                                  "https://arxiv.org/pdf/2605.22263",
+    "opsd-opd-survey.pdf":                       "https://arxiv.org/pdf/2604.13016",
+    "d-opsd.pdf":                               "https://arxiv.org/pdf/2606.18195",
+    "safespec.pdf":                             "https://arxiv.org/pdf/2606.19755",
+    "uniar.pdf":                                "https://arxiv.org/pdf/2606.18249",
+    "reves.pdf":                                 "https://arxiv.org/pdf/2606.18910",
+    "soft-moe.pdf":                             "https://arxiv.org/pdf/2606.17952",
     "kveraser.pdf":                             "https://arxiv.org/pdf/2606.17034v1",
     "vibethinker-3b.pdf":                        "https://arxiv.org/pdf/2606.16140",
     "dream-reasoner.pdf":                       "https://arxiv.org/pdf/2606.19257v1",

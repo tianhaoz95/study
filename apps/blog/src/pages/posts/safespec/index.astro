@@ -1,0 +1,1171 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="SafeSpec: Fast and Safe LLM Inference via Rollback-and-Reflect | Catpuccino.ai"
+  description="SafeSpec embeds a lightweight safety head inside speculative decoding's verify loop — detecting jailbreaks in a single forward pass, then rolling back and multi-sampling K candidates to recover a safe continuation instead of refusing."
+  crumb="SafeSpec"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Animated bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:180px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Callout */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-size:.875rem;color:var(--text2);line-height:1.7}
+.callout-green{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)}
+.callout strong{color:var(--text)}
+
+/* K-demo interactive */
+.k-buttons{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}
+.k-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.k-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.k-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* Three-pathway layout */
+.pathway-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.25rem 0}
+.pathway-card{padding:.875rem;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.pathway-card h4{font-size:.78rem;font-weight:700;margin-bottom:.375rem}
+.pathway-card p{font-size:.75rem;color:var(--muted);margin:0;line-height:1.55}
+.pathway-accept h4{color:var(--green)}
+.pathway-regen h4{color:var(--amber)}
+.pathway-safety h4{color:var(--purple-l)}
+
+/* Timeline viz */
+.timeline-row{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:.5rem 0;scrollbar-width:thin}
+.t-seg{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.t-box{width:52px;height:36px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-family:var(--ff-mono);font-weight:700;border:1px solid transparent}
+.t-safe{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.3);color:var(--green)}
+.t-unsafe{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3);color:#f87171;text-decoration:line-through;opacity:.7}
+.t-reflect{background:rgba(139,92,246,.18);border-color:var(--purple);color:var(--purple-l);width:80px;font-size:.58rem}
+.t-cand{background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.3);color:var(--cyan);width:42px}
+.t-best{background:rgba(16,185,129,.2);border-color:var(--green);color:var(--green)}
+.t-label{font-size:.58rem;color:var(--muted);text-align:center;max-width:80px;line-height:1.3}
+.t-arrow{color:var(--muted);font-size:.9rem;flex-shrink:0;margin-top:-16px}
+.t-arrow-back{color:var(--purple);font-size:.9rem;flex-shrink:0;margin-top:-16px}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .pathway-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Safety</span>
+    <span class="tag tag-cyan">Speculative Decoding</span>
+    <span class="tag tag-cyan">Jailbreak Defense</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>SafeSpec: Jailbreak Defense Inside the Verify Loop</h1>
+  <p class="lead">Speculative decoding makes LLMs 2× faster — but existing safety defenses either break the draft-verify mechanism or slow inference below baseline. SafeSpec solves this by attaching a lightweight safety head to the target model and replacing hard refusals with a rollback-and-resample recovery that finds safe continuations without terminating generation.</p>
+  <div class="post-hero-meta">
+    <span>June 19, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2606.19755</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.19755" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/HaotianXu1/SafeSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-trap"><a href="#s-trap"><span class="toc-num">01</span> The Safety-Speed Trap</a></li>
+    <li class="toc-item" id="toc-s-spec"><a href="#s-spec"><span class="toc-num">02</span> Speculative Decoding</a></li>
+    <li class="toc-item" id="toc-s-insight"><a href="#s-insight"><span class="toc-num">03</span> The Probabilistic Insight</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">04</span> Dual-Head Verification</a></li>
+    <li class="toc-item" id="toc-s-reflect"><a href="#s-reflect"><span class="toc-num">05</span> Rollback &amp; Reflect</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 — THE SAFETY-SPEED TRAP -->
+<section id="s-trap" data-code="trap">
+<div class="section-no">01 — The Safety-Speed Trap</div>
+<h2>Fast or safe — pick one?</h2>
+
+<p>Speculative decoding accelerates LLM inference by having a small draft model propose candidate segments and the large target model verify them in parallel — cutting per-token latency by 2–3× in practice. But that draft-verify loop was designed for speed, not safety. The target model stamps its approval on semantic quality alone; it has no concept of whether a segment is a jailbreak.</p>
+
+<p>Naively bolting on existing safety defenses makes things worse. Prompt-level methods (Self-Reminder, RPO) leave attack success rates above 30%. Decoding-time methods (SafeDecoding, SecDecoding) require parallel inference or token-level steering that disrupts the draft-verify alignment — and they actually <em>slow</em> the model below the un-accelerated baseline: SecDecoding runs at 0.61× the no-speculative speed on Qwen3-32B.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Safety-Speed Pareto Frontier — Qwen3-32B</span>
+    <span class="vp-hint">Hover a dot to identify the method</span>
+  </div>
+  <div class="vp-body" style="min-height:280px">
+    <canvas id="pareto-canvas" style="width:100%;height:280px;cursor:crosshair"></canvas>
+    <div id="pareto-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:.4rem .7rem;font-size:.72rem;font-family:var(--ff-mono);color:var(--text2);z-index:10"></div>
+  </div>
+</div>
+
+<p>The scatter shows the fundamental incompatibility: methods in the top-right are fast but dangerous; methods in the bottom-left are safer but slow. SafeSpec (purple star) is the only method in the <strong>bottom-right</strong> — fast <em>and</em> safe.</p>
+
+<p>The insight SafeSpec exploits is that the target model's verification pass already processes the full hidden-state sequence. Attaching a tiny MLP on top of that existing computation costs almost nothing — and gives you a safety signal for free.</p>
+</section>
+
+<!-- §02 — SPECULATIVE DECODING PRIMER -->
+<section id="s-spec" data-code="spec">
+<div class="section-no">02 — Background</div>
+<h2>How speculative decoding works</h2>
+
+<p>Classic auto-regressive decoding generates one token per forward pass of the large model. Speculative decoding replaces this with a two-model loop: a small, fast <strong>draft model</strong> proposes a block of tokens (or a reasoning segment), and the large <strong>target model</strong> verifies the whole block in a single parallel forward pass. Accepted tokens are kept; rejected tokens cause the generation to revert to the rejection point.</p>
+
+<p>SafeSpec builds on <strong>Specreason</strong> (Pan et al., 2025), which operates at segment granularity (a full reasoning step) rather than individual tokens. The target model scores each segment's quality by extracting the logit for digit tokens <code>0</code>–<code>9</code> — whichever digit has the highest logit becomes the integer quality score S<sub>q</sub>. Segments with S<sub>q</sub> ≥ τ<sub>q</sub> are accepted; otherwise the target model regenerates.</p>
+
+<div style="overflow-x:auto;margin:1.75rem 0">
+<svg id="spec-svg" viewBox="0 0 740 200" style="width:100%;min-width:580px;font-family:var(--ff-mono)" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sequence context box -->
+  <rect x="10" y="70" width="130" height="60" rx="6" fill="rgba(107,114,128,.1)" stroke="rgba(107,114,128,.3)" stroke-width="1"/>
+  <text x="75" y="95" text-anchor="middle" fill="#9ca3af" font-size="9" font-weight="600" letter-spacing=".07em" text-transform="uppercase">SEQUENCE</text>
+  <text x="75" y="113" text-anchor="middle" fill="#6b7280" font-size="8">x₁ … xₙ</text>
+
+  <!-- Arrow to draft -->
+  <line x1="140" y1="100" x2="175" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Draft model -->
+  <rect x="175" y="60" width="130" height="80" rx="6" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.3)" stroke-width="1"/>
+  <text x="240" y="90" text-anchor="middle" fill="#06b6d4" font-size="9" font-weight="700" letter-spacing=".05em">DRAFT MODEL</text>
+  <text x="240" y="106" text-anchor="middle" fill="#6b7280" font-size="8">Qwen3-1.7B</text>
+  <text x="240" y="120" text-anchor="middle" fill="#6b7280" font-size="8">fast, small</text>
+
+  <!-- Arrow to segment -->
+  <line x1="305" y1="100" x2="345" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="325" y="93" text-anchor="middle" fill="#6b7280" font-size="8">sₙ₊₁</text>
+
+  <!-- Candidate segment -->
+  <rect x="345" y="74" width="90" height="52" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.3)" stroke-width="1"/>
+  <text x="390" y="96" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="700">CANDIDATE</text>
+  <text x="390" y="112" text-anchor="middle" fill="#6b7280" font-size="8">segment sₙ₊₁</text>
+
+  <!-- Arrow to target -->
+  <line x1="435" y1="100" x2="470" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Target model -->
+  <rect x="470" y="55" width="135" height="90" rx="6" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+  <text x="537" y="82" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="700" letter-spacing=".04em">TARGET MODEL</text>
+  <text x="537" y="97" text-anchor="middle" fill="#6b7280" font-size="8">Qwen3-32B</text>
+  <text x="537" y="112" text-anchor="middle" fill="#06b6d4" font-size="8">▸ quality head S_q</text>
+  <text x="537" y="126" text-anchor="middle" fill="#a78bfa" font-size="8">▸ safety head S_safe</text>
+
+  <!-- Decision -->
+  <line x1="605" y1="100" x2="640" y2="100" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="640" y="74" width="90" height="52" rx="6" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+  <text x="685" y="96" text-anchor="middle" fill="#10b981" font-size="9" font-weight="700">DECISION</text>
+  <text x="685" y="112" text-anchor="middle" fill="#6b7280" font-size="8">✓ accept / ✗ reject</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4b5563"/>
+    </marker>
+  </defs>
+
+  <!-- Labels above -->
+  <text x="75" y="50" text-anchor="middle" fill="#4b5563" font-size="8" letter-spacing=".05em">CONTEXT</text>
+  <text x="240" y="50" text-anchor="middle" fill="#06b6d4" font-size="8" letter-spacing=".05em">PROPOSE</text>
+  <text x="537" y="42" text-anchor="middle" fill="#a78bfa" font-size="8" letter-spacing=".05em">VERIFY (quality + safety)</text>
+  <text x="685" y="56" text-anchor="middle" fill="#10b981" font-size="8" letter-spacing=".05em">ROUTE</text>
+</svg>
+</div>
+
+<p>SafeSpec adds a second head inside the "VERIFY" step: while the target model already processes the full sequence for quality scoring, a 2-layer MLP reads the hidden state at the segment boundary and outputs a safety score. This adds essentially zero latency.</p>
+</section>
+
+<!-- §03 — THE PROBABILISTIC INSIGHT -->
+<section id="s-insight" data-code="insight">
+<div class="section-no">03 — The Probabilistic Insight</div>
+<h2>Jailbreaks don't eliminate safe outputs — they hide them</h2>
+
+<p>A jailbreak prompt doesn't magically rewrite the model's weights. It shifts the probability distribution over continuations — concentrating mass on harmful trajectories while suppressing, but not eliminating, the safe ones. Empirically, safe continuations still exist in the low-probability tail even for successful attacks.</p>
+
+<p>This means the problem isn't binary. Instead of asking "is this generation safe or not?" and hard-blocking on failure, SafeSpec asks: <em>given that a single draw was unsafe, how many draws K do I need before finding at least one safe continuation?</em></p>
+
+<div class="math-block">
+<div class="math-label">Recovery probability</div>
+<span class="math-var">p_safe</span> = Pr(single sample is safe)
+<br>
+<span class="math-var">P(K)</span> = 1 − (1 − <span class="math-var">p_safe</span>)<span style="vertical-align:super;font-size:.65em">K</span>
+<br>
+<span class="math-comment"># As long as p_safe &gt; 0, increasing K strictly raises recovery probability</span>
+</div>
+
+<p>The reflection prompt is the key multiplier: without it, the model's context is still "polluted" by the jailbreak framing, so p<sub>safe</sub> stays low even after rollback. Inserting an explicit safety-re-evaluation prompt forces the model to re-evaluate its intent and reshapes the distribution — raising p<sub>safe</sub> dramatically.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">P(find safe continuation) vs candidate count K</span>
+    <span class="vp-hint">Click K to see recovery probability</span>
+  </div>
+  <div class="vp-body">
+    <div class="k-buttons">
+      <button class="k-btn active" data-k="1">K = 1</button>
+      <button class="k-btn" data-k="5">K = 5</button>
+      <button class="k-btn" data-k="10">K = 10</button>
+      <button class="k-btn" data-k="20">K = 20</button>
+    </div>
+    <canvas id="pk-canvas" style="width:100%;height:220px"></canvas>
+    <div id="pk-readout" style="display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Ablation confirms this:</strong> removing multi-sampling lifts ASR from 7% → 27%; removing reflection lifts it to 44%. Neither alone is sufficient — the synergy of reflection (raising p<sub>safe</sub>) and multi-sampling (exploiting it) achieves the full 7% result.
+</div>
+</section>
+
+<!-- §04 — DUAL-HEAD VERIFICATION -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">04 — Architecture</div>
+<h2>Dual-head verification in a single forward pass</h2>
+
+<p>The target model already processes the full sequence (context + candidate segment + quality prompt) for quality scoring. SafeSpec attaches a tiny 2-layer MLP safety head that reads the hidden state at the <strong>segment boundary</strong> — the last token of the candidate segment, immediately before the quality-scoring suffix.</p>
+
+<p>This boundary-aligned extraction is crucial: it prevents the scoring prompt tokens from leaking into the safety signal. The MLP sees the model's internal representation of the candidate segment in context — exactly the information needed to predict whether it continues toward harmful content. Since the target model's forward pass happens anyway, extracting this hidden state costs nothing extra.</p>
+
+<div style="overflow-x:auto;margin:1.75rem 0">
+<svg viewBox="0 0 760 230" style="width:100%;min-width:600px;font-family:var(--ff-mono)" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4b5563"/>
+    </marker>
+    <marker id="arr-g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#10b981"/>
+    </marker>
+    <marker id="arr-p" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6"/>
+    </marker>
+    <marker id="arr-a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b"/>
+    </marker>
+    <marker id="arr-r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Input -->
+  <rect x="10" y="90" width="110" height="50" rx="5" fill="rgba(107,114,128,.1)" stroke="rgba(107,114,128,.3)" stroke-width="1"/>
+  <text x="65" y="111" text-anchor="middle" fill="#9ca3af" font-size="8.5" font-weight="700">SEQUENCE</text>
+  <text x="65" y="127" text-anchor="middle" fill="#6b7280" font-size="8">x_n ⊕ s_&#123;n+1&#125; ⊕ P_eval</text>
+  <line x1="120" y1="115" x2="155" y2="115" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+  <!-- Target model backbone -->
+  <rect x="155" y="65" width="145" height="100" rx="6" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.35)" stroke-width="1.5"/>
+  <text x="227" y="87" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="700">TARGET MODEL</text>
+  <text x="227" y="100" text-anchor="middle" fill="#6b7280" font-size="8">frozen backbone</text>
+  <!-- boundary token arrow -->
+  <text x="227" y="118" text-anchor="middle" fill="#06b6d4" font-size="8">h_t ← z (boundary)</text>
+  <text x="227" y="132" text-anchor="middle" fill="#6b7280" font-size="8">logits for 0…9 → S_q</text>
+  <text x="227" y="148" text-anchor="middle" fill="#6b7280" font-size="8">Qwen3-32B</text>
+
+  <!-- Quality head -->
+  <line x1="300" y1="95" x2="335" y2="75" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <rect x="335" y="50" width="130" height="45" rx="5" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.3)" stroke-width="1"/>
+  <text x="400" y="70" text-anchor="middle" fill="#10b981" font-size="8.5" font-weight="700">QUALITY HEAD</text>
+  <text x="400" y="84" text-anchor="middle" fill="#6b7280" font-size="8">LM head → argmax&#123;0..9&#125; → S_q</text>
+
+  <!-- Safety head -->
+  <line x1="300" y1="135" x2="335" y2="155" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arr-p)"/>
+  <rect x="335" y="135" width="130" height="45" rx="5" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+  <text x="400" y="155" text-anchor="middle" fill="#a78bfa" font-size="8.5" font-weight="700">SAFETY HEAD</text>
+  <text x="400" y="169" text-anchor="middle" fill="#6b7280" font-size="8">2-layer MLP(z) → σ → S_safe</text>
+
+  <!-- Decision diamond -->
+  <polygon points="530,100 560,80 590,100 560,120" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+  <text x="560" y="103" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="700">CHECK</text>
+
+  <line x1="465" y1="72" x2="530" y2="90" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-g)"/>
+  <line x1="465" y1="158" x2="530" y2="110" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-p)"/>
+
+  <!-- Three outcomes -->
+  <!-- Accept -->
+  <line x1="590" y1="95" x2="635" y2="70" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <rect x="635" y="50" width="110" height="38" rx="5" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.35)" stroke-width="1"/>
+  <text x="690" y="68" text-anchor="middle" fill="#10b981" font-size="8.5" font-weight="700">✓ ACCEPT</text>
+  <text x="690" y="80" text-anchor="middle" fill="#6b7280" font-size="8">safe ∧ quality ≥ τ_q</text>
+
+  <!-- Regenerate -->
+  <line x1="590" y1="100" x2="635" y2="100" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr-a)"/>
+  <rect x="635" y="82" width="110" height="36" rx="5" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1"/>
+  <text x="690" y="100" text-anchor="middle" fill="#f59e0b" font-size="8.5" font-weight="700">↻ REGENERATE</text>
+  <text x="690" y="113" text-anchor="middle" fill="#6b7280" font-size="8">safe ∧ quality &lt; τ_q</text>
+
+  <!-- Safety mode -->
+  <line x1="590" y1="105" x2="635" y2="130" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arr-r)"/>
+  <rect x="635" y="115" width="110" height="38" rx="5" fill="rgba(239,68,68,.1)" stroke="rgba(239,68,68,.35)" stroke-width="1"/>
+  <text x="690" y="133" text-anchor="middle" fill="#f87171" font-size="8.5" font-weight="700">⚠ SAFETY MODE</text>
+  <text x="690" y="145" text-anchor="middle" fill="#6b7280" font-size="8">S_safe &lt; τ_s → rollback</text>
+
+  <!-- Condition labels on arrows -->
+  <text x="615" y="58" fill="#10b981" font-size="7.5" text-anchor="middle">S_safe ≥ τ_s</text>
+  <text x="612" y="108" fill="#f59e0b" font-size="7.5" text-anchor="middle">S_safe ≥ τ_s</text>
+  <text x="612" y="128" fill="#f87171" font-size="7.5" text-anchor="middle">S_safe &lt; τ_s</text>
+</svg>
+</div>
+
+<p>The training data for the safety head is built by sampling both benign and malicious queries, segmenting each response into reasoning steps, and annotating prefix-safety with a guard model (Qwen3Guard-Gen-8B). The head learns to assess whether the generation trajectory up to step t is heading somewhere harmful — not just whether the current text contains forbidden words.</p>
+
+<div class="pathway-grid">
+  <div class="pathway-card pathway-accept">
+    <h4>✓ Accept</h4>
+    <p>Segment is safe (S<sub>safe</sub> ≥ τ<sub>s</sub>) and high quality (S<sub>q</sub> ≥ τ<sub>q</sub>). Append to sequence and continue generation.</p>
+  </div>
+  <div class="pathway-card pathway-regen">
+    <h4>↻ Regenerate</h4>
+    <p>Segment is safe but low quality (S<sub>q</sub> &lt; τ<sub>q</sub>). Target model regenerates the step from the current context. Normal Specreason behavior.</p>
+  </div>
+  <div class="pathway-card pathway-safety">
+    <h4>⚠ Safety Mode</h4>
+    <p>Segment is unsafe (S<sub>safe</sub> &lt; τ<sub>s</sub>). Rollback to previous state, insert reflection prompt, draft K candidates, select safest.</p>
+  </div>
+</div>
+</section>
+
+<!-- §05 — ROLLBACK AND REFLECT -->
+<section id="s-reflect" data-code="reflect">
+<div class="section-no">05 — Recovery Mechanism</div>
+<h2>Rollback → Reflect → Resample</h2>
+
+<p>Hard refusal has a hidden problem: the safety classifier has a non-trivial false positive rate. If you terminate generation every time the head fires, you'll refuse a shocking 73% of benign queries (see ablation table). SafeSpec instead treats an unsafe detection as a recoverable state, not a terminal failure.</p>
+
+<p><strong>Step 1 — Rollback:</strong> Revert the generation context to the previous safe segment x<sub>n-1</sub>. The current state at x<sub>n</sub> is already corrupted by adversarial framing — rolling back moves the model to a high-probability safe region where p<sub>safe</sub> is naturally higher.</p>
+
+<p><strong>Step 2 — Reflect:</strong> Insert a reflection prompt that explicitly asks the model to re-evaluate its intent. This isn't just cosmetic — it disrupts the narrative coherence that jailbreaks rely on, forcing the model to "zoom out" from the deceptive framing. Probabilistically, it reshapes the output distribution to concentrate mass on safe trajectories.</p>
+
+<p><strong>Step 3 — Resample K candidates:</strong> Switch the draft model to multi-sampling: generate K independent candidate continuations. Each is re-verified by the safety head. Select the candidate with the highest safety score as the next segment.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Rollback-and-Reflect — Generation Timeline</span>
+    <span class="vp-hint">Click Play to animate the safety mode recovery</span>
+  </div>
+  <div class="vp-body">
+    <div id="timeline-static" style="overflow-x:auto;padding:.25rem 0">
+      <!-- Static timeline rows shown initially -->
+      <div style="font-size:.68rem;color:var(--muted);font-family:var(--ff-mono);margin-bottom:.5rem">Normal generation →</div>
+      <div class="timeline-row">
+        <div class="t-seg"><div class="t-box t-safe">s₁</div><div class="t-label">safe ✓</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-safe">s₂</div><div class="t-label">safe ✓</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-safe">s₃</div><div class="t-label">safe ✓</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-unsafe">s₄</div><div class="t-label">⚠ unsafe</div></div>
+      </div>
+      <div style="font-size:.68rem;color:var(--purple-l);font-family:var(--ff-mono);margin:.75rem 0 .5rem">Safety mode: rollback → reflect → K=3 candidates →</div>
+      <div class="timeline-row">
+        <div class="t-seg"><div class="t-box t-safe">s₁</div><div class="t-label">kept</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-safe">s₂</div><div class="t-label">kept</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-safe">s₃</div><div class="t-label">rollback ✓</div></div>
+        <div class="t-arrow-back" style="color:var(--purple)">⤺</div>
+        <div class="t-seg"><div class="t-box t-reflect">REFLECT<br>prompt</div><div class="t-label">inserted</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-cand" style="opacity:.5">c₁</div><div class="t-label" style="color:#f87171">unsafe</div></div>
+        <div class="t-seg"><div class="t-box t-cand" style="opacity:.5">c₂</div><div class="t-label" style="color:#f87171">unsafe</div></div>
+        <div class="t-seg"><div class="t-box t-best">c₃ ✓</div><div class="t-label" style="color:var(--green)">selected</div></div>
+        <div class="t-arrow">→</div>
+        <div class="t-seg"><div class="t-box t-safe">s₄′</div><div class="t-label">safe ✓</div></div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;font-size:.8rem;color:var(--muted2)">
+      <strong style="color:var(--text)">Key trade-off:</strong> increasing K raises recovery probability P(K) = 1 − (1 − p<sub>safe</sub>)<sup>K</sup> but adds latency proportional to K on the rare occasions Safety Mode fires. On benign prompts, Safety Mode never triggers, so speedup is unaffected.
+    </div>
+  </div>
+</div>
+
+<h3>Hyperparameter sensitivity</h3>
+<p>The three levers in SafeSpec interact predictably. Raising τ<sub>s</sub> (safety threshold) decreases ASR monotonically but increases over-refusal for ambiguous benign queries. Raising K decreases ASR substantially with negligible effect on throughput since Safety Mode rarely fires on benign traffic. Raising τ<sub>q</sub> (quality threshold) improves accuracy and surprisingly also reduces ASR — low-quality draft segments are more likely to be jailbreak-steered and stricter quality filtering implicitly filters them.</p>
+</section>
+
+<!-- §06 — RESULTS -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>State-of-the-art on safety and speed simultaneously</h2>
+
+<p>SafeSpec is evaluated on Qwen3-32B (draft: 1.7B) and DeepSeek-R1-Distill-Llama-70B (draft: 8B) against seven jailbreak attack families: ABJ, Attention Shifting, CodeChameleon, DeepInception, ReNeLLM, Mousetrap, and H-CoT. Lower ASR is better; higher speedup is better; lower XSTest over-refusal is better.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Average Attack Success Rate (ASR ↓) — Qwen3-32B</span>
+    <span class="vp-hint">Lower is safer</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="asr-bars">
+      <div class="bar-row">
+        <div class="bar-label">No Defense</div>
+        <div class="bar-track"><div class="bar-fill" data-w="65" style="background:rgba(239,68,68,.6)"><span>65%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Specreason</div>
+        <div class="bar-track"><div class="bar-fill" data-w="67" style="background:rgba(239,68,68,.55)"><span>67%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">RPO</div>
+        <div class="bar-track"><div class="bar-fill" data-w="31" style="background:rgba(107,114,128,.5)"><span>31%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Self-Reminder</div>
+        <div class="bar-track"><div class="bar-fill" data-w="31" style="background:rgba(107,114,128,.5)"><span>31%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SafeDecoding</div>
+        <div class="bar-track"><div class="bar-fill" data-w="32" style="background:rgba(107,114,128,.5)"><span>32%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SecDecoding</div>
+        <div class="bar-track"><div class="bar-fill" data-w="22" style="background:rgba(6,182,212,.4)"><span>22%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">SafeSpec (ours)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="7" style="background:var(--purple)"><span>7%</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Inference Speedup on Benign Workloads ↑ — Qwen3-32B (relative to No Defense)</span>
+    <span class="vp-hint">Higher is faster</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="speed-bars">
+      <div class="bar-row">
+        <div class="bar-label">No Defense</div>
+        <div class="bar-track"><div class="bar-fill" data-w="33" style="background:rgba(107,114,128,.4)"><span>1.00×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SafeDecoding</div>
+        <div class="bar-track"><div class="bar-fill" data-w="27" style="background:rgba(239,68,68,.5)"><span>0.82×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SecDecoding</div>
+        <div class="bar-track"><div class="bar-fill" data-w="20" style="background:rgba(239,68,68,.6)"><span>0.61×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Self-Reminder</div>
+        <div class="bar-track"><div class="bar-fill" data-w="35" style="background:rgba(107,114,128,.4)"><span>1.07×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Specreason</div>
+        <div class="bar-track"><div class="bar-fill" data-w="71" style="background:rgba(6,182,212,.4)"><span>2.14×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">SafeSpec (ours)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="68" style="background:var(--purple)"><span>2.06×</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>SafeSpec achieves the only Pareto-dominant result: 7% ASR (–15 pp vs SecDecoding, –58 pp vs no defense) while maintaining 2.06× speedup on benign workloads. By contrast, SafeDecoding runs at 0.82× — slower than an unaccelerated model — and SecDecoding at 0.61×.</p>
+
+<p>On DeepSeek-R1-Distill-Llama-70B, SafeSpec similarly achieves 7% ASR and 1.76× speedup. The over-refusal rate (XSTest) is 10% — far below SecDecoding's 42% — because the soft recovery mechanism allows false-positive safety alerts to self-correct during multi-sampling rather than terminating the response.</p>
+
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Avg ASR ↓</th>
+      <th>Over-Refusal ↓</th>
+      <th>GSM8K ↑</th>
+      <th>Speed ↑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>No Defense</td><td class="mn">0.65</td><td class="mn">0.01</td><td class="mn">0.98</td><td class="mn">1.00×</td></tr>
+    <tr><td>SafeDecoding</td><td class="mn">0.32</td><td class="mn">0.20</td><td class="mn">0.96</td><td class="mn">0.82×</td></tr>
+    <tr><td>SecDecoding</td><td class="mn">0.22</td><td class="mn">0.42</td><td class="mn">0.95</td><td class="mn">0.61×</td></tr>
+    <tr><td>Hard Refusal</td><td class="mn">0.01</td><td class="mn">0.73</td><td class="mn">—</td><td class="mn">—</td></tr>
+    <tr class="highlight-row"><td>SafeSpec (ours)</td><td class="mn best">0.07</td><td class="mn best">0.10</td><td class="mn">0.96</td><td class="mn best">2.06×</td></tr>
+  </tbody>
+</table>
+
+<div class="callout callout-green">
+  <strong>The takeaway:</strong> safety and acceleration are not fundamentally incompatible. The incompatibility was in the implementation — defenses that operate outside the verify loop must duplicate work. Defenses that live inside the verify loop, amortizing over existing computation, can be both fast and safe.
+</div>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display:none" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: SafeSpec — Jailbreak Defense Inside the Verify Loop</h2>
+    <p>Speculative decoding accelerates LLM inference by having a small draft model propose candidate segments and a large target model verify them — cutting latency by 2× or more. But the verify step has no safety awareness. Existing safety defenses either break the draft-verify mechanism or slow the model below the unaccelerated baseline.</p>
+    <p>SafeSpec fixes this by attaching a lightweight 2-layer MLP safety head to the target model's boundary hidden state — computed for free during the verification pass already happening. When the safety head detects a jailbreak, instead of refusing, it rolls back to the previous safe state, inserts a reflection prompt, and samples K candidate continuations, selecting the one with the highest safety score. On Qwen3-32B, this achieves 7% average attack success rate — 15 points better than the best baseline — while maintaining a 2.06× speedup and only 10% over-refusal, versus 42% for the next-best defense.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：SafeSpec——将越狱防御内嵌到验证循环中</h2>
+    <p>推测解码通过让小型草稿模型提出候选片段、大型目标模型并行验证，将延迟降低两倍以上。但验证步骤本身没有安全意识。现有安全防御要么破坏草稿-验证机制，要么让模型速度低于无加速基线。</p>
+    <p>SafeSpec通过在目标模型的边界隐藏状态上附加一个轻量级两层MLP安全头解决了这个问题——该计算在验证过程中已经发生，完全免费。当安全头检测到越狱时，系统不是拒绝，而是回滚到上一个安全状态，插入反思提示，并对K个候选延续进行采样，选择安全评分最高的那个。在Qwen3-32B上，这将平均攻击成功率降至7%——比最优基线低15个百分点——同时保持2.06倍加速，过度拒绝率仅为10%，而次优防御方法的过度拒绝率高达42%。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">safespec/framework.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Safety-Speed Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="trap">trap</button>
+    <button class="cs-tab" data-panel="spec">spec</button>
+    <button class="cs-tab" data-panel="insight">insight</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="reflect">reflect</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: trap -->
+    <div class="cs-panel active" id="panel-trap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Why existing combos fail on Qwen3-32B</span>
+<span class="cs-line cmt"># (ASR = attack success rate; lower is safer)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Fast but unsafe methods</span>
+<span class="cs-line">Spec-Decoding:   ASR=0.65,  speed=1.38x</span>
+<span class="cs-line">Specreason:      ASR=0.67,  speed=2.14x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Slow and only somewhat safe</span>
+<span class="cs-line">SafeDecoding:    ASR=0.32,  speed=0.82x</span>
+<span class="cs-line">SecDecoding:     ASR=0.22,  speed=0.61x  ← SLOWER than baseline!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Prompt-level: fast but ineffective</span>
+<span class="cs-line">Self-Reminder:   ASR=0.31,  speed=1.07x</span>
+<span class="cs-line">RPO:             ASR=0.31,  speed=1.16x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Hard refusal: safe but unusable</span>
+<span class="cs-line hl-a">Hard Refusal:    ASR=0.01,  over-refusal=0.73 ← blocks 73% benign!</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># SafeSpec: the only Pareto-dominant point</span>
+<span class="cs-line hl-p">SafeSpec:        ASR=0.07,  speed=2.06x,  over-refusal=0.10</span>
+<span class="cs-line hl-g"># 15pp below SecDecoding on ASR</span>
+<span class="cs-line hl-g"># 3.4x faster than SecDecoding on benign traffic</span>
+<span class="cs-line hl-g"># 4.2x lower over-refusal than SecDecoding</span>
+      </pre>
+    </div>
+
+    <!-- panel: spec -->
+    <div class="cs-panel" id="panel-spec">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Specreason-style segment-level speculation</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">speculative_step</span>(target, draft, x_n, tau_q):</span>
+<span class="cs-line">    <span class="cmt"># Draft proposes a full reasoning segment</span></span>
+<span class="cs-line">    s_next = draft.<span class="fn">generate_segment</span>(x_n)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Build verification input</span></span>
+<span class="cs-line">    I = x_n + s_next + P_eval  <span class="cmt"># quality scoring prompt</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># Target model: single forward pass</span></span>
+<span class="cs-line hl-p">    logits, hidden = target.<span class="fn">forward</span>(I)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Quality: argmax over digit tokens 0-9</span></span>
+<span class="cs-line">    digit_logits = logits[[<span class="str">'0'</span>,<span class="str">'1'</span>,...,<span class="str">'9'</span>]]</span>
+<span class="cs-line">    S_q = digit_logits.<span class="fn">argmax</span>().item()</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">if</span> S_q &gt;= tau_q:</span>
+<span class="cs-line">        <span class="kw">return</span> <span class="str">'accept'</span>, s_next</span>
+<span class="cs-line">    <span class="kw">else</span>:</span>
+<span class="cs-line">        <span class="kw">return</span> <span class="str">'regenerate'</span>, <span class="kw">None</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: hidden states are ALREADY computed.</span>
+<span class="cs-line cmt"># SafeSpec extracts h_t at the segment boundary</span>
+<span class="cs-line cmt"># (last token of s_next, before P_eval) — free!</span>
+<span class="cs-line hl-g">    t = len(x_n) + len(s_next) - 1  <span class="cmt"># boundary idx</span></span>
+<span class="cs-line hl-g">    z = hidden[t]   <span class="cmt"># shape: [d_model]</span></span>
+<span class="cs-line hl-g">    S_safe = safety_head(z)  <span class="cmt"># 2-layer MLP → sigmoid</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: insight -->
+    <div class="cs-panel" id="panel-insight">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The probabilistic model of jailbreaks</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Jailbreak = distributional shift, not total override</span>
+<span class="cs-line cmt"># p_safe_benign  ≈ 0.95  (normal prompts)</span>
+<span class="cs-line cmt"># p_safe_jailbrk ≈ 0.05  (no reflection)</span>
+<span class="cs-line cmt"># p_safe_reflect ≈ 0.25  (after rollback+reflect)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">P_recovery</span>(p_safe, K):</span>
+<span class="cs-line hl-p">    <span class="str">"""Probability of finding ≥1 safe among K draws"""</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> <span class="num">1</span> - (<span class="num">1</span> - p_safe) ** K</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Without reflection (p_safe=0.05):</span>
+<span class="cs-line">P_recovery(<span class="num">0.05</span>, K=<span class="num">1</span>)  = <span class="num">0.050</span>  <span class="cmt"># 5%</span></span>
+<span class="cs-line">P_recovery(<span class="num">0.05</span>, K=<span class="num">5</span>)  = <span class="num">0.226</span>  <span class="cmt"># 23%</span></span>
+<span class="cs-line">P_recovery(<span class="num">0.05</span>, K=<span class="num">20</span>) = <span class="num">0.642</span>  <span class="cmt"># 64%</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># With reflection (p_safe=0.25):</span>
+<span class="cs-line hl-g">P_recovery(<span class="num">0.25</span>, K=<span class="num">1</span>)  = <span class="num">0.250</span>  <span class="cmt"># 25%</span></span>
+<span class="cs-line hl-g">P_recovery(<span class="num">0.25</span>, K=<span class="num">5</span>)  = <span class="num">0.763</span>  <span class="cmt"># 76%</span></span>
+<span class="cs-line hl-g">P_recovery(<span class="num">0.25</span>, K=<span class="num">20</span>) = <span class="num">0.997</span>  <span class="cmt"># 99.7%</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation confirms: reflection is not optional</span>
+<span class="cs-line cmt"># No reflection:     ASR = 44%</span>
+<span class="cs-line cmt"># No multi-sampling: ASR = 27%</span>
+<span class="cs-line hl-p"><span class="cmt"># Full SafeSpec:     ASR =  7%  ← synergy</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Safety head: boundary-aligned MLP</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">SafetyHead</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="cls">self</span>, d_model, hidden=<span class="num">256</span>):</span>
+<span class="cs-line">        <span class="kw">super</span>().__init__()</span>
+<span class="cs-line hl-p">        <span class="cls">self</span>.mlp = nn.Sequential(</span>
+<span class="cs-line hl-p">            nn.Linear(d_model, hidden),</span>
+<span class="cs-line hl-p">            nn.ReLU(),</span>
+<span class="cs-line hl-p">            nn.Linear(hidden, <span class="num">1</span>),</span>
+<span class="cs-line hl-p">            nn.Sigmoid(),</span>
+<span class="cs-line hl-p">        )</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="cls">self</span>, z):  <span class="cmt"># z: [d_model]</span></span>
+<span class="cs-line">        <span class="kw">return</span> <span class="cls">self</span>.mlp(z)  <span class="cmt"># → [0,1] safety score</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training data construction</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">build_training_data</span>(queries, draft, target, guard):</span>
+<span class="cs-line hl-c">    <span class="cmt"># 1. Sample responses from both models</span></span>
+<span class="cs-line hl-c">    <span class="cmt">    (mix of benign + malicious queries)</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># 2. Segment into reasoning steps by newlines</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># 3. Build cumulative prefix u_t = s1⊕…⊕st</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># 4. Label with Qwen3Guard-Gen-8B:</span></span>
+<span class="cs-line hl-c">    <span class="cmt">    y=1 → safe prefix, y=0 → unsafe prefix</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Loss: binary cross-entropy on frozen backbone</span>
+<span class="cs-line">L = -(<span class="num">1</span>/N) * sum(</span>
+<span class="cs-line">    y*log(s) + (<span class="num">1</span>-y)*log(<span class="num">1</span>-s)</span>
+<span class="cs-line">    <span class="kw">for</span> y, s <span class="kw">in</span> zip(labels, scores)</span>
+<span class="cs-line">)</span>
+      </pre>
+    </div>
+
+    <!-- panel: reflect -->
+    <div class="cs-panel" id="panel-reflect">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Rollback-and-reflect recovery</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">safety_mode</span>(target, draft, x_n_minus1, K, tau_s):</span>
+<span class="cs-line hl-p">    <span class="str">"""Called when S_safe &lt; tau_s at step n"""</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Step 1: Rollback to previous safe context</span></span>
+<span class="cs-line hl-c">    context = x_n_minus1  <span class="cmt"># discard corrupted x_n</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Step 2: Insert reflection prompt</span></span>
+<span class="cs-line hl-a">    P_reflect = (</span>
+<span class="cs-line hl-a">        <span class="str">"Wait. Let me reconsider whether I should "</span></span>
+<span class="cs-line hl-a">        <span class="str">"respond to this request and how to do so "</span></span>
+<span class="cs-line hl-a">        <span class="str">"safely and helpfully..."</span></span>
+<span class="cs-line hl-a">    )</span>
+<span class="cs-line hl-a">    context_with_reflect = context + P_reflect</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Step 3: Multi-sample K candidates</span></span>
+<span class="cs-line">    candidates = [</span>
+<span class="cs-line">        draft.<span class="fn">generate_segment</span>(context_with_reflect)</span>
+<span class="cs-line">        <span class="kw">for</span> _ <span class="kw">in</span> range(K)</span>
+<span class="cs-line">    ]</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Verify all candidates for safety</span></span>
+<span class="cs-line">    scores = [<span class="fn">verify_safety</span>(target, context, c)</span>
+<span class="cs-line">              <span class="kw">for</span> c <span class="kw">in</span> candidates]</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># Select the safest candidate</span></span>
+<span class="cs-line hl-g">    best = candidates[scores.<span class="fn">argmax</span>()]</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> context_with_reflect + best</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># K=20 is the default; at K=20 with reflection,</span>
+<span class="cs-line cmt"># P(recovery) ≈ 99.7% for p_safe=0.25</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Main results — Qwen3-32B (draft: 1.7B)</span>
+<span class="cs-line cmt"># 7 attacks: ABJ, Atten., Code., Deep.,</span>
+<span class="cs-line cmt">#            ReNeLLM, Mousetrap, H-CoT</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="cls">Method</span>          ASR   XSTest  GSM8K  Speed</span>
+<span class="cs-line">─────────────────────────────────────────</span>
+<span class="cs-line">No Defense       0.65   0.01   0.98  1.00x</span>
+<span class="cs-line">Specreason       0.67   0.08   0.93  2.14x</span>
+<span class="cs-line">SR               0.31   0.08   0.97  1.07x</span>
+<span class="cs-line">RPO              0.31   0.12   0.97  1.16x</span>
+<span class="cs-line">SafeDecoding     0.32   0.20   0.96  0.82x</span>
+<span class="cs-line">SecDecoding      0.22   0.42   0.95  0.61x</span>
+<span class="cs-line">Hard Refusal     0.01   0.73    —     —</span>
+<span class="cs-line hl-p">SafeSpec         0.07   0.10   0.96  2.06x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: component contributions</span>
+<span class="cs-line">No Multi-Sample  0.27   0.08          <span class="cmt"># −K</span></span>
+<span class="cs-line">No Reflection    0.44   0.06          <span class="cmt"># −reflect</span></span>
+<span class="cs-line hl-g">Full SafeSpec     0.07   0.10          <span class="cmt"># synergy</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DeepSeek-R1-Distill-70B (draft: 8B)</span>
+<span class="cs-line">SecDecoding      0.53   0.03   0.94  0.57x</span>
+<span class="cs-line hl-p">SafeSpec         0.07   0.12   0.90  1.76x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Platform: 6× Nvidia A800 80GB</span>
+<span class="cs-line cmt"># τ_s=0.4, τ_q=9, K=20 (defaults)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tabs ──
+const tabMeta = {
+  trap:    { file: 'safespec/baseline_comparison.py', title: 'The Safety-Speed Trap' },
+  spec:    { file: 'safespec/speculative_step.py',    title: 'Speculative Decoding' },
+  insight: { file: 'safespec/probabilistic.py',       title: 'Probabilistic Insight' },
+  arch:    { file: 'safespec/safety_head.py',         title: 'Dual-Head Architecture' },
+  reflect: { file: 'safespec/recovery.py',            title: 'Rollback & Reflect' },
+  results: { file: 'safespec/results.txt',            title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar on scroll ──
+const sectionMap = {
+  's-trap':    'trap',
+  's-spec':    'spec',
+  's-insight': 'insight',
+  's-arch':    'arch',
+  's-reflect': 'reflect',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §01: Safety-Speed Pareto Canvas ──
+(function() {
+  const canvas = document.getElementById('pareto-canvas');
+  if (!canvas) return;
+  const tooltip = document.getElementById('pareto-tooltip');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = 280, DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  // Data: [speedup, asr%, label, color, size]
+  const methods = [
+    [1.00, 65, 'No Defense',     'rgba(107,114,128,.6)', 6],
+    [1.38, 65, 'Spec-Decoding',  'rgba(107,114,128,.5)', 6],
+    [2.14, 67, 'Specreason',     'rgba(107,114,128,.5)', 6],
+    [1.07, 31, 'Self-Reminder',  'rgba(6,182,212,.5)',   6],
+    [1.16, 31, 'RPO',            'rgba(6,182,212,.5)',   6],
+    [0.82, 32, 'SafeDecoding',   'rgba(239,68,68,.55)',  6],
+    [0.61, 22, 'SecDecoding',    'rgba(239,68,68,.7)',   6],
+    [2.06,  7, 'SafeSpec',       '#8b5cf6',              10],
+  ];
+
+  // Margins
+  const ml=52, mr=18, mt=18, mb=42;
+  const pw=W-ml-mr, ph=H-mt-mb;
+
+  const xScale = (v) => ml + (v - 0.4) / (2.5 - 0.4) * pw;
+  const yScale = (v) => mt + (1 - v/70) * ph;
+
+  // Draw axes + grid
+  function drawPareto() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Ideal region shading (bottom-right)
+    ctx.fillStyle = 'rgba(16,185,129,.04)';
+    ctx.fillRect(xScale(1.5), yScale(20), xScale(2.5)-xScale(1.5), yScale(0)-yScale(20));
+    ctx.fillStyle = 'rgba(16,185,129,.12)';
+    ctx.font = '8px var(--ff-mono, monospace)';
+    ctx.fillText('← ideal: fast + safe →', xScale(1.55), yScale(5));
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,.04)';
+    ctx.lineWidth = 1;
+    [0.5, 1.0, 1.5, 2.0, 2.5].forEach(v => {
+      ctx.beginPath(); ctx.moveTo(xScale(v), mt); ctx.lineTo(xScale(v), H-mb); ctx.stroke();
+    });
+    [0, 20, 40, 60].forEach(v => {
+      ctx.beginPath(); ctx.moveTo(ml, yScale(v)); ctx.lineTo(W-mr, yScale(v)); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, H-mb); ctx.lineTo(W-mr, H-mb); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Inference Speedup →', W/2, H-6);
+    [0.5, 1.0, 1.5, 2.0, 2.5].forEach(v => ctx.fillText(v+'×', xScale(v), H-mb+12));
+
+    ctx.textAlign = 'right';
+    [0, 20, 40, 60].forEach(v => ctx.fillText(v+'%', ml-5, yScale(v)+3));
+
+    // Y label
+    ctx.save(); ctx.translate(11, mt + ph/2); ctx.rotate(-Math.PI/2);
+    ctx.textAlign = 'center'; ctx.fillText('Attack Success Rate (ASR) ↓', 0, 0);
+    ctx.restore();
+
+    // Plot dots
+    methods.forEach(([spd, asr, label, color, r]) => {
+      const x = xScale(spd), y = yScale(asr);
+      ctx.beginPath();
+      if (label === 'SafeSpec') {
+        // Draw star
+        const pts = 5, outer = r+4, inner = r;
+        ctx.beginPath();
+        for (let i = 0; i < pts*2; i++) {
+          const angle = (i*Math.PI/pts) - Math.PI/2;
+          const rad = i%2===0 ? outer : inner;
+          i===0 ? ctx.moveTo(x+Math.cos(angle)*rad, y+Math.sin(angle)*rad)
+                : ctx.lineTo(x+Math.cos(angle)*rad, y+Math.sin(angle)*rad);
+        }
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(139,92,246,.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = 'bold 9px var(--ff-mono, monospace)';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, x+14, y+4);
+      } else {
+        ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+    });
+  }
+  drawPareto();
+
+  // Tooltip on hover
+  canvas.addEventListener('mousemove', (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    let found = null;
+    methods.forEach(([spd, asr, label]) => {
+      const dx = xScale(spd)-mx, dy = yScale(asr)-my;
+      if (Math.sqrt(dx*dx+dy*dy) < 14) found = {spd, asr, label};
+    });
+    if (found) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = (ev.clientX - canvas.getBoundingClientRect().left + 12) + 'px';
+      tooltip.style.top = (ev.clientY - canvas.getBoundingClientRect().top - 10) + 'px';
+      tooltip.textContent = found.label + '  ' + found.spd.toFixed(2) + '×  ASR ' + found.asr + '%';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+})();
+
+// ── §03: P(K) recovery canvas ──
+(function() {
+  const canvas = document.getElementById('pk-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const readout = document.getElementById('pk-readout');
+  const W = canvas.clientWidth, H = 220, DPR = window.devicePixelRatio||1;
+  canvas.width = W*DPR; canvas.height = H*DPR; ctx.scale(DPR,DPR);
+
+  let currentK = 1;
+  const P_NO_REFLECT = 0.05;
+  const P_REFLECT    = 0.25;
+  const pk = (p,k) => 1 - Math.pow(1-p, k);
+
+  const ml=52, mr=14, mt=14, mb=38;
+  const pw=W-ml-mr, ph=H-mt-mb;
+  const xS = (k) => ml + (k-1)/(20-1)*pw;
+  const yS = (v) => mt + (1-v)*ph;
+
+  function drawPK(selK) {
+    ctx.clearRect(0,0,W,H);
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=1;
+    [0,.25,.5,.75,1].forEach(v=>{
+      ctx.beginPath(); ctx.moveTo(ml,yS(v)); ctx.lineTo(W-mr,yS(v)); ctx.stroke();
+    });
+    [1,5,10,15,20].forEach(k=>{
+      ctx.beginPath(); ctx.moveTo(xS(k),mt); ctx.lineTo(xS(k),H-mb); ctx.stroke();
+    });
+
+    // Axes
+    ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(ml,mt); ctx.lineTo(ml,H-mb); ctx.lineTo(W-mr,H-mb); ctx.stroke();
+
+    // Labels
+    ctx.fillStyle='#6b7280'; ctx.font='9px monospace'; ctx.textAlign='center';
+    ctx.fillText('Candidate count K', W/2, H-4);
+    [1,5,10,15,20].forEach(k=>ctx.fillText(k, xS(k), H-mb+11));
+    ctx.textAlign='right';
+    [0,25,50,75,100].forEach(v=>ctx.fillText(v+'%', ml-4, yS(v/100)+3));
+
+    // Curves
+    const drawCurve = (p, color) => {
+      ctx.beginPath();
+      for (let k=1; k<=20; k++) {
+        const x=xS(k), y=yS(pk(p,k));
+        k===1 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.stroke();
+    };
+    drawCurve(P_NO_REFLECT, 'rgba(245,158,11,.7)');
+    drawCurve(P_REFLECT,    'rgba(16,185,129,.85)');
+
+    // Vertical line at selK
+    const kx = xS(selK);
+    ctx.setLineDash([4,3]);
+    ctx.strokeStyle='rgba(139,92,246,.6)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(kx,mt); ctx.lineTo(kx,H-mb); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dots at selK
+    [[P_NO_REFLECT,'rgba(245,158,11,1)'],[P_REFLECT,'rgba(16,185,129,1)']].forEach(([p,c])=>{
+      const v=pk(p,selK);
+      ctx.beginPath(); ctx.arc(kx,yS(v),5,0,Math.PI*2);
+      ctx.fillStyle=c; ctx.fill();
+    });
+
+    // Legend
+    ctx.font='8px monospace'; ctx.textAlign='left';
+    ctx.fillStyle='rgba(245,158,11,.8)'; ctx.fillRect(ml+4,mt+4,12,3);
+    ctx.fillStyle='#9ca3af'; ctx.fillText('Without reflection (p_safe=5%)', ml+20, mt+9);
+    ctx.fillStyle='rgba(16,185,129,.8)'; ctx.fillRect(ml+4,mt+14,12,3);
+    ctx.fillStyle='#9ca3af'; ctx.fillText('With reflection (p_safe=25%)', ml+20, mt+19);
+  }
+
+  function updateReadout(k) {
+    const vNo = pk(P_NO_REFLECT, k);
+    const vRe = pk(P_REFLECT, k);
+    readout.innerHTML =
+      '<span style="font-size:.72rem;font-family:monospace;color:#f59e0b">Without reflect: <strong>' + Math.round(vNo*100) + '%</strong></span>' +
+      '<span style="font-size:.72rem;font-family:monospace;color:#10b981">With reflect: <strong>' + Math.round(vRe*100) + '%</strong></span>';
+  }
+
+  function update(k) {
+    currentK = k;
+    drawPK(k);
+    updateReadout(k);
+    document.querySelectorAll('.k-btn').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.k)===k));
+  }
+
+  document.querySelectorAll('.k-btn').forEach(b =>
+    b.addEventListener('click', () => update(parseInt(b.dataset.k))));
+
+  update(1);
+})();
+
+// ── §06: Animated bar charts ──
+['asr-bars','speed-bars'].forEach(id => {
+  const sec = document.getElementById(id);
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        sec.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+});
+
+// Also trigger results section bars
+const resSec = document.getElementById('s-results');
+if (resSec) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resSec);
+}
+</script>
+</BaseLayout>

@@ -1,0 +1,1118 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="d-OPSD: Learning from Your Self-Future | Catpuccino.ai"
+  description="d-OPSD teaches diffusion LLMs to improve by peeking at their own generated future — converging in 18× fewer steps than RLVR using step-level KL over the denoising trajectory."
+  crumb="d-OPSD"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Animated bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* ── Denoising token grid ── */
+.denoise-grid{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin:.75rem 0}
+.dtok{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:32px;padding:0 .5rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;transition:all .4s;border:1px solid transparent}
+.dtok.masked{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--muted)}
+.dtok.revealed{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:var(--green)}
+.dtok.question{background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.35);color:var(--cyan)}
+
+/* ── Self-future viz ── */
+.sf-container{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:.75rem 0}
+.sf-box{border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--card)}
+.sf-box-title{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;font-family:var(--ff-mono)}
+.sf-box.teacher .sf-box-title{color:var(--purple)}
+.sf-box.student .sf-box-title{color:var(--cyan)}
+.sf-tokens{display:flex;flex-wrap:wrap;gap:.35rem}
+.sf-tok{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;padding:0 .4rem;border-radius:4px;font-size:.68rem;font-family:var(--ff-mono);font-weight:600;transition:all .3s}
+.sf-tok.q{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.35);color:var(--cyan)}
+.sf-tok.mask{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted)}
+.sf-tok.future{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.5);color:var(--purple-l)}
+.sf-tok.active{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4);color:var(--green)}
+.rho-btns{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.rho-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.rho-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.rho-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.teacher-acc-bar{display:flex;align-items:center;gap:.75rem;margin-top:.875rem;padding-top:.875rem;border-top:1px solid var(--border)}
+.ta-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);flex-shrink:0;width:160px}
+.ta-track{flex:1;height:18px;background:var(--card2);border-radius:4px;overflow:hidden}
+.ta-fill{height:100%;border-radius:4px;transition:width .6s ease;background:var(--purple);display:flex;align-items:center;justify-content:flex-end;padding-right:.4rem}
+.ta-fill span{font-size:.62rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+
+/* ── Overlap canvas ── */
+.overlap-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:.75rem 0}
+.overlap-card{border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--card)}
+.overlap-title{font-size:.7rem;font-weight:700;color:var(--muted2);margin-bottom:.75rem;font-family:var(--ff-mono)}
+.ov-bar-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem}
+.ov-label{font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);width:40px;flex-shrink:0;text-align:right}
+.ov-track{flex:1;height:12px;background:rgba(255,255,255,.04);border-radius:3px;overflow:hidden;position:relative}
+.ov-s{height:100%;border-radius:3px;position:absolute;left:0;top:0}
+.ov-t{height:100%;border-radius:3px;position:absolute;left:0;top:0;opacity:.6}
+.overlap-stat{margin-top:.75rem;padding:.5rem .75rem;border-radius:6px;font-size:.72rem;font-family:var(--ff-mono);display:flex;justify-content:space-between;align-items:center}
+.overlap-stat.bad{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:var(--amber)}
+.overlap-stat.good{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:var(--green)}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* ── Callout ── */
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.875rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+.callout-cyan{border-left-color:var(--cyan);background:var(--cyan-dim)}
+.callout-cyan strong{color:var(--cyan)}
+.callout-amber{border-left-color:var(--amber);background:rgba(245,158,11,.08)}
+.callout-amber strong{color:var(--amber)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .sf-container{grid-template-columns:1fr}
+  .overlap-row{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Self-Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>d-OPSD: Learning from Your Self-Future</h1>
+  <p class="lead">Diffusion LLMs don't generate left-to-right — they can condition on their own future. d-OPSD exploits this to build a self-teacher by partially revealing the model's own generated answer, delivering RLVR-level reasoning gains in as few as 100 gradient steps instead of 6,600.</p>
+  <div class="post-hero-meta">
+    <span>June 19, 2026</span>
+    <span>~9 min read</span>
+    <span>Paper: <code>arXiv:2606.18195</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.18195" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/xingzhejun/d-OPSD" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-denoising"><a href="#s-denoising"><span class="toc-num">02</span> Masked Diffusion</a></li>
+    <li class="toc-item" id="toc-s-teacher"><a href="#s-teacher"><span class="toc-num">03</span> Self-Future Teacher</a></li>
+    <li class="toc-item" id="toc-s-divergence"><a href="#s-divergence"><span class="toc-num">04</span> Step-Level KL</a></li>
+    <li class="toc-item" id="toc-s-overlap"><a href="#s-overlap"><span class="toc-num">05</span> The Overlap Problem</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ── §01 ── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Left-to-Right Bottleneck</div>
+<h2>Why AR-style OPSD Fails for dLLMs</h2>
+<p>On-policy Self-Distillation (OPSD) lets a model teach itself: the same network acts as both student (generating responses) and teacher (supervising the student). For autoregressive (AR) models, the self-teacher is constructed by appending a reference solution to the prompt — the teacher sees "question + reference answer → what token comes next?" while the student only sees the question.</p>
+<p>This works for left-to-right models because they are <em>prefix-conditioned</em>: every prediction looks only leftward. Appending text to the left of the answer makes it richer context. But for diffusion LLMs (dLLMs), this design has a critical flaw:</p>
+
+<div class="callout callout-amber">
+  <strong>The AR OPSD failure mode:</strong> when you append a reference solution as prefix context, the teacher's token-level distribution becomes nearly <em>identical</em> to the student's — there is almost no new knowledge to transfer. The student learns nothing useful.
+</div>
+
+<p>The root cause is that AR OPSD borrows privileged information from an external dataset ("here is the ground-truth solution, conditioned on it"). This static reference is already so similar to what the model predicts that the teacher-student overlap approaches 98%. d-OPSD addresses this with a fundamentally different insight: dLLMs can look both ways.</p>
+
+<p>Diffusion LLMs are bidirectional: they can model not just <em>p(suffix | prefix)</em> like AR models, but also <em>p(prefix | suffix)</em> — given the end of a sequence, fill in the middle. This opens a new door: instead of peeking at someone else's solution, the teacher peeks at the <strong>student's own generated answer</strong>. The student sees a blurry future; the teacher sees a sharper one.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">AR-style vs d-OPSD teacher construction</span>
+    <span class="vp-hint">prefix vs suffix conditioning</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="border:1px solid var(--border);border-radius:8px;padding:.875rem;background:var(--card)">
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:.75rem;font-family:var(--ff-mono)">AR-style (Fails for dLLMs)</div>
+        <div style="font-family:var(--ff-mono);font-size:.72rem;color:var(--muted2);line-height:2">
+          <span style="color:var(--cyan)">Question:</span> 24+37=?<br>
+          <span style="color:var(--amber)">+Reference:</span> [42 + 19 = 61]<br>
+          <span style="color:var(--muted)">↓ Teacher prompt ↓</span><br>
+          Teacher sees <span style="color:var(--amber)">external</span> solution<br>
+          <span style="color:rgba(245,158,11,.5)">Overlap ≈ 98% — no new knowledge</span>
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:8px;padding:.875rem;background:var(--card)">
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;font-family:var(--ff-mono)">d-OPSD (Tailored for dLLMs)</div>
+        <div style="font-family:var(--ff-mono);font-size:.72rem;color:var(--muted2);line-height:2">
+          <span style="color:var(--cyan)">Question:</span> 24+37=?<br>
+          <span style="color:var(--purple)">+Self-future:</span> [★ total ★ 61 ★]<br>
+          <span style="color:var(--muted)">↓ Teacher prompt ↓</span><br>
+          Teacher sees <span style="color:var(--purple)">own</span> generated answer (ρ%)<br>
+          <span style="color:rgba(16,185,129,.6)">Overlap ≈ 65% — meaningful knowledge</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ── §02 ── -->
+<section id="s-denoising" data-code="denoising">
+<div class="section-no">02 — Masked Diffusion Primer</div>
+<h2>How dLLMs Iteratively Unmask Text</h2>
+<p>Unlike autoregressive LLMs that output one token at a time from left to right, diffusion LLMs start with a fully masked sequence and progressively reveal tokens over T denoising steps. At each step, the model predicts all token positions simultaneously, then keeps only the top-k most confident predictions — unmasking the tokens it's most certain about first.</p>
+
+<div class="math-block">
+  <div class="math-label">Forward process — corrupts clean response y₀ to masked yₜ</div>
+  <span class="math-var">q(yₜ | y₀, x)</span> = ∏ᵢ <span class="math-var">qₜ(yₜⁱ | y₀ⁱ)</span>
+  <span class="math-comment"> ← each token independently masked with prob t/T</span><br>
+  <span class="math-var">Pₜⁱ</span> = <span class="math-var">pθ(yⁱ | yₜ, x)</span>, 1 ≤ i ≤ L
+  <span class="math-comment"> ← model scores all positions at step t</span>
+</div>
+
+<p>The interactive canvas below shows denoising in action. Press <strong>Play</strong> to watch the model unmask a GSM8K-style reasoning chain step by step — the most confident tokens (🟢 green) are revealed first, while uncertain positions stay masked (⬜ grey).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dLLM denoising — iterative unmasking</span>
+    <span class="vp-hint">click Play to run T steps</span>
+  </div>
+  <div class="vp-body">
+    <div style="margin-bottom:.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+      <div style="font-size:.75rem;font-family:var(--ff-mono);color:var(--cyan)">Q: Janet earns $25/hr. She works 8 hrs. How much does she earn?</div>
+      <div style="display:flex;gap:.5rem">
+        <button id="dn-play" style="padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">▶ Play</button>
+        <button id="dn-reset" style="padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2)">↺ Reset</button>
+      </div>
+    </div>
+    <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">Step: <span id="dn-step">T (all masked)</span></div>
+    <div class="denoise-grid" id="dn-grid"></div>
+    <div style="margin-top:.75rem;display:flex;gap:1rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)">
+        <span style="width:14px;height:14px;border-radius:3px;background:rgba(255,255,255,.04);border:1px solid var(--border);display:inline-block"></span> MASKED
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.68rem;font-family:var(--ff-mono);color:var(--muted)">
+        <span style="width:14px;height:14px;border-radius:3px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4);display:inline-block"></span> REVEALED
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>The key observation: at each step, the model doesn't just see the question and some already-revealed tokens — it sees the <em>entire context</em> bidirectionally. A token at position 5 in the answer can attend to hints from position 15 even before position 15 is fully revealed. This bidirectional attention is what enables suffix conditioning.</p>
+</section>
+
+<!-- ── §03 ── -->
+<section id="s-teacher" data-code="teacher">
+<div class="section-no">03 — The Self-Future Teacher</div>
+<h2>Peeking at Your Own Generated Answer</h2>
+<p>Here's d-OPSD's core idea. Once the student model generates a complete trajectory (question → fully denoised answer), we go back to each denoising step t and ask: <em>what if the model had peeked at a fraction ρ of the tokens in its own final answer?</em></p>
+<p>That "peeking model" — the same neural network, but conditioned on partial knowledge of the future it will generate — becomes the <strong>self-teacher</strong>. The student (no peeking) and teacher (partial peeking) use identical weights, differing only in their input context. The teacher's extra knowledge comes entirely from tokens the student itself produced.</p>
+
+<div class="math-block">
+  <div class="math-label">Teacher input at denoising step t</div>
+  <span class="math-var">yteacher,t</span>[i] = <span class="math-var">y₀</span>[i] if i ∈ Sₜ,  else <span class="math-var">yₜ</span>[i]
+  <span class="math-comment"> ← Sₜ = randomly sampled ρ-fraction of still-masked positions</span><br>
+  <span class="math-var">yₜ</span> = student input (no peeking)
+  <span class="math-comment"> ← y₀ = final generated answer (the "self-future")</span>
+</div>
+
+<p>The <strong>retaining ratio ρ</strong> controls how much of the future is revealed. Use the buttons below to see what each ρ means concretely — and how teacher accuracy (from the toy verification experiment) grows with ρ.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Self-future teacher construction — retaining ratio ρ</span>
+    <span class="vp-hint">click ρ to change how much future is revealed</span>
+  </div>
+  <div class="vp-body">
+    <div class="rho-btns">
+      <button class="rho-btn active" data-rho="0.10">ρ = 0.10</button>
+      <button class="rho-btn" data-rho="0.25">ρ = 0.25 (default)</button>
+      <button class="rho-btn" data-rho="0.50">ρ = 0.50</button>
+    </div>
+    <div class="sf-container">
+      <div class="sf-box student">
+        <div class="sf-box-title">🟦 Student input at step t</div>
+        <div class="sf-tokens" id="sf-student"></div>
+        <div style="margin-top:.75rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">No future peeking — sees question + noisy answer tokens</div>
+      </div>
+      <div class="sf-box teacher">
+        <div class="sf-box-title">🟣 Self-teacher input at step t</div>
+        <div class="sf-tokens" id="sf-teacher"></div>
+        <div style="margin-top:.75rem;font-size:.7rem;font-family:var(--ff-mono);color:var(--purple)">Sees same + ρ% of <em>own generated future answer</em></div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:.875rem;margin-top:.875rem">
+      <div style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.625rem">Teacher accuracy (GSM8K toy verification) — how well teacher can answer after peeking:</div>
+      <div class="teacher-acc-bar">
+        <div class="ta-label">Student (pass@1): 81.3%</div>
+        <div class="ta-track"><div class="ta-fill" id="ta-student" style="width:81.3%;background:var(--cyan)"><span>81.3%</span></div></div>
+      </div>
+      <div class="teacher-acc-bar">
+        <div class="ta-label" id="ta-label-teacher">Teacher (ρ=0.10):</div>
+        <div class="ta-track"><div class="ta-fill" id="ta-teacher" style="width:85.6%;background:var(--purple)"><span id="ta-teacher-val">85.6%</span></div></div>
+      </div>
+      <div class="teacher-acc-bar">
+        <div class="ta-label">Student (pass@8): 95.5%</div>
+        <div class="ta-track"><div class="ta-fill" id="ta-p8" style="width:95.5%;background:rgba(255,255,255,.15)"><span>95.5%</span></div></div>
+      </div>
+    </div>
+    <div class="callout callout-cyan" style="margin-top:.875rem">
+      <strong>Why ρ=0.25 beats ρ=0.50 in practice:</strong> Even though ρ=0.50 gives a stronger teacher (93.4% vs 94.8%), ρ=0.25 achieves slightly better final performance. The <em>gap</em> between student and teacher matters more than raw teacher strength — too much future revelation collapses the learning signal.
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ── §04 ── -->
+<section id="s-divergence" data-code="divergence">
+<div class="section-no">04 — Step-Level KL Alignment</div>
+<h2>Supervising the Denoising Process, Not Individual Tokens</h2>
+<p>The final piece of d-OPSD is <em>how</em> the teacher guides the student. AR models use token-level KL divergence: for each position i in the sequence, minimize KL(student dist || teacher dist). But dLLMs don't predict tokens one by one — they predict all masked tokens simultaneously at each step, then keep only the top-k.</p>
+<p>Token-level supervision is incompatible with this process. Instead, d-OPSD uses <strong>step-level divergence</strong>: at each denoising step t, compute KL only over the top-k most confident token positions — exactly the positions that determine the step-level transition from yₜ to yₜ₋₁.</p>
+
+<div class="math-block">
+  <div class="math-label">d-OPSD training objective</div>
+  <span class="math-var">L</span>(θ) = 𝔼ₓ [ (1/T) Σₜ (1/|Kₜ|) Σᵢ∈Kₜ DKL( <span class="math-var">pθ(y|ystudent,t,x)</span> || <span class="math-var">pθ(y|yteacher,t,x)</span> ) ]<br>
+  where <span class="math-var">Kₜ</span> = top-k most confident masked positions at step t (from teacher distribution)<br>
+  ΣₜT |Kₜ| = L
+  <span class="math-comment"> ← every token position covered exactly once across T steps</span>
+</div>
+
+<p>Walk through the algorithm step by step:</p>
+
+<div class="step-list" id="step-list">
+  <div class="step-box active" data-step="0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Student samples on-policy trajectory</div>
+      <div class="step-desc">For prompt x, student pθ generates a complete T-step denoising trajectory Y = &#123;yT, ..., y0&#125;. We keep sampling until a correct answer appears (up to k=8 tries).</div>
+      <div class="step-code">Y ~ pθ(·|x);  // y_T = all-masked, y_0 = final answer</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Construct teacher input at each step t</div>
+      <div class="step-desc">For each denoising step t, randomly reveal ρ fraction of the masked positions using y₀ (the student's own final answer). Student keeps its original noisy input yₜ.</div>
+      <div class="step-code">yteacher,t[i] = y0[i] if i ∈ Sₜ else yₜ[i]</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Identify top-k confident positions Kₜ</div>
+      <div class="step-desc">From the teacher's distribution, find the k masked positions with highest confidence. These are the tokens the model "commits to" at this step.</div>
+      <div class="step-code">Kₜ = top-k indices from teacher dist (masked positions only)</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Compute step-level KL over Kₜ</div>
+      <div class="step-desc">For only the top-k positions in Kₜ, compute KL divergence between student's and teacher's token distributions. Average over steps.</div>
+      <div class="step-code">Lₜ = (1/|Kₜ|) Σᵢ∈Kₜ DKL(P_student,t^i || P_teacher,t^i)</div>
+    </div>
+  </div>
+  <div class="step-box" data-step="4">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Backpropagate and update</div>
+      <div class="step-desc">Gradient flows through the step-level KL objective to update θ. Per-token pointwise KL clipping (threshold 0.05) stabilizes training and prevents collapse.</div>
+      <div class="step-code">θ ← θ - ∇ [(1/T) Σₜ Lₜ]   // clipped KL</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <span id="step-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 5</span>
+  <button id="step-next">Next →</button>
+</div>
+
+<p>One engineering trick makes this tractable: instead of running T forward passes through the model (one per denoising step), all step inputs are <em>concatenated</em> into a single batch of shape (bsz×T, seq-length). Because all steps share identical weights, gradients are constant per input, eliminating the memory explosion from storing T separate attention maps.</p>
+</section>
+
+<!-- ── §05 ── -->
+<section id="s-overlap" data-code="overlap">
+<div class="section-no">05 — The Overlap Problem</div>
+<h2>Why Self-Future Beats Reference Solutions</h2>
+<p>Why does d-OPSD's teacher construction outperform AR-style OPSD? The paper introduces a metric called <strong>Overlap Top-K</strong>: at each denoising step, it measures the fraction of vocabulary tokens that appear in both the student's and teacher's top-K distributions at the currently-unmasked positions.</p>
+
+<div class="math-block">
+  <div class="math-label">Overlap Top-K metric</div>
+  <span class="math-var">M_overlap</span>(K,t) = (1/|Kₜ|) Σᵢ∈Kₜ |P_student,t^&#123;i,Top-K&#125; ∩ P_teacher,t^&#123;i,Top-K&#125;| / K
+  <span class="math-comment"> ← K=20 in practice</span>
+</div>
+
+<p>If overlap = 1.0, teacher and student distributions are identical — the student learns nothing. If overlap = 0.5, about half the top-20 vocabulary differs — meaningful knowledge transfer. The experiment below shows what happens with AR-style OPSD vs d-OPSD:</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Overlap Top-K: how much new knowledge does the teacher provide?</span>
+    <span class="vp-hint">same token position, different conditioning</span>
+  </div>
+  <div class="vp-body">
+    <div class="overlap-row">
+      <div class="overlap-card">
+        <div class="overlap-title">AR-style OPSD — appended reference solution</div>
+        <div id="overlap-ar"></div>
+        <div class="overlap-stat bad">Overlap ≈ 0.98 — near-identical distributions<br><small>Teacher adds almost no new knowledge to transfer</small></div>
+      </div>
+      <div class="overlap-card">
+        <div class="overlap-title">d-OPSD — self-generated suffix conditioning</div>
+        <div id="overlap-dopsd"></div>
+        <div class="overlap-stat good">Overlap ≈ 0.65 — meaningfully different distributions<br><small>~35% of teacher's top-20 vocab is new to the student</small></div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:.5rem">
+      <strong>Intuition:</strong> Appending a <em>reference solution</em> (AR-style) provides text the model has likely trained on — its predictions barely change. Revealing the model's <em>own generated answer</em> as suffix context forces genuinely different reasoning: the model fills in missing reasoning steps knowing where it needs to arrive.
+    </div>
+  </div>
+</div>
+
+<p>This explains the performance gap: AR-style OPSD gives +2.4pp on GSM8K (76.0 → 78.4%), but d-OPSD gives +5.0pp (76.0 → 81.0%). The mechanism is the same as human learning — you gain more by knowing the outcome of your own decisions than by studying someone else's worked example.</p>
+</section>
+
+<!-- ── §06 ── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results: 18× Faster Convergence</div>
+<h2>Superior Performance, a Fraction of the Cost</h2>
+<p>d-OPSD was evaluated on four reasoning tasks using <strong>LLaDA-8B-Instruct</strong> as the base dLLM: GSM8K and MATH500 (mathematical reasoning), plus Countdown and 4×4 Sudoku (planning). The primary baselines are <strong>diffu-GRPO</strong> (RLVR for dLLMs) and an SFT variant.</p>
+
+<h3>Sample efficiency — steps to converge</h3>
+<p>The most striking result is convergence speed. d-OPSD requires only a small fraction of the gradient updates that diffu-GRPO needs to reach peak performance:</p>
+
+<div class="results-bars" id="bars-efficiency">
+  <div style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">Optimization steps to converge (lower = better)</div>
+  <div style="font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.875rem">diffu-GRPO steps normalized to 100%</div>
+
+  <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted2);margin-bottom:.25rem">GSM8K</div>
+  <div class="bar-row">
+    <div class="bar-label">diffu-GRPO</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>7700 steps</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">d-OPSD (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="5.5" style="background:var(--purple)"><span>425</span></div></div>
+  </div>
+
+  <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted2);margin-top:.75rem;margin-bottom:.25rem">MATH500</div>
+  <div class="bar-row">
+    <div class="bar-label">diffu-GRPO</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>6600 steps</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">d-OPSD (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="1.5" style="background:var(--purple)"><span>100</span></div></div>
+  </div>
+
+  <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted2);margin-top:.75rem;margin-bottom:.25rem">Countdown</div>
+  <div class="bar-row">
+    <div class="bar-label">diffu-GRPO</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>5000 steps</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">d-OPSD (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="3.5" style="background:var(--purple)"><span>175</span></div></div>
+  </div>
+
+  <div style="font-size:.68rem;font-family:var(--ff-mono);color:var(--muted2);margin-top:.75rem;margin-bottom:.25rem">Sudoku</div>
+  <div class="bar-row">
+    <div class="bar-label">diffu-GRPO</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(107,114,128,.45)"><span>3800 steps</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">d-OPSD (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="11" style="background:var(--purple)"><span>425</span></div></div>
+  </div>
+</div>
+
+<p>On MATH500, d-OPSD converges in just 100 steps vs 6,600 for RLVR — a <strong>66× reduction</strong>. This is because the dense step-level KL supervision from the self-teacher provides learning signal at every single denoising step, whereas RLVR gets only a sparse outcome reward at the end of each rollout.</p>
+
+<h3>Reasoning performance (at best checkpoint)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Method</th>
+      <th>GSM8K (512)</th>
+      <th>MATH500 (512)</th>
+      <th>Countdown (256)</th>
+      <th>Sudoku (256)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LLaDA-8B-Inst.</td>
+      <td>Base</td>
+      <td class="mn">79.5</td>
+      <td class="mn">36.2</td>
+      <td class="mn">19.1</td>
+      <td class="mn">6.9</td>
+    </tr>
+    <tr>
+      <td>— SFT variant</td>
+      <td>SFT</td>
+      <td class="mn">81.1</td>
+      <td class="mn">34.8</td>
+      <td class="mn">14.5</td>
+      <td class="mn">8.5</td>
+    </tr>
+    <tr>
+      <td>diffu-GRPO</td>
+      <td>RLVR</td>
+      <td class="mn">81.9</td>
+      <td class="mn">39.2</td>
+      <td class="mn">31.3</td>
+      <td class="mn">20.6</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>d-OPSD</strong></td>
+      <td>OPSD</td>
+      <td class="mn best">82.2</td>
+      <td class="mn">37.8</td>
+      <td class="mn best">32.3</td>
+      <td class="mn best">20.6</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>d-OPSD matches or exceeds diffu-GRPO on every task while converging dramatically faster. The gain on planning tasks (Countdown, Sudoku) is notable — planning requires constraint satisfaction rather than arithmetic, suggesting that the self-future construction generalizes beyond math reasoning.</p>
+
+<div class="callout callout-amber">
+  <strong>Known failure mode — policy collapse:</strong> Like RLVR, d-OPSD can collapse after reaching peak performance in some configurations. The reverse-KL's mode-seeking behavior becomes over-narrow, preventing further improvement. Pointwise KL clipping (threshold 0.05) substantially mitigates this but doesn't fully eliminate it.
+</div>
+</section>
+
+<!-- ── Listen-friendly summary ── -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: d-OPSD — Learning from Your Self-Future</h2>
+    <p>d-OPSD is the first on-policy self-distillation framework designed specifically for diffusion language models. Unlike autoregressive models that generate text left-to-right, diffusion LLMs iteratively unmask tokens from a fully-masked sequence over multiple denoising steps. This bidirectional process allows them to condition on both past and future context.</p>
+    <p>The key insight is teacher construction: d-OPSD uses the student model's own generated answer as privileged "future" information for the teacher. By revealing a fraction of the final answer tokens to the teacher (controlled by the retaining ratio rho), the teacher gains meaningful knowledge that the student can learn from. This contrasts with AR-style OPSD, which appends an external reference solution and achieves 98% overlap with student distributions — almost no new knowledge. d-OPSD achieves around 65% overlap, enabling substantial knowledge transfer.</p>
+    <p>Instead of token-level KL divergence used in AR models, d-OPSD applies step-level KL over only the top-k most confident denoising positions at each step. Results show d-OPSD converges in as few as 100 gradient steps on MATH500 versus 6,600 for RLVR — a 66-times speedup — while matching RLVR performance on reasoning and planning benchmarks.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：d-OPSD——从自我未来中学习</h2>
+    <p>d-OPSD是首个专为扩散大语言模型设计的在线自蒸馏框架。与自回归模型逐token生成不同，扩散LLM通过多步去噪过程逐步揭示被掩码的token，具备双向注意力能力，可以同时条件化过去和未来的上下文。</p>
+    <p>核心创新在于教师构建方式：d-OPSD将学生模型自己生成的答案作为教师的"未来"特权信息。通过将最终答案中一定比例（保留率ρ）的token透露给教师，教师获得了学生可以学习的有意义知识。这与AR风格的OPSD形成对比——后者追加外部参考答案导致与学生分布的重叠率高达98%，几乎没有新知识可以传递；而d-OPSD的重叠率约为65%，实现了实质性的知识迁移。</p>
+    <p>d-OPSD使用步骤级KL散度代替AR模型中的token级KL，仅在每步去噪中置信度最高的top-k位置上计算散度。实验结果表明，d-OPSD在MATH500上仅需100个梯度更新步骤即可收敛，而RLVR需要6600步，速度提升66倍，同时在推理和规划任务上与RLVR性能持平或更优。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">d_opsd/problem.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="denoising">denoising</button>
+    <button class="cs-tab" data-panel="teacher">teacher</button>
+    <button class="cs-tab" data-panel="divergence">divergence</button>
+    <button class="cs-tab" data-panel="overlap">overlap</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel-problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># AR-style OPSD (for autoregressive LLMs)</span>
+<span class="cs-line cmt"># Teacher = student conditioned on privileged prefix</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">ar_opsd_teacher</span>(model, prompt, ref_solution):</span>
+<span class="cs-line hl-a">    <span class="cmt"># Appends reference solution to prompt</span></span>
+<span class="cs-line hl-a">    teacher_prompt = prompt + ref_solution</span>
+<span class="cs-line hl-a">    <span class="kw">return</span> model(teacher_prompt)  <span class="cmt"># prefix-conditioned</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Problem: reference solution is external, static</span>
+<span class="cs-line cmt"># → teacher ≈ student (98% overlap in top-20 vocab)</span>
+<span class="cs-line cmt"># → student learns almost nothing new</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># OPSD loss for AR models (token-level KL):</span>
+<span class="cs-line cmt"># L = Σᵢ DKL(pθ(·|y&lt;i,x) || pθ(·|y&lt;i,x*))</span>
+<span class="cs-line cmt"># where x* = x + y* (privileged prefix)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why this fails for dLLMs:</span>
+<span class="cs-line cmt"># 1. dLLMs generate non-autoregressively</span>
+<span class="cs-line cmt">#    → prefix conditioning is not the natural form</span>
+<span class="cs-line cmt"># 2. token-level KL doesn't align with</span>
+<span class="cs-line cmt">#    the iterative denoising process</span>
+<span class="cs-line cmt"># 3. static reference = near-zero new knowledge</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">d_opsd_teacher</span>(model, prompt, self_answer):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Uses model's OWN generated answer as suffix</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># Teacher = suffix-conditioned p(prefix|suffix)</span></span>
+<span class="cs-line hl-p">    teacher_ctx = construct_suffix(self_answer, rho)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> model(prompt, suffix=teacher_ctx)</span>
+</pre>
+    </div>
+
+    <!-- panel-denoising -->
+    <div class="cs-panel" id="panel-denoising">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># dLLM forward (corruption) process</span>
+<span class="cs-line cmt"># y0 = clean response, yT = all-masked</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">forward_process</span>(y0, t, T):</span>
+<span class="cs-line">    yT = []</span>
+<span class="cs-line">    <span class="kw">for</span> token <span class="kw">in</span> y0:</span>
+<span class="cs-line">        <span class="cmt"># mask each token with prob t/T</span></span>
+<span class="cs-line hl-c">        <span class="kw">if</span> random() &lt; t / T:</span>
+<span class="cs-line hl-c">            yT.append(MASK)</span>
+<span class="cs-line">        <span class="kw">else</span>:</span>
+<span class="cs-line">            yT.append(token)</span>
+<span class="cs-line">    <span class="kw">return</span> yT</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># dLLM reverse (denoising) inference</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">inference</span>(model, prompt, T, k):</span>
+<span class="cs-line">    yT = [MASK] * L  <span class="cmt"># start all-masked</span></span>
+<span class="cs-line">    <span class="kw">for</span> t <span class="kw">in</span> range(T, <span class="num">0</span>, -<span class="num">1</span>):</span>
+<span class="cs-line">        <span class="cmt"># score all positions simultaneously</span></span>
+<span class="cs-line hl-p">        P = model(yT, prompt)  <span class="cmt"># full-sequence dist</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># reveal k most confident masked tokens</span></span>
+<span class="cs-line hl-p">        top_k = most_confident(P, yT, k)</span>
+<span class="cs-line hl-p">        <span class="kw">for</span> i <span class="kw">in</span> top_k:</span>
+<span class="cs-line hl-p">            yT[i] = sample(P[i])</span>
+<span class="cs-line">    <span class="kw">return</span> yT  <span class="cmt"># y0 — clean response</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Block diffusion (used in practice):</span>
+<span class="cs-line cmt"># Response partitioned into B contiguous blocks</span>
+<span class="cs-line cmt"># AR across blocks, diffusion within each block</span>
+<span class="cs-line cmt"># Block length = 32 in experiments</span>
+</pre>
+    </div>
+
+    <!-- panel-teacher -->
+    <div class="cs-panel" id="panel-teacher">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># d-OPSD teacher construction</span>
+<span class="cs-line cmt"># y0 = student's own final generated answer</span>
+<span class="cs-line cmt"># rho = retaining ratio (default 0.25)</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">build_teacher_input</span>(yt, y0, rho):</span>
+<span class="cs-line">    <span class="cmt"># St = random rho-fraction of masked positions</span></span>
+<span class="cs-line hl-p">    masked = [i <span class="kw">for</span> i, tok <span class="kw">in</span> <span class="fn">enumerate</span>(yt)</span>
+<span class="cs-line hl-p">              <span class="kw">if</span> tok == MASK]</span>
+<span class="cs-line hl-p">    St = random_subset(masked, rho)</span>
+<span class="cs-line">    yteacher = yt.copy()</span>
+<span class="cs-line hl-c">    <span class="kw">for</span> i <span class="kw">in</span> St:</span>
+<span class="cs-line hl-c">        yteacher[i] = y0[i]  <span class="cmt"># peek at own future</span></span>
+<span class="cs-line">    <span class="kw">return</span> yteacher</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Toy verification results (GSM8K)</span>
+<span class="cs-line cmt"># student pass@1:  81.3%</span>
+<span class="cs-line cmt"># student pass@8:  95.5%</span>
+<span class="cs-line cmt"># teacher rho=0.10: 85.6% (already +4.3pp)</span>
+<span class="cs-line cmt"># teacher rho=0.25: 93.4% (near pass@8!)</span>
+<span class="cs-line cmt"># teacher rho=0.50: 94.8% (≈ pass@8)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Pass@k sampling strategy:</span>
+<span class="cs-line cmt"># keep sampling until correct answer, max k=8</span>
+<span class="cs-line cmt"># same compute as RLVR's group-k rollouts</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">sample_correct_trajectory</span>(model, prompt, k):</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> _ <span class="kw">in</span> range(k):</span>
+<span class="cs-line hl-g">        Y = <span class="fn">inference</span>(model, prompt)</span>
+<span class="cs-line hl-g">        <span class="kw">if</span> <span class="fn">is_correct</span>(Y.y0): <span class="kw">return</span> Y</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> Y  <span class="cmt"># use best if none correct</span></span>
+</pre>
+    </div>
+
+    <!-- panel-divergence -->
+    <div class="cs-panel" id="panel-divergence">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Step-level KL divergence objective</span>
+<span class="cs-line cmt"># Aligns supervision with denoising mechanics</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">step_level_kl</span>(model, Y, prompt, rho):</span>
+<span class="cs-line">    total_loss = <span class="num">0</span></span>
+<span class="cs-line">    <span class="kw">for</span> t <span class="kw">in</span> range(T, <span class="num">0</span>, -<span class="num">1</span>):</span>
+<span class="cs-line">        yt = Y[t]</span>
+<span class="cs-line hl-c">        <span class="cmt"># build teacher input (partial self-future)</span></span>
+<span class="cs-line hl-c">        yteach = <span class="fn">build_teacher_input</span>(yt, Y[<span class="num">0</span>], rho)</span>
+<span class="cs-line hl-c">        P_s = model(yt, prompt)     <span class="cmt"># student dist</span></span>
+<span class="cs-line hl-c">        P_t = model(yteach, prompt) <span class="cmt"># teacher dist</span></span>
+<span class="cs-line hl-p">        <span class="cmt"># top-k confident positions (from teacher)</span></span>
+<span class="cs-line hl-p">        Kt = <span class="fn">topk_confident</span>(P_t, yt)</span>
+<span class="cs-line hl-p">        <span class="cmt"># step-level KL over Kt positions only</span></span>
+<span class="cs-line hl-p">        Lt = <span class="fn">mean</span>([<span class="fn">DKL</span>(P_s[i], P_t[i]) <span class="kw">for</span> i <span class="kw">in</span> Kt])</span>
+<span class="cs-line">        total_loss += Lt</span>
+<span class="cs-line">    <span class="kw">return</span> total_loss / T</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Engineering: concatenate all step inputs</span>
+<span class="cs-line cmt"># → single forward pass, no OOM</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">efficient_step_kl</span>(model, Y, prompt):</span>
+<span class="cs-line">    <span class="cmt"># batch: (bsz×T, seq_len) instead of T calls</span></span>
+<span class="cs-line hl-g">    all_inputs = <span class="fn">concat</span>([Y[t] <span class="kw">for</span> t <span class="kw">in</span> range(T)])</span>
+<span class="cs-line hl-g">    all_dists = model(all_inputs)  <span class="cmt"># one forward pass</span></span>
+<span class="cs-line hl-g">    <span class="kw">return</span> <span class="fn">compute_kl</span>(all_dists)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Pointwise KL clipping (threshold=0.05)</span>
+<span class="cs-line cmt"># → stabilizes training, prevents collapse</span>
+<span class="cs-line cmt"># clip each per-token KL contribution</span>
+</pre>
+    </div>
+
+    <!-- panel-overlap -->
+    <div class="cs-panel" id="panel-overlap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Overlap Top-K metric</span>
+<span class="cs-line cmt"># Measures teacher-student knowledge gap</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">overlap_topk</span>(P_student, P_teacher, Kt, K=<span class="num">20</span>):</span>
+<span class="cs-line">    overlap_sum = <span class="num">0</span></span>
+<span class="cs-line">    <span class="kw">for</span> i <span class="kw">in</span> Kt:</span>
+<span class="cs-line hl-c">        top_s = <span class="fn">topK_vocab</span>(P_student[i], K)</span>
+<span class="cs-line hl-c">        top_t = <span class="fn">topK_vocab</span>(P_teacher[i], K)</span>
+<span class="cs-line hl-p">        overlap = <span class="fn">len</span>(top_s &amp; top_t) / K</span>
+<span class="cs-line hl-p">        overlap_sum += overlap</span>
+<span class="cs-line">    <span class="kw">return</span> overlap_sum / <span class="fn">len</span>(Kt)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Results from paper (K=20):</span>
+<span class="cs-line cmt"># AR-style OPSD:  overlap ≈ 0.98</span>
+<span class="cs-line cmt">#   → teacher and student nearly identical</span>
+<span class="cs-line cmt">#   → ≈2% new vocabulary in top-20</span>
+<span class="cs-line cmt"># d-OPSD:         overlap ≈ 0.65</span>
+<span class="cs-line cmt">#   → meaningful knowledge gap</span>
+<span class="cs-line cmt">#   → ≈35% new vocabulary in top-20</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AR-style vs d-OPSD performance (len=256):</span>
+<span class="cs-line cmt"># Base:        GSM8K=76.0   MATH500=31.8</span>
+<span class="cs-line cmt"># AR-style:    GSM8K=78.4   MATH500=33.4</span>
+<span class="cs-line cmt">#              (+2.4pp)     (+1.6pp)</span>
+<span class="cs-line hl-g"><span class="cmt"># d-OPSD:      GSM8K=81.0   MATH500=37.2</span></span>
+<span class="cs-line hl-g"><span class="cmt">#              (+5.0pp)     (+5.4pp)</span></span>
+<span class="cs-line cmt"># → 2× more improvement from self-future</span>
+</pre>
+    </div>
+
+    <!-- panel-results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark results — d-OPSD on LLaDA-8B</span>
+<span class="cs-line cmt"># Training: LoRA r=128, lr=5e-6, 4 GPUs</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── Performance (best checkpoint) ──</span>
+<span class="cs-line cmt"># Task         Base  SFT   RLVR  d-OPSD</span>
+<span class="cs-line cmt"># GSM8K(512)   79.5  81.1  81.9  82.2 ★</span>
+<span class="cs-line cmt"># MATH500(512) 36.2  34.8  39.2  37.8</span>
+<span class="cs-line cmt"># Countdown    19.1  14.5  31.3  32.3 ★</span>
+<span class="cs-line cmt"># Sudoku       6.9   8.5   20.6  20.6 ★</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── Sample efficiency (steps) ──</span>
+<span class="cs-line cmt"># Task         RLVR    d-OPSD   speedup</span>
+<span class="cs-line hl-p"><span class="cmt"># GSM8K        7700    425      18×</span></span>
+<span class="cs-line hl-g"><span class="cmt"># MATH500      6600    100      66×  !</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Countdown    5000    175      29×</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Sudoku       3800    425      9×</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── Ablation: retaining ratio ρ ──</span>
+<span class="cs-line cmt"># rho=0.10:  GSM8K=80.5  (weak teacher, still good)</span>
+<span class="cs-line cmt"># rho=0.25:  GSM8K=81.0  (default — best balance)</span>
+<span class="cs-line cmt"># rho=0.50:  GSM8K=79.8  (strong teacher, less gap)</span>
+<span class="cs-line cmt"># → moderate gap between student/teacher optimal</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ── Ablation: top-k subset selection ──</span>
+<span class="cs-line cmt"># From student: GSM8K=78.6</span>
+<span class="cs-line hl-g"><span class="cmt"># From teacher: GSM8K=81.0  ← use teacher's Kt</span></span>
+<span class="cs-line cmt"># → teacher forces student to align with</span>
+<span class="cs-line cmt">#   teacher's most confident positions</span>
+<span class="cs-line cmt"># ── KL divergence type ──</span>
+<span class="cs-line cmt"># Forward KL:  77.9  (model-covering, unstable)</span>
+<span class="cs-line hl-g"><span class="cmt"># Reverse KL:  81.0  ← default (mode-seeking)</span></span>
+</pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ── TOC + sidebar toggles ── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ── Code sidebar tabs ── */
+const tabMeta = {
+  problem:    { file: 'd_opsd/problem.py',    title: 'The Bottleneck' },
+  denoising:  { file: 'd_opsd/denoising.py',  title: 'Masked Diffusion' },
+  teacher:    { file: 'd_opsd/teacher.py',     title: 'Self-Future Teacher' },
+  divergence: { file: 'd_opsd/divergence.py',  title: 'Step-Level KL' },
+  overlap:    { file: 'd_opsd/overlap.py',     title: 'The Overlap Problem' },
+  results:    { file: 'd_opsd/results.py',     title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ── IntersectionObserver — TOC + tab sync ── */
+const sectionMap = {
+  's-problem':   'problem',
+  's-denoising': 'denoising',
+  's-teacher':   'teacher',
+  's-divergence':'divergence',
+  's-overlap':   'overlap',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ─────────────────────────────────────────────
+   §02 — Denoising animation
+   ───────────────────────────────────────────── */
+const ANSWER_TOKENS = ['She','earns','$25','per','hour','.','8','hours','×','$25','=','$200','.'];
+const TOTAL_STEPS   = 7;
+let dnStep = TOTAL_STEPS; // T = fully masked
+let dnTimer = null;
+
+function seededRand(n) {
+  return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+}
+
+// Pre-compute reveal order (by confidence proxy = seeded random)
+const revealOrder = ANSWER_TOKENS.map((_, i) => ({ i, conf: seededRand(i * 7 + 3) }))
+  .sort((a, b) => b.conf - a.conf)
+  .map(x => x.i);
+
+function buildDnGrid(step) {
+  // step = T means all masked; step = 0 means all revealed
+  // tokens per step revealed: Math.floor(ANSWER_TOKENS.length / TOTAL_STEPS)
+  const tokensPerStep = Math.ceil(ANSWER_TOKENS.length / TOTAL_STEPS);
+  const numRevealed = (TOTAL_STEPS - step) * tokensPerStep;
+  const revealed = new Set(revealOrder.slice(0, numRevealed));
+  const grid = document.getElementById('dn-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  ANSWER_TOKENS.forEach((tok, i) => {
+    const el = document.createElement('span');
+    el.className = 'dtok ' + (revealed.has(i) ? 'revealed' : 'masked');
+    el.textContent = revealed.has(i) ? tok : '▓▓▓';
+    grid.appendChild(el);
+  });
+  const stepEl = document.getElementById('dn-step');
+  if (stepEl) stepEl.textContent = step === TOTAL_STEPS ? 'T (all masked)' : step === 0 ? '0 (complete)' : `T-${TOTAL_STEPS - step}`;
+}
+buildDnGrid(dnStep);
+
+document.getElementById('dn-play')?.addEventListener('click', function() {
+  if (dnTimer) return;
+  if (dnStep === 0) { dnStep = TOTAL_STEPS; buildDnGrid(dnStep); }
+  dnTimer = setInterval(() => {
+    if (dnStep > 0) { dnStep--; buildDnGrid(dnStep); }
+    else { clearInterval(dnTimer); dnTimer = null; }
+  }, 600);
+});
+document.getElementById('dn-reset')?.addEventListener('click', function() {
+  clearInterval(dnTimer); dnTimer = null;
+  dnStep = TOTAL_STEPS; buildDnGrid(dnStep);
+});
+
+/* ─────────────────────────────────────────────
+   §03 — Self-future teacher viz
+   ───────────────────────────────────────────── */
+const Q_TOKENS    = ['Q:','24+37=?'];
+const ANS_TOKENS  = ['The','total','is','24','+','37','=','61','dollars','.'];
+// indices of "future" tokens by seeded order
+const futureOrder = ANS_TOKENS.map((_, i) => ({ i, r: seededRand(i * 5 + 11) }))
+  .sort((a, b) => b.r - a.r).map(x => x.i);
+
+const rhoData = {
+  '0.10': { acc: 85.6, label: 'ρ=0.10', nFuture: 1 },
+  '0.25': { acc: 93.4, label: 'ρ=0.25', nFuture: 3 },
+  '0.50': { acc: 94.8, label: 'ρ=0.50', nFuture: 5 },
+};
+// simulate: 2 tokens already revealed by student at step t
+const revealedByStudent = new Set([2, 6]); // indices in ANS_TOKENS
+
+function renderSFTokens(containerId, isTeacher, rho) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  const futureRevealed = new Set(futureOrder.slice(0, rhoData[rho].nFuture));
+
+  Q_TOKENS.forEach(t => {
+    const s = document.createElement('span');
+    s.className = 'sf-tok q'; s.textContent = t; el.appendChild(s);
+  });
+  ANS_TOKENS.forEach((t, i) => {
+    const s = document.createElement('span');
+    if (revealedByStudent.has(i)) {
+      s.className = 'sf-tok active'; s.textContent = t;
+    } else if (isTeacher && futureRevealed.has(i)) {
+      s.className = 'sf-tok future'; s.textContent = '★' + t;
+    } else {
+      s.className = 'sf-tok mask'; s.textContent = '▓▓';
+    }
+    el.appendChild(s);
+  });
+}
+
+function updateRho(rho) {
+  document.querySelectorAll('.rho-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.rho === rho));
+  renderSFTokens('sf-student', false, rho);
+  renderSFTokens('sf-teacher', true, rho);
+  const d = rhoData[rho];
+  const ta = document.getElementById('ta-teacher');
+  const taVal = document.getElementById('ta-teacher-val');
+  const taLabel = document.getElementById('ta-label-teacher');
+  if (ta) { ta.style.width = d.acc + '%'; if (taVal) taVal.textContent = d.acc + '%'; }
+  if (taLabel) taLabel.textContent = 'Teacher (' + d.label + '):';
+}
+updateRho('0.10');
+document.querySelectorAll('.rho-btn').forEach(b =>
+  b.addEventListener('click', () => updateRho(b.dataset.rho)));
+
+/* ─────────────────────────────────────────────
+   §04 — Step navigator
+   ───────────────────────────────────────────── */
+let stepIdx = 0;
+const stepBoxes = document.querySelectorAll('.step-box');
+const stepPrev  = document.getElementById('step-prev');
+const stepNext  = document.getElementById('step-next');
+const stepProg  = document.getElementById('step-prog');
+function updateSteps() {
+  stepBoxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === stepIdx) b.classList.add('active');
+    else if (i < stepIdx) b.classList.add('done');
+  });
+  if (stepPrev) stepPrev.disabled = stepIdx === 0;
+  if (stepNext) stepNext.disabled = stepIdx === stepBoxes.length - 1;
+  if (stepProg) stepProg.textContent = 'Step ' + (stepIdx+1) + ' of ' + stepBoxes.length;
+  stepBoxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < stepIdx ? '✓' : String(i+1);
+  });
+}
+stepPrev?.addEventListener('click', () => { if (stepIdx > 0) { stepIdx--; updateSteps(); } });
+stepNext?.addEventListener('click', () => { if (stepIdx < stepBoxes.length-1) { stepIdx++; updateSteps(); } });
+updateSteps();
+
+/* ─────────────────────────────────────────────
+   §05 — Overlap visualization
+   ───────────────────────────────────────────── */
+// Top-10 vocabulary slots for AR-style (near-identical) vs d-OPSD (distinct)
+// AR: student top-10 vs teacher top-10 → 9/10 identical (overlap ~0.98)
+// d-OPSD: student vs teacher → 6.5/10 overlap (~0.65)
+const ovVocab = ['the','answer','is','total','equals','sum','result','value','=','num'];
+const arStudentW  = [88,72,60,48,42,38,32,28,22,18];
+const arTeacherW  = [85,71,62,47,44,37,33,29,21,19]; // nearly same
+const dpStudentW  = [88,72,60,48,42,38,32,28,22,18];
+const dpTeacherW  = [90,65,45,55,30,20,50,38,12,28]; // more distinct
+
+function buildOverlapBars(containerId, studentW, teacherW) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  const maxW = Math.max(...studentW, ...teacherW);
+  ovVocab.forEach((tok, i) => {
+    const row = document.createElement('div');
+    row.className = 'ov-bar-row';
+    row.innerHTML = '<div class="ov-label">"' + tok + '"</div>' +
+      '<div class="ov-track">' +
+        '<div class="ov-s" style="width:' + (studentW[i]/maxW*100).toFixed(1) + '%;background:rgba(6,182,212,.5);height:100%"></div>' +
+        '<div class="ov-t" style="width:' + (teacherW[i]/maxW*100).toFixed(1) + '%;background:rgba(139,92,246,.7);height:6px;top:3px"></div>' +
+      '</div>';
+    el.appendChild(row);
+  });
+  // legend
+  const leg = document.createElement('div');
+  leg.style.cssText = 'display:flex;gap:.875rem;margin-top:.5rem;font-size:.6rem;font-family:var(--ff-mono);color:var(--muted)';
+  leg.innerHTML = '<div><span style="display:inline-block;width:10px;height:10px;background:rgba(6,182,212,.5);border-radius:2px;margin-right:.25rem"></span>student</div>' +
+    '<div><span style="display:inline-block;width:10px;height:4px;background:rgba(139,92,246,.7);border-radius:2px;margin-right:.25rem;vertical-align:middle"></span>teacher</div>';
+  el.appendChild(leg);
+}
+buildOverlapBars('overlap-ar', arStudentW, arTeacherW);
+buildOverlapBars('overlap-dopsd', dpStudentW, dpTeacherW);
+
+/* ─────────────────────────────────────────────
+   §06 — Animated bars on scroll
+   ───────────────────────────────────────────── */
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(barsSection);
+}
+</script>
+</BaseLayout>

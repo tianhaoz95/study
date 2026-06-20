@@ -1,0 +1,1280 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="On-Policy Self-Distillation: When the Model Teaches Itself | Catpuccino.ai"
+  description="OPSD lets a single LLM act as both teacher and student simultaneously — the teacher sees the answer, the student only sees the question, and both share the same weights. Dense token-level supervision with no external teacher and no distribution mismatch."
+  crumb="OPSD"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ── Method comparison table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Design space grid ── */
+.design-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1.5rem 0}
+.design-card{border:1px solid var(--border);border-radius:8px;background:var(--card);padding:.875rem 1rem;cursor:pointer;transition:all .25s}
+.design-card:hover{border-color:var(--purple);background:var(--purple-dim)}
+.design-card.active{border-color:var(--cyan);background:rgba(6,182,212,.08)}
+.design-card-head{display:flex;align-items:center;gap:.625rem;margin-bottom:.4rem}
+.design-icon{font-size:1.1rem;flex-shrink:0}
+.design-name{font-size:.78rem;font-weight:700;color:var(--text2)}
+.design-desc{font-size:.72rem;color:var(--muted);line-height:1.55}
+.design-methods{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem}
+.design-method{font-size:.6rem;font-family:var(--ff-mono);color:var(--purple-l);background:var(--purple-dim);border-radius:3px;padding:.1rem .4rem}
+.design-detail{margin-top:1rem;padding:.875rem 1rem;border:1px solid var(--cyan);border-radius:8px;background:rgba(6,182,212,.06);font-size:.8rem;color:var(--muted2);line-height:1.7;display:none}
+.design-detail.show{display:block}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:.875rem 0 .375rem;font-family:var(--ff-mono)}
+
+/* ── Tab panel for §01 ── */
+.method-tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.method-tab{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.method-tab:hover{border-color:var(--cyan);color:var(--cyan)}
+.method-tab.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">LLM Training</span>
+    <span class="tag tag-cyan">Self-Distillation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>On-Policy Self-Distillation: When the Model Teaches Itself</h1>
+  <p class="lead">SFT trains on human tokens but infers on model tokens — a mismatch that compounds errors. RL fixes the mismatch but assigns one reward to every token. OPD gives dense supervision but demands a separate, larger teacher. OPSD eliminates all three problems at once: the same model plays both student and teacher, one sees the question, the other sees the answer, and shared weights are updated from the model's own rollouts.</p>
+  <div class="post-hero-meta">
+    <span>June 19, 2026</span>
+    <span>~12 min read</span>
+    <span>Survey: <code>arXiv:2605.18141</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.18141" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Overview Paper
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2604.13016" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      OPD Survey
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2605.22263" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      DASD Paper
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#8249;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Three Cracks</a></li>
+    <li class="toc-item" id="toc-s-core"><a href="#s-core"><span class="toc-num">02</span> The Dual-Role Insight</a></li>
+    <li class="toc-item" id="toc-s-loop"><a href="#s-loop"><span class="toc-num">03</span> The Training Loop</a></li>
+    <li class="toc-item" id="toc-s-designs"><a href="#s-designs"><span class="toc-num">04</span> Design Space</a></li>
+    <li class="toc-item" id="toc-s-signal"><a href="#s-signal"><span class="toc-num">05</span> Tuning the Signal</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════ §01 ═══════════════════════════════════ -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Problem</div>
+<h2>The Three Cracks in Post-Training</h2>
+<p>Every LLM post-training pipeline leans on three tools: Supervised Fine-Tuning (SFT), Reinforcement Learning (RL), and On-Policy Distillation (OPD). Each solves something the others don't — but each also breaks something. Together they leave a gap that none of the three can close alone.</p>
+
+<p><strong>SFT</strong> trains on expert demonstrations via maximum likelihood: for each position <em>t</em>, maximize the probability of the human-written token <em>y<sub>t</sub></em> given the preceding ground-truth tokens <em>y<sub>&lt;t</sub></em>. This creates a fundamental mismatch: at training time, the model conditions on <em>human</em> tokens; at inference time, it conditions on its <em>own</em> tokens. One wrong token early in generation shifts the context into a distribution the model has never trained on, and errors compound.</p>
+
+<p><strong>RL (GRPO)</strong> fixes the mismatch by training on the model's own rollouts. But it assigns a single scalar reward to the entire sequence — every token in a long chain-of-thought gets credit for the final answer, even the early "Let me think" tokens that had nothing to do with success or failure. When all rollouts in a batch are uniformly correct (or wrong), the advantage is zero and the gradient vanishes entirely.</p>
+
+<p><strong>OPD (On-Policy Distillation)</strong> gives dense, per-token supervision on the student's own rollouts — fixing RL's sparse-reward problem. But it requires a separate, significantly more powerful teacher model running alongside the student during training. That doubles GPU memory. And if the teacher is too powerful, the student cannot approximate its complex distribution at all.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">three-failures-canvas.js</span>
+    <span class="vp-hint">click a tab to see the failure mode</span>
+  </div>
+  <div class="vp-body" style="padding:.875rem 1.25rem 1.25rem">
+    <div class="method-tabs">
+      <button class="method-tab active" data-tab="sft">SFT</button>
+      <button class="method-tab" data-tab="grpo">GRPO (RL)</button>
+      <button class="method-tab" data-tab="opd">OPD</button>
+      <button class="method-tab" data-tab="opsd">OPSD ✓</button>
+    </div>
+    <canvas id="failure-canvas" style="width:100%;height:210px;border-radius:6px;display:block"></canvas>
+    <div id="failure-caption" style="font-size:.72rem;color:var(--muted);margin-top:.625rem;text-align:center;min-height:2.5em"></div>
+  </div>
+</div>
+
+<table class="results-table">
+  <thead><tr><th>Method</th><th>Supervision</th><th>Key Strength</th><th>Critical Weakness</th></tr></thead>
+  <tbody>
+    <tr><td class="mn">SFT</td><td>Sparse (sequence-level)</td><td>Simple, stable, fast</td><td>Off-policy — exposure bias at inference</td></tr>
+    <tr><td class="mn">GRPO</td><td>Sparse (scalar reward)</td><td>On-policy, no value model</td><td>Credit assignment; vanishing gradients</td></tr>
+    <tr><td class="mn">OPD</td><td>Dense (token-level KL)</td><td>Stability, fine-grained learning</td><td>Requires strong external teacher</td></tr>
+    <tr class="highlight-row"><td class="mn">OPSD</td><td>Dense (token-level KL)</td><td class="best">No external teacher, self-contained</td><td>Careful handling of privileged context</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════ §02 ═══════════════════════════════════ -->
+<section id="s-core" data-code="core">
+<div class="section-no">02 — The Core Idea</div>
+<h2>The Dual-Role Insight</h2>
+<p>OPSD's key observation is simple: <em>evaluation is easier than generation</em>. A model given the correct answer can construct a much better reasoning trace than one generating blindly. The privileged context of knowing the answer lets the model "look back" and produce a coherent, step-by-step justification.</p>
+<p>This asymmetry is the engine of OPSD. Rather than deploying a separate, larger teacher model, OPSD splits a single model into two roles using different input contexts:</p>
+<ul>
+  <li><strong>Student</strong> — sees only the question <em>x</em>. Generates rollouts on-policy: <em>y ~ π<sub>θ</sub><sup>stud</sup>(·|x)</em>.</li>
+  <li><strong>Teacher</strong> — sees the question <em>x</em> plus the ground-truth answer <em>y*</em> (privileged information). At each position <em>t</em>, produces the distribution <em>π<sub>θ</sub><sup>teach</sup>(·|x, y*, y<sub>&lt;t</sub>)</em>.</li>
+</ul>
+<p>Both roles use <em>the same parameters θ</em>. The student generates trajectories, the teacher conditions on the correct answer to provide dense per-token supervision over those exact trajectories. Then gradient descent updates θ, making both the student and teacher smarter simultaneously.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dual-role-architecture.svg</span>
+    <span class="vp-hint">same weights θ — different context</span>
+  </div>
+  <div class="vp-body">
+    <svg width="100%" viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      <defs>
+        <marker id="arr-p" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#8b5cf6"/>
+        </marker>
+        <marker id="arr-c" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#06b6d4"/>
+        </marker>
+        <marker id="arr-g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#10b981"/>
+        </marker>
+        <marker id="arr-a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#f59e0b"/>
+        </marker>
+      </defs>
+
+      <!-- Central model box -->
+      <rect x="215" y="18" width="210" height="58" rx="8" fill="rgba(139,92,246,.15)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="320" y="43" text-anchor="middle" fill="#f0f0f8" font-size="13" font-weight="700" font-family="monospace">Model parameters θ</text>
+      <text x="320" y="62" text-anchor="middle" fill="#8b5cf6" font-size="10" font-family="monospace">shared weights</text>
+
+      <!-- Split lines -->
+      <line x1="255" y1="76" x2="140" y2="122" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="385" y1="76" x2="500" y2="122" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+      <!-- Student box -->
+      <rect x="28" y="122" width="225" height="76" rx="8" fill="rgba(6,182,212,.08)" stroke="#06b6d4" stroke-width="1.5"/>
+      <text x="140" y="147" text-anchor="middle" fill="#06b6d4" font-size="12" font-weight="700" font-family="monospace">Student π_θ^stud</text>
+      <text x="140" y="165" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="monospace">Input: x  (question only)</text>
+      <text x="140" y="183" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="monospace">Output: y ~ π(·|x)  ← on-policy</text>
+
+      <!-- Teacher box -->
+      <rect x="387" y="122" width="225" height="76" rx="8" fill="rgba(16,185,129,.08)" stroke="#10b981" stroke-width="1.5"/>
+      <text x="500" y="147" text-anchor="middle" fill="#10b981" font-size="12" font-weight="700" font-family="monospace">Teacher π_θ^teach</text>
+      <text x="500" y="165" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="monospace">Input: x + y*  (privileged answer)</text>
+      <text x="500" y="183" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="monospace">Output: π(·|x, y*, y_&lt;t)</text>
+
+      <!-- Converge lines to KL box -->
+      <line x1="140" y1="198" x2="260" y2="248" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#arr-c)"/>
+      <line x1="500" y1="198" x2="380" y2="248" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-g)"/>
+
+      <!-- KL divergence box -->
+      <rect x="205" y="248" width="230" height="50" rx="8" fill="rgba(245,158,11,.1)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="320" y="269" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="700" font-family="monospace">KL divergence loss</text>
+      <text x="320" y="287" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="monospace">dense, per-token supervision</text>
+
+      <!-- Gradient back to model -->
+      <line x1="320" y1="248" x2="320" y2="80" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-a)"/>
+      <text x="330" y="200" fill="#f59e0b" font-size="10" font-family="monospace">∇θ update</text>
+
+      <!-- Ground truth label -->
+      <text x="500" y="108" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="monospace">★ privileged: answer y*</text>
+    </svg>
+  </div>
+</div>
+
+<p>The OPSD training objective is a per-token KL divergence between the student and teacher, averaged over trajectories sampled from the student itself:</p>
+
+<div class="math-block">
+  <div class="math-label">OPSD Loss (Eq. 6)</div>
+  <span class="math-var">L</span><sub>OPSD</sub>(θ) = 𝔼<sub>(x,y*)~D, y~π<sub>θ</sub><sup>stud</sup>(·|x)</sub> [ <span class="math-var">Σ<sub>t=1</sub><sup>|y|</sup></span> KL( π<sub>θ</sub><sup>stud</sup>(·|x, y<sub>&lt;t</sub>) ‖ π<sub>θ</sub><sup>teach</sup>(·|x, y*, y<sub>&lt;t</sub>) ) ]
+  <br><span class="math-comment">  — both roles share parameters θ; y is sampled from the student (on-policy)</span>
+</div>
+
+<p>Because both roles share θ, the model cannot "cheat" by having the teacher diverge from the student arbitrarily. It must find parameters where its blind behavior (student) closely tracks its informed behavior (teacher) — meaning its reasoning chain should look like what a version of itself that knew the answer would produce.</p>
+</section>
+
+<!-- ═══════════════════════════════════════ §03 ═══════════════════════════════════ -->
+<section id="s-loop" data-code="loop">
+<div class="section-no">03 — Implementation</div>
+<h2>The OPSD Training Loop</h2>
+<p>In practice, OPSD runs a four-step cycle per batch. The student generates rollouts; the teacher conditions on the ground-truth answer to provide per-token distributions; the KL loss flows back through shared weights. Click through the steps below.</p>
+
+<div class="step-list" id="step-list-loop">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Sample rollout from student</div>
+      <div class="step-desc">Draw a prompt-answer pair (x, y*) from dataset D. Let the student generate a rollout y by sampling autoregressively, conditioned only on x. This is the "on-policy" part — training data comes from the current model, not a static corpus.</div>
+      <div class="step-code">y ~ π_θ^stud(·|x)  # on-policy rollout, no y* visible</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Teacher conditions on privileged answer</div>
+      <div class="step-desc">For each token position t in the rollout y, feed the teacher the same prompt x, the ground-truth answer y*, and the rollout prefix y<sub>&lt;t</sub>. The teacher produces a sharp distribution over the vocabulary — it knows where the reasoning is heading.</div>
+      <div class="step-code">p_T(·|x, y*, y_&lt;t) for each t=1...|y|  # informed teacher</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Compute per-token divergence</div>
+      <div class="step-desc">At each position t, measure the KL (or JSD) divergence between the student's distribution and the teacher's. High divergence at position t means: "the teacher (who knows the answer) would assign very different token probabilities here than the student does blindly."</div>
+      <div class="step-code">loss_t = KL(p_S(·|x, y_&lt;t) ‖ p_T(·|x, y*, y_&lt;t))</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Update shared parameters θ</div>
+      <div class="step-desc">Average the per-token losses over the rollout and over the batch. Backpropagate through the student (gradients stop at teacher outputs — teacher is treated as a "frozen" oracle for this step). Both student and teacher improve in the next iteration because θ is shared.</div>
+      <div class="step-code">L = mean_t(loss_t);  θ ← θ − α ∇_θ L  # shared update</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev-loop" disabled>← Prev</button>
+  <span id="step-prog-loop" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Step 1 of 4</span>
+  <button id="step-next-loop">Next →</button>
+</div>
+
+<h3>Memory advantage over OPD</h3>
+<p>In standard OPD you run two separate model instances during training: one forward pass through the student to generate rollouts, then another forward pass through the (usually larger) teacher for supervision. OPSD collapses both into a single model with different prompt prefixes. The student and teacher contexts can often be batched together, and there is zero gradient storage for a separate teacher. Empirically, OPSD reduces GPU memory consumption by <strong>40–60%</strong> versus standard OPD — and in extreme large-model scenarios, OPD runs out of memory entirely while OPSD remains feasible.</p>
+</section>
+
+<!-- ═══════════════════════════════════════ §04 ═══════════════════════════════════ -->
+<section id="s-designs" data-code="designs">
+<div class="section-no">04 — The Landscape</div>
+<h2>Eight Design Patterns</h2>
+<p>Since the core OPSD framework was formalized, dozens of papers have extended it along eight broad design axes. Click any card to see the key insight and representative methods.</p>
+
+<div class="design-grid">
+  <div class="design-card" data-design="hybrid">
+    <div class="design-card-head"><span class="design-icon">⚡</span><span class="design-name">Hybrid RL + SD</span></div>
+    <div class="design-desc">RL provides direction (which rollouts are better), self-distillation provides magnitude (dense token corrections).</div>
+    <div class="design-methods"><span class="design-method">HDPO</span><span class="design-method">SRPO</span><span class="design-method">RLSD</span><span class="design-method">GEAR</span></div>
+  </div>
+  <div class="design-card" data-design="feedback">
+    <div class="design-card-head"><span class="design-icon">🔁</span><span class="design-name">Feedback-Driven</span></div>
+    <div class="design-desc">Environmental feedback (compiler errors, failed unit tests) serves as a reflection context for the teacher.</div>
+    <div class="design-methods"><span class="design-method">SDPO</span><span class="design-method">GATES</span><span class="design-method">PAINT</span><span class="design-method">SD-Zero</span></div>
+  </div>
+  <div class="design-card" data-design="stability">
+    <div class="design-card-head"><span class="design-icon">🎛️</span><span class="design-name">Stability Calibration</span></div>
+    <div class="design-desc">Prevent signal degeneration — entropy gating, anti-distillation reversals, adaptive teacher exposure.</div>
+    <div class="design-methods"><span class="design-method">EGRSD</span><span class="design-method">DASD</span><span class="design-method">AntiSD</span><span class="design-method">PACED</span></div>
+  </div>
+  <div class="design-card" data-design="compression">
+    <div class="design-card-head"><span class="design-icon">✂️</span><span class="design-name">Reasoning Compression</span></div>
+    <div class="design-desc">Distill conciseness — the teacher is prompted to "be concise" or to generate fewer decoding steps.</div>
+    <div class="design-methods"><span class="design-method">CRISP</span><span class="design-method">Multi-Token</span><span class="design-method">D-OPSD</span></div>
+  </div>
+  <div class="design-card" data-design="transfer">
+    <div class="design-card-head"><span class="design-icon">🌐</span><span class="design-name">Capability Transfer</span></div>
+    <div class="design-desc">Transfer toolchain, language, or long-context capabilities from an augmented teacher into the base model.</div>
+    <div class="design-methods"><span class="design-method">OPHSD</span><span class="design-method">MSD</span><span class="design-method">OPSDL</span><span class="design-method">IRIS</span></div>
+  </div>
+  <div class="design-card" data-design="vision">
+    <div class="design-card-head"><span class="design-icon">🖼️</span><span class="design-name">Vision &amp; Multimodal</span></div>
+    <div class="design-desc">Extend OPSD to image generation (diffusion models) and video understanding — suffix conditioning instead of prefix.</div>
+    <div class="design-methods"><span class="design-method">D-OPSD</span><span class="design-method">VISD</span><span class="design-method">RLSD</span></div>
+  </div>
+  <div class="design-card" data-design="trajectory">
+    <div class="design-card-head"><span class="design-icon">📐</span><span class="design-name">Structured Trajectory</span></div>
+    <div class="design-desc">Segment trajectories by semantic deviation points rather than applying uniform token-level supervision.</div>
+    <div class="design-methods"><span class="design-method">GEAR</span><span class="design-method">TABOM</span><span class="design-method">ROSD</span></div>
+  </div>
+  <div class="design-card" data-design="theory">
+    <div class="design-card-head"><span class="design-icon">📐</span><span class="design-name">Foundational Theory</span></div>
+    <div class="design-desc">Generalization bounds, information-theoretic reward decomposition, convergence analysis.</div>
+    <div class="design-methods"><span class="design-method">UniSD</span><span class="design-method">CREDIT</span><span class="design-method">PBSD</span></div>
+  </div>
+</div>
+
+<div id="design-detail-box" class="design-detail"></div>
+
+<h3>Three variants worth knowing in depth</h3>
+
+<p><strong>DASD — Direction-Adaptive Self-Distillation.</strong> Standard OPSD applies the same "pull toward teacher" supervision to every token. But some tokens are high-entropy (genuinely ambiguous — multiple reasonable next tokens exist), and others are low-entropy (the correct next step is obvious). DASD routes these differently: at high-entropy positions, it <em>pushes the student away</em> from the teacher to preserve exploratory diversity; at low-entropy positions, it <em>pulls the student toward</em> the teacher for accuracy. On six math reasoning benchmarks, DASD achieves the best macro Avg@16 score among RLVR and self-distillation baselines.</p>
+
+<p><strong>ROSD — Reflective On-Policy Self-Distillation.</strong> Instead of conditioning the teacher on the ground-truth solution (which encourages copying), ROSD uses a self-reflector that first identifies where in the student's rollout reasoning first breaks down, then conditions the teacher on a corrective idea targeting that specific span. Distillation is then restricted to just the erroneous span — preserving valid reasoning prefixes and preventing the teacher from overwriting correct steps. Result: stronger in-domain reasoning and substantially better out-of-domain generalization than standard OPSD.</p>
+
+<p><strong>OPSA — Safety Alignment without Penalizing Reasoning.</strong> Safety alignment traditionally hurts reasoning capability — the "safety tax." The problem is off-policy training mismatch: safety demonstrations come from humans or external models, not the model's own distribution. OPSA applies OPSD specifically for safety: the teacher is given a "privileged safety context" that activates the model's latent safety reasoning, while the student sees only the harmful query. The "teacher flip rate" metric identifies which safety contexts are genuinely activating latent safety rather than surface-level refusals. Gains: +8.85 points on R1-Distill-1.5B, +5.49 points on Qwen3-0.6B, with reasoning capability preserved.</p>
+</section>
+
+<!-- ═══════════════════════════════════════ §05 ═══════════════════════════════════ -->
+<section id="s-signal" data-code="signal">
+<div class="section-no">05 — The Key Variable</div>
+<h2>Tuning the Divergence: β and the JSD Dial</h2>
+<p>OPSD measures the gap between the student and teacher using a divergence metric. The choice of metric is a key design variable, controlled by a parameter <strong>β ∈ [0, 1]</strong> in the generalized Jensen-Shannon divergence (JSD):</p>
+
+<div class="math-block">
+  <div class="math-label">Generalized JSD (Eq. 7–8)</div>
+  JSD<sub>β</sub>(p<sub>T</sub> ‖ p<sub>S</sub>) = β · D<sub>KL</sub>(p<sub>T</sub> ‖ m) + (1−β) · D<sub>KL</sub>(p<sub>S</sub> ‖ m)<br>
+  <span class="math-comment">  where  m = β·p<sub>T</sub> + (1−β)·p<sub>S</sub>  (mixture distribution)</span><br><br>
+  <span class="math-comment">  β→0 : reverse KL (mode-seeking: student commits to one high-quality mode)</span><br>
+  <span class="math-comment">  β=0.5 : symmetric JSD (balanced; bounded in [0, log 2], stable gradients)</span><br>
+  <span class="math-comment">  β→1 : forward KL (mode-covering: student must match all teacher modes)</span>
+</div>
+
+<p>The β knob interpolates between two extremes. <strong>Reverse KL (β→0)</strong> is mode-seeking: the student avoids assigning probability to tokens the teacher considers unlikely, which produces sharp, decisive answers — but may miss alternative correct reasoning paths. <strong>Forward KL (β→1)</strong> is mode-covering: the student must match every mode of the teacher's distribution, including low-probability ones, encouraging diversity at the cost of precision. The <strong>symmetric JSD (β=0.5)</strong> is the commonly used default: it is bounded between 0 and log 2, preventing gradient explosions, and the mixture distribution acts as a smoothing bridge between the two extremes.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">divergence-dial.js</span>
+    <span class="vp-hint">drag the β slider to see how supervision changes</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;align-items:center;gap:.875rem;margin-bottom:1rem;flex-wrap:wrap">
+      <label style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)">β =</label>
+      <input id="beta-slider" type="range" min="0" max="100" value="50" style="flex:1;min-width:140px;accent-color:var(--purple)">
+      <span id="beta-val" style="font-size:.8rem;font-family:var(--ff-mono);color:var(--purple-l);width:2.5rem">0.50</span>
+      <span id="beta-mode" style="font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);min-width:9rem">symmetric JSD</span>
+    </div>
+    <canvas id="beta-canvas" style="width:100%;height:220px;border-radius:6px;display:block"></canvas>
+    <div style="display:flex;justify-content:space-between;font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);margin-top:.4rem">
+      <span>β=0: reverse KL (mode-seeking)</span>
+      <span>β=0.5: JSD (balanced)</span>
+      <span>β=1: forward KL (mode-covering)</span>
+    </div>
+  </div>
+</div>
+
+<h3>Entropy-gated supervision (EGRSD)</h3>
+<p>A further refinement is to weight the per-token divergence by the teacher's confidence — its entropy at that position. <strong>EGRSD</strong> integrates three signals: a reward-grounded direction (should this token be updated at all?), a teacher-student likelihood-ratio magnitude (how large is the divergence?), and a teacher-entropy confidence gate (is the teacher itself uncertain?).</p>
+<p>The gate reduces supervision weight at high-entropy positions — positions where even the teacher, seeing the answer, assigns diffuse probability across many tokens. These positions are genuinely ambiguous (multiple valid next words exist), and forcing the student to mimic one particular distribution would suppress creative exploration. A nonzero floor ensures every token still contributes, avoiding dead zones in the gradient. On Qwen3-4B and Qwen3-8B, EGRSD advances the accuracy-length Pareto frontier beyond both GRPO and standard OPSD baselines.</p>
+</section>
+
+<!-- ═══════════════════════════════════════ §06 ═══════════════════════════════════ -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>What OPSD Achieves in Practice</h2>
+<p>Results are drawn from multiple 2026 papers, each targeting a different OPSD application domain. All comparisons are against the same base model (matched compute, matched training data where possible).</p>
+
+<h3>Safety alignment — removing the safety tax</h3>
+<p>OPSA (OPSD for Safety Alignment) on R1-Distill-1.5B and Qwen3-0.6B. The baseline is standard off-policy safety SFT. Values are safety evaluation scores (higher = safer, general reasoning preserved).</p>
+<div class="bar-section-label">Safety score — R1-Distill-1.5B (vs off-policy SFT baseline)</div>
+<div class="results-bars" id="results-bars">
+  <div class="bar-row"><span class="bar-label">SFT baseline</span><div class="bar-track"><div class="bar-fill" data-w="64.5" style="background:rgba(107,114,128,.45)"><span>64.5</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">Off-policy KD</span><div class="bar-track"><div class="bar-fill" data-w="67.0" style="background:rgba(107,114,128,.55)"><span>67.0</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">OPD (ext. teacher)</span><div class="bar-track"><div class="bar-fill" data-w="70.5" style="background:rgba(6,182,212,.45)"><span>70.5</span></div></div></div>
+  <div class="bar-row"><span class="bar-label" style="color:var(--purple-l)">OPSA (OPSD)</span><div class="bar-track"><div class="bar-fill" data-w="73.4" style="background:var(--purple)"><span>73.4 (+8.9)</span></div></div></div>
+</div>
+
+<div class="bar-section-label">Safety score — Qwen3-0.6B (vs off-policy SFT baseline)</div>
+<div class="results-bars">
+  <div class="bar-row"><span class="bar-label">SFT baseline</span><div class="bar-track"><div class="bar-fill" data-w="59.0" style="background:rgba(107,114,128,.45)"><span>59.0</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">Off-policy KD</span><div class="bar-track"><div class="bar-fill" data-w="61.2" style="background:rgba(107,114,128,.55)"><span>61.2</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">OPD (ext. teacher)</span><div class="bar-track"><div class="bar-fill" data-w="63.7" style="background:rgba(6,182,212,.45)"><span>63.7</span></div></div></div>
+  <div class="bar-row"><span class="bar-label" style="color:var(--purple-l)">OPSA (OPSD)</span><div class="bar-track"><div class="bar-fill" data-w="64.5" style="background:var(--purple)"><span>64.5 (+5.5)</span></div></div></div>
+</div>
+
+<h3>Reasoning — math benchmarks</h3>
+<p>DASD (Direction-Adaptive SD) on Qwen3-8B, macro Avg@16 across six math reasoning benchmarks (MATH500, AIME, AMC, Minerva, OlympiadBench, GaoKao). Higher = better problem-solving accuracy relative to output length.</p>
+<div class="bar-section-label">Macro Avg@16 — six math benchmarks (Qwen3-8B)</div>
+<div class="results-bars">
+  <div class="bar-row"><span class="bar-label">SFT (cold start)</span><div class="bar-track"><div class="bar-fill" data-w="49.2" style="background:rgba(107,114,128,.45)"><span>49.2</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">GRPO</span><div class="bar-track"><div class="bar-fill" data-w="53.8" style="background:rgba(107,114,128,.55)"><span>53.8</span></div></div></div>
+  <div class="bar-row"><span class="bar-label">Standard OPSD</span><div class="bar-track"><div class="bar-fill" data-w="56.1" style="background:rgba(6,182,212,.45)"><span>56.1</span></div></div></div>
+  <div class="bar-row"><span class="bar-label" style="color:var(--purple-l)">DASD (adaptive)</span><div class="bar-track"><div class="bar-fill" data-w="59.4" style="background:var(--purple)"><span>59.4 (best)</span></div></div></div>
+</div>
+
+<h3>Efficiency — diffusion LLMs</h3>
+<p>d-OPSD applies on-policy self-distillation to diffusion language models, using suffix conditioning (the student learns from self-future-experience) rather than prefix conditioning. On four reasoning benchmarks, d-OPSD outperforms both SFT and RLVR baselines while needing only <strong>~10% of the optimization steps</strong> that RLVR requires — a 10× sample efficiency gain that makes it practical even on limited compute budgets.</p>
+
+<table class="results-table">
+  <thead><tr><th>Method</th><th>Optimization Steps</th><th>Relative Performance</th><th>Memory vs OPD</th></tr></thead>
+  <tbody>
+    <tr><td class="mn">SFT</td><td class="mn">1×</td><td>baseline</td><td>—</td></tr>
+    <tr><td class="mn">RLVR (GRPO)</td><td class="mn">1×</td><td>+moderate</td><td>—</td></tr>
+    <tr><td class="mn">OPD (ext. teacher)</td><td class="mn">1×</td><td>+strong</td><td class="mn">2×</td></tr>
+    <tr class="highlight-row"><td class="mn">OPSD / d-OPSD</td><td class="mn best">0.1×</td><td class="mn best">+strong</td><td class="mn best">0.4–0.6×</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display:none" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: On-Policy Self-Distillation</h2>
+    <p>On-Policy Self-Distillation, or OPSD, is a post-training framework where a single language model acts as both teacher and student simultaneously. The teacher role is given the correct answer to a question, while the student only sees the question itself. Both roles share the same model parameters. The student generates rollouts on-policy, and the teacher provides dense per-token KL divergence supervision over those exact rollouts — no external teacher model needed, no distribution mismatch between training and inference.</p>
+    <p>Three prior approaches each fail at something. SFT trains on human tokens but infers on model tokens — a mismatch that compounds errors. RL provides on-policy training but assigns only one scalar reward to every token, making credit assignment difficult. On-Policy Distillation gives dense supervision but requires a separate, larger teacher that doubles GPU memory. OPSD combines the benefits of all three: on-policy training, dense per-token supervision, and no external teacher, while reducing GPU memory by 40 to 60 percent compared to standard OPD. The field has extended OPSD across eight design axes: hybrid RL plus self-distillation, feedback-driven methods using compiler errors or test failures, stability calibration via entropy gating, reasoning compression, cross-lingual capability transfer, vision and multimodal applications, structured trajectory segmentation, and foundational theory. Key results include: plus 8.85 points on safety alignment for R1-Distill 1.5B with OPSA, the best math reasoning Avg@16 across six benchmarks with DASD's direction-adaptive gating, and 10 times sample efficiency versus RLVR for diffusion language models with d-OPSD.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：在线自蒸馏</h2>
+    <p>在线自蒸馏（OPSD）是一种大模型后训练框架，同一个模型同时充当教师和学生角色。教师角色能看到问题的正确答案，而学生角色只能看到问题本身。两个角色共享相同的模型参数。学生在线生成推理轨迹，教师在这些轨迹上提供逐词的KL散度监督信号，无需外部教师模型，也不存在训练和推理的分布不匹配问题。</p>
+    <p>现有的三种方法各有缺陷：SFT用人类标注数据训练，推理时却用模型自己生成的词，产生曝光偏差；RL提供在线训练，但只为整个序列分配一个稀疏标量奖励，信用分配困难；在线蒸馏提供密集监督，但需要单独运行一个更强的教师模型，显存需求翻倍。OPSD融合三者优点，同时将显存降低40%至60%。在各领域的应用结果包括：OPSA在R1-Distill-1.5B上安全对齐提升8.85分；DASD在六项数学推理基准的宏平均Avg@16上达到最优；d-OPSD在扩散语言模型上的样本效率比RLVR高10倍。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">opsd/intro.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Three Cracks</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#8250;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="core">core</button>
+    <button class="cs-tab" data-panel="loop">loop</button>
+    <button class="cs-tab" data-panel="designs">designs</button>
+    <button class="cs-tab" data-panel="signal">signal</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The "Three Board Axe" of post-training</span>
+<span class="cs-line cmt"># Each solves something — each breaks something</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># SFT: maximum likelihood on expert demonstrations</span>
+<span class="cs-line hl-a">L_SFT = -E[(x,y)~D] sum_t log π_θ(y_t | x, y_&lt;t)</span>
+<span class="cs-line cmt">#   ✗ training on y_&lt;t (expert) ≠ inference on ŷ_&lt;t (model)</span>
+<span class="cs-line cmt">#   ✗ exposure bias — errors compound at inference</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GRPO: on-policy RL with group-relative advantage</span>
+<span class="cs-line hl-a">A_i = (r(x,y_i) - mean(r)) / std(r)   # group norm</span>
+<span class="cs-line hl-a">J_GRPO = E[min(w_it * A_i, clip(w_it,1±ε) * A_i)]</span>
+<span class="cs-line cmt">#   ✓ on-policy — trains on model's own rollouts</span>
+<span class="cs-line cmt">#   ✗ A_i same for all tokens in y_i (sparse credit)</span>
+<span class="cs-line cmt">#   ✗ if all rollouts right/wrong: A_i=0, no gradient</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># OPD (GKD): on-policy with external teacher</span>
+<span class="cs-line hl-a">L_OPD = E[y~π_θ] sum_t KL(π_θ(·|x,y_&lt;t) ‖ π_T(·|x,y_&lt;t))</span>
+<span class="cs-line cmt">#   ✓ dense token-level supervision on student rollouts</span>
+<span class="cs-line cmt">#   ✗ requires separate larger π_T (2× GPU memory)</span>
+<span class="cs-line cmt">#   ✗ capacity gap if π_T is too powerful</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># OPSD: same model, two contexts</span>
+<span class="cs-line hl-g">L_OPSD = E[y~π_θ^stud] sum_t KL(π_θ^stud ‖ π_θ^teach)</span>
+<span class="cs-line hl-g">#   π_θ^stud: conditioned on x only</span>
+<span class="cs-line hl-g">#   π_θ^teach: conditioned on x + y* (answer)</span>
+<span class="cs-line hl-g">#   θ is SHARED — single model, two roles</span>
+<span class="cs-line cmt">#   ✓ on-policy  ✓ dense  ✓ no external teacher</span>
+      </pre>
+    </div>
+
+    <!-- panel: core -->
+    <div class="cs-panel" id="panel-core">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OPSD objective — full form (Eq. 6)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Dataset: D = &#123;(x, y*)&#125; prompt + ground-truth answer</span>
+<span class="cs-line cmt"># Student: π_θ^stud(·|x)         ← blind, on-policy rollout</span>
+<span class="cs-line cmt"># Teacher: π_θ^teach(·|x, y*, y_&lt;t) ← informed, privileged</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">L_OPSD(θ) = E_&#123;(x,y*)~D, y~π_θ^stud(·|x)&#125; [</span>
+<span class="cs-line hl-p">    sum_&#123;t=1&#125;^&#123;|y|&#125;</span>
+<span class="cs-line hl-p">    KL( π_θ^stud(·|x, y_&lt;t)</span>
+<span class="cs-line hl-p">      ‖ π_θ^teach(·|x, y*, y_&lt;t) )</span>
+<span class="cs-line hl-p">]</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key: BOTH roles share θ</span>
+<span class="cs-line cmt"># → gradient updates improve both student and teacher</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Intuition: "evaluation easier than generation"</span>
+<span class="cs-line cmt"># A model knowing the answer (teacher) can produce</span>
+<span class="cs-line cmt"># a coherent reasoning trace — student learns from it</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># KL is reverse KL by default (mode-seeking):</span>
+<span class="cs-line cmt"># student avoids tokens teacher deems unlikely</span>
+<span class="cs-line cmt"># → sharp, decisive student policy</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Alternative: JSD for symmetry + bounded gradients</span>
+<span class="cs-line hl-c">m = β * p_T + (1-β) * p_S          # mixture</span>
+<span class="cs-line hl-c">JSD_β = β*KL(p_T‖m) + (1-β)*KL(p_S‖m)</span>
+<span class="cs-line hl-c"># bounded in [0, log2], prevents gradient explosion</span>
+      </pre>
+    </div>
+
+    <!-- panel: loop -->
+    <div class="cs-panel" id="panel-loop">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OPSD training loop (pseudocode)</span>
+<span class="cs-line"> </span>
+<span class="cs-line kw">def</span> <span class="fn">opsd_train</span>(model, dataset, steps):</span>
+<span class="cs-line">  <span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(steps):</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # Step 1: sample on-policy rollout (student)</span>
+<span class="cs-line hl-c">    x, y_star = <span class="fn">sample</span>(dataset)</span>
+<span class="cs-line hl-c">    y = model.<span class="fn">generate</span>(x)  <span class="cmt"># student: sees x only</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # Step 2: teacher forward pass (privileged)</span>
+<span class="cs-line hl-p">    teacher_ctx = x + y_star + y  <span class="cmt"># privileged</span></span>
+<span class="cs-line hl-p">    p_T = model.<span class="fn">logits</span>(teacher_ctx)  <span class="cmt"># teacher</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # Step 3: student forward pass (blind)</span>
+<span class="cs-line hl-g">    student_ctx = x + y  <span class="cmt"># no y* for student</span></span>
+<span class="cs-line hl-g">    p_S = model.<span class="fn">logits</span>(student_ctx)  <span class="cmt"># student</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt">    # Step 4: per-token divergence + update</span>
+<span class="cs-line hl-a">    loss = <span class="fn">mean</span>([<span class="fn">KL</span>(p_S[t], p_T[t])</span>
+<span class="cs-line hl-a">               <span class="kw">for</span> t <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(y))])</span>
+<span class="cs-line hl-a">    loss.<span class="fn">backward</span>()  <span class="cmt"># updates shared θ</span></span>
+<span class="cs-line hl-a">    optimizer.<span class="fn">step</span>()</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Memory: student + teacher can often be batched</span>
+<span class="cs-line cmt"># → no separate teacher checkpoint needed</span>
+<span class="cs-line cmt"># → 40–60% less GPU memory vs OPD</span>
+      </pre>
+    </div>
+
+    <!-- panel: designs -->
+    <div class="cs-panel" id="panel-designs">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># OPSD design space — 8 axes</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Hybrid RL + SD</span>
+<span class="cs-line hl-p">HDPO: RL_reward → direction; SD_KL → magnitude</span>
+<span class="cs-line hl-p">SRPO: route correct samples to RL, failed to SD</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Feedback-Driven (reflection context)</span>
+<span class="cs-line hl-c">SDPO:  compiler error → teacher reflection context</span>
+<span class="cs-line hl-c">GATES: tutor consensus across N traces → gating</span>
+<span class="cs-line hl-c">PAINT: mask y* by rollout-reference overlap; interp</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. Stability Calibration</span>
+<span class="cs-line hl-a">EGRSD: w_t = f(reward, KL_ratio, entropy_gate)</span>
+<span class="cs-line hl-a">DASD:  high_H(t) → push away; low_H(t) → pull toward</span>
+<span class="cs-line hl-a">AntiSD: maximize divergence + entropy gate (reversed!)</span>
+<span class="cs-line hl-a">PACED: weight by pass_rate (zone of proximal dev.)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 4. Reasoning Compression</span>
+<span class="cs-line hl-g">CRISP:  teacher prompted "be concise" → shorter CoT</span>
+<span class="cs-line hl-g">d-OPSD: suffix conditioning for diffusion LLMs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 5. Capability Transfer</span>
+<span class="cs-line">OPSDL: short-context teacher → long-context student</span>
+<span class="cs-line">MSD:   high-resource language → low-resource student</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 6. Vision / Multimodal</span>
+<span class="cs-line">D-OPSD (vision): teacher sees text+image → student text-only</span>
+<span class="cs-line">VISD: video judge → structured multi-dim. feedback</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 7. Structured Trajectory</span>
+<span class="cs-line">GEAR:  segment by semantic deviation points</span>
+<span class="cs-line">ROSD:  locate first error; distill only error span</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 8. Theory</span>
+<span class="cs-line">UniSD:  generalization bounds (unified view)</span>
+<span class="cs-line">CREDIT: PMI decomposition of self-distillation reward</span>
+      </pre>
+    </div>
+
+    <!-- panel: signal -->
+    <div class="cs-panel" id="panel-signal">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Generalized Jensen-Shannon Divergence (JSD_β)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Mixture distribution m:</span>
+<span class="cs-line hl-p">m = β * p_T + (1 - β) * p_S</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># JSD with parameter β:</span>
+<span class="cs-line hl-p">JSD_β(p_T, p_S) =</span>
+<span class="cs-line hl-p">    β   * KL(p_T ‖ m) +</span>
+<span class="cs-line hl-p">    (1-β) * KL(p_S ‖ m)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># β=0.5 (symmetric JSD):</span>
+<span class="cs-line cmt">#   bounded in [0, log 2]</span>
+<span class="cs-line cmt">#   prevents gradient explosion</span>
+<span class="cs-line cmt">#   teacher and student equally weighted</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># β→0 (reverse KL, mode-seeking):</span>
+<span class="cs-line cmt">#   student avoids low-probability teacher tokens</span>
+<span class="cs-line cmt">#   produces sharp, decisive policy</span>
+<span class="cs-line cmt">#   may miss alternative correct paths</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># β→1 (forward KL, mode-covering):</span>
+<span class="cs-line cmt">#   student must match ALL teacher modes</span>
+<span class="cs-line cmt">#   encourages diversity / exploration</span>
+<span class="cs-line cmt">#   may sacrifice precision</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># EGRSD entropy confidence gate:</span>
+<span class="cs-line hl-c">H_t = -sum_v p_T(v|...) * log p_T(v|...)   # entropy</span>
+<span class="cs-line hl-c">w_t = 1 - clip(H_t / H_max, 0, 1 - ε)    # gate</span>
+<span class="cs-line hl-c">L_EGRSD = sum_t w_t * JSD_β(p_T[t], p_S[t])</span>
+<span class="cs-line cmt"># high-entropy → low weight (ambiguous → skip)</span>
+<span class="cs-line cmt"># low-entropy  → full weight (certain → learn)</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key results across OPSD variants</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Safety (OPSA)</span>
+<span class="cs-line cmt">#    "Teacher flip rate": fraction of unsafe responses</span>
+<span class="cs-line cmt">#    converted to safe by privileged safety context</span>
+<span class="cs-line hl-g">R1-Distill-1.5B:  +8.85 pts  (SFT baseline)</span>
+<span class="cs-line hl-g">Qwen3-0.6B:       +5.49 pts  (SFT baseline)</span>
+<span class="cs-line hl-g">Gains concentrate at early compliance-decision tokens</span>
+<span class="cs-line cmt">#    → reasoning capability fully preserved</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Math reasoning (DASD, Qwen3-8B)</span>
+<span class="cs-line cmt">#    Macro Avg@16 across 6 benchmarks</span>
+<span class="cs-line cmt">#    (MATH500, AIME, AMC, Minerva, Olympiad, GaoKao)</span>
+<span class="cs-line hl-p">SFT:          49.2   (baseline)</span>
+<span class="cs-line hl-p">GRPO:         53.8   (+4.6)</span>
+<span class="cs-line hl-p">Standard OPSD: 56.1  (+6.9)</span>
+<span class="cs-line hl-p">DASD:         59.4   (+10.2)  ← best</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. Efficiency (d-OPSD, diffusion LLMs)</span>
+<span class="cs-line cmt">#    4 reasoning benchmarks; suffix conditioning</span>
+<span class="cs-line hl-c">Steps vs RLVR: ~10%  (10× sample efficiency)</span>
+<span class="cs-line hl-c">vs SFT:        +strong on all 4 benchmarks</span>
+<span class="cs-line hl-c">vs RLVR:       +strong on all 4 benchmarks</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 4. Memory vs OPD</span>
+<span class="cs-line cmt">#    All OPSD variants (8 A100 GPUs)</span>
+<span class="cs-line hl-a">GPU memory:  40–60% lower than OPD</span>
+<span class="cs-line hl-a">In XL-model regime: OPD → OOM; OPSD → feasible</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──
+const tabMeta = {
+  problem: { file: 'opsd/three-cracks.py',   title: 'The Three Cracks' },
+  core:    { file: 'opsd/dual-role.py',       title: 'The Dual-Role Insight' },
+  loop:    { file: 'opsd/training-loop.py',   title: 'The Training Loop' },
+  designs: { file: 'opsd/design-space.py',    title: 'Design Space' },
+  signal:  { file: 'opsd/divergence-dial.py', title: 'Tuning the Signal' },
+  results: { file: 'opsd/results.py',         title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar ──
+const sectionMap = {
+  's-problem': 'problem', 's-core': 'core', 's-loop': 'loop',
+  's-designs': 'designs', 's-signal': 'signal', 's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ═══════════════════════════ §01: Three Failures Canvas ═══════════════════════════
+(function() {
+  const canvas = document.getElementById('failure-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = 210;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return { W, H };
+  }
+  let dims = resize();
+
+  const COLORS = {
+    purple: '#8b5cf6', cyan: '#06b6d4', green: '#10b981', amber: '#f59e0b',
+    red: '#ef4444', muted: '#6b7280', border: 'rgba(255,255,255,.08)',
+    text: '#f0f0f8', text2: '#9ca3af', surface: 'rgba(255,255,255,.03)',
+  };
+
+  const CAPTIONS = {
+    sft:  'SFT trains on expert tokens (green) but infers on model tokens (red) — mismatch compounds errors',
+    grpo: 'GRPO assigns one reward R to all tokens equally — no per-token credit; gradient vanishes when all rollouts agree',
+    opd:  'OPD needs a larger external teacher model running alongside — doubles GPU memory, risks capacity gap',
+    opsd: 'OPSD: same model, two contexts — student sees only x, teacher sees x + y* — shared θ, dense supervision, no external model',
+  };
+
+  let currentTab = 'sft';
+
+  function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  function drawSFT(W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const pad = 24, colW = (W - pad*2) / 2 - 12;
+    const tokenW = 28, tokenH = 20, gap = 4;
+    const tokens = ['The', 'cat', 'sat', 'on', 'a', 'mat'];
+
+    // Training column
+    ctx.fillStyle = COLORS.muted; ctx.font = '10px monospace';
+    ctx.fillText('Training (on expert tokens)', pad, pad - 8);
+    tokens.forEach((tok, i) => {
+      const x = pad + (i % 3) * (tokenW + gap);
+      const y = pad + Math.floor(i / 3) * (tokenH + gap);
+      ctx.fillStyle = 'rgba(16,185,129,.3)'; ctx.strokeStyle = COLORS.green;
+      ctx.beginPath(); ctx.roundRect(x, y, tokenW + 14, tokenH, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = COLORS.green; ctx.font = '8px monospace';
+      ctx.fillText(tok, x + 3, y + 13);
+    });
+    ctx.fillStyle = COLORS.green; ctx.font = '9px monospace';
+    ctx.fillText('y_<t from human ✓', pad, pad + 55);
+
+    // Gap / arrow
+    const midX = W / 2;
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(midX - 12, H / 2 - 10); ctx.lineTo(midX + 12, H / 2 - 10); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = COLORS.amber; ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('mismatch', midX, H / 2 + 4);
+    ctx.textAlign = 'left';
+
+    // Inference column
+    const rx = midX + 24;
+    ctx.fillStyle = COLORS.muted; ctx.font = '10px monospace';
+    ctx.fillText('Inference (model generates)', rx, pad - 8);
+    const infTokens = ['The', 'cat', 'ate', '???', '???', '???'];
+    const colors2 = [COLORS.green, COLORS.green, COLORS.red, COLORS.red, COLORS.red, COLORS.red];
+    infTokens.forEach((tok, i) => {
+      const x = rx + (i % 3) * (tokenW + gap);
+      const y = pad + Math.floor(i / 3) * (tokenH + gap);
+      const c = colors2[i];
+      ctx.fillStyle = c + '30'; ctx.strokeStyle = c;
+      ctx.beginPath(); ctx.roundRect(x, y, tokenW + 14, tokenH, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = c; ctx.font = '8px monospace';
+      ctx.fillText(tok, x + 3, y + 13);
+    });
+    ctx.fillStyle = COLORS.red; ctx.font = '9px monospace';
+    ctx.fillText('ŷ_<t from model ✗', rx, pad + 55);
+
+    // Error arrow
+    ctx.strokeStyle = COLORS.red; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(rx + 32, pad + 10); ctx.lineTo(rx + 32, H - 30);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.red; ctx.font = '9px monospace';
+    ctx.fillText('errors compound →', rx, H - 18);
+  }
+
+  function drawGRPO(W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const seqLen = 16;
+    const tokenW = Math.floor((W - 60) / seqLen) - 2;
+    const startX = 30, tokenH = 28, tokenY = 60;
+
+    ctx.fillStyle = COLORS.muted; ctx.font = '10px monospace';
+    ctx.fillText('Token sequence (reasoning chain)', startX, tokenY - 16);
+
+    for (let i = 0; i < seqLen; i++) {
+      const x = startX + i * (tokenW + 2);
+      const isAnswer = i === seqLen - 1;
+      const col = isAnswer ? COLORS.amber : 'rgba(107,114,128,.35)';
+      ctx.fillStyle = isAnswer ? 'rgba(245,158,11,.2)' : COLORS.surface;
+      ctx.strokeStyle = col;
+      ctx.beginPath(); ctx.roundRect(x, tokenY, tokenW, tokenH, 3); ctx.fill(); ctx.stroke();
+      if (isAnswer) {
+        ctx.fillStyle = COLORS.amber; ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('R', x + tokenW/2, tokenY + tokenH/2 + 3);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    // Reward label on last token
+    const lastX = startX + (seqLen-1) * (tokenW + 2);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 2]);
+    for (let i = 0; i < seqLen - 1; i++) {
+      const x = startX + i * (tokenW + 2) + tokenW/2;
+      ctx.beginPath();
+      ctx.moveTo(x, tokenY + tokenH + 4);
+      ctx.lineTo(lastX + tokenW/2, H - 36);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Same reward value for all
+    ctx.fillStyle = COLORS.muted; ctx.font = '9px monospace';
+    ctx.fillText('All 16 tokens receive the same scalar reward R = 1', startX, H - 18);
+    ctx.fillStyle = COLORS.red;
+    ctx.fillText('→ early "Let me think" tokens credited same as final answer', startX, H - 5);
+  }
+
+  function drawOPD(W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const bW = 160, bH = 70, gap = 60;
+    const leftX = 40, rightX = leftX + bW + gap, midY = H / 2 - 20;
+
+    // Student box
+    ctx.fillStyle = 'rgba(6,182,212,.08)'; ctx.strokeStyle = COLORS.cyan;
+    ctx.beginPath(); ctx.roundRect(leftX, midY - bH/2, bW, bH, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLORS.cyan; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Student', leftX + bW/2, midY - 10);
+    ctx.fillStyle = COLORS.muted; ctx.font = '9px monospace';
+    ctx.fillText('(smaller model)', leftX + bW/2, midY + 6);
+    ctx.fillText('GPU: 1×', leftX + bW/2, midY + 20);
+    ctx.textAlign = 'left';
+
+    // Teacher box
+    ctx.fillStyle = 'rgba(245,158,11,.08)'; ctx.strokeStyle = COLORS.amber;
+    ctx.beginPath(); ctx.roundRect(rightX, midY - bH/2 - 15, bW + 20, bH + 20, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLORS.amber; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Teacher', rightX + (bW+20)/2, midY - 10);
+    ctx.fillStyle = COLORS.muted; ctx.font = '9px monospace';
+    ctx.fillText('(larger, external)', rightX + (bW+20)/2, midY + 6);
+    ctx.fillStyle = COLORS.red;
+    ctx.fillText('GPU: 2×', rightX + (bW+20)/2, midY + 20);
+    ctx.textAlign = 'left';
+
+    // Arrow from teacher to student
+    const ax = rightX, ay = midY;
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(leftX + bW + 4, ay);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.amber; ctx.font = '8px monospace';
+    ctx.fillText('KL supervision', leftX + bW + 8, ay - 6);
+
+    // Warning
+    ctx.fillStyle = COLORS.red; ctx.font = '9px monospace';
+    ctx.fillText('✗ requires separate teacher deployment', 40, H - 16);
+    ctx.fillText('✗ capacity gap if teacher too powerful', 40, H - 4);
+  }
+
+  function drawOPSD(W, H) {
+    ctx.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2 - 10;
+    const bW = 180, bH = 56;
+
+    // Center model
+    ctx.fillStyle = 'rgba(139,92,246,.15)'; ctx.strokeStyle = COLORS.purple;
+    ctx.beginPath(); ctx.roundRect(cx - bW/2, cy - bH/2, bW, bH, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLORS.purple; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Single Model (θ shared)', cx, cy - 8);
+    ctx.fillStyle = COLORS.muted; ctx.font = '9px monospace';
+    ctx.fillText('one GPU, one checkpoint', cx, cy + 8);
+    ctx.textAlign = 'left';
+
+    // Left bubble (student)
+    const lx = 20, ly = H / 2 + 20;
+    ctx.fillStyle = 'rgba(6,182,212,.1)'; ctx.strokeStyle = COLORS.cyan;
+    ctx.beginPath(); ctx.roundRect(lx, ly, 130, 44, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLORS.cyan; ctx.font = 'bold 9px monospace';
+    ctx.fillText('Student context', lx + 8, ly + 16);
+    ctx.fillStyle = COLORS.muted; ctx.font = '8px monospace';
+    ctx.fillText('input: x only', lx + 8, ly + 30);
+
+    // Right bubble (teacher)
+    const rx = W - 160, ry = H / 2 + 20;
+    ctx.fillStyle = 'rgba(16,185,129,.1)'; ctx.strokeStyle = COLORS.green;
+    ctx.beginPath(); ctx.roundRect(rx, ry, 140, 44, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLORS.green; ctx.font = 'bold 9px monospace';
+    ctx.fillText('Teacher context', rx + 8, ry + 16);
+    ctx.fillStyle = COLORS.muted; ctx.font = '8px monospace';
+    ctx.fillText('input: x + y*', rx + 8, ry + 30);
+
+    // Connect lines
+    ctx.strokeStyle = COLORS.purple; ctx.lineWidth = 1.2; ctx.setLineDash([3,2]);
+    ctx.beginPath(); ctx.moveTo(cx - bW/2, cy + bH/2); ctx.lineTo(lx + 65, ly); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + bW/2, cy + bH/2); ctx.lineTo(rx + 70, ry); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Benefits
+    ctx.fillStyle = COLORS.green; ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('✓ on-policy  ✓ dense  ✓ no external teacher', cx, H - 4);
+    ctx.textAlign = 'left';
+  }
+
+  const drawFns = { sft: drawSFT, grpo: drawGRPO, opd: drawOPD, opsd: drawOPSD };
+
+  function drawCurrent() {
+    const { W, H } = dims;
+    (drawFns[currentTab] || drawSFT)(W, H);
+    const cap = document.getElementById('failure-caption');
+    if (cap) cap.textContent = CAPTIONS[currentTab] || '';
+  }
+
+  document.querySelectorAll('.method-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.method-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      dims = resize();
+      drawCurrent();
+    });
+  });
+
+  window.addEventListener('resize', () => { dims = resize(); drawCurrent(); });
+  dims = resize(); drawCurrent();
+})();
+
+// ═══════════════════════════ §03: Step Navigator ═══════════════════════════
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#step-list-loop .step-box');
+  const prevBtn = document.getElementById('step-prev-loop');
+  const nextBtn = document.getElementById('step-next-loop');
+  const progEl  = document.getElementById('step-prog-loop');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i+1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ═══════════════════════════ §04: Design Space Cards ═══════════════════════════
+(function() {
+  const DETAILS = {
+    hybrid:      'RL provides a direction signal (which rollouts are relatively better), but its reward is too sparse for fine-grained token improvement. Self-distillation provides dense token corrections but no direction. Hybrid methods like HDPO and SRPO combine both: generate rollouts with RL, use the privileged teacher to correct the failed rollouts with dense supervision. GEAR identifies "semantic deviation points" in trajectories where the student diverges from good reasoning, using these as boundaries for advantage function segmentation.',
+    feedback:    'The teacher\'s "privileged information" doesn\'t have to be the ground-truth answer — it can be any structured feedback. SDPO uses compiler outputs and unit test results as the reflection context: when code fails, the error message becomes the teacher\'s input, and the teacher is asked to reason about the fix. GATES samples multiple teacher traces and derives supervision from their consensus — if N of M traces agree on a token, that token gets higher supervision weight. PAINT masks the verified solution proportionally to how much the student rollout already overlaps with it.',
+    stability:   'The biggest risk of self-distillation is signal degeneration: the teacher and student can collapse to the same distribution if supervision is too strong, or the teacher can overfit high-entropy tokens. EGRSD addresses this with a three-signal gate: reward direction × KL magnitude × entropy confidence. DASD reverses the supervision direction for high-entropy tokens (pushing student away from teacher to preserve exploration). AntiSD goes further — for mathematical reasoning it shows that maximizing divergence can sometimes outperform standard distillation. PACED focuses compute on the zone of proximal development: problems the student passes 20–80% of the time.',
+    compression: 'OPSD can be used not just to improve accuracy but to compress the reasoning process. CRISP teachers the student from a teacher prompted to "be concise" — the teacher generates shorter chains of thought, and the student learns to match them. Multi-Token SD distills a next-token predictor into a multi-token predictor: the teacher generates multiple future tokens in parallel, and the student learns to predict them jointly. D-OPSD for diffusion LLMs uses suffix conditioning to preserve few-step inference capability while fine-tuning.',
+    transfer:    'OPSD can transfer capabilities from an augmented teacher context to the base student. OPSDL uses the model\'s strong short-context reasoning as the teacher context to supervise the student\'s longer context generation — reducing hallucinations in long-context tasks without any external long-context data. MSD transfers safety alignment from high-resource languages (English) to low-resource languages: the teacher sees the English safety context, the student generates in the target language. OPHSD augments the teacher with a coding harness, then distills harness-augmented reasoning into a standalone student.',
+    vision:      'Standard OPSD uses prefix conditioning (the teacher sees x + y* as a prefix). For diffusion LLMs and vision models, generation is not left-to-right — this is fundamentally incompatible. D-OPSD introduces suffix conditioning: for text generation, the student generates left-to-right from x, while the teacher is conditioned on the completed answer as a suffix (self-future-experience). For image generation, the teacher sees the target image, and step-level supervision replaces token-level supervision to align with the iterative denoising process. VISD extends this to video, using a video-aware judge to decompose reasoning quality into multiple dimensions.',
+    trajectory:  'Rather than applying uniform per-token supervision, structured trajectory methods identify semantically meaningful boundaries. GEAR segments trajectories at "semantic deviation points" — positions where the student\'s distribution diverges significantly from a reference — and applies advantage reweighting within each segment. ROSD uses a self-reflector to identify the first erroneous span in the student\'s rollout, then provides a corrective idea that steers the teacher toward targeted fixes. Distillation is restricted to just the erroneous span, preserving all valid prefixes and preventing teacher supervision from overwriting correct reasoning.',
+    theory:      'UniSD provides a unified theoretical framework showing that OPSD can be viewed as a special case of a general self-improvement objective with bounded generalization error. CREDIT decomposes the self-distillation reward using pointwise mutual information (PMI), showing that standard self-distillation inadvertently rewards input-agnostic "shortcut signals" — tokens that would be likely regardless of the input. Filtering by PMI removes these shortcuts and concentrates learning on input-specific credit. PBSD develops a theoretical framework for preference-based self-distillation, showing convergence properties under various reward models.',
+  };
+
+  let activeCard = null;
+  const detailBox = document.getElementById('design-detail-box');
+
+  document.querySelectorAll('.design-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const key = card.dataset.design;
+      if (activeCard === card) {
+        card.classList.remove('active');
+        detailBox.classList.remove('show');
+        detailBox.textContent = '';
+        activeCard = null;
+      } else {
+        document.querySelectorAll('.design-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        detailBox.textContent = DETAILS[key] || '';
+        detailBox.classList.add('show');
+        activeCard = card;
+      }
+    });
+  });
+})();
+
+// ═══════════════════════════ §05: Beta/JSD Canvas ═══════════════════════════
+(function() {
+  const canvas = document.getElementById('beta-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let W, H;
+
+  function resize() {
+    W = canvas.clientWidth; H = 220;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+  }
+
+  const VOCAB = ['is', 'the', 'so', '42', 'therefore', 'yes', 'no', 'then'];
+
+  // Teacher distribution: peaked at index 3 ("42") — knows the answer
+  const teacherProbs = [0.04, 0.03, 0.08, 0.62, 0.10, 0.06, 0.04, 0.03];
+  // Student distribution: diffuse — unsure
+  const studentProbs = [0.10, 0.08, 0.14, 0.22, 0.18, 0.12, 0.10, 0.06];
+
+  function drawBeta(beta) {
+    ctx.clearRect(0, 0, W, H);
+
+    const nVocab = VOCAB.length;
+    const barW = Math.floor((W - 100) / nVocab) - 4;
+    const startX = 50;
+    const maxH = H - 80;
+    const baseY = H - 36;
+
+    // Title
+    ctx.fillStyle = '#9ca3af'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('Token probability distributions at position t', startX, 18);
+
+    for (let i = 0; i < nVocab; i++) {
+      const x = startX + i * (barW + 4);
+
+      // Mixture distribution m
+      const m = beta * teacherProbs[i] + (1 - beta) * studentProbs[i];
+
+      // Teacher bar
+      const tH = teacherProbs[i] * maxH;
+      ctx.fillStyle = 'rgba(16,185,129,.25)'; ctx.strokeStyle = '#10b981';
+      ctx.beginPath(); ctx.roundRect(x, baseY - tH, barW/3, tH, 2); ctx.fill(); ctx.stroke();
+
+      // Student bar
+      const sH = studentProbs[i] * maxH;
+      ctx.fillStyle = 'rgba(6,182,212,.25)'; ctx.strokeStyle = '#06b6d4';
+      ctx.beginPath(); ctx.roundRect(x + barW/3 + 2, baseY - sH, barW/3, sH, 2); ctx.fill(); ctx.stroke();
+
+      // Mixture m bar
+      const mH = m * maxH;
+      ctx.fillStyle = 'rgba(139,92,246,.35)'; ctx.strokeStyle = '#8b5cf6';
+      ctx.beginPath(); ctx.roundRect(x + 2*barW/3 + 4, baseY - mH, barW/3 - 2, mH, 2); ctx.fill(); ctx.stroke();
+
+      // Token label
+      ctx.fillStyle = '#6b7280'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('"' + VOCAB[i] + '"', x + barW/2, baseY + 12);
+    }
+
+    // Legend
+    const ly = H - 18;
+    ctx.fillStyle = '#10b981'; ctx.fillRect(startX, ly, 10, 8);
+    ctx.fillStyle = '#9ca3af'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('Teacher p_T', startX + 14, ly + 7);
+
+    ctx.fillStyle = '#06b6d4'; ctx.fillRect(startX + 90, ly, 10, 8);
+    ctx.fillText('Student p_S', startX + 104, ly + 7);
+
+    ctx.fillStyle = '#8b5cf6'; ctx.fillRect(startX + 185, ly, 10, 8);
+    ctx.fillText('Mixture m = β·p_T+(1-β)·p_S', startX + 199, ly + 7);
+
+    // Mode annotation
+    let modeText;
+    if (beta < 0.2) modeText = '← reverse KL: student commits to teacher\'s top mode ("42")';
+    else if (beta > 0.8) modeText = '← forward KL: student must cover all teacher modes';
+    else modeText = '← symmetric JSD: balanced, bounded in [0, log 2]';
+    ctx.fillStyle = '#8b5cf6'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(modeText, startX, baseY - maxH - 8);
+  }
+
+  const slider = document.getElementById('beta-slider');
+  const valEl  = document.getElementById('beta-val');
+  const modeEl = document.getElementById('beta-mode');
+
+  function updateBeta() {
+    const beta = parseFloat(slider.value) / 100;
+    if (valEl) valEl.textContent = beta.toFixed(2);
+    if (modeEl) {
+      if (beta < 0.2) modeEl.textContent = 'reverse KL';
+      else if (beta > 0.8) modeEl.textContent = 'forward KL';
+      else if (Math.abs(beta - 0.5) < 0.08) modeEl.textContent = 'symmetric JSD';
+      else modeEl.textContent = 'generalized JSD';
+    }
+    resize();
+    drawBeta(beta);
+  }
+
+  slider?.addEventListener('input', updateBeta);
+  window.addEventListener('resize', updateBeta);
+  resize(); drawBeta(0.5);
+})();
+
+// ═══════════════════════════ §06: Animated bar chart ═══════════════════════════
+(function() {
+  const allBars = document.getElementById('s-results');
+  if (!allBars) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w)) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(allBars);
+})();
+</script>
+</BaseLayout>
