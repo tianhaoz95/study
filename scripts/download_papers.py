@@ -9,6 +9,10 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "diffusion-gemma-transparency.pdf":          "https://arxiv.org/pdf/2606.20560",
+    "joyai-vl-interaction.pdf":                  "https://arxiv.org/pdf/2606.14777v1",
+    "loopcoder-v2.pdf":                          "https://arxiv.org/pdf/2606.18023",
+    "loop-world-model.pdf":                      "https://arxiv.org/pdf/2606.18208",
     "opsd-overview.pdf":                         "https://arxiv.org/pdf/2605.18141",
     "dasd.pdf":                                  "https://arxiv.org/pdf/2605.22263",
     "opsd-opd-survey.pdf":                       "https://arxiv.org/pdf/2604.13016",

@@ -1,0 +1,1497 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Looped World Models | Catpuccino.ai"
+  description="LoopWM: the first looped transformer architectures for world modelling — 100× parameter efficiency, adaptive depth per transition, provably stable rollouts."
+  crumb="LoopWM"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Inline controls */
+.viz-controls{display:flex;align-items:center;gap:.625rem;flex-wrap:wrap;margin-bottom:.75rem}
+.viz-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.viz-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.viz-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.viz-stat{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* Callout */
+.callout{background:var(--purple-dim);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">World Models</span>
+    <span class="tag tag-cyan">Looped Transformers</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Looped World Models: Depth That Scales with Complexity</h1>
+  <p class="lead">
+    World models need deep computation for hard transitions but waste it on easy ones.
+    LoopWM is the first looped transformer architecture for world modelling — one parameter-shared block
+    applied iteratively, exiting early for free-flight steps and running deep for complex events.
+    A 1B-parameter LoopWM outperforms Claude Opus 4.6 Max on ScienceWorld by +21 pp, using 100× fewer parameters.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 22, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2606.18208</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.18208" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&#8249;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Fixed-Depth Trap</a></li>
+    <li class="toc-item" id="toc-s-loop"><a href="#s-loop"><span class="toc-num">02</span> Looped Architectures</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> LoopWM Architecture</a></li>
+    <li class="toc-item" id="toc-s-adaptive"><a href="#s-adaptive"><span class="toc-num">04</span> Adaptive Computation</a></li>
+    <li class="toc-item" id="toc-s-deferred"><a href="#s-deferred"><span class="toc-num">05</span> Deferred Decoding</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 THE PROBLEM -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Fixed-Depth Trap</div>
+<h2>Every Step Gets the Same Treatment</h2>
+<p>
+  World models predict how environments evolve: given a state and an action, what happens next?
+  This is the core loop of model-based reinforcement learning — the agent imagines thousands
+  of future trajectories inside a learned simulator, plans the best actions, then acts.
+</p>
+<p>
+  The problem is that not all transitions are equally hard. When an agent navigates an empty
+  corridor ("go north"), the world state barely changes — a single linear transformation would
+  suffice. But when a catalyst is added to a beaker, triggering a multi-step chemical reaction,
+  the dynamics are far more complex, requiring deep iterative reasoning to predict correctly.
+</p>
+<p>
+  Today's world models are <em>fixed-depth</em>: a stack of L unique transformer layers, always
+  applied in full, for every single transition. The same 100-layer compute budget goes to
+  "go north" as to "ignite the reaction." This creates two failure modes simultaneously.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">fixed-depth vs adaptive compute — same model, different transitions</span>
+    <span class="vp-hint">hover to compare</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-problem" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  The left panel shows a fixed-depth model applying all 8 layers uniformly to every transition —
+  a trivial navigation step gets the same budget as a complex multi-object interaction.
+  The wasted compute on simple steps adds up over thousands of rollout iterations.
+  Worse, this uniformity means the model must compromise: it can't afford the 12 layers that
+  the truly hard transitions need, so it allocates a middle-ground depth that undershoots
+  on complexity and overshoots on simplicity.
+</p>
+<ul>
+  <li><strong>Compounding errors:</strong> small prediction mistakes at each step accumulate
+    exponentially over long horizons. Deeper = better per-step quality, but 10× more parameters
+    and 10× more inference cost for 1000 rollout steps.</li>
+  <li><strong>Deployment pressure:</strong> long-horizon planning requires running the dynamics
+    model hundreds of times in sequence. A model that is too deep to be real-time is useless
+    for embodied AI and game environments.</li>
+</ul>
+<p>
+  LoopWM resolves both with a single insight: <strong>make depth a function of transition
+  complexity, not a fixed hyperparameter</strong>.
+</p>
+</section>
+
+<!-- §02 LOOPED ARCHITECTURES -->
+<section id="s-loop" data-code="loop">
+<div class="section-no">02 — Looped Architectures</div>
+<h2>One Block, Applied Iteratively</h2>
+<p>
+  A standard transformer with L layers has L separate sets of parameters — each layer has
+  its own weights, independent of every other layer. Depth and parameter count are tightly coupled.
+  Double the depth, double the parameters.
+</p>
+<p>
+  <strong>Looped (universal) transformers</strong> break this coupling by sharing parameters across
+  depth. Instead of L unique blocks, there is one block <em>R</em> applied T times in sequence.
+  The same weights are reused at every iteration; only the hidden state changes. Effective depth
+  is T × (layers in R), but the parameter count is just 1 × (layers in R).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">parameter count: fixed-depth (L unique layers) vs looped (1 shared block × T)</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-loop" style="width:100%;height:220px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  This is not just a memory trick. Theoretical work shows looped transformers can simulate arbitrary
+  iterative algorithms — gradient descent, Newton's method, dynamic programming — with constant
+  parameter count. Empirically, a looped LM with 1 shared block achieves 2–3× parameter efficiency
+  over an equivalent fixed-depth model on language tasks.
+</p>
+<p>
+  LoopWM is the <em>first application of this idea to world modelling</em>. And it turns out that
+  world models have a structural property that makes looped architectures especially natural: physical
+  dynamics are themselves an iterative process. The same governing law (Newton's equations,
+  chemical kinetics) applies repeatedly across time. The looped transformer's computation graph —
+  a shared update operator applied repeatedly to a hidden state — is directly isomorphic to this structure.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Looped update rule (Eq. 5 from paper)</div>
+  <span class="math-var">h</span><sup>(t+1)</sup> = <span class="math-var">Ā</span> <span class="math-var">h</span><sup>(t)</sup> + <span class="math-var">B̄ e</span> + <span class="math-var">R̄</span>(<span class="math-var">h</span><sup>(t)</sup>, <span class="math-var">e</span>)
+  <span class="math-comment">   ← same weights Ā, B̄, R̄ at every iteration t</span>
+</div>
+<p>
+  Here <span style="font-family:var(--ff-mono);color:var(--cyan)">e</span> is the conditioning
+  signal (observation + action, processed once by the prelude), <span style="font-family:var(--ff-mono);color:var(--cyan)">Ā</span>
+  governs state retention, <span style="font-family:var(--ff-mono);color:var(--cyan)">B̄</span>
+  injects the input, and <span style="font-family:var(--ff-mono);color:var(--cyan)">R̄</span>
+  captures the transformer nonlinearities (attention + FFN).
+  The same three matrices apply at t=0, t=1, …, t=T−1.
+</p>
+</section>
+
+<!-- §03 ARCHITECTURE -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — LoopWM Architecture</div>
+<h2>Prelude → Loop → Coda, with Spectral Stability</h2>
+<p>
+  LoopWM follows a prelude–recurrent–coda (PRC) design. The observation and action are
+  processed once by the prelude; the looped block refines the hidden state T times; the coda
+  projects the final hidden state to prediction heads for reward, continuation, and next-observation.
+</p>
+
+<!-- Architecture SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">LoopWM forward pass architecture</span>
+  </div>
+  <div class="vp-body" style="overflow-x:auto">
+    <svg viewBox="0 0 700 260" style="width:100%;min-width:580px;height:auto;display:block" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background -->
+      <rect width="700" height="260" fill="#0d0d14"/>
+
+      <!-- Encoder box -->
+      <rect x="10" y="100" width="80" height="44" rx="6" fill="#0f2830" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="50" y="119" text-anchor="middle" fill="#06b6d4" font-size="9" font-family="monospace">Encoder</text>
+      <text x="50" y="132" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">E&#966;</text>
+
+      <!-- obs label -->
+      <text x="50" y="88" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">o&#8342;</text>
+      <line x1="50" y1="92" x2="50" y2="100" stroke="#5c6370" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Action embedder box -->
+      <rect x="10" y="176" width="80" height="44" rx="6" fill="#0f2830" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="50" y="195" text-anchor="middle" fill="#06b6d4" font-size="9" font-family="monospace">Action</text>
+      <text x="50" y="208" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">A&#968;</text>
+
+      <!-- action label -->
+      <text x="50" y="234" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">a&#8342;</text>
+      <line x1="50" y1="220" x2="50" y2="228" stroke="#5c6370" stroke-width="1"/>
+
+      <!-- Prelude box -->
+      <rect x="130" y="90" width="80" height="70" rx="6" fill="#1a1330" stroke="#8b5cf6" stroke-width="1.2"/>
+      <text x="170" y="122" text-anchor="middle" fill="#8b5cf6" font-size="9" font-family="monospace">Prelude P</text>
+      <text x="170" y="136" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">L&#8346; layers</text>
+
+      <!-- Arrow enc to prelude -->
+      <line x1="90" y1="122" x2="130" y2="122" stroke="#5c6370" stroke-width="1.2" marker-end="url(#arr)"/>
+      <!-- Arrow action to prelude -->
+      <path d="M 90 198 Q 110 198 110 140 Q 110 125 130 125" stroke="#5c6370" stroke-width="1.2" fill="none" marker-end="url(#arr)"/>
+
+      <!-- h_prev arrow -->
+      <text x="170" y="82" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">h&#8342;&#8331;&#8321;</text>
+      <line x1="170" y1="86" x2="170" y2="90" stroke="#5c6370" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Looped block -->
+      <rect x="250" y="80" width="120" height="100" rx="8" fill="#1a2b1a" stroke="#10b981" stroke-width="1.8"/>
+      <text x="310" y="110" text-anchor="middle" fill="#10b981" font-size="10" font-family="monospace" font-weight="700">Shared R</text>
+      <text x="310" y="126" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">L&#8347; layers</text>
+      <text x="310" y="145" text-anchor="middle" fill="#10b981" font-size="9" font-family="monospace">× T iterations</text>
+      <!-- loop back arrow -->
+      <path d="M 370 115 Q 398 115 398 145 Q 398 175 370 175 Q 310 175 250 160" stroke="#10b981" stroke-width="1.5" fill="none" stroke-dasharray="3,2" marker-end="url(#arrgr)"/>
+      <text x="398" y="150" text-anchor="middle" fill="#10b981" font-size="8" font-family="monospace">t=0..T-1</text>
+
+      <!-- Arrow prelude to loop -->
+      <line x1="210" y1="125" x2="250" y2="125" stroke="#5c6370" stroke-width="1.2" marker-end="url(#arr)"/>
+      <text x="230" y="118" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">e</text>
+
+      <!-- Coda box -->
+      <rect x="420" y="90" width="80" height="80" rx="6" fill="#2b1a1a" stroke="#f59e0b" stroke-width="1.2"/>
+      <text x="460" y="127" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="monospace">Coda C</text>
+      <text x="460" y="142" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">L&#8348; layers</text>
+      <text x="460" y="155" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">→ h&#8342;</text>
+
+      <!-- Arrow loop to coda -->
+      <line x1="370" y1="125" x2="420" y2="125" stroke="#5c6370" stroke-width="1.2" marker-end="url(#arr)"/>
+      <text x="395" y="118" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">h&#8319;</text>
+
+      <!-- Decoder box -->
+      <rect x="545" y="90" width="90" height="80" rx="6" fill="#1c1c10" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="4,2"/>
+      <text x="590" y="122" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="monospace">Decode D&#958;</text>
+      <text x="590" y="138" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">obs / rew</text>
+      <text x="590" y="151" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">/ cont</text>
+
+      <!-- Arrow coda to decode -->
+      <line x1="500" y1="130" x2="545" y2="130" stroke="#5c6370" stroke-width="1.2" marker-end="url(#arr)"/>
+
+      <!-- Spectral note -->
+      <rect x="248" y="192" width="124" height="24" rx="4" fill="rgba(139,92,246,0.10)" stroke="rgba(139,92,246,0.3)" stroke-width="1"/>
+      <text x="310" y="208" text-anchor="middle" fill="#8b5cf6" font-size="8" font-family="monospace">Ā = exp(&#916;·diag(-exp(a)))</text>
+
+      <!-- Dashed note for decoder -->
+      <text x="590" y="187" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">deferred</text>
+      <text x="590" y="197" text-anchor="middle" fill="#5c6370" font-size="8" font-family="monospace">in DD mode</text>
+
+      <!-- Arrows def -->
+      <defs>
+        <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#5c6370"/>
+        </marker>
+        <marker id="arrgr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#10b981"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<h3>The Spectral Stability Constraint</h3>
+<p>
+  Looped architectures have a well-known training instability: if the hidden state isn't
+  carefully controlled, it can grow or shrink exponentially as T increases. Over a long rollout
+  of 500 environment steps, this would cause catastrophic divergence.
+</p>
+<p>
+  LoopWM solves this by construction. The state-retention matrix <span style="font-family:var(--ff-mono);color:var(--cyan)">Ā</span>
+  is parameterized as the exponential of a strictly negative diagonal matrix:
+</p>
+<div class="math-block">
+  <span class="math-comment">Continuous-time diagonal: </span><span class="math-var">A</span> = diag(−exp(<span class="math-var">a</span>)), &nbsp; <span class="math-var">a</span> ∈ ℝ<sup>d</sup> (learnable)<br/>
+  <span class="math-comment">Zero-order hold:           </span><span class="math-var">Ā</span> = exp(Δ · <span class="math-var">A</span>), &nbsp; Δ ∈ ℝ<sup>d</sup><sub>&gt;0</sub> (learnable)<br/>
+  <span class="math-comment">Result:                    </span>all eigenvalues of <span class="math-var">Ā</span> ∈ (0, 1) &nbsp; <em>by construction</em>
+</div>
+<p>
+  Since every entry of Δ·A is strictly negative, the matrix exponential maps them into (0,1).
+  This means <span style="font-family:var(--ff-mono);color:var(--cyan)">ρ(Ā) &lt; 1</span>
+  regardless of how many loop iterations are taken. No gradient clipping, no spectral normalization
+  penalties, no sensitive tuning required — the constraint is baked into the parameterization.
+</p>
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">hidden state norm ‖h‖ over 50 rollout steps — constrained vs unconstrained</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-stability" style="width:100%;height:200px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+<p>
+  Without the spectral constraint, the latent state norm can grow exponentially across rollout
+  steps (red line), causing numerical instability and garbage predictions. With ρ(Ā) &lt; 1,
+  the dynamics remain bounded no matter how many steps are unrolled — a formal guarantee absent
+  from standard autoregressive world models.
+</p>
+</section>
+
+<!-- §04 ADAPTIVE COMPUTATION -->
+<section id="s-adaptive" data-code="adaptive">
+<div class="section-no">04 — Adaptive Computation</div>
+<h2>How Many Loops Does This Transition Need?</h2>
+<p>
+  With a looped architecture in place, a natural question arises: does every transition need
+  the same number of inner-loop iterations? The answer is emphatically no. And making T
+  per-transition rather than global is where LoopWM achieves its most compelling efficiency.
+</p>
+<p>
+  A lightweight <strong>exit gate</strong> — a single linear layer followed by sigmoid — is trained
+  alongside the dynamics core. At each iteration t, the gate evaluates the current hidden state
+  and outputs an exit probability g<sup>(t)</sup>. If g<sup>(t)</sup> exceeds threshold τ, the loop terminates early.
+</p>
+<div class="math-block">
+  <span class="math-comment">Exit gate: </span>g<sup>(t)</sup> = σ(w<sub>g</sub><sup>⊤</sup> h<sup>(t)</sup> + b<sub>g</sub>)
+  <span class="math-comment">   ← converged if g<sup>(t)</sup> &gt; τ</span>
+</div>
+<p>
+  This maps directly onto the non-uniform computational demands of environment simulation.
+  A simple navigation action ("go east") produces a nearly linear state change — the hidden
+  state converges after 1–2 iterations. A complex action ("add catalyst to beaker, observe
+  reaction") requires iterative latent refinement over 6–8 iterations.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">inner-loop iterations T per transition step — click to switch sequence type</span>
+    <span class="vp-hint">interact</span>
+  </div>
+  <div class="vp-body">
+    <div class="viz-controls">
+      <button class="viz-btn active" id="btn-easy">Easy Rollout</button>
+      <button class="viz-btn" id="btn-hard">Complex Rollout</button>
+      <span class="viz-stat" id="stat-avg">avg T: 1.7 iterations</span>
+    </div>
+    <canvas id="canvas-adaptive" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+    <div style="display:flex;gap:1.25rem;margin-top:.75rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted)">
+        <span style="width:12px;height:12px;border-radius:2px;background:#10b981;flex-shrink:0"></span> T ≤ 2 (simple)
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted)">
+        <span style="width:12px;height:12px;border-radius:2px;background:#f59e0b;flex-shrink:0"></span> T = 3–5 (moderate)
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted)">
+        <span style="width:12px;height:12px;border-radius:2px;background:#8b5cf6;flex-shrink:0"></span> T ≥ 6 (complex)
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  The easy rollout shows mostly T=1–2 iterations (green bars): simple navigation, looking around,
+  picking up a single object. The compute overhead is minimal. The complex rollout shows the
+  same 10-step sequence but with multi-step chemistry interactions — the exit gate runs 6–8
+  iterations on the hard steps, automatically allocating depth where it matters.
+</p>
+<p>
+  The paper notes that in the most favourable cases — long rollouts dominated by simple
+  transitions interspersed with rare complex events — the aggregate FLOP reduction relative
+  to a fixed-depth model can reach <strong>up to two orders of magnitude</strong>.
+  This makes LoopWM uniquely suited for long-horizon planning, where the dynamics model
+  runs hundreds or thousands of times per decision.
+</p>
+
+<div class="callout">
+  <strong>Entropy regularization:</strong> without a training signal encouraging the gate to explore different exit points, it collapses to always-exit-at-t=1 (minimum compute) or never-exit (maximum compute). LoopWM adds an entropy penalty on the gate's exit distribution to keep it exploratory:
+  L<sub>ent</sub> = −α · E[Σ<sub>t</sub> H(g<sup>(t)</sup>)], where H is binary entropy.
+</div>
+</section>
+
+<!-- §05 DEFERRED DECODING -->
+<section id="s-deferred" data-code="deferred">
+<div class="section-no">05 — Deferred Decoding</div>
+<h2>Five Actions, One Decode</h2>
+<p>
+  Standard world models decode — reconstruct the observation, predict the reward, and emit
+  the continuation flag — at every single rollout step. Over a K-step planning horizon, that
+  means K full decoder invocations, each consuming significant FLOPs and forcing the latent
+  state to maintain a reconstruction-ready representation at every intermediate step.
+</p>
+<p>
+  LoopWM introduces <strong>deferred decoding (DD)</strong>: run all K action-conditioned latent
+  transitions silently, then decode exactly once at the terminal step. This isn't just an
+  efficiency trick — it changes what the latent trajectory learns to encode. Without per-step
+  reconstruction pressure, the hidden states can capture temporally extended, action-relevant
+  structure rather than per-step visual detail.
+</p>
+<p>
+  This mirrors the "encode → think → decode" paradigm from language reasoning, applied here
+  to environment simulation: the model ingests an initial observation, rolls out K latent
+  transitions driven by the action sequence, and only surfaces to observation space at the end.
+</p>
+
+<!-- Deferred decoding viz -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">per-step decode vs deferred decode — K=5 action horizon</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-deferred" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  In the top row (per-step), each of the 5 transitions triggers a full decoder call (red boxes).
+  In the bottom row (deferred), transitions 1–4 run purely in latent space; only step 5 decodes
+  — saving 4 full decoder forward passes per plan evaluation. When combined with the adaptive
+  exit gate (§04), the total FLOP reduction can reach two orders of magnitude for long planning
+  horizons with simple dynamics.
+</p>
+<h3>Training the Deferred Decoder</h3>
+<p>
+  Training with K-step latent rollouts is unstable at large K: gradients must backpropagate
+  through K × T shared-parameter applications. LoopWM uses a progressive horizon curriculum:
+  begin with K=1 (standard per-step), increase K gradually until K reaches K<sub>max</sub>.
+  This lets the dynamics first learn accurate single-step transitions before being challenged
+  with longer decode-free horizons.
+</p>
+<p>
+  A latent consistency loss provides soft intermediate supervision without requiring a full
+  decoder: encode each ground-truth intermediate observation into a reference embedding, then
+  align the predicted hidden state to it via a lightweight projection head with stop-gradient.
+</p>
+</section>
+
+<!-- §06 RESULTS -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>A 1B Model That Beats Frontier LLMs at World Modelling</h2>
+<p>
+  LoopWM is evaluated on two text-based environment simulation benchmarks: <strong>ScienceWorld</strong>
+  (25 science-lab task categories including boiling, freezing, genetics, chemical reactions)
+  and <strong>AlfWorld</strong> (household object manipulation: clean, heat, cool, look, pick).
+  The evaluation protocol: feed the model 5 consecutive actions; it predicts the resulting world state.
+</p>
+<p>
+  Results are compared against frontier LLMs used as world simulators zero-shot — Claude Opus 4.6 Max,
+  Gemini 3 Flash Preview Thinking, and Qwen 3.5 Flash — all vastly larger than LoopWM's ~1B parameters.
+</p>
+
+<h3>ScienceWorld — Exact Match</h3>
+<div class="results-bars" id="bars-sw">
+  <div class="bar-row">
+    <div class="bar-label">LoopWM (1B, ours)</div>
+    <div class="bar-track"><div class="bar-fill" id="bar-sw-0" data-w="68.4" style="background:var(--purple)"><span>68.4%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Claude Opus 4.6 Max</div>
+    <div class="bar-track"><div class="bar-fill" id="bar-sw-1" data-w="47.2" style="background:rgba(107,114,128,.5)"><span>47.2%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Gemini 3 Flash Thinking</div>
+    <div class="bar-track"><div class="bar-fill" id="bar-sw-2" data-w="30.8" style="background:rgba(107,114,128,.4)"><span>30.8%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen 3.5 Flash</div>
+    <div class="bar-track"><div class="bar-fill" id="bar-sw-3" data-w="10.0" style="background:rgba(107,114,128,.3)"><span>10.0%</span></div></div>
+  </div>
+</div>
+
+<p>
+  LoopWM outperforms Claude Opus 4.6 Max by <strong>+21.2 percentage points</strong> on exact match,
+  despite using over 100× fewer parameters. The improvement is even more striking on individual tasks:
+  on the "Lifespan" category, LoopWM scores 100% while Claude scores 0%. On Token F1 and BLEU-4,
+  the gaps are consistent: 85.3% vs 72.8% on F1, 80.7% vs 64.4% on BLEU-4.
+</p>
+
+<h3>ScienceWorld — Breakdown by Task Category</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>LoopWM EM</th>
+      <th>Claude Opus EM</th>
+      <th>Delta</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td>Lifespan</td>
+      <td class="mn best">100.0%</td>
+      <td class="mn">0.0%</td>
+      <td class="mn" style="color:var(--green)">+100.0 pp</td>
+    </tr>
+    <tr>
+      <td>Conductivity</td>
+      <td class="mn">87.0%</td>
+      <td class="mn">47.8%</td>
+      <td class="mn" style="color:var(--green)">+39.2 pp</td>
+    </tr>
+    <tr>
+      <td>Thermometer</td>
+      <td class="mn">83.3%</td>
+      <td class="mn">83.3%</td>
+      <td class="mn" style="color:var(--muted)">+0.0 pp</td>
+    </tr>
+    <tr>
+      <td>Genetics</td>
+      <td class="mn">78.3%</td>
+      <td class="mn">59.2%</td>
+      <td class="mn" style="color:var(--green)">+19.1 pp</td>
+    </tr>
+    <tr>
+      <td>Grow</td>
+      <td class="mn">73.8%</td>
+      <td class="mn">70.8%</td>
+      <td class="mn" style="color:var(--green)">+3.0 pp</td>
+    </tr>
+    <tr>
+      <td>Melt</td>
+      <td class="mn">73.0%</td>
+      <td class="mn">36.5%</td>
+      <td class="mn" style="color:var(--green)">+36.5 pp</td>
+    </tr>
+    <tr>
+      <td>Boil</td>
+      <td class="mn">66.7%</td>
+      <td class="mn">22.2%</td>
+      <td class="mn" style="color:var(--green)">+44.5 pp</td>
+    </tr>
+    <tr>
+      <td>StateChange</td>
+      <td class="mn">80.0%</td>
+      <td class="mn">40.0%</td>
+      <td class="mn" style="color:var(--green)">+40.0 pp</td>
+    </tr>
+    <tr>
+      <td>Find</td>
+      <td class="mn">76.9%</td>
+      <td class="mn">69.2%</td>
+      <td class="mn" style="color:var(--green)">+7.7 pp</td>
+    </tr>
+    <tr>
+      <td>Incline</td>
+      <td class="mn">59.3%</td>
+      <td class="mn">34.0%</td>
+      <td class="mn" style="color:var(--green)">+25.3 pp</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>AlfWorld — Overall</h3>
+<p>
+  On AlfWorld (household tasks), LoopWM is competitive: 51.6% EM vs Claude's 53.0% EM,
+  with LoopWM winning on BLEU-4 (71.6% vs 66.8%) and Token F1 (80.4% vs 72.6%). The
+  1B specialized model essentially matches a frontier LLM at a fraction of the resource cost.
+</p>
+<div class="callout">
+  <strong>New scaling axis:</strong> LoopWM establishes <em>iterative latent depth</em> as a new
+  dimension for world model scaling — orthogonal to model size and data volume. More loop iterations
+  at inference time yields progressively refined predictions, analogous to test-time compute scaling
+  in language models (Geiping et al., 2025).
+</div>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display:none" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Looped World Models</h2>
+    <p>World models predict how environments evolve, but today's fixed-depth architectures apply the same computation to every transition, whether simple or complex. This wastes compute on easy steps and under-serves hard ones. Looped World Models, or LoopWM, resolve this by replacing a stack of unique layers with one parameter-shared transformer block applied iteratively. The same weights are reused at every iteration, decoupling effective depth from parameter count — up to 100 times more parameter-efficient than conventional approaches.</p>
+    <p>A lightweight exit gate checks the hidden state after each iteration and terminates early when the transition has converged, allocating just 1-2 loops to simple navigation and 6-8 loops to complex chemical reactions or contact events. A spectral norm constraint on the state-retention matrix ensures all eigenvalues remain in (0,1), giving provably stable rollouts across hundreds of steps. Deferred decoding further reduces compute by running all K latent transitions silently and decoding only once at the final step. On ScienceWorld, a 1-billion-parameter LoopWM beats Claude Opus 4.6 Max by 21 percentage points on exact match, using over 100 times fewer parameters. On AlfWorld it is essentially competitive with the frontier model.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：循环世界模型</h2>
+    <p>世界模型的核心任务是预测环境状态的演变，但现有的固定深度架构对每一步转换施加同等的计算量，无论转换是简单还是复杂。这在容易的步骤上浪费了算力，在困难的步骤上又力不从心。循环世界模型LoopWM通过将多个独立层替换为一个参数共享的Transformer模块并反复迭代来解决这一矛盾，在参数数量不变的情况下实现高达100倍的参数效率提升。</p>
+    <p>一个轻量的退出门控在每次迭代后检查隐藏状态，当转换收敛时提前终止循环——简单导航只需1到2次迭代，复杂化学反应或碰撞事件则运行6到8次。状态保留矩阵上的谱范数约束确保所有特征值维持在0到1之间，从数学上保证了数百步推演中的稳定性。延迟解码进一步降低计算量：沿K步动作序列在隐空间中静默推演，仅在最终步骤解码一次。在ScienceWorld基准上，仅10亿参数的LoopWM在精确匹配率上以21个百分点的优势超越Claude Opus 4.6 Max，参数量不及后者的百分之一。在AlfWorld上则与前沿模型旗鼓相当。</p>
+  </div>
+</div>
+
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">loopwm/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Fixed-Depth Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&#8250;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="loop">loop</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="adaptive">adaptive</button>
+    <button class="cs-tab" data-panel="deferred">deferred</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: problem -->
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Standard fixed-depth world model</span>
+<span class="cs-line cmt"># Every transition: always L unique layers</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">FixedDepthWM</span>:</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, L=<span class="num">100</span>):</span>
+<span class="cs-line">        <span class="cmt"># 100 unique parameter sets</span></span>
+<span class="cs-line">        <span class="kw">self</span>.layers = <span class="cls">nn</span>.<span class="fn">ModuleList</span>(</span>
+<span class="cs-line">            [<span class="fn">TransformerBlock</span>() <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(L)]</span>
+<span class="cs-line">        )</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h, obs, action):</span>
+<span class="cs-line hl-a">        <span class="cmt"># SAME cost for free-flight &amp; collision</span></span>
+<span class="cs-line hl-a">        <span class="kw">for</span> layer <span class="kw">in</span> <span class="kw">self</span>.layers:</span>
+<span class="cs-line hl-a">            h = <span class="fn">layer</span>(h, obs, action)</span>
+<span class="cs-line hl-a">        <span class="kw">return</span> h  <span class="cmt"># always: L × FLOPs</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Two failure modes:</span>
+<span class="cs-line cmt">#  1. Compounding errors over horizon K</span>
+<span class="cs-line cmt">#     err ~ (1+ε)^K → exponential blowup</span>
+<span class="cs-line cmt">#  2. Deployment cost scales with L</span>
+<span class="cs-line cmt">#     plan ×1000 rollouts = 1000 × L layers</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># LoopWM insight:</span>
+<span class="cs-line cmt">#   T = f(transition_complexity)</span>
+<span class="cs-line cmt">#   not a global hyperparameter</span>
+      </pre>
+    </div>
+
+    <!-- panel: loop -->
+    <div class="cs-panel" id="panel-loop">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Looped architecture: 1 shared block × T</span>
+<span class="cs-line cmt"># Depth decoupled from parameter count</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">LoopedCore</span>:</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d=<span class="num">512</span>):</span>
+<span class="cs-line hl-p">        <span class="cmt"># One shared block (not L unique!)</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.block = <span class="fn">TransformerBlock</span>(d)</span>
+<span class="cs-line"></span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h, e, T):</span>
+<span class="cs-line">        <span class="kw">for</span> t <span class="kw">in</span> <span class="fn">range</span>(T):</span>
+<span class="cs-line hl-c">            <span class="cmt"># same weights every iteration</span></span>
+<span class="cs-line hl-c">            h = Ā*h + B̄*e + <span class="fn">R̄</span>(h, e)</span>
+<span class="cs-line">        <span class="kw">return</span> h</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Parameter count comparison:</span>
+<span class="cs-line cmt"># Fixed-depth L=8:  8 × block_params</span>
+<span class="cs-line cmt"># Looped T=8:       1 × block_params</span>
+<span class="cs-line cmt"># Same effective depth. 8× fewer params.</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Variable T:  FixedDepth can't do this.</span>
+<span class="cs-line cmt"># Looped runs T=2 or T=12 same model.</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="cmt"># Stochastic training: T ~ Poisson(μ_rec)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># sampled per-sequence in each micro-batch</span></span>
+<span class="cs-line hl-g"><span class="cmt"># → robustness to variable inference depth</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Spectral stability — guaranteed by design</span>
+<span class="cs-line cmt"># No gradient clipping needed</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Continuous-time diagonal matrix:</span>
+<span class="cs-line hl-p">A = <span class="fn">diag</span>(-<span class="fn">exp</span>(a))   <span class="cmt"># a ∈ ℝ^d learnable</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Zero-order hold discretization:</span>
+<span class="cs-line hl-c">Ā = <span class="fn">exp</span>(Δ · A)       <span class="cmt"># Δ &gt; 0 learnable</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Result: all entries of Δ·A are negative</span>
+<span class="cs-line cmt"># exp(negative) ∈ (0, 1)</span>
+<span class="cs-line cmt"># → ρ(Ā) &lt; 1  (spectral radius)</span>
+<span class="cs-line cmt"># → contractive: ‖h^(t)‖ stays bounded</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># PRC architecture blocks:</span>
+<span class="cs-line">P = <span class="fn">Prelude</span>(L_P)   <span class="cmt"># processes obs+action once</span></span>
+<span class="cs-line">R = <span class="fn">SharedBlock</span>(L_R) <span class="cmt"># shared, looped T times</span></span>
+<span class="cs-line">C = <span class="fn">Coda</span>(L_C)     <span class="cmt"># processes final h^(T)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Cross-timestep propagation:</span>
+<span class="cs-line cmt"># h^(0) at step k = h^(T) from step k-1</span>
+<span class="cs-line hl-g"><span class="cmt"># inner loop: refines within 1 transition</span></span>
+<span class="cs-line hl-g"><span class="cmt"># outer loop: propagates across time steps</span></span>
+<span class="cs-line hl-g"><span class="cmt"># both loops bounded by ρ(Ā) &lt; 1</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: adaptive -->
+    <div class="cs-panel" id="panel-adaptive">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Adaptive exit gate — tiny overhead</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p">exit_gate = <span class="fn">Linear</span>(d, <span class="num">1</span>)  <span class="cmt"># &lt;&lt; 0.01% params</span></span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">adaptive_forward</span>(h, e, T_max, τ=<span class="num">0.5</span>):</span>
+<span class="cs-line">    <span class="kw">for</span> t <span class="kw">in</span> <span class="fn">range</span>(T_max):</span>
+<span class="cs-line hl-c">        h = Ā*h + B̄*e + <span class="fn">R̄</span>(h, e)</span>
+<span class="cs-line hl-c">        g = <span class="fn">sigmoid</span>(<span class="fn">exit_gate</span>(h))</span>
+<span class="cs-line hl-g">        <span class="kw">if</span> g &gt; τ:   <span class="cmt"># converged!</span></span>
+<span class="cs-line hl-g">            <span class="kw">break</span>  <span class="cmt"># exit after t+1 iters</span></span>
+<span class="cs-line">    <span class="kw">return</span> h, t + <span class="num">1</span>  <span class="cmt"># actual depth used</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Example savings (100-layer equiv):</span>
+<span class="cs-line cmt"># Free flight → T=4  : 25× FLOP reduction</span>
+<span class="cs-line cmt"># Collision   → T=100: full depth needed</span>
+<span class="cs-line cmt"># Avg rollout: ~2× reduction in practice</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Entropy regularizer (prevents gate collapse)</span>
+<span class="cs-line hl-a">L_ent = -α * <span class="fn">E</span>[<span class="fn">sum</span>(<span class="fn">H</span>(g_t) <span class="kw">for</span> t <span class="kw">in</span> T)]</span>
+<span class="cs-line hl-a"><span class="cmt"># H = binary entropy; α balances exploration</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: deferred -->
+    <div class="cs-panel" id="panel-deferred">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Deferred Decoding: K steps, 1 decode</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Standard (baseline): K decoder calls</span>
+<span class="cs-line hl-a"><span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(K):</span>
+<span class="cs-line hl-a">    u = <span class="fn">embed_action</span>(actions[k])</span>
+<span class="cs-line hl-a">    h = <span class="fn">looped_core</span>(h, u)  <span class="cmt"># dynamics</span></span>
+<span class="cs-line hl-a">    obs, rew, c = <span class="fn">decode</span>(h) <span class="cmt"># decode every step</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Deferred: 1 decoder call (step K only)</span>
+<span class="cs-line hl-p"><span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(K):</span>
+<span class="cs-line hl-p">    u = <span class="fn">embed_action</span>(actions[k])</span>
+<span class="cs-line hl-p">    h = <span class="fn">looped_core</span>(h, u)  <span class="cmt"># latent only!</span></span>
+<span class="cs-line hl-g">obs, rew, c = <span class="fn">decode</span>(h)  <span class="cmt"># once at the end</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training: curriculum over deferral horizon</span>
+<span class="cs-line cmt"># K_schedule(step) = min(K_max, 1 + step//Δ)</span>
+<span class="cs-line cmt"># Start with K=1, grow to K_max gradually</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Latent consistency loss (soft supervision)</span>
+<span class="cs-line hl-c">e_k_ref = <span class="fn">sg</span>(<span class="fn">encoder</span>(obs_k))  <span class="cmt"># stop-grad</span></span>
+<span class="cs-line hl-c">L_consist = <span class="fn">mse</span>(<span class="fn">proj_head</span>(h_k), e_k_ref)</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># ScienceWorld — Exact Match (EM)</span>
+<span class="cs-line cmt"># Task: predict state after 5 actions</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="cmt"># Model          | EM     | Params</span></span>
+<span class="cs-line hl-p"><span class="cmt"># LoopWM (ours)  | 68.4%  | ~1B</span></span>
+<span class="cs-line"><span class="cmt"># Claude Opus 4.6| 47.2%  | &gt;100B</span></span>
+<span class="cs-line"><span class="cmt"># Gemini 3 Flash | 30.8%  | large</span></span>
+<span class="cs-line"><span class="cmt"># Qwen 3.5 Flash | 10.0%  | large</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Best task deltas (LoopWM − Claude):</span>
+<span class="cs-line hl-g"><span class="cmt"># Lifespan:    +100.0 pp  (100% vs 0%)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Boil:         +44.5 pp  (66.7% vs 22.2%)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># StateChange:  +40.0 pp  (80% vs 40%)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Melt:         +36.5 pp  (73% vs 36.5%)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># AlfWorld — EM</span>
+<span class="cs-line"><span class="cmt"># LoopWM:  51.6% EM, 80.4% F1</span></span>
+<span class="cs-line"><span class="cmt"># Claude:  53.0% EM, 72.6% F1</span></span>
+<span class="cs-line"><span class="cmt"># → competitive at 100× fewer params</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Parameter efficiency:</span>
+<span class="cs-line hl-a"><span class="cmt"># Fixed-depth L=100: 100 × block_size</span></span>
+<span class="cs-line hl-a"><span class="cmt"># LoopWM T≤100:      1 × block_size</span></span>
+<span class="cs-line hl-a"><span class="cmt"># → up to 100× efficiency</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── Sidebar + TOC toggles ────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ──────────────────────────────────────────
+const tabMeta = {
+  problem:  { file: 'loopwm/model.py',     title: 'The Fixed-Depth Trap' },
+  loop:     { file: 'loopwm/loop_core.py', title: 'Looped Architectures' },
+  arch:     { file: 'loopwm/stability.py', title: 'LoopWM Architecture' },
+  adaptive: { file: 'loopwm/exit_gate.py', title: 'Adaptive Computation' },
+  deferred: { file: 'loopwm/deferred.py',  title: 'Deferred Decoding' },
+  results:  { file: 'loopwm/results.py',   title: 'Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — TOC + sidebar sync ───────────────────────────
+const sectionMap = {
+  's-problem':  'problem',
+  's-loop':     'loop',
+  's-arch':     'arch',
+  's-adaptive': 'adaptive',
+  's-deferred': 'deferred',
+  's-results':  'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ─── Canvas: The Fixed-Depth Problem ─────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('canvas-problem');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const nLayers = 8;
+  const panelW = W / 2 - 20;
+
+  // Colors for fixed-depth (all same amber) and adaptive (green/amber/red)
+  const fixedColor = 'rgba(245,158,11,0.75)';
+  const colors = ['#10b981','#10b981','#10b981','#10b981','#10b981','#10b981','#10b981','#10b981'];
+
+  function drawPanel(xOffset, label, depths, isFixed) {
+    // background
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(xOffset, 10, panelW, H - 20, 8);
+    ctx.fill(); ctx.stroke();
+
+    // Panel title
+    ctx.fillStyle = isFixed ? '#f59e0b' : '#10b981';
+    ctx.font = `600 10px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, xOffset + panelW / 2, 28);
+
+    const barW = (panelW - 40) / depths.length;
+    const maxH = H - 80;
+    const baseY = H - 30;
+
+    depths.forEach((d, i) => {
+      const x = xOffset + 20 + i * barW + barW * 0.1;
+      const bw = barW * 0.8;
+      const bh = (d / 8) * maxH;
+      const y = baseY - bh;
+
+      const c = isFixed ? fixedColor
+        : d <= 2 ? '#10b981'
+        : d <= 5 ? '#f59e0b' : '#8b5cf6';
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.roundRect(x, y, bw, bh, 3);
+      ctx.fill();
+
+      // T label
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = `600 8px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('T=' + d, x + bw / 2, y - 4);
+    });
+
+    // X-axis labels
+    const actions = isFixed
+      ? ['nav','nav','pick','nav','pour','heat','nav','obs']
+      : ['nav','nav','pick','nav','pour','heat','nav','obs'];
+    actions.forEach((a, i) => {
+      const x = xOffset + 20 + i * barW + barW / 2;
+      ctx.fillStyle = '#5c6370';
+      ctx.font = `7px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(a, x, H - 14);
+    });
+  }
+
+  // Fixed-depth: all T=8
+  drawPanel(10, 'Fixed-depth (T=8 always)', [8,8,8,8,8,8,8,8], true);
+  // Adaptive: variable T
+  drawPanel(W / 2 + 10, 'Adaptive (T per complexity)', [2,1,4,2,6,7,1,3], false);
+
+  // Waste label on fixed panel
+  ctx.fillStyle = 'rgba(245,158,11,0.3)';
+  ctx.font = `italic 9px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('waste on simple steps ↑', 10 + panelW / 2, 58);
+})();
+
+// ─── Canvas: Looped vs Fixed-depth parameter bars ────────────────────────
+(function () {
+  const canvas = document.getElementById('canvas-loop');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  const models = [
+    { label: 'Fixed L=8',   params: 8, color: '#f59e0b', depth: 8 },
+    { label: 'Fixed L=4',   params: 4, color: '#f59e0b', color2: true, depth: 4 },
+    { label: 'Looped T=8',  params: 1, color: '#8b5cf6', depth: 8 },
+    { label: 'Looped T=16', params: 1, color: '#10b981', depth: 16 },
+  ];
+
+  const maxP = 8;
+  const barH = 26;
+  const gap = 12;
+  const labelW = 120;
+  const trackW = W - labelW - 80;
+  const startY = 30;
+
+  ctx.fillStyle = '#5c6370';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Parameter count (relative units)', labelW, 20);
+  ctx.textAlign = 'right';
+  ctx.fillText('Effective depth', W - 10, 20);
+
+  models.forEach((m, i) => {
+    const y = startY + i * (barH + gap);
+
+    // Label
+    ctx.fillStyle = '#abb2bf';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(m.label, labelW - 8, y + barH / 2 + 3);
+
+    // Param bar
+    const bw = (m.params / maxP) * trackW;
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    ctx.roundRect(labelW, y, trackW, barH, 4);
+    ctx.fill();
+    ctx.fillStyle = m.color + (m.color2 ? '88' : 'cc');
+    ctx.beginPath();
+    ctx.roundRect(labelW, y, bw, barH, 4);
+    ctx.fill();
+
+    // Param value
+    ctx.fillStyle = '#abb2bf';
+    ctx.font = '600 9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(m.params + 'x blocks', labelW + bw + 6, y + barH / 2 + 3);
+
+    // Depth label on right
+    ctx.fillStyle = m.color;
+    ctx.textAlign = 'right';
+    ctx.fillText('depth ' + m.depth, W - 10, y + barH / 2 + 3);
+  });
+
+  // Highlight same-depth rows
+  ctx.strokeStyle = 'rgba(139,92,246,0.3)';
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1;
+  const y0 = startY;
+  const y2 = startY + 2 * (barH + gap);
+  ctx.beginPath();
+  ctx.moveTo(W - 55, y0 + barH / 2);
+  ctx.lineTo(W - 55, y2 + barH / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#8b5cf6';
+  ctx.font = 'italic 8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('same depth', W - 55, startY - 2);
+  ctx.fillText('8× fewer params', W - 55, y2 + barH + 14);
+})();
+
+// ─── Canvas: Spectral stability ───────────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('canvas-stability');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  const N = 50;
+  const padL = 50, padR = 20, padT = 20, padB = 35;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  // Horizontal grid lines
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+    const y = padT + plotH * (1 - v / 3);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(1), padL - 4, y + 3);
+  });
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(12, padT + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#5c6370';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('‖h‖ norm', 0, 0);
+  ctx.restore();
+
+  // X-axis label
+  ctx.fillStyle = '#5c6370';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Rollout step', padL + plotW / 2, H - 5);
+
+  // Unconstrained: grows exponentially, cap at 3
+  function unconstrained(t) { return Math.min(3, Math.pow(1.12, t) * 0.85); }
+  // Constrained: stays bounded around 1.0 with small noise
+  function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+  function constrained(t) { return 1.0 + 0.08 * Math.sin(t * 0.7) + 0.03 * (seededRand(t) - 0.5); }
+
+  function toX(t) { return padL + (t / (N - 1)) * plotW; }
+  function toY(v) { return padT + plotH * (1 - Math.min(v, 3) / 3); }
+
+  // Draw unconstrained (red)
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let t = 0; t < N; t++) {
+    const y = toY(unconstrained(t));
+    if (t === 0) ctx.moveTo(toX(t), y);
+    else ctx.lineTo(toX(t), y);
+  }
+  ctx.stroke();
+
+  // Draw constrained (green)
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let t = 0; t < N; t++) {
+    const y = toY(constrained(t));
+    if (t === 0) ctx.moveTo(toX(t), y);
+    else ctx.lineTo(toX(t), y);
+  }
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#ef4444';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Without ρ(Ā) < 1 — diverges', padL + plotW * 0.4, toY(unconstrained(22)) - 8);
+
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('LoopWM — bounded by construction', padL + 4, toY(constrained(25)) - 8);
+})();
+
+// ─── Canvas: Adaptive computation (interactive) ──────────────────────────
+(function () {
+  const canvas = document.getElementById('canvas-adaptive');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const easyDepths = [2, 1, 2, 1, 2, 2, 1, 2, 2, 1];
+  const easyLabels = ['go N','look','pick','go E','go W','look','go N','drop','go S','look'];
+  const hardDepths = [2, 5, 8, 7, 3, 2, 6, 8, 3, 2];
+  const hardLabels = ['nav','pick up','add chem','observe','stir','set aside','heat','phase chg','cool','record'];
+
+  let current = 'easy';
+
+  function barColor(d) {
+    if (d <= 2) return '#10b981';
+    if (d <= 5) return '#f59e0b';
+    return '#8b5cf6';
+  }
+
+  function draw(mode) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0d0d14';
+    ctx.fillRect(0, 0, W, H);
+
+    const depths = mode === 'easy' ? easyDepths : hardDepths;
+    const labels = mode === 'easy' ? easyLabels : hardLabels;
+    const avg = (depths.reduce((a,b) => a+b, 0) / depths.length).toFixed(1);
+
+    document.getElementById('stat-avg').textContent = 'avg T: ' + avg + ' iterations';
+
+    const n = depths.length;
+    const padL = 20, padR = 20, padT = 30, padB = 50;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    const barW = plotW / n;
+    const maxT = 8;
+
+    // T_max line
+    const tmaxY = padT;
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, tmaxY);
+    ctx.lineTo(padL + plotW, tmaxY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('T_max = 8', padL + 4, tmaxY - 3);
+
+    depths.forEach((d, i) => {
+      const x = padL + i * barW + barW * 0.12;
+      const bw = barW * 0.76;
+      const bh = (d / maxT) * plotH;
+      const y = padT + plotH - bh;
+
+      // Bar
+      ctx.fillStyle = barColor(d) + 'cc';
+      ctx.beginPath();
+      ctx.roundRect(x, y, bw, bh, 3);
+      ctx.fill();
+
+      // T value label
+      ctx.fillStyle = '#f0f0f8';
+      ctx.font = '600 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('T=' + d, x + bw / 2, y - 5);
+
+      // Step label below
+      ctx.fillStyle = '#5c6370';
+      ctx.font = '7px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(labels[i], x + bw / 2, H - padB + 14);
+
+      // Complex badge
+      if (d >= 6) {
+        ctx.fillStyle = 'rgba(139,92,246,0.15)';
+        ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x - 2, y - 22, bw + 4, 14, 3);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = '6px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('complex', x + bw / 2, y - 12);
+      }
+    });
+  }
+
+  draw('easy');
+
+  document.getElementById('btn-easy').addEventListener('click', () => {
+    current = 'easy';
+    document.getElementById('btn-easy').classList.add('active');
+    document.getElementById('btn-hard').classList.remove('active');
+    draw('easy');
+  });
+  document.getElementById('btn-hard').addEventListener('click', () => {
+    current = 'hard';
+    document.getElementById('btn-hard').classList.add('active');
+    document.getElementById('btn-easy').classList.remove('active');
+    draw('hard');
+  });
+})();
+
+// ─── Canvas: Deferred decoding ────────────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('canvas-deferred');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  const K = 5;
+  const actions = ['take beaker', 'pour reagent', 'add catalyst', 'heat to 100°C', 'observe'];
+  const padL = 100, padR = 20;
+  const cellW = (W - padL - padR) / K;
+  const rowH = 60;
+  const row1Y = 40;
+  const row2Y = 140;
+
+  // Row labels
+  ctx.font = '600 9px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText('Per-step', padL - 8, row1Y + rowH / 2 + 3);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('Deferred', padL - 8, row2Y + rowH / 2 + 3);
+
+  // Draw flow arrow between cells
+  function drawArrow(x1, y1, x2, y2) {
+    ctx.strokeStyle = '#5c6370';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    // arrowhead
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 7 * Math.cos(angle - 0.4), y2 - 7 * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - 7 * Math.cos(angle + 0.4), y2 - 7 * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fillStyle = '#5c6370';
+    ctx.fill();
+  }
+
+  for (let k = 0; k < K; k++) {
+    const cx = padL + k * cellW + cellW / 2;
+
+    // ── Per-step row ──
+    const boxW1 = cellW - 14;
+    const bx1 = padL + k * cellW + 7;
+
+    // Latent dynamics box
+    ctx.fillStyle = 'rgba(139,92,246,0.12)';
+    ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(bx1, row1Y, boxW1, 22, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('dynamics', cx, row1Y + 13);
+
+    // Decoder box (red)
+    ctx.fillStyle = 'rgba(239,68,68,0.15)';
+    ctx.strokeStyle = 'rgba(239,68,68,0.5)';
+    ctx.beginPath();
+    ctx.roundRect(bx1, row1Y + 28, boxW1, 20, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f87171';
+    ctx.font = '700 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DECODE', cx, row1Y + 41);
+
+    // Arrow to next
+    if (k < K - 1) {
+      drawArrow(bx1 + boxW1, row1Y + 30, padL + (k+1)*cellW + 7, row1Y + 11);
+    }
+
+    // ── Deferred row ──
+    const bx2 = padL + k * cellW + 7;
+    const isLast = k === K - 1;
+
+    // Latent dynamics box
+    ctx.fillStyle = 'rgba(16,185,129,0.10)';
+    ctx.strokeStyle = isLast ? 'rgba(16,185,129,0.8)' : 'rgba(16,185,129,0.3)';
+    ctx.lineWidth = isLast ? 1.5 : 1;
+    ctx.beginPath();
+    ctx.roundRect(bx2, row2Y, boxW1, 22, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = isLast ? '#34d399' : '#6ee7b7';
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('dynamics', cx, row2Y + 13);
+
+    if (isLast) {
+      // Single decode at end
+      ctx.fillStyle = 'rgba(16,185,129,0.2)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(bx2, row2Y + 28, boxW1, 20, 4);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#10b981';
+      ctx.font = '700 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('DECODE', cx, row2Y + 41);
+    } else {
+      // Empty / latent-only indicator
+      ctx.fillStyle = '#5c6370';
+      ctx.font = 'italic 7px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('latent only', cx, row2Y + 40);
+    }
+
+    // Arrow to next
+    if (k < K - 1) {
+      drawArrow(bx2 + boxW1, row2Y + 11, padL + (k+1)*cellW + 7, row2Y + 11);
+    }
+
+    // Action label below
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(actions[k], cx, row2Y + 72);
+  }
+
+  // Savings label
+  const savX = padL + 2 * cellW;
+  ctx.fillStyle = 'rgba(239,68,68,0.2)';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('↑ 5 decoder calls', savX, row1Y - 8);
+
+  ctx.fillStyle = 'rgba(16,185,129,0.8)';
+  ctx.fillText('↑ 1 decoder call — saves 4×', padL + 4 * cellW, row2Y - 8);
+})();
+
+// ─── Animated bar chart trigger ────────────────────────────────────────────
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+</BaseLayout>
