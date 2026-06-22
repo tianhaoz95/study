@@ -1,0 +1,1326 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="PerceptionLM: Open Video Understanding, No Black-Box Required | Catpuccino.ai"
+  description="Meta FAIR's fully open VLM releases 2.8M human-labeled video annotations to break the synthetic scaling wall — and beats GPT-4o on fine-grained video tasks without distilling from any proprietary model."
+  crumb="PerceptionLM"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Animated bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:200px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-label{font-size:.65rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.875rem;margin-bottom:.2rem;padding-left:calc(200px + .75rem)}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── FGQA type chart ── */
+.fgqa-chart{margin:1.75rem 0;display:flex;flex-direction:column;gap:.5rem}
+.fgqa-row{display:flex;align-items:center;gap:.75rem;cursor:pointer;border-radius:6px;padding:.25rem .5rem;transition:background .15s}
+.fgqa-row:hover{background:rgba(255,255,255,.03)}
+.fgqa-row.selected{background:rgba(139,92,246,.08);outline:1px solid rgba(139,92,246,.25);outline-offset:-1px}
+.fgqa-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:145px;flex-shrink:0;text-align:right;line-height:1.3}
+.fgqa-track{flex:1;background:var(--card2);border-radius:4px;height:20px;overflow:hidden}
+.fgqa-fill{height:100%;border-radius:4px;transition:width .6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem}
+.fgqa-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.fgqa-example{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:.5rem 0 1rem;display:none}
+.fgqa-example.visible{display:block}
+.fgqa-example .q{font-size:.8rem;color:var(--muted2);margin-bottom:.5rem}
+.fgqa-example .q::before{content:'Q: ';color:var(--cyan);font-weight:700;font-family:var(--ff-mono)}
+.fgqa-example .a{font-size:.8rem;color:var(--text2)}
+.fgqa-example .a::before{content:'A: ';color:var(--green);font-weight:700;font-family:var(--ff-mono)}
+.fgqa-example .type-tag{font-size:.65rem;font-family:var(--ff-mono);color:var(--purple);letter-spacing:.07em;text-transform:uppercase;margin-bottom:.5rem}
+
+/* ── STC canvas controls ── */
+.stc-controls{display:flex;align-items:center;gap:.625rem;margin-top:.75rem}
+.stc-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.stc-btn:hover:not(:disabled){border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.stc-btn:disabled{opacity:.35;cursor:default}
+.stc-seg-label{font-size:.75rem;color:var(--text2);font-family:var(--ff-mono);flex:1;min-width:0}
+
+/* ── Ablation table ── */
+.ablation-rows{margin:1.5rem 0;display:flex;flex-direction:column;gap:.35rem}
+.abl-row{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border);background:var(--card);font-size:.78rem}
+.abl-row.active-row{border-color:var(--purple);background:var(--purple-dim)}
+.abl-data{font-family:var(--ff-mono);font-size:.75rem;color:var(--muted);text-align:right}
+.abl-highlight{color:var(--purple-l);font-weight:700}
+.abl-check{width:16px;height:16px;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.65rem}
+.abl-check.on{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.4);color:var(--green)}
+.abl-check.off{background:var(--card2);border:1px solid var(--border)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Vision-Language Models</span>
+    <span class="tag tag-cyan">Open Research</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>PerceptionLM: Open Video Understanding, No Black-Box Required</h1>
+  <p class="lead">Proprietary distillation makes strong benchmarks — but hides whether the gains come from model design or teacher data. Meta FAIR's PLM builds a competitive VLM using only open-access data, then shows that 2.8M human-labeled video annotations are the missing ingredient synthetic scaling cannot replace.</p>
+  <div class="post-hero-meta">
+    <span>June 22, 2026</span>
+    <span>~9 min read</span>
+    <span>Paper: <code>arXiv:2504.13180</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2504.13180" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/facebookresearch/perception_models" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-trap"><a href="#s-trap"><span class="toc-num">01</span> Distillation Trap</a></li>
+    <li class="toc-item" id="toc-s-wall"><a href="#s-wall"><span class="toc-num">02</span> Scaling Wall</a></li>
+    <li class="toc-item" id="toc-s-fgqa"><a href="#s-fgqa"><span class="toc-num">03</span> PLM-FGQA</a></li>
+    <li class="toc-item" id="toc-s-stc"><a href="#s-stc"><span class="toc-num">04</span> PLM-STC</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">05</span> Architecture</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 THE DISTILLATION TRAP -->
+<section id="s-trap" data-code="trap">
+<div class="section-no">01 — The Distillation Trap</div>
+<h2>Why "Better Benchmarks" Isn't Enough</h2>
+<p>The dominant recipe for building a strong vision-language model today is straightforward: use a proprietary black-box model — GPT-4o, Gemini, Claude — to label your training data, then train on those labels. Benchmarks go up. Papers get published. But here's the problem: you have no idea <em>why</em> they went up.</p>
+<p>Did your architecture improve? Did your training procedure help? Or did GPT-4o already memorize the evaluation set during its own training? You can't tell. Worse, the community builds on this work without knowing whether it represents genuine progress or just proprietary data laundering.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">two training philosophies</span>
+    <span class="vp-hint">closed vs open</span>
+  </div>
+  <div class="vp-body" style="padding:0">
+    <svg viewBox="0 0 620 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#5c6370"/>
+        </marker>
+        <marker id="arr-p" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#8b5cf6"/>
+        </marker>
+      </defs>
+      <!-- LEFT: Distillation path -->
+      <text x="155" y="22" text-anchor="middle" font-family="monospace" font-size="10" fill="#6b7280" letter-spacing="2">DISTILLATION PATH</text>
+      <!-- Black box -->
+      <rect x="30" y="34" width="80" height="36" rx="6" fill="#1a1a2e" stroke="#374151"/>
+      <text x="70" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#9ca3af">GPT-4o</text>
+      <text x="70" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">(black box)</text>
+      <!-- Arrow -->
+      <line x1="110" y1="52" x2="142" y2="52" stroke="#5c6370" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="126" y="47" text-anchor="middle" font-family="monospace" font-size="8" fill="#5c6370">labels</text>
+      <!-- Your model -->
+      <rect x="143" y="34" width="80" height="36" rx="6" fill="#1a1a2e" stroke="#374151"/>
+      <text x="183" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#9ca3af">your VLM</text>
+      <text x="183" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">(trains on it)</text>
+      <!-- Arrow -->
+      <line x1="223" y1="52" x2="255" y2="52" stroke="#5c6370" stroke-width="1.5" marker-end="url(#arr)"/>
+      <!-- Benchmark -->
+      <rect x="256" y="34" width="80" height="36" rx="6" fill="#1a1a2e" stroke="#374151"/>
+      <text x="296" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#9ca3af">benchmark</text>
+      <text x="296" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#22c55e">↑ goes up!</text>
+      <!-- BUT WHY box -->
+      <rect x="256" y="82" width="80" height="28" rx="6" fill="rgba(239,68,68,.1)" stroke="rgba(239,68,68,.4)"/>
+      <text x="296" y="99" text-anchor="middle" font-family="monospace" font-size="9" fill="#ef4444">but WHY? ✗</text>
+
+      <!-- Divider -->
+      <line x1="310" y1="14" x2="310" y2="206" stroke="#1f2937" stroke-width="1" stroke-dasharray="4,4"/>
+
+      <!-- RIGHT: Open path -->
+      <text x="465" y="22" text-anchor="middle" font-family="monospace" font-size="10" fill="#8b5cf6" letter-spacing="2">OPEN PATH (PLM)</text>
+      <!-- Open models -->
+      <rect x="340" y="34" width="80" height="36" rx="6" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.35)"/>
+      <text x="380" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#a78bfa">open models</text>
+      <text x="380" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#8b5cf6">+ human labels</text>
+      <!-- Arrow -->
+      <line x1="420" y1="52" x2="452" y2="52" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arr-p)"/>
+      <!-- PLM -->
+      <rect x="453" y="34" width="80" height="36" rx="6" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.35)"/>
+      <text x="493" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#a78bfa">PLM</text>
+      <text x="493" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#8b5cf6">(fully open)</text>
+      <!-- Arrow -->
+      <line x1="533" y1="52" x2="565" y2="52" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arr-p)"/>
+      <!-- Benchmark -->
+      <rect x="566" y="34" width="44" height="36" rx="6" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.35)"/>
+      <text x="588" y="48" text-anchor="middle" font-family="monospace" font-size="9" fill="#a78bfa">bench</text>
+      <text x="588" y="61" text-anchor="middle" font-family="monospace" font-size="9" fill="#22c55e">↑ up!</text>
+      <!-- AND WHY box -->
+      <rect x="453" y="82" width="157" height="28" rx="6" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.35)"/>
+      <text x="531" y="99" text-anchor="middle" font-family="monospace" font-size="9" fill="#10b981">we know exactly why ✓</text>
+
+      <!-- Bottom labels -->
+      <text x="155" y="140" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">Can't tell: architecture advance</text>
+      <text x="155" y="155" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">vs teacher memorizing eval set</text>
+      <text x="465" y="140" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">Design decisions are isolated,</text>
+      <text x="465" y="155" text-anchor="middle" font-family="monospace" font-size="9" fill="#6b7280">reproducible, measurable</text>
+    </svg>
+  </div>
+</div>
+
+<p>PerceptionLM (PLM) takes the open path: Perception Encoder as the vision backbone, Llama 3 as the language decoder, a data engine built entirely from open-source models, and 2.8M <em>human</em>-labeled video annotations for the gaps synthetic data cannot fill. The result: a model that beats GPT-4o on fine-grained video understanding — without distilling from GPT-4o.</p>
+</section>
+
+<!-- §02 THE SYNTHETIC SCALING WALL -->
+<section id="s-wall" data-code="wall">
+<div class="section-no">02 — The Synthetic Scaling Wall</div>
+<h2>Synthetic Data Hits a Wall at "Hard" Tasks</h2>
+<p>The PLM team started by running a controlled synthetic data scaling study. They varied model size (1B / 3B / 8B), encoder size, and resolution across 20 benchmarks — and fit power laws to the compute-vs-error curves. The results confirmed a clean log-log relationship: more FLOPs → lower error, following <strong>Error = β × FLOPs<sup>α</sup></strong>.</p>
+
+<div class="math-block">
+  <div class="math-label">Power Law Fit</div>
+  Error = <span class="math-var">β</span> × GFLOPs<sup><span class="math-var">α</span></sup><br>
+  <span class="math-comment">// α = scaling exponent. Smaller = better (steeper improvement per FLOP)</span><br>
+  <span class="math-comment">// Standard Video QA:  α ≈ −0.15  (good scaling)</span><br>
+  <span class="math-comment">// Hard Video Tasks:   α ≈ −0.03  (nearly flat — synthetic data fails here)</span>
+</div>
+
+<p>The alarming finding: for <strong>fine-grained video understanding</strong> — tasks requiring nuanced understanding of <em>how</em> an action is performed, <em>where</em> in the frame, or <em>how many times</em> — synthetic data barely helps at all. The exponent is −0.03, five times flatter than the −0.15 for standard video QA.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">synthetic data scaling</span>
+    <span class="vp-hint">click to compare</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="stc-btn active" id="wall-btn-both" onclick="wallShow('both')">Both</button>
+      <button class="stc-btn" id="wall-btn-std" onclick="wallShow('std')">Standard Video QA (−0.15)</button>
+      <button class="stc-btn" id="wall-btn-hard" onclick="wallShow('hard')">Hard Video Tasks (−0.03)</button>
+    </div>
+    <canvas id="wall-canvas" style="width:100%;height:260px;display:block"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.5rem;text-align:center;font-family:var(--ff-mono)">
+      X: Synthetic compute (GFLOPs, log scale) · Y: Benchmark Error · each dot = one model config
+    </p>
+  </div>
+</div>
+
+<p>The implication is stark: you could throw 10× more synthetic data at the hard video tasks and barely move the needle. The knowledge needed to answer "In which direction is the person moving the sandpaper?" or "How many times does the person flip the chakli?" simply isn't present in synthetically generated captions — and more caption volume doesn't create it.</p>
+<p>This motivates the core contribution: <strong>PLM-FGQA</strong> and <strong>PLM-STC</strong> — two large-scale human-annotated datasets targeting exactly these gaps.</p>
+</section>
+
+<!-- §03 PLM-FGQA -->
+<section id="s-fgqa" data-code="fgqa">
+<div class="section-no">03 — PLM-FGQA</div>
+<h2>2.4 Million Fine-Grained Questions Humans Wrote</h2>
+<p>PLM-FGQA is the largest human-annotated video QA dataset by a wide margin — <strong>8× larger</strong> than the previous biggest. But more important than scale is <em>coverage</em>: existing datasets were severely under-representing the fine-grained question types that hard video understanding actually requires.</p>
+
+<p>The chart below shows each question type and how many times more examples PLM-FGQA has compared to all existing datasets combined. <strong>Click any row</strong> to see an example question-answer pair for that type.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">PLM-FGQA vs existing datasets</span>
+    <span class="vp-hint">click a row for example</span>
+  </div>
+  <div class="vp-body">
+    <div class="fgqa-chart" id="fgqa-chart">
+      <!-- rows injected by JS -->
+    </div>
+    <div class="fgqa-example" id="fgqa-example">
+      <div class="type-tag" id="fgqa-eg-type">—</div>
+      <div class="q" id="fgqa-eg-q">—</div>
+      <div class="a" id="fgqa-eg-a">—</div>
+    </div>
+  </div>
+</div>
+
+<p>The data was collected through a multi-stage process: temporal clustering and shot detection first identifies video segments with salient actions; a data engine (PLM itself in an early version, plus text-only Llama 3) generates candidate questions and answers; then human annotators watch the video and verify or replace each answer. The result is 2.4M verified QA pairs across 780K unique video clips.</p>
+<ul>
+  <li><strong>780K</strong> unique video clips from cooking, DIY, carpentry, automotive repair, and more</li>
+  <li><strong>9 fine-grained question types</strong> — from movement direction to counting to spatial relationships</li>
+  <li>Spans both <strong>egocentric and third-person</strong> viewpoints</li>
+</ul>
+</section>
+
+<!-- §04 PLM-STC -->
+<section id="s-stc" data-code="stc">
+<div class="section-no">04 — PLM-STC</div>
+<h2>Teaching "Where" and "When": Spatio-Temporal Captions</h2>
+<p>Even if a model can answer fine-grained questions about <em>what</em> is happening, it may have no idea <em>where</em> in the frame or <em>when</em> during the video. That's what PLM-STC addresses: 476K spatio-temporal captions, each tied to both a time interval <strong>and</strong> a masklet — a high-fps sequence of pixel-level segmentation masks tracking the subject through the video.</p>
+<p>This is qualitatively different from prior datasets that use bounding boxes (coarse, axis-aligned) or just temporal intervals (no spatial info). A masklet precisely traces the subject even as it rotates, occludes, or exits frame.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">spatio-temporal caption viewer</span>
+    <span class="vp-hint">walk through segments</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="stc-canvas" style="width:100%;height:240px;display:block;border-radius:8px"></canvas>
+    <div class="stc-controls">
+      <button class="stc-btn" id="stc-prev" disabled>← Prev</button>
+      <button class="stc-btn" id="stc-next">Next →</button>
+      <span class="stc-seg-label" id="stc-seg-label">Segment 1 of 4</span>
+    </div>
+  </div>
+</div>
+
+<p>The STC dataset generates three training tasks from each annotation:</p>
+<ul>
+  <li><strong>RCap</strong>: Given region + timestamps → generate caption describing the event</li>
+  <li><strong>RTLoc</strong>: Given region + caption → localize to time interval (inverse of RCap)</li>
+  <li><strong>RDCap</strong>: Given region → generate all (start, end, caption) tuples for the full video</li>
+</ul>
+<p>Together these force the model to reason bidirectionally: from video → language <em>and</em> from language → video timestamps. Open-source baselines essentially fail at these tasks (scoring 1–6% on RDCap), while PLM-8B achieves 59.1% — making this dataset uniquely high-leverage.</p>
+</section>
+
+<!-- §05 ARCHITECTURE & TRAINING -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">05 — Architecture & Training</div>
+<h2>Three Stages from Projector to Specialist</h2>
+<p>PLM combines a <strong>Perception Encoder</strong> (PE-L/14 for 1B/3B, PE-G/14 for 8B) with a <strong>Llama 3</strong> language decoder, connected by a 2-layer MLP projector. Images use dynamic tiling up to 36 tiles at 448² with 2×2 pooling. Video uses 32 frames at 448² with the same spatial pooling.</p>
+<p>Training proceeds through three carefully staged phases. Walk through them below:</p>
+
+<div class="step-list" id="arch-steps">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Stage 1 — Projector Warmup</div>
+      <div class="step-desc">Freeze both encoder and LLM. Train only the MLP projector on 1M SA-1B images with auto-generated captions. Stabilizes initialization before large-scale training.</div>
+      <div class="step-code">data: 1M images · trainable: projector only · resolution: 2×2 tiles</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Stage 2 — Large-Scale Midtraining</div>
+      <div class="step-desc">Train on 66.1M synthetic samples: natural images, charts, documents, egocentric and exocentric videos. All data from open-source models only — no proprietary annotations. Establishes base capability and scaling laws.</div>
+      <div class="step-code">data: 66.1M synthetic · resolution: up to 16 tiles / 16 frames</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Stage 3 — SFT with Human Annotations</div>
+      <div class="step-desc">Fine-tune on 19M mixed data including open-source QA, PLM-FGQA (2.4M), and PLM-STC (476K). Higher resolution (36 tiles, 32 frames). This stage converts the midtrained base into a specialist for fine-grained video understanding.</div>
+      <div class="step-code">data: 19M mix · resolution: up to 36 tiles / 32 frames · PLM-FGQA + PLM-STC</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="arch-prev" disabled>← Back</button>
+  <span id="arch-prog" style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)">Stage 1 of 3</span>
+  <button id="arch-next">Next →</button>
+</div>
+
+<h3>Data Mix at a Glance</h3>
+<table class="results-table" style="margin-top:.75rem">
+  <thead><tr>
+    <th>Source</th><th>Type</th><th>Count</th><th>Stage</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>PLM-FGQA <em>(ours)</em></td><td>Fine-grained QA</td><td class="mn">2.4M</td><td class="mn">3</td></tr>
+    <tr><td>PLM-STC <em>(ours)</em></td><td>RCap + RTLoc + RDCap</td><td class="mn">476K</td><td class="mn">3</td></tr>
+    <tr><td>Natural Images <em>(synthetic)</em></td><td>Captions</td><td class="mn">15.9M</td><td class="mn">1, 2, 3</td></tr>
+    <tr><td>Charts &amp; Documents <em>(synthetic)</em></td><td>Caption + QA</td><td class="mn">31.9M</td><td class="mn">2, 3</td></tr>
+    <tr><td>Video Mix <em>(synthetic)</em></td><td>Mixed</td><td class="mn">17.5M</td><td class="mn">2, 3</td></tr>
+    <tr class="highlight-row"><td colspan="4" class="mn" style="color:var(--purple);font-size:.68rem;text-align:center">Total: 2.8M human-labeled · 66.1M synthetic · 6.5M open-source existing</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- §06 RESULTS -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Beating GPT-4o on Video — With No Distillation</h2>
+<p>PLM-VideoBench is the new benchmark suite introduced alongside the model, covering exactly the capabilities that existing benchmarks neglect: fine-grained activity understanding (FGQA), smart-glasses egocentric QA (SGQA), region captioning (RCap), region temporal localization (RTLoc), and region dense captioning (RDCap).</p>
+<p>The overall average score tells the headline story:</p>
+
+<div class="results-bars" id="plm-bench-bars">
+  <div class="bar-section-label">PLM-VideoBench Avg. Score (↑ better)</div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">PLM-8B (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="75.2" style="background:var(--purple)"><span>55.6</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">GPT-4o</div>
+    <div class="bar-track"><div class="bar-fill" data-w="69.8" style="background:rgba(6,182,212,.6)"><span>51.6</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Gemini 1.5 Pro</div>
+    <div class="bar-track"><div class="bar-fill" data-w="59.5" style="background:rgba(107,114,128,.5)"><span>44.0</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Gemini 2.0 Flash</div>
+    <div class="bar-track"><div class="bar-fill" data-w="57.4" style="background:rgba(107,114,128,.45)"><span>42.5</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">InternVL2.5-8B</div>
+    <div class="bar-track"><div class="bar-fill" data-w="52.1" style="background:rgba(107,114,128,.4)"><span>38.5</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Qwen2.5VL-7B</div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.0" style="background:rgba(107,114,128,.35)"><span>34.8</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">LLaVA-OV-7B</div>
+    <div class="bar-track"><div class="bar-fill" data-w="43.2" style="background:rgba(107,114,128,.3)"><span>32.0</span></div></div>
+  </div>
+</div>
+
+<p>The RDCap (region dense captioning) column is the starkest contrast: open-source models score 1–6% because they can't do grounded temporal reasoning at all; PLM-8B reaches 59.1%. Even proprietary GPT-4o only reaches 33.1%.</p>
+
+<h3>What Each Data Component Contributes</h3>
+<p>The ablation study isolates the impact of each dataset. Each row adds one component on top of the previous:</p>
+
+<div class="ablation-rows">
+  <div class="abl-row">
+    <div class="abl-check off">–</div>
+    <div style="flex:1;font-size:.8rem;color:var(--muted2)">No PLM data (base)</div>
+    <div class="abl-data">Total avg: <strong>48.5</strong> · FGQA: 39.7 · SGQA: 6.6</div>
+  </div>
+  <div class="abl-row">
+    <div class="abl-check on">✓</div>
+    <div style="flex:1;font-size:.8rem;color:var(--muted2)">+ Synthetic data (stage 2)</div>
+    <div class="abl-data">Total avg: <strong>54.3</strong> · FGQA: 49.8 · SGQA: 14.7</div>
+  </div>
+  <div class="abl-row">
+    <div class="abl-check on">✓</div>
+    <div style="flex:1;font-size:.8rem;color:var(--muted2)">+ PLM-STC</div>
+    <div class="abl-data">Total avg: <strong>57.9</strong> · FGQA: 49.9 · SGQA: 42.1 <span class="abl-highlight">+27.4!</span></div>
+  </div>
+  <div class="abl-row">
+    <div class="abl-check on">✓</div>
+    <div style="flex:1;font-size:.8rem;color:var(--muted2)">+ PLM-FGQA (replacing STC only)</div>
+    <div class="abl-data">Total avg: <strong>56.7</strong> · FGQA: 62.9 <span class="abl-highlight">+13.1!</span> · SGQA: 15.2</div>
+  </div>
+  <div class="abl-row active-row">
+    <div class="abl-check on">✓</div>
+    <div style="flex:1;font-size:.8rem;color:var(--text2);font-weight:600">All components (full PLM)</div>
+    <div class="abl-data abl-highlight">Total avg: 61.2 · FGQA: 63.6 · SGQA: 42.2</div>
+  </div>
+</div>
+
+<p>PLM-STC drives the massive SGQA gain (+27.4 points) because spatial-temporal grounding transfers to smart-glasses tasks. PLM-FGQA is what unlocks activity-level fine-grained QA (+13.1 points). Both are needed — they target distinct capabilities that don't substitute for each other.</p>
+
+<!-- LISTEN-FRIENDLY CONTENT -->
+<div class="listen-friendly-content" style="display:none" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: PerceptionLM — Open Video Understanding Without Black-Box Distillation</h2>
+    <p>PerceptionLM, or PLM, is Meta FAIR's fully open and reproducible vision-language model for image and video understanding. Unlike most competitive VLMs that use proprietary models like GPT-4o to label training data — a process called distillation — PLM is built entirely from open-access data and transparent methods, making scientific progress measurable.</p>
+    <p>The key finding is that synthetic data scaling works well for standard video tasks but completely fails for fine-grained video understanding, showing a power law exponent of negative 0.03 versus negative 0.15 for standard tasks — five times flatter. To fill this gap, the authors release 2.4 million human-labeled fine-grained video QA pairs called PLM-FGQA, covering movement direction, counting, spatial relationships, and other detailed question types that existing datasets severely undercount. They also release PLM-STC, 476,000 spatio-temporal captions paired with masklets — pixel-level segmentation masks that track subjects through video — enabling spatial and temporal grounding. Together, these datasets push PLM-8B to 55.6 on the new PLM-VideoBench, surpassing GPT-4o at 51.6 and InternVL2.5 at 38.5, all without distilling from any proprietary model.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：PerceptionLM——无需黑箱蒸馏的开放视频理解</h2>
+    <p>PerceptionLM（PLM）是Meta FAIR开发的完全开放、可复现的视觉语言模型，专注于图像与视频理解。与大多数依赖GPT-4o等专有模型标注训练数据（即蒸馏）的竞争模型不同，PLM完全基于开源数据和透明方法构建，使科学进展可衡量。</p>
+    <p>核心发现是：合成数据扩展对标准视频任务效果良好，但对细粒度视频理解几乎无效——幂律指数为−0.03，而标准任务为−0.15，差距达五倍。为填补这一空白，作者发布了240万条人工标注的细粒度视频问答对（PLM-FGQA），涵盖动作方向、计数、空间关系等现有数据集严重缺失的问题类型。同时发布PLM-STC——47.6万条时空字幕，配合masklet（像素级分割掩码）追踪视频中的目标，实现空间和时间定位。最终PLM-8B在新基准PLM-VideoBench上达到55.6分，超越GPT-4o的51.6分和InternVL2.5的38.5分，且全程未使用任何专有模型蒸馏。</p>
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">plm/overview.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Distillation Trap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="trap">trap</button>
+    <button class="cs-tab" data-panel="wall">scaling</button>
+    <button class="cs-tab" data-panel="fgqa">fgqa</button>
+    <button class="cs-tab" data-panel="stc">stc</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- panel: trap -->
+    <div class="cs-panel active" id="panel-trap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The proprietary distillation pattern</span>
+<span class="cs-line cmt"># dominant in the community today</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">distillation_train</span>(video_data):</span>
+<span class="cs-line hl-a">    <span class="cmt"># use closed model to label data</span></span>
+<span class="cs-line">    labels = <span class="fn">gpt4o_api</span>(video_data)  <span class="cmt"># ⚠️</span></span>
+<span class="cs-line">    model.<span class="fn">train</span>(video_data, labels)</span>
+<span class="cs-line">    score = <span class="fn">benchmark</span>(model)  <span class="cmt"># goes up!</span></span>
+<span class="cs-line">    <span class="cmt"># but: was this architecture,</span></span>
+<span class="cs-line">    <span class="cmt"># or teacher data from eval set?</span></span>
+<span class="cs-line">    <span class="kw">return</span> score  <span class="cmt"># unknowable</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># PLM's transparent alternative</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">open_train</span>(video_data):</span>
+<span class="cs-line hl-g">    <span class="cmt"># label with open-source models only</span></span>
+<span class="cs-line">    labels = <span class="fn">llama3_data_engine</span>(video_data)</span>
+<span class="cs-line">    labels += <span class="fn">human_annotators</span>(video_data)</span>
+<span class="cs-line">    model.<span class="fn">train</span>(video_data, labels)</span>
+<span class="cs-line">    score = <span class="fn">benchmark</span>(model)  <span class="cmt"># goes up!</span></span>
+<span class="cs-line">    <span class="cmt"># and: each delta is attributable</span></span>
+<span class="cs-line">    <span class="kw">return</span> score  <span class="cmt"># reproducible</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># PLM components (all open)</span>
+<span class="cs-line hl-p"><span class="cmt"># Vision encoder: Perception Encoder</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   PE-L/14 (300M) for 1B + 3B</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   PE-G/14 (2B)  for 8B</span></span>
+<span class="cs-line hl-c"><span class="cmt"># Language decoder: Llama 3</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   1B / 3B / 8B variants</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Connector: 2-layer MLP projector</span></span>
+      </pre>
+    </div>
+    <!-- panel: wall -->
+    <div class="cs-panel" id="panel-wall">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Synthetic data scaling laws</span>
+<span class="cs-line cmt"># Err = β × GFLOPs^α</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># α = scaling exponent (smaller = better)</span>
+<span class="cs-line hl-g"><span class="cmt"># Standard VideoQA (NExT, STAR, MVBench…)</span></span>
+<span class="cs-line hl-g">video_qa_alpha  = <span class="num">-0.15</span>  <span class="cmt"># scales well</span></span>
+<span class="cs-line hl-g">video_qa_beta   = <span class="num">2.5e3</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Hard Video Tasks (TemporalBench,</span></span>
+<span class="cs-line hl-a"><span class="cmt"># TOMATO, MotionBench, CG-Bench…)</span></span>
+<span class="cs-line hl-a">hard_qa_alpha   = <span class="num">-0.03</span>  <span class="cmt"># nearly FLAT!</span></span>
+<span class="cs-line hl-a">hard_qa_beta    = <span class="num">1.4e2</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># At 8B scale (≈10^13 GFLOPs):</span>
+<span class="cs-line cmt"># VideoQA:  error drops ~5× from 1B</span>
+<span class="cs-line cmt"># HardQA:   error drops &lt;1.3× from 1B</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># The knowledge for hard tasks simply</span>
+<span class="cs-line cmt"># isn't present in synthetic captions.</span>
+<span class="cs-line cmt"># More synthetic data ≠ more knowledge</span>
+<span class="cs-line cmt"># about direction, counting, pose…</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Solution: human annotations that</span>
+<span class="cs-line cmt"># contain exactly this knowledge</span>
+<span class="cs-line hl-p">plm_fgqa_impact = <span class="num">+13.1</span>  <span class="cmt"># pp on FGQA</span></span>
+<span class="cs-line hl-c">plm_stc_impact  = <span class="num">+27.4</span>  <span class="cmt"># pp on SGQA</span></span>
+      </pre>
+    </div>
+    <!-- panel: fgqa -->
+    <div class="cs-panel" id="panel-fgqa">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># PLM-FGQA data collection pipeline</span>
+<span class="cs-line"> </span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">build_fgqa</span>(raw_videos):</span>
+<span class="cs-line hl-c">    <span class="cmt"># Step 1: extract salient segments</span></span>
+<span class="cs-line">    segs = <span class="fn">temporal_cluster</span>(raw_videos)</span>
+<span class="cs-line">    segs = <span class="fn">shot_detect</span>(segs)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">    <span class="cmt"># Step 2: generate QA candidates</span></span>
+<span class="cs-line">    qas = <span class="fn">llama3_text_llm</span>(segs)</span>
+<span class="cs-line">    qas += <span class="fn">early_plm_vllm</span>(segs)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># Step 3: human verification</span></span>
+<span class="cs-line">    <span class="kw">for</span> qa <span class="kw">in</span> qas:</span>
+<span class="cs-line">        human_watches_video(qa)</span>
+<span class="cs-line">        <span class="kw">if</span> answer_wrong:</span>
+<span class="cs-line">            qa.answer = human_correct()</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">return</span> verified_qas  <span class="cmt"># 2.4M</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Question type coverage vs existing</span>
+<span class="cs-line cmt"># (PLM-FGQA × vs all prior datasets)</span>
+<span class="cs-line hl-a">coverage = {</span>
+<span class="cs-line hl-a">    <span class="str">'Speed / Force'</span>:   <span class="num">58</span>,  <span class="cmt"># ×</span></span>
+<span class="cs-line hl-a">    <span class="str">'Movement Dir.'</span>:   <span class="num">47</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Object State'</span>:    <span class="num">47</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Spatial Rel.'</span>:    <span class="num">30</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Pose / Grip'</span>:     <span class="num">26</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Obj. Location'</span>:   <span class="num">25</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Obj. Attributes'</span>: <span class="num">18</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Counting'</span>:         <span class="num">9</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Object Rec.'</span>:      <span class="num">7</span>,</span>
+<span class="cs-line hl-a">    <span class="str">'Action Rec.'</span>:      <span class="num">2</span>,</span>
+<span class="cs-line hl-a">}</span>
+      </pre>
+    </div>
+    <!-- panel: stc -->
+    <div class="cs-panel" id="panel-stc">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># PLM-STC: three derived tasks</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Given: video + region masklet</span>
+<span class="cs-line hl-c"><span class="cmt"># RCap: region captioning</span></span>
+<span class="cs-line">RCap = {</span>
+<span class="cs-line">  <span class="str">'input'</span>:  <span class="str">'video + masklet + [t0, t1]'</span>,</span>
+<span class="cs-line">  <span class="str">'output'</span>: <span class="str">'caption of event'</span>,</span>
+<span class="cs-line">  <span class="str">'count'</span>:  <span class="num">194200</span>,  <span class="cmt"># test: 10,060</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># RTLoc: region temporal localization</span></span>
+<span class="cs-line">RTLoc = {</span>
+<span class="cs-line">  <span class="str">'input'</span>:  <span class="str">'video + masklet + caption'</span>,</span>
+<span class="cs-line">  <span class="str">'output'</span>: <span class="str">'[t0, t1]  # inverse of RCap'</span>,</span>
+<span class="cs-line">  <span class="str">'count'</span>:  <span class="num">194200</span>,  <span class="cmt"># test: 7,910</span></span>
+<span class="cs-line">  <span class="str">'metric'</span>: <span class="str">'recall@1 over IoU [.3,.5,.7,.9]'</span>,</span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># RDCap: region dense captioning</span></span>
+<span class="cs-line">RDCap = {</span>
+<span class="cs-line">  <span class="str">'input'</span>:  <span class="str">'video + masklet'</span>,</span>
+<span class="cs-line">  <span class="str">'output'</span>: <span class="str">'[(t0, t1, caption), ...]'</span>,</span>
+<span class="cs-line">  <span class="str">'note'</span>:   <span class="str">'cover ENTIRE video'</span>,</span>
+<span class="cs-line">  <span class="str">'count'</span>:  <span class="num">122300</span>,  <span class="cmt"># test: 2,620</span></span>
+<span class="cs-line">  <span class="str">'metric'</span>: <span class="str">'SODA score (LLM judge)'</span>,</span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># RDCap scores — the hardest task:</span>
+<span class="cs-line hl-a">rdcap = {</span>
+<span class="cs-line hl-a">  <span class="str">'PLM-8B'</span>:         <span class="num">59.1</span>,  <span class="cmt"># ours</span></span>
+<span class="cs-line hl-a">  <span class="str">'GPT-4o'</span>:         <span class="num">33.1</span>,</span>
+<span class="cs-line hl-a">  <span class="str">'InternVL2.5-8B'</span>:  <span class="num">8.8</span>,</span>
+<span class="cs-line hl-a">  <span class="str">'Qwen2.5VL-7B'</span>:   <span class="num">10.7</span>,</span>
+<span class="cs-line hl-a">  <span class="str">'LLaVA-OV-7B'</span>:    <span class="num">13.9</span>,</span>
+<span class="cs-line hl-a">}</span>
+      </pre>
+    </div>
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># PLM model architecture</span>
+<span class="cs-line"><span class="kw">class</span> <span class="cls">PLM</span>:</span>
+<span class="cs-line hl-c">    <span class="cmt"># Vision encoder (frozen in stage 1)</span></span>
+<span class="cs-line">    encoder = <span class="fn">PerceptionEncoder</span>(</span>
+<span class="cs-line">        <span class="str">'L/14'</span>  <span class="kw">if</span> size <span class="kw">in</span> [<span class="str">'1B'</span>,<span class="str">'3B'</span>]  <span class="cmt"># 300M</span></span>
+<span class="cs-line">        <span class="kw">else</span> <span class="str">'G/14'</span>                    <span class="cmt"># 2B</span></span>
+<span class="cs-line">    )</span>
+<span class="cs-line hl-p">    <span class="cmt"># Language decoder (frozen in stage 1)</span></span>
+<span class="cs-line">    decoder = <span class="fn">Llama3</span>(size)  <span class="cmt"># 1B/3B/8B</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># MLP projector (trained all stages)</span></span>
+<span class="cs-line">    projector = <span class="fn">MLP</span>(layers=<span class="num">2</span>)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Image: dynamic tiling</span>
+<span class="cs-line hl-c">resolution_image = {</span>
+<span class="cs-line hl-c">    <span class="str">'tiles'</span>: <span class="str">'up to 36'</span>,  <span class="cmt"># 448² each</span></span>
+<span class="cs-line hl-c">    <span class="str">'pool'</span>:  <span class="str">'2×2 avg pool → compress tokens'</span>,</span>
+<span class="cs-line hl-c">}</span>
+<span class="cs-line cmt"># Video: frame sampling</span>
+<span class="cs-line hl-p">resolution_video = {</span>
+<span class="cs-line hl-p">    <span class="str">'frames'</span>: <span class="num">32</span>,  <span class="cmt"># at 448²</span></span>
+<span class="cs-line hl-p">    <span class="str">'pool'</span>:   <span class="str">'2×2 avg pool per frame'</span>,</span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Three training stages</span>
+<span class="cs-line cmt"># Stage 1: projector warmup   1M images</span>
+<span class="cs-line cmt"># Stage 2: midtraining    66.1M synthetic</span>
+<span class="cs-line cmt"># Stage 3: SFT            19M mix + human</span>
+      </pre>
+    </div>
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># PLM-VideoBench (Table 5)</span>
+<span class="cs-line cmt"># Avg = mean(FGQA, SGQA, RCap, RTLoc, RDCap)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">plm_bench = {</span>
+<span class="cs-line hl-p">  <span class="cmt">#                FGQA  SGQA  RCap  RTLoc RDCap  Avg</span></span>
+<span class="cs-line hl-p">  <span class="str">'Human'</span>:       [<span class="num">90.9</span>, <span class="num">67.9</span>, <span class="num">66.6</span>, <span class="num">53.9</span>, <span class="num">67.8</span>],  <span class="cmt"># 73.9</span></span>
+<span class="cs-line hl-p">  <span class="str">'PLM-8B'</span>:      [<span class="num">67.7</span>, <span class="num">46.2</span>, <span class="num">52.8</span>, <span class="num">46.6</span>, <span class="num">59.1</span>],  <span class="cmt"># 55.6</span></span>
+<span class="cs-line hl-p">  <span class="str">'GPT-4o'</span>:      [<span class="num">61.2</span>, <span class="num">63.7</span>, <span class="num">20.9</span>, <span class="num">35.7</span>, <span class="num">33.1</span>],  <span class="cmt"># 51.6</span></span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line">open_models = {</span>
+<span class="cs-line">  <span class="str">'InternVL2.5-8B'</span>: [<span class="num">53.7</span>, <span class="num">48.3</span>, <span class="num">5.7</span>, <span class="num">26.1</span>, <span class="num">8.8</span>],  <span class="cmt"># 38.5</span></span>
+<span class="cs-line">  <span class="str">'Qwen2.5VL-7B'</span>:  [<span class="num">49.8</span>, <span class="num">43.0</span>, <span class="num">2.5</span>, <span class="num">21.5</span>, <span class="num">10.7</span>], <span class="cmt"># 34.8</span></span>
+<span class="cs-line">  <span class="str">'LLaVA-OV-7B'</span>:   [<span class="num">40.2</span>, <span class="num">41.5</span>, <span class="num">4.7</span>, <span class="num">24.4</span>, <span class="num">13.9</span>], <span class="cmt"># 32.0</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: impact per data component</span>
+<span class="cs-line cmt"># (Total avg / FGQA / SGQA)</span>
+<span class="cs-line hl-a">ablation = {</span>
+<span class="cs-line hl-a">  <span class="str">'base'</span>:     (<span class="num">48.5</span>, <span class="num">39.7</span>, <span class="num">6.6</span>),</span>
+<span class="cs-line hl-a">  <span class="str">'+synth'</span>:   (<span class="num">54.3</span>, <span class="num">49.8</span>, <span class="num">14.7</span>),</span>
+<span class="cs-line hl-a">  <span class="str">'+stc'</span>:     (<span class="num">57.9</span>, <span class="num">49.9</span>, <span class="num">42.1</span>),</span>
+<span class="cs-line hl-a">  <span class="str">'+fgqa'</span>:    (<span class="num">56.7</span>, <span class="num">62.9</span>, <span class="num">15.2</span>),</span>
+<span class="cs-line hl-a">  <span class="str">'all'</span>:      (<span class="num">61.2</span>, <span class="num">63.6</span>, <span class="num">42.2</span>),</span>
+<span class="cs-line hl-a">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Image: competitive with top open-access</span>
+<span class="cs-line cmt"># PLM-8B on DocVQA: 94.6, MMMU: 46.1</span>
+<span class="cs-line cmt"># TextVQA: 85.5, ChartQA: 90.8</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC + sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Sidebar tab switching ──
+const tabMeta = {
+  trap:    { file: 'plm/overview.py',   title: 'The Distillation Trap' },
+  wall:    { file: 'plm/scaling.py',    title: 'Synthetic Scaling Wall' },
+  fgqa:    { file: 'plm/fgqa.py',       title: 'PLM-FGQA Dataset' },
+  stc:     { file: 'plm/stc.py',        title: 'PLM-STC Dataset' },
+  arch:    { file: 'plm/architecture.py','title': 'Model Architecture' },
+  results: { file: 'plm/results.py',    title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m['title'];
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver ──
+const sectionMap = {
+  's-trap':    'trap',
+  's-wall':    'wall',
+  's-fgqa':    'fgqa',
+  's-stc':     'stc',
+  's-arch':    'arch',
+  's-results': 'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §02 Scaling Wall Canvas ──
+(function() {
+  const canvas = document.getElementById('wall-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth;
+    const H = 260;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    drawWall(W, H);
+  }
+
+  let currentMode = 'both';
+
+  // Log-scale power law curve data points
+  // x = log10(GFLOPs), from 11 to 13.5
+  // y = Error, starting from ~55 at 1B to ~30 at 8B for VideoQA
+  // Hard: barely moves from 50 to 47
+  function powerLawY(logFlops, beta, alpha) {
+    const flops = Math.pow(10, logFlops);
+    return beta * Math.pow(flops, alpha);
+  }
+
+  function drawWall(W, H) {
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD = { l: 50, r: 20, t: 20, b: 45 };
+    const plotW = W - PAD.l - PAD.r;
+    const plotH = H - PAD.t - PAD.b;
+
+    // Domain: log10(GFLOPs) from 11.5 to 13.5
+    const xMin = 11.5, xMax = 13.5;
+    // Range: Error from 25 to 60
+    const yMin = 23, yMax = 62;
+
+    function px(logF) { return PAD.l + (logF - xMin) / (xMax - xMin) * plotW; }
+    function py(err)  { return PAD.t + plotH - (err - yMin) / (yMax - yMin) * plotH; }
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let e = 25; e <= 60; e += 5) {
+      ctx.beginPath(); ctx.moveTo(PAD.l, py(e)); ctx.lineTo(PAD.l + plotW, py(e)); ctx.stroke();
+    }
+    for (let lf = 12; lf <= 13.5; lf += 0.5) {
+      ctx.beginPath(); ctx.moveTo(px(lf), PAD.t); ctx.lineTo(px(lf), PAD.t + plotH); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + plotH); ctx.lineTo(PAD.l + plotW, PAD.t + plotH); ctx.stroke();
+
+    // Y axis labels
+    ctx.fillStyle = '#6b7280';
+    ctx.font = `${10 * DPR / DPR}px monospace`;
+    ctx.textAlign = 'right';
+    for (let e = 25; e <= 60; e += 10) {
+      ctx.fillText(e, PAD.l - 6, py(e) + 4);
+    }
+    // Axis titles
+    ctx.save();
+    ctx.translate(12, PAD.t + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#4b5563';
+    ctx.font = `9px monospace`;
+    ctx.fillText('Avg Error', 0, 0);
+    ctx.restore();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#4b5563';
+    ctx.font = '9px monospace';
+    ctx.fillText('GFLOPs (log scale)', PAD.l + plotW / 2, H - 6);
+
+    // X labels
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    const xTicks = [[11.5,'1B'], [12.0,''], [12.5,'3B'], [13.0,''], [13.5,'8B']];
+    xTicks.forEach(([lf, label]) => {
+      ctx.fillText(label, px(lf), PAD.t + plotH + 14);
+    });
+
+    // Draw curves
+    function drawCurve(beta, alpha, color, showPoints) {
+      const N = 80;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const lf = xMin + i * (xMax - xMin) / N;
+        const err = powerLawY(lf, beta, alpha);
+        const x = px(lf), y = py(err);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      if (showPoints) {
+        // Model scale dots at 1B, 3B, 8B
+        [[11.5, 0.92], [12.5, 0.79], [13.5, 0.73]].forEach(([lf, frac]) => {
+          const err = powerLawY(lf, beta, alpha);
+          ctx.beginPath();
+          ctx.arc(px(lf), py(err), 5, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = '#0d0d14';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+    }
+
+    // VideoQA: beta=2500, alpha=-0.15
+    // Calibrated so that at 1B (11.5) ≈ 50, at 8B (13.5) ≈ 33
+    const stdBeta = 18000, stdAlpha = -0.15;
+    const hardBeta = 240, hardAlpha = -0.03;
+
+    const showStd  = currentMode === 'both' || currentMode === 'std';
+    const showHard = currentMode === 'both' || currentMode === 'hard';
+
+    if (showStd)  drawCurve(stdBeta,  stdAlpha,  '#8b5cf6', true);
+    if (showHard) drawCurve(hardBeta, hardAlpha, '#f59e0b', true);
+
+    // Labels
+    ctx.font = '11px monospace';
+    if (showStd) {
+      ctx.fillStyle = '#8b5cf6';
+      ctx.textAlign = 'left';
+      const y8B_std = powerLawY(13.5, stdBeta, stdAlpha);
+      ctx.fillText('VideoQA α=−0.15', px(13.2), py(y8B_std) - 14);
+    }
+    if (showHard) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.textAlign = 'left';
+      const y8B_hard = powerLawY(13.5, hardBeta, hardAlpha);
+      ctx.fillText('HardQA α=−0.03', px(13.0), py(y8B_hard) + 18);
+    }
+
+    // Gap annotation
+    if (currentMode === 'both') {
+      const lf = 13.5;
+      const yStd  = py(powerLawY(lf, stdBeta, stdAlpha));
+      const yHard = py(powerLawY(lf, hardBeta, hardAlpha));
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px(lf), yStd); ctx.lineTo(px(lf), yHard); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.textAlign = 'right';
+      ctx.font = '9px monospace';
+      ctx.fillText('gap widens', px(lf) - 4, (yStd + yHard) / 2 + 3);
+    }
+  }
+
+  window.wallShow = function(mode) {
+    currentMode = mode;
+    ['both','std','hard'].forEach(m => {
+      const btn = document.getElementById('wall-btn-' + m);
+      if (btn) btn.classList.toggle('active', m === mode);
+    });
+    drawWall(canvas.clientWidth, 260);
+  };
+
+  // Initial render
+  setTimeout(() => {
+    resize();
+    window.addEventListener('resize', resize);
+  }, 50);
+})();
+
+// ── §03 FGQA chart ──
+(function() {
+  const types = [
+    { label: 'Speed / Force',   mult: 58, color: '#06b6d4',
+      q: 'How forcefully does the person strike the nail?',
+      a: 'With moderate force, using quick, controlled hammer swings from the wrist.' },
+    { label: 'Movement Dir.',   mult: 47, color: '#8b5cf6',
+      q: 'In which direction is the person moving the sandpaper?',
+      a: 'From the bottom of the baluster to the top in a vertical, oscillating motion.' },
+    { label: 'Object State',    mult: 47, color: '#8b5cf6',
+      q: 'Does the pasta look strained enough?',
+      a: 'The pasta looks perfectly strained, with excess water removed.' },
+    { label: 'Spatial Rel.',    mult: 30, color: '#10b981',
+      q: 'Where is the metal skewer located at the beginning?',
+      a: 'Resting on top of the pan, which is positioned on the left burner of the portable stove.' },
+    { label: 'Pose / Grip',     mult: 26, color: '#10b981',
+      q: 'How does the person hold the sandpaper?',
+      a: 'Firmly with their right hand, between the right thumb on one side, fingers on the other.' },
+    { label: 'Obj. Location',   mult: 25, color: '#10b981',
+      q: 'Where is the mixing bowl placed at the start of the clip?',
+      a: 'On the left side of the countertop, next to the stovetop.' },
+    { label: 'Obj. Attributes', mult: 18, color: '#f59e0b',
+      q: 'What color is the tool the person uses to tighten the bolt?',
+      a: 'The wrench is silver with a black rubber grip handle.' },
+    { label: 'Counting',        mult: 9,  color: '#f59e0b',
+      q: 'How many chakli snacks does the person flip with the skewer?',
+      a: 'The person flips three chakli snacks.' },
+    { label: 'Object Rec.',     mult: 7,  color: '#6b7280',
+      q: 'What type of saw does the person use to cut the wood?',
+      a: 'A circular saw.' },
+    { label: 'Action Rec.',     mult: 2,  color: '#4b5563',
+      q: 'What is the main activity shown in this video segment?',
+      a: 'The person is sanding the surface of a wooden table.' },
+  ];
+
+  const chart = document.getElementById('fgqa-chart');
+  const ex    = document.getElementById('fgqa-example');
+  const exType = document.getElementById('fgqa-eg-type');
+  const exQ    = document.getElementById('fgqa-eg-q');
+  const exA    = document.getElementById('fgqa-eg-a');
+
+  let selectedIdx = -1;
+
+  types.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'fgqa-row';
+    row.innerHTML = `
+      <div class="fgqa-label">${t.label}</div>
+      <div class="fgqa-track">
+        <div class="fgqa-fill" style="background:${t.color};width:0%" data-w="${(t.mult/58)*100}">
+          <span style="color:rgba(255,255,255,.85);font-size:.65rem;font-weight:700;font-family:var(--ff-mono)">${t.mult}×</span>
+        </div>
+      </div>
+    `;
+    row.addEventListener('click', () => {
+      if (selectedIdx === i) {
+        row.classList.remove('selected');
+        ex.classList.remove('visible');
+        selectedIdx = -1;
+      } else {
+        document.querySelectorAll('.fgqa-row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        exType.textContent = t.label.toUpperCase();
+        exQ.textContent = t.q;
+        exA.textContent = t.a;
+        ex.classList.add('visible');
+        selectedIdx = i;
+      }
+    });
+    chart.appendChild(row);
+  });
+
+  // Animate bars when section scrolls into view
+  const fgqaSection = document.getElementById('s-fgqa');
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.fgqa-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(fgqaSection);
+})();
+
+// ── §04 STC canvas ──
+(function() {
+  const canvas = document.getElementById('stc-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  const segments = [
+    { label: 'Out of Frame', frames: [0, 11],   color: '#374151', caption: 'Subject is not visible in this interval.', maskColor: null },
+    { label: '[12, 67]',     frames: [12, 67],  color: '#8b5cf6', caption: 'The person wearing a jacket is running on snow-covered ground. She stops and turns to look at the other person.', maskColor: 'rgba(139,92,246,0.35)' },
+    { label: '[68, 85]',     frames: [68, 85],  color: '#10b981', caption: 'She moves toward the edge of the frame and crouches near the water.', maskColor: 'rgba(16,185,129,0.3)' },
+    { label: '[86, 98]',     frames: [86, 98],  color: '#06b6d4', caption: 'She tries to feed the beluga whale approaching from the left.', maskColor: 'rgba(6,182,212,0.3)' },
+  ];
+
+  let currentSeg = 0;
+  const prevBtn = document.getElementById('stc-prev');
+  const nextBtn = document.getElementById('stc-next');
+  const segLabel = document.getElementById('stc-seg-label');
+
+  function seededRand(n) {
+    return ((1664525 * n + 1013904223) & 0x7fffffff) / 0x7fffffff;
+  }
+
+  function drawSTC() {
+    const W = canvas.clientWidth;
+    const H = 240;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    // Background
+    ctx.fillStyle = '#0d0d14';
+    ctx.fillRect(0, 0, W, H);
+
+    const totalFrames = 98;
+    const timelineY = H - 58;
+    const timelineH = 24;
+    const PAD = 20;
+    const tW = W - PAD * 2;
+
+    // "Video frame" area
+    const frameH = timelineY - 16;
+    ctx.fillStyle = '#12121f';
+    ctx.beginPath();
+    ctx.roundRect(PAD, 12, tW, frameH, 8);
+    ctx.fill();
+
+    // Decorative "video" lines (simulating content)
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 8; col++) {
+        const s = seededRand(row * 8 + col);
+        ctx.fillStyle = `rgba(${Math.floor(s * 60 + 30)},${Math.floor(seededRand(row * 8 + col + 1) * 60 + 30)},${Math.floor(seededRand(row * 8 + col + 2) * 60 + 60)},0.3)`;
+        const bx = PAD + 8 + col * (tW - 16) / 8;
+        const by = 20 + row * (frameH - 16) / 5;
+        const bw = (tW - 16) / 8 - 4;
+        const bh = (frameH - 16) / 5 - 4;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 3);
+        ctx.fill();
+      }
+    }
+
+    // "Subject" figure (simple silhouette)
+    const seg = segments[currentSeg];
+    if (seg.maskColor) {
+      // Draw a simplified person silhouette
+      const cx = PAD + tW * 0.42;
+      const cy = frameH / 2 + 12;
+      ctx.fillStyle = seg.maskColor;
+      // Head
+      ctx.beginPath(); ctx.arc(cx, cy - 22, 12, 0, Math.PI * 2); ctx.fill();
+      // Body
+      ctx.beginPath();
+      ctx.roundRect(cx - 10, cy - 10, 20, 34, 4);
+      ctx.fill();
+      // Arms
+      ctx.beginPath();
+      ctx.roundRect(cx - 22, cy - 8, 12, 8, 4);
+      ctx.roundRect(cx + 10, cy - 8, 12, 8, 4);
+      ctx.fill();
+      // Legs
+      ctx.beginPath();
+      ctx.roundRect(cx - 10, cy + 24, 8, 22, 4);
+      ctx.roundRect(cx + 2, cy + 24, 8, 22, 4);
+      ctx.fill();
+
+      // Masklet outline glow
+      ctx.strokeStyle = seg.color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.roundRect(cx - 28, cy - 38, 56, 90, 8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label overlay
+      ctx.fillStyle = seg.color;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('subject masklet', cx - 28, cy - 42);
+    } else {
+      // Out of frame indicator
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath(); ctx.roundRect(PAD + tW * 0.3, frameH * 0.3, tW * 0.4, frameH * 0.4, 8); ctx.fill();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('subject out of frame', PAD + tW / 2, frameH * 0.53);
+    }
+
+    // Timeline bar
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath(); ctx.roundRect(PAD, timelineY, tW, timelineH, 4); ctx.fill();
+
+    // Segment fills on timeline
+    segments.forEach((s, i) => {
+      const x1 = PAD + (s.frames[0] / totalFrames) * tW;
+      const x2 = PAD + (s.frames[1] / totalFrames) * tW;
+      ctx.fillStyle = i === currentSeg ? s.color : (s.color === '#374151' ? '#1f2937' : s.color + '44');
+      ctx.beginPath();
+      ctx.roundRect(x1 + 1, timelineY + 1, x2 - x1 - 2, timelineH - 2, 3);
+      ctx.fill();
+    });
+
+    // Timeline tick labels
+    ctx.fillStyle = '#4b5563';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    [0, 25, 50, 75, 98].forEach(f => {
+      ctx.fillText(f, PAD + (f / totalFrames) * tW, timelineY + timelineH + 12);
+    });
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '8px monospace';
+    ctx.fillText('frame', PAD + tW / 2, timelineY + timelineH + 22);
+
+    // Active segment label below timeline
+    ctx.fillStyle = seg.color;
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'left';
+    const x1 = PAD + (seg.frames[0] / totalFrames) * tW;
+    ctx.fillText('▶ frames ' + seg.frames[0] + '–' + seg.frames[1], PAD, timelineY - 6);
+
+    // Caption text (wrapped)
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    const words = seg.caption.split(' ');
+    let line = '', lines = [];
+    words.forEach(w => {
+      const test = line + (line ? ' ' : '') + w;
+      if (ctx.measureText(test).width > tW - 8) { lines.push(line); line = w; }
+      else line = test;
+    });
+    if (line) lines.push(line);
+    const captionY = timelineY + timelineH + 30;
+    lines.slice(0, 2).forEach((l, i) => ctx.fillText(l, PAD, captionY + i * 14));
+  }
+
+  function updateButtons() {
+    prevBtn.disabled = currentSeg === 0;
+    nextBtn.disabled = currentSeg === segments.length - 1;
+    segLabel.textContent = `Segment ${currentSeg + 1} of ${segments.length}`;
+    drawSTC();
+  }
+
+  prevBtn.addEventListener('click', () => { if (currentSeg > 0) { currentSeg--; updateButtons(); } });
+  nextBtn.addEventListener('click', () => { if (currentSeg < segments.length - 1) { currentSeg++; updateButtons(); } });
+
+  setTimeout(() => { updateButtons(); window.addEventListener('resize', drawSTC); }, 50);
+})();
+
+// ── §05 Step navigator ──
+(function() {
+  let step = 0;
+  const boxes   = document.querySelectorAll('#arch-steps .step-box');
+  const prevBtn = document.getElementById('arch-prev');
+  const nextBtn = document.getElementById('arch-next');
+  const progEl  = document.getElementById('arch-prog');
+
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Stage ${step + 1} of ${boxes.length}`;
+  }
+
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ── §06 Animated bar chart ──
+(function() {
+  const section = document.getElementById('s-results');
+  if (!section) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#plm-bench-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.25 }).observe(section);
+})();
+</script>
+</BaseLayout>
