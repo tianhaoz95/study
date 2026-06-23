@@ -1,0 +1,1369 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="What Training Data Actually Does to DFlash's Acceptance Length | Catpuccino.ai"
+  description="A quantitative study of how training data mix—domain balance, target-model alignment, anchor sampling strategy, and scale—determines DFlash's speculative decoding acceptance length τ."
+  crumb="DFlash Data Mix"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-section-head{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.75rem 0 .25rem;font-family:var(--ff-mono)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Math block ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Control buttons ── */
+.btn-group{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.ctrl-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ctrl-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ctrl-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Step navigator ── */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);margin-left:auto}
+
+/* ── Callout ── */
+.callout{border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.6}
+.callout.purple{border-left:3px solid var(--purple);background:var(--purple-dim)}
+.callout.cyan{border-left:3px solid var(--cyan);background:rgba(6,182,212,.06)}
+.callout.amber{border-left:3px solid var(--amber);background:rgba(245,158,11,.06)}
+.callout strong{color:var(--text2)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">DFlash</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>What Training Data Actually Does to DFlash's Acceptance Length</h1>
+  <p class="lead">DFlash's 6× speedup lives or dies by acceptance length τ — the average number of draft tokens the target model accepts per round. τ is not just an architecture number: it is <em>directly determined by what data the draft model was trained on</em>. This is a quantitative study of four data dimensions that move the needle on τ: domain coverage, target-model alignment, anchor sampling, and scale.</p>
+  <div class="post-hero-meta">
+    <span>June 22, 2026</span>
+    <span>~14 min read</span>
+    <span>Sources: <code>DFlash · EAGLE-3 · SpecForge</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2602.06036" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      DFlash PDF
+    </a>
+    <a class="hero-btn" href="https://arxiv.org/pdf/2503.01840" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      EAGLE-3 PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/z-lab-ai/dflash" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-bottleneck"><a href="#s-bottleneck"><span class="toc-num">01</span> The τ Bottleneck</a></li>
+    <li class="toc-item" id="toc-s-domain"><a href="#s-domain"><span class="toc-num">02</span> Domain Coverage</a></li>
+    <li class="toc-item" id="toc-s-alignment"><a href="#s-alignment"><span class="toc-num">03</span> Target Alignment</a></li>
+    <li class="toc-item" id="toc-s-anchor"><a href="#s-anchor"><span class="toc-num">04</span> Anchor Sampling</a></li>
+    <li class="toc-item" id="toc-s-scale"><a href="#s-scale"><span class="toc-num">05</span> Data Scale</a></li>
+    <li class="toc-item" id="toc-s-recipe"><a href="#s-recipe"><span class="toc-num">06</span> Training Recipe</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ─────────────────────────────────────── -->
+<section id="s-bottleneck" data-code="bottleneck">
+<div class="section-no">01 — The τ Bottleneck</div>
+<h2>τ is everything — and it is controlled by training data</h2>
+
+<p>DFlash achieves 4–5× wall-clock speedup by replacing slow autoregressive drafting with a 5-layer block-diffusion model that drafts 16 tokens in a <em>single forward pass</em>. But that speedup depends entirely on one number: the average acceptance length τ — how many of those 16 draft positions the target model actually accepts before hitting a wrong token.</p>
+
+<div class="math-block">
+<div class="math-label">Speedup formula</div>
+<span class="math-var">Speedup</span> ≈ (<span class="math-var">τ</span> + 1) / (1 + <span class="math-var">t_draft</span> / <span class="math-var">t_target</span>)<br>
+<span class="math-comment">// where t_draft ≪ t_target for DFlash's 5-layer drafter</span>
+</div>
+
+<p>If τ = 8 (DFlash on Math500 with Qwen3-8B), each round produces roughly 9 accepted tokens at the cost of about 1 verification step. If τ = 4 (a poorly trained drafter on the same model), each round produces 5 — the speedup nearly halves. The entire value of the DFlash architecture rests on keeping τ high across all the query types your system will actually serve.</p>
+
+<p>Critically, τ is not a fixed property of the architecture. The same 5-layer diffusion model, same KV injection, same block size — but different training data — can produce τ values ranging from 3.2 to 8.0. That range is larger than any architectural improvement DFlash can make. <strong>Training data is the primary lever for τ.</strong></p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">τ variance across domains — Qwen3-8B, DFlash (greedy, SGLang)</span>
+    <span class="vp-hint">click domain to highlight</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="domain-tau-canvas" style="width:100%;height:220px;display:block;"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;margin-bottom:0">Bars show τ from DFlash's SGLang evaluation (single B200 GPU, concurrency=1). The 2.4× range from chat (6.42) to math (8.01) is purely driven by how well the training distribution matches each benchmark's token pattern. No architecture changes — only training data.</p>
+  </div>
+</div>
+
+<p>This post studies four dimensions of training data that each independently move τ: what domains you include, whose responses you use, how you present training examples (anchor strategy), and how much data you train on.</p>
+</section>
+
+<!-- §02 ─────────────────────────────────────── -->
+<section id="s-domain" data-code="domain">
+<div class="section-no">02 — Domain Coverage</div>
+<h2>Domain mismatch: quantified</h2>
+
+<p>DFlash trains on approximately 800K samples from NVIDIA Nemotron Post-Training Dataset V2 combined with CodeAlpaca — deliberately spanning math, code, and general chat. The reasoning is direct: if you only train on chat data, the drafter learns chat-domain token sequences well but underperforms on math and code benchmarks where the target model uses very different vocabulary and structural patterns.</p>
+
+<p>This is not an abstract concern. In experiments with EAGLE-style drafters (which use the same underlying principle — learn the target model's output distribution from training data), the gap between a chat-heavy and a balanced training corpus is directly measurable:</p>
+
+<div class="results-bars" id="domain-bars">
+  <div class="bar-section-head">EAGLE-3 drafter — LLaMA-3.1-8B, Math500 acceptance length</div>
+  <div class="bar-row">
+    <div class="bar-label">Chat-heavy (ShareGPT only)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="40.4" style="background:rgba(107,114,128,.5)"><span>τ = 2.82</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Balanced (chat+math+code)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="49.9" style="background:var(--cyan)"><span>τ = 3.48</span></div></div>
+  </div>
+  <div class="bar-section-head">DFlash drafter — Qwen3-8B, domain-specific τ (SGLang)</div>
+  <div class="bar-row">
+    <div class="bar-label">Math500</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:var(--purple)"><span>τ = 8.01</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">HumanEval (code)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="82.8" style="background:var(--purple)"><span>τ = 6.63</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">MBPP (code)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="90.3" style="background:var(--purple)"><span>τ = 7.23</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Alpaca (chat/inst.)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="80.1" style="background:var(--purple)"><span>τ = 6.42</span></div></div>
+  </div>
+</div>
+
+<p>The top two bars are directly comparable EAGLE-3 experiments on the same base model with the same architecture: the only difference is whether training data includes math-domain samples. The result is a 23% increase in acceptance length (+0.66 tokens per round) purely from balanced domain coverage — no other changes.</p>
+
+<p>The bottom four bars reveal a second pattern: even with balanced training, different domains achieve different τ values with the same DFlash model. Math problems produce the highest acceptance length (8.01) because mathematical reasoning follows highly predictable token patterns — LaTeX formulas, step-by-step arithmetic, consistent notation. Code is next (6.6–7.2); natural language chat is lowest (6.4). This is intrinsic to the domains, but domain-specific fine-tuning (for deployment-specific query mixes) can narrow the gap.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Domain mix simulator — projected τ impact</span>
+    <span class="vp-hint">drag sliders to mix domains</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:grid;gap:.75rem;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <span style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);width:55px">Math</span>
+        <input type="range" id="sl-math" min="0" max="100" value="40" style="flex:1;accent-color:var(--purple)">
+        <span id="lbl-math" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--purple-l);width:32px;text-align:right">40%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <span style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);width:55px">Code</span>
+        <input type="range" id="sl-code" min="0" max="100" value="40" style="flex:1;accent-color:var(--cyan)">
+        <span id="lbl-code" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--cyan);width:32px;text-align:right">40%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <span style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted);width:55px">Chat</span>
+        <input type="range" id="sl-chat" min="0" max="100" value="20" style="flex:1;accent-color:var(--green)">
+        <span id="lbl-chat" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--green);width:32px;text-align:right">20%</span>
+      </div>
+    </div>
+    <canvas id="mix-canvas" style="width:100%;height:170px;display:block;"></canvas>
+    <div id="mix-warning" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--amber);margin-top:.5rem;display:none">⚠ Proportions exceed 100% — values are normalized</div>
+  </div>
+</div>
+
+<div class="callout amber">
+  <strong>Failure mode: domain collapse.</strong> If you train DFlash's drafter on a single-domain corpus (e.g., only math training data), the model achieves high τ on math benchmarks but the token prediction degrades catastrophically on chat or code. In practice this means the deployed system is fast only for one query type — often the type you tested, not the one your users send.
+</div>
+
+<h3>The domain-specific τ signal</h3>
+<p>The per-domain τ difference in the bar chart above is itself informative. When you train a new DFlash drafter, you can diagnose whether your training mix is balanced by checking τ across benchmark categories: if Math500 τ and HumanEval τ are both above 6, the mix is working. If one is significantly below, you need more training data from that domain.</p>
+</section>
+
+<!-- §03 ─────────────────────────────────────── -->
+<section id="s-alignment" data-code="alignment">
+<div class="section-no">03 — Target Alignment</div>
+<h2>Whose responses does the drafter learn from?</h2>
+
+<p>Even with perfectly balanced domain coverage, there is a second crucial choice: <em>whose responses</em> populate the training set. The original dataset responses are written by humans, or generated by a different model entirely (e.g., GPT-4 was used to generate many SFT datasets). But DFlash's drafter will be paired at inference time with a specific target model — say, Qwen3-8B. The drafter's job is to predict <em>that model's next tokens</em>.</p>
+
+<p>If you train on human-written answers or answers from a different model, the drafter learns the wrong distribution. It will predict tokens that look statistically likely according to the training author, not according to Qwen3-8B. At verification time, Qwen3-8B will reject those tokens more often, lowering τ.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Distribution mismatch — dataset response vs. target model response</span>
+    <span class="vp-hint">click to toggle view</span>
+  </div>
+  <div class="vp-body">
+    <div class="btn-group">
+      <button class="ctrl-btn active" id="align-btn-mismatch">Dataset responses</button>
+      <button class="ctrl-btn" id="align-btn-match">Target model responses</button>
+    </div>
+    <canvas id="align-canvas" style="width:100%;height:220px;display:block;"></canvas>
+    <p id="align-caption" style="font-size:.72rem;color:var(--muted);margin-top:.75rem;margin-bottom:0">
+      <strong>Dataset responses:</strong> The drafter learns word patterns from the dataset's authors. These may differ systematically from the target model's preferred phrasing, token ordering, and vocabulary choices. Every mismatched token is a rejection at verification time.
+    </p>
+  </div>
+</div>
+
+<p>DFlash's training procedure directly addresses this: <em>"Instead of directly using the original dataset, we construct our training set with the responses generated by the target model for better target alignment."</em> The frozen target model (Qwen3-8B, etc.) is run on every prompt at temperature 0 (greedy), and its outputs replace the original dataset responses.</p>
+
+<p>This has a measurable effect. SpecForge's SpecBundle experiment (using the same principle for EAGLE-3 drafters) quantified the impact directly: regenerating training responses from the target model at temperature 0.8 adds <strong>+5.3% throughput on average</strong> across benchmarks, compared to using the dataset's provided responses. On Math500 and LiveCodeBench — where the target model's style diverges most from generic dataset responses — the gap is even larger.</p>
+
+<div class="callout purple">
+  <strong>Why temperature matters:</strong> DFlash uses greedy (temperature 0) responses for its training set. SpecForge found that temperature 0.8 works better for EAGLE-3 because the drafter needs to handle non-greedy decoding at inference. For DFlash, which is primarily evaluated at temperature 0, greedy target responses are the exact distribution the drafter needs to predict.
+</div>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Training responses from</th><th>Math500 τ gain</th><th>Avg. throughput</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Dataset-provided (human / other model)</td><td class="mn">baseline</td><td class="mn">—</td></tr>
+    <tr class="highlight-row"><td>Target model (temp=0.8, EAGLE-3 setting)</td><td class="mn best">+0.66 τ (+23%)</td><td class="mn best">+5.3%</td></tr>
+    <tr class="highlight-row"><td>Target model (temp=0, DFlash setting)</td><td class="mn best">designed for greedy eval</td><td class="mn best">primary config</td></tr>
+  </tbody>
+</table>
+
+<h3>The hidden cost of misaligned training</h3>
+<p>The alignment effect compounds with domain coverage. If you use misaligned responses <em>and</em> a poorly balanced domain mix, the combined τ penalty can be severe enough to eliminate most of DFlash's speedup advantage over EAGLE-3. Conversely, getting both right — balanced domains with target-model-generated responses — is how DFlash achieves τ = 8.01 on Math500, which translates to the 5.1× end-to-end speedup reported in the paper.</p>
+</section>
+
+<!-- §04 ─────────────────────────────────────── -->
+<section id="s-anchor" data-code="anchor">
+<div class="section-no">04 — Anchor Sampling</div>
+<h2>How you present training data matters as much as what data you use</h2>
+
+<p>Beyond <em>what</em> data you collect, <em>how</em> you turn that data into training examples determines coverage. DFlash's drafter predicts a block of 16 masked tokens starting from a clean anchor token. The question is: where in the response do you place those anchor positions?</p>
+
+<p>The naive approach — "standard block construction" — divides each response into non-overlapping fixed blocks. A 512-token response becomes 32 fixed blocks of 16 tokens each. Every training run sees the same anchor positions. This is efficient but has two problems: the drafter only learns to condition on a fixed set of context feature positions, and it is never exposed to the full variety of hidden states the target model produces at different sequence positions.</p>
+
+<p>DFlash's solution: <strong>random anchor sampling</strong>. For each sequence at each training epoch, 512 anchor positions are <em>randomly</em> sampled from the response. Each anchor position produces a fresh training example — a different context feature, a different block of tokens to predict. Over 6 epochs, the drafter sees the same data but from hundreds of different vantage points.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Standard blocks vs. random anchor sampling — coverage comparison</span>
+    <span class="vp-hint">click to animate</span>
+  </div>
+  <div class="vp-body">
+    <div class="btn-group">
+      <button class="ctrl-btn active" id="anc-btn-standard">Standard blocks</button>
+      <button class="ctrl-btn" id="anc-btn-random">Random anchors</button>
+    </div>
+    <canvas id="anchor-canvas" style="width:100%;height:200px;display:block;"></canvas>
+    <p id="anchor-caption" style="font-size:.72rem;color:var(--muted);margin-top:.75rem;margin-bottom:0">
+      <strong>Standard blocks:</strong> Each response is divided into fixed non-overlapping 16-token windows. The drafter trains on the same anchor positions every epoch — limited diversity of context features.
+    </p>
+  </div>
+</div>
+
+<p>The quantitative effect is substantial (DFlash, 100K samples, Qwen3-4B):</p>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Anchor strategy</th><th>Math500 τ</th><th>Math500 speedup</th><th>HumanEval τ</th><th>HumanEval speedup</th><th>MT-Bench speedup</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Standard (fixed blocks)</td><td class="mn">4.94</td><td class="mn">4.13×</td><td class="mn">3.86</td><td class="mn">3.29×</td><td class="mn">2.13×</td></tr>
+    <tr class="highlight-row"><td>Random anchor sampling</td><td class="mn best">5.64</td><td class="mn best">4.69×</td><td class="mn best">4.61</td><td class="mn best">3.90×</td><td class="mn best">2.38×</td></tr>
+    <tr><td>Improvement</td><td class="mn">+0.70 τ (+14%)</td><td class="mn">+0.56× (+14%)</td><td class="mn">+0.75 τ (+19%)</td><td class="mn">+0.61× (+19%)</td><td class="mn">+0.25× (+12%)</td></tr>
+  </tbody>
+</table>
+
+<p>Random anchor sampling improves τ by 14–19% depending on domain, with zero change to the dataset or the model architecture. This is purely a data <em>presentation</em> effect — the same 100K samples, arranged differently, produce a substantially better drafter.</p>
+
+<h3>Why random anchors help</h3>
+<p>Two mechanisms are at work. First, <strong>diverse context features</strong>: when anchor positions are random, the drafter is trained to predict from target hidden states at arbitrary sequence positions — not just at positions that are multiples of 16. This forces generalization over the full range of context feature patterns the model produces. Second, <strong>data augmentation</strong>: a 512-token response with 512 randomly sampled anchors produces many more distinct training examples than 32 fixed blocks. Over 6 epochs, this effectively multiplies the training set size with no additional data collection cost.</p>
+
+<div class="callout cyan">
+  <strong>Connection to long-context training:</strong> EAGLE-3's training-time test approach is expensive for long sequences because it requires running the full target model for each unroll step. DFlash's random anchor sampling achieves a similar diversity benefit more efficiently: by fixing the number of anchor positions per sequence (512) and varying their locations, training cost stays bounded even as sequence length grows.
+</div>
+</section>
+
+<!-- §05 ─────────────────────────────────────── -->
+<section id="s-scale" data-code="scale">
+<div class="section-no">05 — Data Scale</div>
+<h2>When more data helps — and when it doesn't</h2>
+
+<p>Adding more training data sounds like an obvious win, but speculative decoding drafter research has documented a crucial non-obviousness: <em>the benefit of scaling data depends on the architecture</em>. The original EAGLE showed essentially flat returns when data was scaled beyond ~100K samples. EAGLE-3 — and DFlash — fixed this, but for different reasons.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">Data scaling law: EAGLE (plateau) vs. EAGLE-3 (linear) vs. DFlash</span>
+    <span class="vp-hint">hover for values</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="scale-canvas" style="width:100%;height:240px;display:block;"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;margin-bottom:0">
+      EAGLE's feature-regression loss acts as a capacity bottleneck: the drafter is constrained to predict target <em>hidden states</em>, not token distributions, which limits how much additional data can improve performance. EAGLE-3 removes this constraint. DFlash has no feature-regression loss by design — the diffusion drafter is always trained end-to-end to predict tokens, not intermediate features.
+    </p>
+  </div>
+</div>
+
+<h3>Why EAGLE plateaued</h3>
+<p>EAGLE's training objective includes a feature-prediction (MSE) loss that forces the draft model's hidden states to match the target model's hidden states. This constraint, while intuitively appealing, effectively limits the drafter's representational capacity: it is optimized to be a <em>feature mimic</em>, not a <em>token predictor</em>. With more training data, there is simply nowhere for the model to improve — the MSE constraint is already satisfied, and further data does not increase acceptance length.</p>
+
+<p>EAGLE-3 removed the feature-regression loss entirely, allowing the drafter to optimize directly for token prediction. The result was a genuine scaling law: <em>"scaling up data provides linear improvements for EAGLE-3"</em> — speedup continues to grow with data volume, roughly proportionally to the logarithm of training set size.</p>
+
+<h3>DFlash's natural alignment</h3>
+<p>DFlash's block-diffusion drafter avoids this problem by construction. The training objective is always cross-entropy over token predictions — there is no feature-regression term. The drafter is free to allocate its representational capacity however it needs to maximize token prediction accuracy, which is exactly what acceptance length rewards. DFlash reports training on ~800K samples from Nemotron V2 + CodeAlpaca — approximately 4–8× the scale of early EAGLE experiments — and achieves the corresponding τ gains.</p>
+
+<div class="callout purple">
+  <strong>The practical implication:</strong> If you are training a DFlash drafter for a specialized application (e.g., a code-only deployment), you can scale training data within that domain without hitting a plateau. The diffusion architecture's lack of a feature-regression bottleneck means more domain-specific data translates proportionally to higher τ within that domain.
+</div>
+
+<h3>Scale vs. quality trade-off</h3>
+<p>At 100K samples, DFlash already achieves strong performance (Math500 τ ≈ 5.64 with random anchors). The full 800K dataset pushes this to τ = 8.01. But that 6× scale increase does not produce a 6× τ improvement — the relationship is sub-linear. In practice, DFlash's authors report that the biggest gains come early: well-curated 100K samples already capture most of the benefit that 800K provides, which is why their ablations use 100K as the reference.</p>
+</section>
+
+<!-- §06 ─────────────────────────────────────── -->
+<section id="s-recipe" data-code="recipe">
+<div class="section-no">06 — Training Recipe</div>
+<h2>A recipe for training DFlash drafters</h2>
+
+<p>Putting the four dimensions together produces a concrete recipe. Each step has a quantified τ contribution; they are not fully additive (there are interactions), but together they span the difference between a weak drafter (τ ≈ 3.5) and DFlash's best (τ ≈ 8.0).</p>
+
+<div class="step-list" id="recipe-steps">
+  <div class="step-box active">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Balanced domain coverage — math + code + chat</div>
+      <div class="step-desc">Train on a mixture covering all query domains you expect in deployment. DFlash uses Nemotron V2 (math-heavy) + CodeAlpaca (code) for English. Without this, τ on underrepresented domains falls by 0.5–1.5 tokens.</div>
+      <div class="step-code">~800K samples · math ≈ 40% · code ≈ 40% · chat ≈ 20%</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Regenerate responses from the target model</div>
+      <div class="step-desc">Run the frozen target model on every prompt at temperature 0 (or 0.8 for sampling settings) and use its outputs as training labels — not the dataset's original responses. This aligns the training distribution with the model the drafter will be paired with.</div>
+      <div class="step-code">target.generate(prompt, temp=0, do_sample=False)  # →  training label</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Use random anchor sampling — not fixed blocks</div>
+      <div class="step-desc">For each sequence at each epoch, randomly sample 512 anchor positions rather than using fixed non-overlapping blocks. This augments the effective training data volume and exposes the drafter to diverse context-feature patterns. Gain: +14–19% τ improvement with zero new data.</div>
+      <div class="step-code">anchors = random.sample(range(seq_len), 512)  # per epoch</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Apply exponential loss decay by position</div>
+      <div class="step-desc">Weight earlier tokens within each block more heavily: wₖ = exp(−(k−1)/γ), where γ = 7 for block-16. An error at position 1 of a 16-token block rejects all 15 subsequent tokens; an error at position 15 costs only 1. The loss schedule reflects this asymmetry.</div>
+      <div class="step-code">w_k = exp(-(k-1) / gamma)  # k=1 is highest priority</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Scale training data — but quality first</div>
+      <div class="step-desc">DFlash scales to ~800K samples for production models, but well-curated 100K already captures most of the gain. DFlash's diffusion architecture does not have EAGLE's feature-regression bottleneck, so data scaling translates proportionally to higher τ — but diminishing returns apply after the first 300K.</div>
+      <div class="step-code">n_samples = 800_000  # Nemotron V2 + CodeAlpaca, target-regenerated</div>
+    </div>
+  </div>
+  <div class="step-box">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <div class="step-title">Train 6 epochs with AdamW, lr=6×10⁻⁴, cosine decay</div>
+      <div class="step-desc">Standard recipe: AdamW, lr=6e-4, gradient clip=1.0, cosine schedule, warmup ratio=0.04. 6 epochs on the full dataset (or equivalently, augmented 100K with 512 random anchors per sequence per epoch). Shared embeddings and LM head with the frozen target model.</div>
+      <div class="step-code">optimizer = AdamW(lr=6e-4, clip=1.0); epochs = 6</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-nav">
+  <button id="step-prev" disabled>‹ Prev</button>
+  <button id="step-next">Next ›</button>
+  <span class="step-prog" id="step-prog">Step 1 of 6</span>
+</div>
+
+<h3>Expected τ outcomes</h3>
+<div class="results-bars" id="recipe-bars">
+  <div class="bar-section-head">Approximate τ on Math500 — Qwen3 class models</div>
+  <div class="bar-row">
+    <div class="bar-label">No target features (ablation)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="46.2" style="background:rgba(107,114,128,.5)"><span>~3.8 τ</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Features + fixed anchors, chat-only</div>
+    <div class="bar-track"><div class="bar-fill" data-w="55" style="background:rgba(107,114,128,.5)"><span>~4.5 τ</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Features + fixed anchors, balanced</div>
+    <div class="bar-track"><div class="bar-fill" data-w="60.2" style="background:var(--cyan)"><span>~4.94 τ</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">+ Random anchor sampling</div>
+    <div class="bar-track"><div class="bar-fill" data-w="68.7" style="background:var(--cyan)"><span>~5.64 τ</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Full recipe (800K, balanced, random)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="97.6" style="background:var(--purple)"><span>~8.01 τ</span></div></div>
+  </div>
+</div>
+
+<div class="callout cyan">
+  <strong>For reasoning models:</strong> DFlash trains a separate drafter for Qwen3 models with thinking mode enabled, using the same balanced recipe but adding reasoning traces (chain-of-thought) to the training set. The result is τ = 5.17–5.82 on GPQA/MATH-500/AIME25, maintaining 4.2–4.6× speedup even for long CoT outputs.
+</div>
+
+<p>The bottom line: DFlash's training data design is not accidental. Each of the four dimensions — domain balance, target alignment, anchor strategy, and scale — contributes independently to τ. Removing any one of them leaves measurable performance on the table. Implementing all four together is what takes τ from the 3.5–4.5 range (where a generic approach lands) to the 6–8 range where DFlash's reported results live.</p>
+</section>
+
+<!-- Listen-friendly hidden summary -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: What Training Data Actually Does to DFlash's Acceptance Length</h2>
+    <p>DFlash is a speculative decoding framework that uses a 5-layer block-diffusion model to draft 16 tokens in a single forward pass, conditioned on the target model's hidden states. Its speedup — between 4 and 5 times over autoregressive decoding — depends critically on the acceptance length tau: how many of those 16 draft tokens the target model accepts before finding an error.</p>
+    <p>Four training data dimensions determine tau. First, domain coverage: training only on chat data leaves math and code tau 20-30% lower than a balanced mix of math, code, and general text. DFlash uses 800K samples from NVIDIA Nemotron V2 and CodeAlpaca spanning all three domains. Second, target alignment: instead of using the original dataset responses, DFlash regenerates all training labels by running the frozen target model on every prompt. This alone adds 5 percent throughput compared to using dataset-provided answers. Third, anchor sampling: DFlash randomly samples 512 anchor positions per training sequence at each epoch rather than using fixed block positions. This improves tau by 14 to 19 percent across all benchmarks with zero new data. Fourth, data scale: unlike the original EAGLE which plateaued with more data, DFlash's diffusion architecture has no feature-regression bottleneck, so scaling from 100K to 800K samples continues to improve tau. The resulting system achieves tau of 8.01 on Math500 and 6.63 on HumanEval with Qwen3-8B.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：训练数据如何影响DFlash的接受长度</h2>
+    <p>DFlash是一种推测解码框架，使用5层块扩散模型在单次前向传播中并行起草16个token，通过目标模型的隐层状态进行条件化。其4到5倍的加速效果，核心在于接受长度τ——目标模型在发现错误前平均接受多少个起草token。</p>
+    <p>训练数据的四个维度决定了τ的高低。第一是领域覆盖：仅使用聊天数据训练时，数学和代码领域的τ比均衡混合（数学+代码+通用文本）低20到30个百分点。DFlash使用来自NVIDIA Nemotron V2和CodeAlpaca的80万样本，覆盖三个领域。第二是目标对齐：DFlash不使用数据集原始答案，而是用冻结的目标模型对每个prompt重新生成训练标签，仅此一项就可提升5%的吞吐量。第三是锚点采样：DFlash在每个训练周期对每条序列随机采样512个锚点位置，而非使用固定块位置，无需新增数据即可将τ提升14%至19%。第四是数据规模：与原始EAGLE因特征回归损失而遭遇缩放瓶颈不同，DFlash的扩散架构没有此限制，从10万到80万样本的扩展可持续提升τ。在Qwen3-8B上，最终结果为Math500的τ=8.01，HumanEval的τ=6.63。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dflash/training.py</div>
+      <div class="cs-section-title" id="cs-section-title">The τ Bottleneck</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="bottleneck">τ</button>
+    <button class="cs-tab" data-panel="domain">domain</button>
+    <button class="cs-tab" data-panel="alignment">align</button>
+    <button class="cs-tab" data-panel="anchor">anchor</button>
+    <button class="cs-tab" data-panel="scale">scale</button>
+    <button class="cs-tab" data-panel="recipe">recipe</button>
+  </div>
+  <div class="cs-body">
+    <!-- panel: bottleneck -->
+    <div class="cs-panel active" id="panel-bottleneck">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DFlash speedup — why τ is the key lever</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Acceptance length τ: avg tokens accepted</span>
+<span class="cs-line cmt"># per draft round (block_size=16)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Qwen3-8B, SGLang, greedy (temp=0)</span>
+<span class="cs-line hl-p">TAU_BY_DOMAIN = {</span>
+<span class="cs-line hl-p">    "Math500":    8.01,  # 4.8× speedup</span>
+<span class="cs-line hl-p">    "HumanEval":  6.63,  # 4.0× speedup</span>
+<span class="cs-line hl-p">    "MBPP":       7.23,  # 3.5× speedup</span>
+<span class="cs-line hl-p">    "Alpaca":     6.42,  # 3.5× speedup</span>
+<span class="cs-line hl-p">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Without target features (architecture ablation)</span>
+<span class="cs-line">TAU_NO_FEATURES = {</span>
+<span class="cs-line">    "GSM8K":   3.38,  # 2.83× speedup</span>
+<span class="cs-line">    "Math500": 4.61,  # 3.73× speedup</span>
+<span class="cs-line">}</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Speedup formula (single-GPU, temp=0)</span>
+<span class="cs-line hl-c">def speedup(tau, t_draft_ratio=0.12):</span>
+<span class="cs-line hl-c">    # t_draft_ratio: drafter/verifier time</span>
+<span class="cs-line hl-c">    return (tau + 1) / (1 + t_draft_ratio)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># → speedup(8.01) ≈ 8.0x raw,</span>
+<span class="cs-line cmt">#   ≈ 5.1x end-to-end (memory/batching)</span>
+      </pre>
+    </div>
+    <!-- panel: domain -->
+    <div class="cs-panel" id="panel-domain">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DFlash training data composition</span>
+<span class="cs-line cmt"># ~800K samples total</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Source 1: Nemotron Post-Training Dataset V2</span>
+<span class="cs-line cmt">#   nvidia/Nemotron-Post-Training-Dataset-v2</span>
+<span class="cs-line cmt">#   Domains: STEM, math, code, chat</span>
+<span class="cs-line cmt">#   (English subset ~625K)</span>
+<span class="cs-line hl-p">nemotron_v2 = load_dataset(</span>
+<span class="cs-line hl-p">    "nvidia/Nemotron-Post-Training-Dataset-v2"</span>
+<span class="cs-line hl-p">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Source 2: CodeAlpaca</span>
+<span class="cs-line cmt">#   sahil280114/codealpaca</span>
+<span class="cs-line cmt">#   Pure code instructions, ~20K</span>
+<span class="cs-line hl-c">codealpaca = load_dataset("codealpaca")</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Domain τ gap (without balanced training)</span>
+<span class="cs-line cmt"># EAGLE-3 on LLaMA-3.1-8B, Math500</span>
+<span class="cs-line">tau_chat_only   = 2.82  # ShareGPT only</span>
+<span class="cs-line hl-g">tau_balanced    = 3.48  # +math+code data</span>
+<span class="cs-line hl-g">improvement     = "+23% τ"</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DFlash domain-specific τ (full recipe)</span>
+<span class="cs-line">tau_math  = 8.01  # ← highest predictability</span>
+<span class="cs-line">tau_code  = 6.63  # code structure helps</span>
+<span class="cs-line">tau_chat  = 6.42  # most diverse patterns</span>
+      </pre>
+    </div>
+    <!-- panel: alignment -->
+    <div class="cs-panel" id="panel-alignment">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Target alignment: regenerate responses</span>
+<span class="cs-line cmt"># from the frozen target model</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ✗ Wrong approach: use dataset responses</span>
+<span class="cs-line">for prompt, response in dataset:</span>
+<span class="cs-line">    # response comes from a human, GPT-4,</span>
+<span class="cs-line">    # or another model — NOT your target</span>
+<span class="cs-line">    train(drafter, prompt, response)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ✓ DFlash approach: target-generated</span>
+<span class="cs-line hl-p">target.eval()  # frozen, no grad</span>
+<span class="cs-line hl-p">for prompt, _ in dataset:</span>
+<span class="cs-line hl-p">    with torch.no_grad():</span>
+<span class="cs-line hl-p">        response = target.generate(</span>
+<span class="cs-line hl-p">            prompt,</span>
+<span class="cs-line hl-p">            temperature=0,   # greedy</span>
+<span class="cs-line hl-p">            do_sample=False</span>
+<span class="cs-line hl-p">        )</span>
+<span class="cs-line hl-p">    train(drafter, prompt, response)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># SpecForge finding (EAGLE-3):</span>
+<span class="cs-line cmt"># temp=0.8 → +5.3% avg throughput</span>
+<span class="cs-line cmt"># vs. dataset-provided responses</span>
+<span class="cs-line hl-g">throughput_gain = "+5.3%"</span>
+<span class="cs-line hl-g">math500_tau_gain = "+0.66 τ (+23%)"</span>
+      </pre>
+    </div>
+    <!-- panel: anchor -->
+    <div class="cs-panel" id="panel-anchor">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Anchor sampling strategies</span>
+<span class="cs-line cmt"># Block size = 16, 512 anchors per seq</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ✗ Standard: fixed non-overlapping blocks</span>
+<span class="cs-line">def standard_anchors(seq_len, block_size=16):</span>
+<span class="cs-line">    return list(range(0, seq_len, block_size))</span>
+<span class="cs-line">    # Same positions every epoch</span>
+<span class="cs-line">    # Limited context feature diversity</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ✓ DFlash: random anchor positions</span>
+<span class="cs-line hl-p">def random_anchors(seq_len, n=512):</span>
+<span class="cs-line hl-p">    return random.sample(range(seq_len), n)</span>
+<span class="cs-line hl-p">    # Different positions every epoch</span>
+<span class="cs-line hl-p">    # Full variety of context features</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Measured τ improvement (100K samples)</span>
+<span class="cs-line">method = ["Standard", "Random"]</span>
+<span class="cs-line">math500_tau = [4.94, 5.64]    # +14%</span>
+<span class="cs-line hl-g">humaneval_tau = [3.86, 4.61]  # +19%</span>
+<span class="cs-line hl-g">mt_bench_spd  = [2.13, 2.38]  # +12%</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Each anchor position produces a distinct</span>
+<span class="cs-line cmt"># training example — effectively multiplies</span>
+<span class="cs-line cmt"># the dataset at zero extra data cost</span>
+      </pre>
+    </div>
+    <!-- panel: scale -->
+    <div class="cs-panel" id="panel-scale">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Data scaling — architecture matters</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># EAGLE: feature-regression bottleneck</span>
+<span class="cs-line">eagle_loss = (</span>
+<span class="cs-line">    CE_loss(predicted_tokens, true_tokens)</span>
+<span class="cs-line">    + MSE_loss(draft_hidden, target_hidden)</span>
+<span class="cs-line">)</span>
+<span class="cs-line cmt"># MSE term limits expressiveness:</span>
+<span class="cs-line cmt"># drafter must match features, not tokens</span>
+<span class="cs-line cmt"># → data scaling hits a wall (~100K)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># EAGLE-3: removed feature-MSE</span>
+<span class="cs-line hl-c">eagle3_loss = CE_loss(tokens, true_tokens)</span>
+<span class="cs-line hl-c"># ↑ linear data scaling law observed</span>
+<span class="cs-line hl-c"># 8× data → ~1.4× better τ</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DFlash: diffusion cross-entropy only</span>
+<span class="cs-line hl-p">dflash_loss = weighted_CE(</span>
+<span class="cs-line hl-p">    predicted_block, true_block,</span>
+<span class="cs-line hl-p">    weights=exp_decay(gamma=7)</span>
+<span class="cs-line hl-p">)</span>
+<span class="cs-line hl-p"># No feature regression → no bottleneck</span>
+<span class="cs-line hl-p"># 100K → τ≈5.6 | 800K → τ≈8.0</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Diminishing returns still apply:</span>
+<span class="cs-line cmt"># 0→100K: large gain; 100K→800K: smaller</span>
+      </pre>
+    </div>
+    <!-- panel: recipe -->
+    <div class="cs-panel" id="panel-recipe">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DFlash drafter training recipe</span>
+<span class="cs-line cmt"># Full configuration (production scale)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 1. Dataset</span>
+<span class="cs-line hl-p">dataset = mix([</span>
+<span class="cs-line hl-p">    nemotron_v2(english_only=True),  # ~625K</span>
+<span class="cs-line hl-p">    codealpaca(),                     # ~20K</span>
+<span class="cs-line hl-p">], total=800_000)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 2. Target alignment</span>
+<span class="cs-line hl-c">dataset = regenerate_from_target(</span>
+<span class="cs-line hl-c">    dataset, target_model, temperature=0</span>
+<span class="cs-line hl-c">)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 3. Training loop</span>
+<span class="cs-line">optimizer = AdamW(lr=6e-4, clip=1.0)</span>
+<span class="cs-line">schedule  = cosine_warmup(ratio=0.04)</span>
+<span class="cs-line">max_seq_len = 3072  # 4096 for Coder</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g">for epoch in range(6):</span>
+<span class="cs-line hl-g">    for seq in dataset:</span>
+<span class="cs-line hl-g">        # 4. Random anchor sampling</span>
+<span class="cs-line hl-g">        anchors = random.sample(</span>
+<span class="cs-line hl-g">            range(len(seq)), 512</span>
+<span class="cs-line hl-g">        )</span>
+<span class="cs-line hl-g">        blocks = make_blocks(seq, anchors)</span>
+<span class="cs-line hl-g">        # 5. Loss with position decay</span>
+<span class="cs-line hl-g">        loss = weighted_CE(</span>
+<span class="cs-line hl-g">            blocks, gamma=7</span>
+<span class="cs-line hl-g">        )</span>
+<span class="cs-line hl-g">        loss.backward()</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Sidebar & TOC toggles ──────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ─────────────────────────
+const tabMeta = {
+  bottleneck: { file: 'dflash/tau_math.py',    title: 'The τ Bottleneck' },
+  domain:     { file: 'dflash/data_domain.py', title: 'Domain Coverage' },
+  alignment:  { file: 'dflash/alignment.py',   title: 'Target Alignment' },
+  anchor:     { file: 'dflash/anchor.py',       title: 'Anchor Sampling' },
+  scale:      { file: 'dflash/scaling.py',      title: 'Data Scale' },
+  recipe:     { file: 'dflash/training.py',     title: 'Training Recipe' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── TOC IntersectionObserver ───────────────────────────
+const sectionMap = {
+  's-bottleneck': 'bottleneck',
+  's-domain':     'domain',
+  's-alignment':  'alignment',
+  's-anchor':     'anchor',
+  's-scale':      'scale',
+  's-recipe':     'recipe',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ── §01: Domain τ bar chart ────────────────────────────
+const dtCanvas = document.getElementById('domain-tau-canvas');
+if (dtCanvas) {
+  const ctx = dtCanvas.getContext('2d');
+  const W = dtCanvas.clientWidth, H = 220, DPR = window.devicePixelRatio || 1;
+  dtCanvas.width = W * DPR; dtCanvas.height = H * DPR; ctx.scale(DPR, DPR);
+
+  const domains = [
+    { label: 'Math500', tau: 8.01, color: '#8b5cf6' },
+    { label: 'MBPP', tau: 7.23, color: '#8b5cf6' },
+    { label: 'HumanEval', tau: 6.63, color: '#06b6d4' },
+    { label: 'Alpaca', tau: 6.42, color: '#06b6d4' },
+  ];
+  const maxTau = 10;
+  const padL = 90, padR = 20, padT = 24, padB = 30;
+  const chartW = W - padL - padR;
+  const barH = 32, gap = 10;
+
+  function drawDomainChart(highlighted) {
+    ctx.clearRect(0, 0, W, H);
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let t = 0; t <= maxTau; t += 2) {
+      const x = padL + (t / maxTau) * chartW;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + domains.length * (barH + gap)); ctx.stroke();
+      ctx.fillStyle = '#6b7280'; ctx.font = `${10 * DPR / DPR}px monospace`; ctx.textAlign = 'center';
+      ctx.fillText(t, x, padT + domains.length * (barH + gap) + 16);
+    }
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('acceptance length τ', padL + chartW / 2, H - 4);
+
+    domains.forEach((d, i) => {
+      const y = padT + i * (barH + gap);
+      const bw = (d.tau / maxTau) * chartW;
+      const alpha = (highlighted === null || highlighted === i) ? 1 : 0.3;
+
+      // Bar background
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.fillRect(padL, y, chartW, barH);
+
+      // Bar fill
+      ctx.globalAlpha = alpha;
+      const grad = ctx.createLinearGradient(padL, 0, padL + bw, 0);
+      grad.addColorStop(0, d.color + 'cc');
+      grad.addColorStop(1, d.color);
+      ctx.fillStyle = grad;
+      ctx.fillRect(padL, y, bw, barH);
+      ctx.globalAlpha = 1;
+
+      // Label
+      ctx.fillStyle = alpha < 0.5 ? '#4b5563' : '#9ca3af';
+      ctx.font = '11px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(d.label, padL - 6, y + barH / 2 + 4);
+
+      // Value
+      ctx.fillStyle = alpha < 0.5 ? '#374151' : '#e5e7eb';
+      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('τ = ' + d.tau.toFixed(2), padL + bw + 6, y + barH / 2 + 4);
+    });
+  }
+
+  let highlighted = null;
+  drawDomainChart(null);
+
+  dtCanvas.addEventListener('mousemove', e => {
+    const rect = dtCanvas.getBoundingClientRect();
+    const my = (e.clientY - rect.top);
+    const padT_ = padT, barH_ = barH, gap_ = gap;
+    let found = null;
+    domains.forEach((d, i) => {
+      const y = padT_ + i * (barH_ + gap_);
+      if (my >= y && my <= y + barH_) found = i;
+    });
+    if (found !== highlighted) { highlighted = found; drawDomainChart(highlighted); }
+  });
+  dtCanvas.addEventListener('mouseleave', () => { highlighted = null; drawDomainChart(null); });
+}
+
+// ── §02: Domain mix simulator ──────────────────────────
+const mixCanvas = document.getElementById('mix-canvas');
+if (mixCanvas) {
+  const mCtx = mixCanvas.getContext('2d');
+  const MW = mixCanvas.clientWidth, MH = 170, DPR = window.devicePixelRatio || 1;
+  mixCanvas.width = MW * DPR; mixCanvas.height = MH * DPR; mCtx.scale(DPR, DPR);
+
+  // τ model: weighted average of domain-specific τ
+  // DFlash baseline τ by domain: math=8.01, code=6.93 avg, chat=6.42
+  const TAU = { math: 8.01, code: 6.93, chat: 6.42 };
+
+  function getMix() {
+    let m = parseFloat(document.getElementById('sl-math').value);
+    let c = parseFloat(document.getElementById('sl-code').value);
+    let h = parseFloat(document.getElementById('sl-chat').value);
+    const total = m + c + h;
+    const warn = document.getElementById('mix-warning');
+    if (total > 100) { warn.style.display = 'block'; m=m/total*100; c=c/total*100; h=h/total*100; }
+    else { warn.style.display = 'none'; }
+    return { math: m / 100, code: c / 100, chat: h / 100 };
+  }
+
+  function drawMix() {
+    const mix = getMix();
+    mCtx.clearRect(0, 0, MW, MH);
+
+    // Projected τ values for each benchmark
+    const benchmarks = [
+      { name: 'Math500', base: 8.01, sensitivity: { math: 1.0, code: 0.2, chat: -0.3 } },
+      { name: 'HumanEval', base: 6.63, sensitivity: { math: -0.1, code: 1.0, chat: 0.1 } },
+      { name: 'Alpaca', base: 6.42, sensitivity: { math: -0.2, code: 0.1, chat: 1.0 } },
+    ];
+
+    // Simple model: τ = base + delta from domain shift
+    // If math proportion is higher than 0.4 (DFlash default), math τ improves
+    const mathDelta = (mix.math - 0.4);
+    const codeDelta = (mix.code - 0.4);
+    const chatDelta = (mix.chat - 0.2);
+
+    const projected = benchmarks.map(b => {
+      let tau = b.base
+        + b.sensitivity.math * mathDelta * 2.0
+        + b.sensitivity.code * codeDelta * 2.0
+        + b.sensitivity.chat * chatDelta * 1.5;
+      return { name: b.name, base: b.base, projected: Math.max(2, Math.min(10, tau)) };
+    });
+
+    const padL = 90, padR = 30, padT = 18, padB = 28;
+    const chartW = MW - padL - padR;
+    const barH = 28, gap = 8;
+    const maxTau = 10;
+
+    projected.forEach((p, i) => {
+      const y = padT + i * (barH + gap);
+      const baseW = (p.base / maxTau) * chartW;
+      const projW = (p.projected / maxTau) * chartW;
+
+      // Base bar (dim)
+      mCtx.fillStyle = 'rgba(107,114,128,0.25)';
+      mCtx.fillRect(padL, y, baseW, barH);
+
+      // Projected bar
+      const color = p.projected > p.base ? '#10b981' : p.projected < p.base ? '#ef4444' : '#8b5cf6';
+      const grad = mCtx.createLinearGradient(padL, 0, padL + projW, 0);
+      grad.addColorStop(0, color + '88');
+      grad.addColorStop(1, color);
+      mCtx.fillStyle = grad;
+      mCtx.fillRect(padL, y, projW, barH);
+
+      // Labels
+      mCtx.fillStyle = '#9ca3af'; mCtx.font = '11px monospace'; mCtx.textAlign = 'right';
+      mCtx.fillText(p.name, padL - 5, y + barH / 2 + 4);
+
+      const diff = p.projected - p.base;
+      const sign = diff > 0.01 ? '+' : diff < -0.01 ? '' : '±';
+      mCtx.fillStyle = '#e5e7eb'; mCtx.font = 'bold 10px monospace'; mCtx.textAlign = 'left';
+      mCtx.fillText(`τ ${p.projected.toFixed(2)} (${sign}${diff.toFixed(2)})`, padL + Math.max(baseW, projW) + 6, y + barH / 2 + 4);
+    });
+
+    // X axis labels
+    mCtx.fillStyle = '#6b7280'; mCtx.font = '9px monospace'; mCtx.textAlign = 'center';
+    for (let t = 0; t <= maxTau; t += 2) {
+      const x = padL + (t / maxTau) * chartW;
+      mCtx.fillText(t, x, MH - 6);
+    }
+  }
+
+  ['sl-math', 'sl-code', 'sl-chat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const domain = id.replace('sl-', '');
+    const lbl = document.getElementById('lbl-' + domain);
+    el.addEventListener('input', () => {
+      lbl.textContent = el.value + '%';
+      drawMix();
+    });
+  });
+  drawMix();
+}
+
+// ── §02: Animated bars ────────────────────────────────
+const domainBarsSection = document.getElementById('s-domain');
+if (domainBarsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#domain-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(domainBarsSection);
+}
+
+// ── §03: Alignment canvas ─────────────────────────────
+const alignCanvas = document.getElementById('align-canvas');
+if (alignCanvas) {
+  const aCtx = alignCanvas.getContext('2d');
+  const AW = alignCanvas.clientWidth, AH = 220, DPR = window.devicePixelRatio || 1;
+  alignCanvas.width = AW * DPR; alignCanvas.height = AH * DPR; aCtx.scale(DPR, DPR);
+
+  let alignMode = 'mismatch'; // or 'match'
+
+  // Seeded PRNG
+  function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  // Tokens in a sentence
+  const tokens = ['The', 'integral', 'of', 'x²', 'equals', 'x³/3', '+', 'C', '.'];
+  const N = tokens.length;
+
+  function drawAlignment() {
+    aCtx.clearRect(0, 0, AW, AH);
+
+    const midY = AH * 0.42;
+    const tokenW = AW / (N + 1);
+
+    // Draw tokens
+    tokens.forEach((tok, i) => {
+      const x = tokenW * (i + 1);
+
+      // Token box
+      const isMath = ['x²', 'x³/3', '+', 'C', '.'].includes(tok);
+      const isAccepted = alignMode === 'match' || seededRand(i * 3) > 0.35;
+
+      aCtx.fillStyle = isAccepted
+        ? (isMath ? 'rgba(139,92,246,0.25)' : 'rgba(16,185,129,0.18)')
+        : 'rgba(239,68,68,0.2)';
+      aCtx.strokeStyle = isAccepted
+        ? (isMath ? '#8b5cf6' : '#10b981')
+        : '#ef4444';
+      aCtx.lineWidth = 1;
+      const tw = Math.min(52, tokenW - 8);
+      const th = 26;
+      const tx = x - tw/2, ty = midY - th/2;
+      aCtx.beginPath();
+      aCtx.roundRect(tx, ty, tw, th, 4);
+      aCtx.fill(); aCtx.stroke();
+
+      // Token text
+      aCtx.fillStyle = isAccepted ? '#e5e7eb' : '#9ca3af';
+      aCtx.font = `bold 10px monospace`; aCtx.textAlign = 'center';
+      aCtx.fillText(tok.length > 5 ? tok.slice(0,4)+'…' : tok, x, midY + 4);
+
+      // Accept/reject label below
+      if (!isAccepted) {
+        aCtx.fillStyle = '#ef4444'; aCtx.font = '9px monospace';
+        aCtx.fillText('✗', x, midY + 26);
+      } else {
+        aCtx.fillStyle = '#10b981'; aCtx.font = '9px monospace';
+        aCtx.fillText('✓', x, midY + 26);
+      }
+    });
+
+    // Source label
+    const sourceLabel = alignMode === 'mismatch'
+      ? 'Training: dataset responses (different author/model)'
+      : 'Training: target model responses (temp=0, frozen)';
+    const sourceColor = alignMode === 'mismatch' ? '#f59e0b' : '#10b981';
+
+    aCtx.fillStyle = sourceColor;
+    aCtx.font = 'bold 11px monospace'; aCtx.textAlign = 'center';
+    aCtx.fillText(sourceLabel, AW/2, AH * 0.12);
+
+    // Tau display
+    const tauValue = alignMode === 'mismatch' ? 2.82 : 3.48;
+    const tauColor = alignMode === 'mismatch' ? '#ef4444' : '#10b981';
+    aCtx.fillStyle = '#6b7280'; aCtx.font = '11px monospace'; aCtx.textAlign = 'center';
+    aCtx.fillText('Math500 acceptance length:', AW/2, AH * 0.78);
+    aCtx.fillStyle = tauColor; aCtx.font = 'bold 22px monospace';
+    aCtx.fillText('τ = ' + tauValue, AW/2, AH * 0.92);
+  }
+
+  drawAlignment();
+
+  document.getElementById('align-btn-mismatch')?.addEventListener('click', () => {
+    alignMode = 'mismatch';
+    document.getElementById('align-btn-mismatch').classList.add('active');
+    document.getElementById('align-btn-match').classList.remove('active');
+    document.getElementById('align-caption').innerHTML =
+      '<strong>Dataset responses:</strong> The drafter learns word patterns from the dataset\'s authors. These may differ systematically from the target model\'s preferred phrasing, token ordering, and vocabulary choices. Every mismatched token is a rejection at verification time.';
+    drawAlignment();
+  });
+
+  document.getElementById('align-btn-match')?.addEventListener('click', () => {
+    alignMode = 'match';
+    document.getElementById('align-btn-match').classList.add('active');
+    document.getElementById('align-btn-mismatch').classList.remove('active');
+    document.getElementById('align-caption').innerHTML =
+      '<strong>Target model responses:</strong> The frozen target model generates all training labels at temperature 0. The drafter learns to predict <em>exactly this model\'s</em> token choices — the same distribution it will see at verification time. Result: +23% acceptance length on Math500.';
+    drawAlignment();
+  });
+}
+
+// ── §04: Anchor sampling canvas ───────────────────────
+const anchorCanvas = document.getElementById('anchor-canvas');
+if (anchorCanvas) {
+  const anCtx = anchorCanvas.getContext('2d');
+  const ANW = anchorCanvas.clientWidth, ANH = 200, DPR = window.devicePixelRatio || 1;
+  anchorCanvas.width = ANW * DPR; anchorCanvas.height = ANH * DPR; anCtx.scale(DPR, DPR);
+
+  let anchorMode = 'standard';
+  let animFrame = null;
+  let animT = 0;
+
+  const SEQ_LEN = 48; // tokens to display
+  const TOK_W = (ANW - 40) / SEQ_LEN;
+  const BLOCK_SIZE = 16;
+  const ROW_Y = ANH * 0.35;
+  const ROW2_Y = ANH * 0.7;
+
+  function seededRand2(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  // Epoch 1 standard anchors: positions 0,16,32
+  // Epoch 2 standard anchors: same 0,16,32
+  // Random epoch 1: e.g. 3,11,19,28,37,43
+  function getAnchors(mode, epoch) {
+    if (mode === 'standard') {
+      return [0, 16, 32];
+    } else {
+      // Different random anchors each epoch
+      const positions = [];
+      const used = new Set();
+      for (let i = 0; i < 6; i++) {
+        let p = Math.floor(seededRand2(i * 7 + epoch * 31) * (SEQ_LEN - BLOCK_SIZE));
+        while (used.has(p)) p = (p + 1) % (SEQ_LEN - BLOCK_SIZE);
+        used.add(p); positions.push(p);
+      }
+      return positions.sort((a,b) => a-b);
+    }
+  }
+
+  let epoch1 = 0; // 0 or 1 for two epochs side by side
+
+  function drawAnchors() {
+    anCtx.clearRect(0, 0, ANW, ANH);
+
+    const colors = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#a78bfa'];
+
+    // Labels
+    anCtx.fillStyle = '#9ca3af'; anCtx.font = 'bold 10px monospace'; anCtx.textAlign = 'left';
+    anCtx.fillText('Epoch 1', 20, ROW_Y - 28);
+    anCtx.fillText('Epoch 2', 20, ROW2_Y - 28);
+
+    const anchors1 = getAnchors(anchorMode, 0);
+    const anchors2 = getAnchors(anchorMode, 1);
+
+    [anchors1, anchors2].forEach((anchors, row) => {
+      const y = row === 0 ? ROW_Y : ROW2_Y;
+
+      // Draw all tokens
+      for (let t = 0; t < SEQ_LEN; t++) {
+        const x = 20 + t * TOK_W;
+        anCtx.fillStyle = 'rgba(255,255,255,0.03)';
+        anCtx.fillRect(x, y - 10, TOK_W - 1, 20);
+      }
+
+      // Draw anchor blocks
+      anchors.forEach((a, ai) => {
+        const blockEnd = Math.min(a + BLOCK_SIZE, SEQ_LEN);
+        const blockLen = blockEnd - a;
+        const x = 20 + a * TOK_W;
+        const bw = blockLen * TOK_W - 1;
+        const col = colors[ai % colors.length];
+
+        anCtx.fillStyle = col + '30';
+        anCtx.fillRect(x, y - 10, bw, 20);
+        anCtx.strokeStyle = col;
+        anCtx.lineWidth = 1.5;
+        anCtx.strokeRect(x, y - 10, bw, 20);
+
+        // Anchor marker
+        anCtx.fillStyle = col;
+        anCtx.beginPath(); anCtx.arc(x + 4, y + 2, 3, 0, Math.PI * 2); anCtx.fill();
+      });
+
+      // Coverage indicator
+      const covered = new Set();
+      anchors.forEach(a => { for (let t = a; t < Math.min(a + BLOCK_SIZE, SEQ_LEN); t++) covered.add(t); });
+      const pct = Math.round(covered.size / SEQ_LEN * 100);
+
+      anCtx.fillStyle = '#6b7280'; anCtx.font = '10px monospace'; anCtx.textAlign = 'right';
+      anCtx.fillText(`${pct}% covered`, ANW - 8, y + 3);
+    });
+
+    // Mode label
+    const modeName = anchorMode === 'standard' ? 'Standard: same positions each epoch' : 'Random: different positions each epoch';
+    const modeColor = anchorMode === 'standard' ? '#f59e0b' : '#10b981';
+    anCtx.fillStyle = modeColor; anCtx.font = 'bold 11px monospace'; anCtx.textAlign = 'center';
+    anCtx.fillText(modeName, ANW/2, ANH - 6);
+  }
+
+  drawAnchors();
+
+  document.getElementById('anc-btn-standard')?.addEventListener('click', () => {
+    anchorMode = 'standard';
+    document.getElementById('anc-btn-standard').classList.add('active');
+    document.getElementById('anc-btn-random').classList.remove('active');
+    document.getElementById('anchor-caption').innerHTML =
+      '<strong>Standard blocks:</strong> Each response is divided into fixed non-overlapping 16-token windows. The drafter trains on the same anchor positions every epoch — limited diversity of context features.';
+    drawAnchors();
+  });
+
+  document.getElementById('anc-btn-random')?.addEventListener('click', () => {
+    anchorMode = 'random';
+    document.getElementById('anc-btn-random').classList.add('active');
+    document.getElementById('anc-btn-standard').classList.remove('active');
+    document.getElementById('anchor-caption').innerHTML =
+      '<strong>Random anchors:</strong> 512 anchor positions sampled randomly from each sequence at each epoch. Epoch 1 and Epoch 2 cover different windows. Over 6 epochs, the drafter sees every position. Result: +14–19% τ improvement on all benchmarks.';
+    drawAnchors();
+  });
+}
+
+// ── §05: Data scaling line chart ──────────────────────
+const scaleCanvas = document.getElementById('scale-canvas');
+if (scaleCanvas) {
+  const sCtx = scaleCanvas.getContext('2d');
+  const SW = scaleCanvas.clientWidth, SH = 240, DPR = window.devicePixelRatio || 1;
+  scaleCanvas.width = SW * DPR; scaleCanvas.height = SH * DPR; sCtx.scale(DPR, DPR);
+
+  const padL = 55, padR = 25, padT = 20, padB = 40;
+  const chartW = SW - padL - padR, chartH = SH - padT - padB;
+
+  // X: data scale (1x = 68K ShareGPT), log-ish
+  // Scales: 1x, 2x, 4x, 8x
+  const scales = [1, 2, 4, 8]; // relative to EAGLE's 68K base
+  const logScales = scales.map(s => Math.log2(s));
+  const maxLog = Math.log2(8);
+
+  // Y: τ values (normalized to show relative improvement)
+  const eagleData   = [3.78, 3.80, 3.82, 3.84]; // essentially flat
+  const eagle3Data  = [4.05, 4.52, 5.37, 6.23];  // genuine scaling
+  const dflashData  = [5.20, 6.10, 7.20, 8.01];  // strong scaling
+
+  const minY = 2.5, maxY = 9.5;
+
+  function xPos(logS) { return padL + (logS / maxLog) * chartW; }
+  function yPos(tau)  { return padT + (1 - (tau - minY) / (maxY - minY)) * chartH; }
+
+  // Grid
+  sCtx.strokeStyle = 'rgba(255,255,255,0.04)'; sCtx.lineWidth = 1;
+  for (let t = 3; t <= 9; t++) {
+    const y = yPos(t);
+    sCtx.beginPath(); sCtx.moveTo(padL, y); sCtx.lineTo(padL + chartW, y); sCtx.stroke();
+    sCtx.fillStyle = '#6b7280'; sCtx.font = '10px monospace'; sCtx.textAlign = 'right';
+    sCtx.fillText('τ=' + t, padL - 5, y + 4);
+  }
+  scales.forEach(s => {
+    const x = xPos(Math.log2(s));
+    sCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+    sCtx.beginPath(); sCtx.moveTo(x, padT); sCtx.lineTo(x, padT + chartH); sCtx.stroke();
+    sCtx.fillStyle = '#6b7280'; sCtx.font = '9px monospace'; sCtx.textAlign = 'center';
+    sCtx.fillText(s + '× data', x, padT + chartH + 16);
+  });
+
+  // Axes labels
+  sCtx.fillStyle = '#6b7280'; sCtx.font = '10px monospace'; sCtx.textAlign = 'center';
+  sCtx.fillText('Training data scale (1× ≈ 68K samples)', padL + chartW/2, SH - 4);
+
+  // Lines
+  function drawLine(data, color, label, dashed) {
+    sCtx.beginPath();
+    data.forEach((tau, i) => {
+      const x = xPos(logScales[i]), y = yPos(tau);
+      i === 0 ? sCtx.moveTo(x, y) : sCtx.lineTo(x, y);
+    });
+    sCtx.strokeStyle = color;
+    sCtx.lineWidth = 2;
+    if (dashed) { sCtx.setLineDash([6, 4]); } else { sCtx.setLineDash([]); }
+    sCtx.stroke();
+    sCtx.setLineDash([]);
+
+    // Dots
+    data.forEach((tau, i) => {
+      const x = xPos(logScales[i]), y = yPos(tau);
+      sCtx.beginPath(); sCtx.arc(x, y, 4, 0, Math.PI * 2);
+      sCtx.fillStyle = color; sCtx.fill();
+    });
+
+    // End label
+    const lx = xPos(logScales[logScales.length-1]) + 8;
+    const ly = yPos(data[data.length-1]) + 4;
+    sCtx.fillStyle = color; sCtx.font = 'bold 10px monospace'; sCtx.textAlign = 'left';
+    sCtx.fillText(label, lx, ly);
+  }
+
+  drawLine(eagleData,  '#6b7280', 'EAGLE', true);
+  drawLine(eagle3Data, '#06b6d4', 'EAGLE-3', false);
+  drawLine(dflashData, '#8b5cf6', 'DFlash', false);
+}
+
+// ── §06: Step navigator ───────────────────────────────
+let step = 0;
+const boxes  = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i+1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step>0){step--;updateSteps();} });
+nextBtn?.addEventListener('click', () => { if (step<boxes.length-1){step++;updateSteps();} });
+updateSteps();
+
+// ── §06: Recipe bars ─────────────────────────────────
+const recipeSection = document.getElementById('s-recipe');
+if (recipeSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#recipe-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(recipeSection);
+}
+</script>
+</BaseLayout>
