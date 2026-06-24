@@ -9,6 +9,9 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "smearing-lm.pdf":                           "https://arxiv.org/pdf/2606.15956",
+    "variable-width-xformer.pdf":                "https://arxiv.org/pdf/2606.18246",
+    "tapered-lm.pdf":                            "https://arxiv.org/pdf/2606.23670",
     "perception-lm.pdf":                          "https://arxiv.org/pdf/2504.13180",
     "diffusion-gemma-transparency.pdf":          "https://arxiv.org/pdf/2606.20560",
     "joyai-vl-interaction.pdf":                  "https://arxiv.org/pdf/2606.14777v1",

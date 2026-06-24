@@ -1,0 +1,1289 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Vision Without Augmentations: TDV Learns Representations from Temporal Difference | Catpuccino.ai"
+  description="TDV replaces cropping, masking, and augmentation with a single causal assumption: current frame embedding + encoded motion = next frame embedding. No vision-specific tricks, yet matches DINO/iBOT on dense spatial tasks."
+  crumb="TDV"
+>
+
+<style is:global>
+/* ─── Post base ─────────────────────────────── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ─── Three-column layout ─────────────────── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ─── Viz panels ──────────────────────────── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ─── TOC sidebar ─────────────────────────── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ─── Code sidebar ────────────────────────── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ─── Responsive ──────────────────────────── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* ─── Results table ───────────────────────── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ─── Animated bars ───────────────────────── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:170px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:1rem;margin-bottom:.25rem;font-family:var(--ff-mono)}
+
+/* ─── Math block ──────────────────────────── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ─── Scale chart controls ────────────────── */
+.scale-btns{display:flex;gap:.5rem;flex-wrap:wrap}
+.scale-btn{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.scale-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.scale-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ─── Delta canvas controls ───────────────── */
+.delta-controls{display:flex;gap:.5rem;align-items:center;margin-top:.75rem}
+.delta-controls button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.delta-controls button:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.delta-frame-label{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Self-Supervised Learning</span>
+    <span class="tag tag-cyan">Video Representation</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Vision Without Augmentations: TDV Learns from Temporal Difference Alone</h1>
+  <p class="lead">
+    Every modern SSL method — DINO, iBOT, MAE — bakes in a vision-specific inductive bias: cropping, masking, or augmentation. TDV removes them all, replacing every trick with one causal equation: <em>frame embedding + encoded motion = next frame embedding</em>. No augmentations. No masks. No domain-specific assumptions. Yet it matches state-of-the-art on dense spatial tasks.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 24, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2606.15956</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.15956" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://temporal-difference-vision.github.io" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Project Site
+    </a>
+    <a class="hero-btn" href="https://github.com/ninaddaithankar/TDV" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-scale"><a href="#s-scale"><span class="toc-num">01</span> Scale Argument</a></li>
+    <li class="toc-item" id="toc-s-collapse"><a href="#s-collapse"><span class="toc-num">02</span> Naive Removal Fails</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> TDV Architecture</a></li>
+    <li class="toc-item" id="toc-s-motion"><a href="#s-motion"><span class="toc-num">04</span> Low-Rank Motion</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Results</a></li>
+    <li class="toc-item" id="toc-s-future"><a href="#s-future"><span class="toc-num">06</span> Implications</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ─── §01: The Scale Argument ─────────────────── -->
+<section id="s-scale" data-code="scale">
+<div class="section-no">01 — The Scale Argument</div>
+<h2>Inductive Biases Are Temporary Crutches</h2>
+<p>
+  Deep learning has a reliable pattern: methods that assume less tend to win as data grows. CNNs assumed spatial locality — transformers don't, and transformers won. Contrastive learning assumed negatives should be dissimilar — self-distillation doesn't, and self-distillation won. Modern SSL methods like DINO and iBOT still assume that a heavily augmented crop is "the same image" — but if the pattern holds, this assumption too will become a bottleneck.
+</p>
+<p>
+  TDV (UIUC + NYU, including Yann LeCun) tests this directly. Using masking ratio as a proxy for assumption strength, they run the same SSL recipe at four data scales. The result is a clean crossover: at 0.1% of ImageNet, strong masking (50%) wins by 12+ percentage points; at 100% of ImageNet, weak masking (30%) surpasses it. The optimal assumption strength decreases with data.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">optimal inductive bias strength vs. data scale</span>
+    <span class="vp-hint">click a data point to highlight</span>
+  </div>
+  <div class="vp-body" style="min-height:260px;">
+    <canvas id="scale-canvas" style="width:100%;height:240px;display:block;"></canvas>
+    <div style="margin-top:.75rem;" class="scale-btns">
+      <button class="scale-btn active" data-idx="0">0.1% data</button>
+      <button class="scale-btn" data-idx="1">1% data</button>
+      <button class="scale-btn" data-idx="2">10% data</button>
+      <button class="scale-btn" data-idx="3">100% data</button>
+    </div>
+  </div>
+</div>
+
+<p>
+  The takeaway is uncomfortable: the biases that <em>enable</em> learning at low data are precisely the same biases that <em>restrict</em> it at scale. Adding SSL training data should improve performance — but strong augmentation constraints cap what can be learned. An assumption that is only approximately correct (e.g. "a cropped and color-jittered image is semantically identical") prevents the model from encoding information the assumption deems invariant.
+</p>
+<p>
+  This motivates a search for a weaker, exact assumption. TDV's answer: causality — the past predicts the immediate future.
+</p>
+</section>
+
+<!-- ─── §02: Naive Removal Fails ─────────────────── -->
+<section id="s-collapse" data-code="collapse">
+<div class="section-no">02 — Naive Removal Fails</div>
+<h2>You Can't Just Remove the Augmentations</h2>
+<p>
+  The obvious experiment: take DINO and progressively strip away its inductive biases. Remove color jitter, then local crops, then random global crop — and watch what happens. The results are stark. Every removal degrades KNN accuracy, and removing the final random crop entirely causes complete representation collapse: every image maps to the same embedding, giving 0.84% top-1 (near random).
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">progressive DINO ablation (SSv2 pretrain → ImageNet KNN top-1)</span>
+    <span class="vp-hint">bars animate on scroll</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="collapse-bars">
+      <p class="bar-group-label" style="margin-top:0">DINO baseline → removing inductive biases</p>
+      <div class="bar-row">
+        <div class="bar-label">2G+8L, full aug</div>
+        <div class="bar-track"><div class="bar-fill" id="cb0" style="background:var(--green)" data-w="24.63"><span>24.63%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">− augmentations</div>
+        <div class="bar-track"><div class="bar-fill" id="cb1" style="background:rgba(107,185,129,.55)" data-w="16.44"><span>16.44%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">− local crops</div>
+        <div class="bar-track"><div class="bar-fill" id="cb2" style="background:rgba(107,185,129,.4)" data-w="13.64"><span>13.64%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">− crop on 1 global</div>
+        <div class="bar-track"><div class="bar-fill" id="cb3" style="background:rgba(107,185,129,.25)" data-w="8.04"><span>8.04%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">− crop on both globals</div>
+        <div class="bar-track"><div class="bar-fill" id="cb4" style="background:var(--red,#ef4444)" data-w="0.84"><span>0.84% ✗ collapse</span></div></div>
+      </div>
+      <p class="bar-group-label">TDV — no augmentations, no collapse</p>
+      <div class="bar-row">
+        <div class="bar-label">Full TDV recipe</div>
+        <div class="bar-track"><div class="bar-fill" id="cb5" style="background:var(--purple)" data-w="8.79"><span>8.79% ✓</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  TDV achieves 8.79% top-1 KNN — comparable to DINO without augmentations — while never collapsing. The key: it doesn't remove the learning signal entirely. Instead of enforcing invariance across views, it provides a <em>different</em> learning signal — the causal prediction of the next frame's embedding.
+</p>
+<p>
+  Without some constraint, all representations collapse to a constant (trivially satisfying any loss). TDV's constraint is: <em>given the current frame, predict the next one</em>. This is exactly correct (the future is always caused by the past), never approximate, and prevents collapse by requiring the encoder to discriminate between different frames.
+</p>
+</section>
+
+<!-- ─── §03: TDV Architecture ─────────────────── -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — TDV Architecture</div>
+<h2>Addition in Latent Space</h2>
+<p>
+  TDV's core principle is an additive decomposition in embedding space: the representation of a frame, when added to an encoded motion vector, should equal the representation of the next frame. No vision tricks. Just one equation:
+</p>
+<div class="math-block">
+  <div class="math-label">core TDV equation</div>
+  <span class="math-var">ẑ</span><sub>t+1</sub> = <span class="math-var">z</span><sub>t</sub> + Δ<span class="math-var">z</span><sub>t</sub><br>
+  where <span class="math-var">z</span><sub>t</sub> = <span class="math-var">f</span><sub>θ</sub>(<span class="math-var">x</span><sub>t</sub>), &nbsp; Δ<span class="math-var">z</span><sub>t</sub> = <span class="math-var">m</span><sub>ϕ</sub>(Δ<span class="math-var">x</span><sub>t</sub>; <span class="math-var">z</span><sub>t</sub>)<br>
+  <span class="math-comment">// Δx_t = x_&#123;t+1&#125; − x_t  (raw pixel difference between frames)</span>
+</div>
+
+<p>
+  The <strong>frame encoder</strong> fθ maps each frame to a sequence of patch embeddings (n patches + [CLS] token). The <strong>motion encoder</strong> mϕ takes the raw pixel difference Δxₜ and, conditioned on the current frame embedding via cross-attention, produces a latent motion shift Δzₜ. Their sum is the predicted next-frame embedding.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">TDV architecture — student branch predicts, teacher branch provides target</span>
+    <span class="vp-hint">stop-gradient prevents teacher collapse</span>
+  </div>
+  <div class="vp-body" style="overflow-x:auto;">
+<svg viewBox="0 0 620 380" width="100%" style="min-width:520px;font-family:var(--ff-mono);font-size:12px">
+  <!-- background -->
+  <rect x="0" y="0" width="620" height="380" fill="transparent"/>
+
+  <!-- ── STUDENT side ── -->
+  <text x="130" y="22" fill="#6b7280" font-size="10" text-anchor="middle" font-weight="600" letter-spacing="1">STUDENT</text>
+
+  <!-- Frame t box -->
+  <rect x="55" y="30" width="150" height="38" rx="6" fill="rgba(15,15,30,.7)" stroke="#374151" stroke-width="1.5"/>
+  <text x="130" y="54" fill="#9ca3af" text-anchor="middle">Frame t</text>
+
+  <!-- Arrow down to frame encoder -->
+  <line x1="130" y1="68" x2="130" y2="88" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Frame encoder box -->
+  <rect x="50" y="88" width="160" height="40" rx="6" fill="rgba(139,92,246,.18)" stroke="rgba(139,92,246,.6)" stroke-width="1.5"/>
+  <text x="130" y="108" fill="#a78bfa" text-anchor="middle" font-weight="600">Frame Encoder</text>
+  <text x="130" y="122" fill="#7c6bb5" text-anchor="middle" font-size="10">f&#x03B8;</text>
+
+  <!-- z_t arrow right -->
+  <line x1="210" y1="108" x2="258" y2="108" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arrc)"/>
+  <text x="233" y="102" fill="#7c6bb5" text-anchor="middle" font-size="11" font-style="italic">z&#x209C;</text>
+
+  <!-- z_t line continues down to connect to cross-attn and to sum circle -->
+  <line x1="258" y1="108" x2="258" y2="200" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="4 3" opacity=".6"/>
+  <text x="265" y="162" fill="#7c6bb5" font-size="10" font-style="italic">cross-attn</text>
+
+  <!-- Delta x_t box -->
+  <rect x="30" y="175" width="120" height="38" rx="6" fill="rgba(15,15,30,.7)" stroke="#374151" stroke-width="1.5"/>
+  <text x="90" y="196" fill="#9ca3af" text-anchor="middle" font-size="11">Δx&#x209C; = x&#x209C;&#x208A;&#x2081;−x&#x209C;</text>
+  <text x="90" y="208" fill="#6b7280" text-anchor="middle" font-size="9">(pixel diff)</text>
+
+  <!-- Arrow right to motion encoder -->
+  <line x1="150" y1="194" x2="175" y2="194" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Motion encoder box -->
+  <rect x="175" y="175" width="130" height="40" rx="6" fill="rgba(6,182,212,.15)" stroke="rgba(6,182,212,.6)" stroke-width="1.5"/>
+  <text x="240" y="195" fill="#22d3ee" text-anchor="middle" font-weight="600">Motion Encoder</text>
+  <text x="240" y="209" fill="#0e8a99" text-anchor="middle" font-size="10">m&#x03C6; (cross-attn ← z&#x209C;)</text>
+
+  <!-- cross-attn arrow from z_t dashed line to motion encoder -->
+  <line x1="258" y1="200" x2="258" y2="194" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="4 3" opacity=".6" marker-end="url(#arrp)"/>
+
+  <!-- Delta z_t arrow right -->
+  <line x1="305" y1="195" x2="340" y2="215" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#arrcyan)"/>
+  <text x="325" y="210" fill="#0e8a99" font-size="11" font-style="italic">Δz&#x209C;</text>
+
+  <!-- z_t arrow down to sum -->
+  <line x1="258" y1="200" x2="340" y2="225" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arrpurp)"/>
+
+  <!-- sum circle -->
+  <circle cx="358" cy="232" r="16" fill="rgba(15,15,30,.9)" stroke="#374151" stroke-width="1.5"/>
+  <text x="358" y="237" fill="#9ca3af" text-anchor="middle" font-size="16">+</text>
+
+  <!-- ẑ_{t+1} arrow right -->
+  <line x1="374" y1="232" x2="410" y2="232" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="390" y="226" fill="#6b7280" font-size="11" font-style="italic">ẑ&#x209C;&#x208A;&#x2081;</text>
+
+  <!-- predicted box -->
+  <rect x="410" y="218" width="80" height="28" rx="5" fill="rgba(16,185,129,.12)" stroke="rgba(16,185,129,.5)" stroke-width="1.5"/>
+  <text x="450" y="236" fill="#34d399" text-anchor="middle" font-size="10">predicted</text>
+
+  <!-- ── TEACHER side ── -->
+  <text x="530" y="22" fill="#6b7280" font-size="10" text-anchor="middle" font-weight="600">TEACHER (EMA)</text>
+
+  <!-- Frame t+1 box -->
+  <rect x="458" y="30" width="150" height="38" rx="6" fill="rgba(15,15,30,.7)" stroke="#374151" stroke-width="1.5"/>
+  <text x="533" y="54" fill="#9ca3af" text-anchor="middle">Frame t+1</text>
+
+  <!-- Arrow down -->
+  <line x1="533" y1="68" x2="533" y2="88" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Teacher encoder box -->
+  <rect x="453" y="88" width="160" height="40" rx="6" fill="rgba(245,158,11,.15)" stroke="rgba(245,158,11,.5)" stroke-width="1.5"/>
+  <text x="533" y="108" fill="#fbbf24" text-anchor="middle" font-weight="600">Teacher f&#x03B8;&#x208A;</text>
+  <text x="533" y="122" fill="#92700a" text-anchor="middle" font-size="9">slow EMA · stop-gradient</text>
+
+  <!-- z_{t+1} target arrow down -->
+  <line x1="533" y1="128" x2="533" y2="218" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="544" y="180" fill="#6b7280" font-size="11" font-style="italic">z&#x209C;&#x208A;&#x2081;</text>
+
+  <!-- target box -->
+  <rect x="493" y="218" width="80" height="28" rx="5" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.4)" stroke-width="1.5"/>
+  <text x="533" y="236" fill="#fbbf24" text-anchor="middle" font-size="10">target</text>
+
+  <!-- Loss arrows -->
+  <!-- MSE loss dashed arrow from predicted to target -->
+  <line x1="490" y1="232" x2="493" y2="232" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrerr)"/>
+  <text x="491" y="258" fill="#ef4444" text-anchor="middle" font-size="11" font-weight="600">L&#x209C;&#x200B;&#x200B;mse</text>
+  <text x="491" y="271" fill="#6b7280" text-anchor="middle" font-size="9">‖ẑ&#x209C;&#x208A;&#x2081; − sg(z&#x209C;&#x208A;&#x2081;)‖²</text>
+
+  <!-- DINO loss -->
+  <!-- Projection heads + CE loss -->
+  <rect x="330" y="300" width="80" height="28" rx="5" fill="rgba(15,15,30,.8)" stroke="#374151" stroke-width="1.5"/>
+  <text x="370" y="318" fill="#9ca3af" text-anchor="middle" font-size="10">proj head</text>
+  <rect x="500" y="300" width="80" height="28" rx="5" fill="rgba(15,15,30,.8)" stroke="#374151" stroke-width="1.5"/>
+  <text x="540" y="318" fill="#9ca3af" text-anchor="middle" font-size="10">proj head</text>
+
+  <!-- lines from encoders to proj heads -->
+  <line x1="450" y1="246" x2="370" y2="300" stroke="#374151" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
+  <line x1="533" y1="246" x2="540" y2="300" stroke="#374151" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
+
+  <!-- CE arrow between proj heads -->
+  <line x1="410" y1="314" x2="500" y2="314" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="455" y="308" fill="#8b5cf6" text-anchor="middle" font-size="11" font-weight="600">L&#x200B;dino (CE)</text>
+  <text x="455" y="342" fill="#6b7280" text-anchor="middle" font-size="9">prevents collapse — applied over [CLS] + patch tokens</text>
+
+  <!-- Arrow defs -->
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#374151"/>
+    </marker>
+    <marker id="arrc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6"/>
+    </marker>
+    <marker id="arrcyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#06b6d4"/>
+    </marker>
+    <marker id="arrpurp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6"/>
+    </marker>
+    <marker id="arrp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6" opacity=".6"/>
+    </marker>
+    <marker id="arrerr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+</svg>
+  </div>
+</div>
+
+<p>
+  Two losses train TDV jointly. The <strong>MSE loss</strong> directly supervises the causal constraint — the predicted next-frame embedding must match the teacher's encoding of the actual next frame. The <strong>DINO-style cross-entropy loss</strong> applied over projection heads prevents collapse — if all frames mapped to the same embedding, the prototype distributions would be identical and the CE loss would spike. The two losses are combined as L = λ<sub>mse</sub>·L<sub>mse</sub> + λ<sub>dino</sub>·L<sub>dino</sub>.
+</p>
+</section>
+
+<!-- ─── §04: Low-Rank Motion ─────────────────── -->
+<section id="s-motion" data-code="motion">
+<div class="section-no">04 — Low-Rank Motion</div>
+<h2>Why Consecutive Frames Are the Perfect Signal</h2>
+<p>
+  The motion encoder's job is to turn a pixel-level frame delta Δxₜ into a latent shift Δzₜ. Why does this work? Because the raw pixel difference between consecutive video frames is intrinsically <em>low-rank</em>: only the pixels belonging to moving objects change. The background — often 80–95% of pixels — contributes zero signal.
+</p>
+<p>
+  This low-rank structure forces the motion encoder to capture <em>semantic</em> motion rather than raw pixel statistics. And because the same pixel-level change (say, a horizontal shift) can mean different things in different scenes — a sliding door vs. a running animal vs. a camera pan — the motion encoder is conditioned on the current frame's embedding zₜ via cross-attention.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">pixel delta is sparse — only moving regions carry signal</span>
+    <span class="vp-hint">press Play to animate frame sequence</span>
+  </div>
+  <div class="vp-body" style="min-height:260px;">
+    <canvas id="delta-canvas" style="width:100%;height:240px;display:block;"></canvas>
+    <div class="delta-controls">
+      <button id="delta-play">▶ Play</button>
+      <button id="delta-reset">↺ Reset</button>
+      <span class="delta-frame-label" id="delta-label">Frame 0 of 5</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  This is directly analogous to classical video codecs like MPEG and H.264: they store a keyframe plus compact inter-frame deltas (motion vectors). TDV is a learned, latent-space version of the same idea — except the "motion vectors" are abstract latent shifts rather than pixel-level block displacements, and they capture semantic rather than photometric change.
+</p>
+
+<h3>Why Not Just Use Temporal Invariance?</h3>
+<p>
+  One might wonder: can't you just train DINO with two consecutive video frames as the two views — treating them as an "augmentation"? The ablation table says no (row "No Motion Encoder" → 1.87% KNN, collapse). Simply declaring consecutive frames invariant discards the motion signal entirely, preventing the model from learning <em>what changed between frames</em>. TDV's insight is to model the difference explicitly, not ignore it.
+</p>
+</section>
+
+<!-- ─── §05: Results ─────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Results</div>
+<h2>Dense Spatial Tasks: TDV Wins Where It Counts</h2>
+<p>
+  TDV is pretrained on SomethingSomethingV2 (SSV2), a standard video benchmark with well-defined motion. Evaluation uses the pretrained backbone frozen, with task-specific heads for each downstream task. The comparison is against DINO and iBOT at ViT-S and ViT-B, pretrained on the same SSV2 data.
+</p>
+<p>
+  On <strong>semantic segmentation</strong> (ADE20K, UperNet), TDV is competitive — 10.54 mIoU vs. DINO's 10.71 and iBOT's 10.60, a &lt;2% gap. On <strong>optical flow</strong> and <strong>stereo depth</strong> — the spatial tasks that require understanding <em>how pixels correspond across frames</em> — TDV wins clearly.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">dense spatial task comparison — ViT-S, SSv2 pretrain</span>
+    <span class="vp-hint">scroll to animate bars</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="results-bars">
+      <p class="bar-group-label" style="margin-top:0;">Optical Flow — MPI-Sintel clean EPE ↓ (lower = better · max shown = 14)</p>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">TDV</div>
+        <div class="bar-track"><div class="bar-fill" id="rb0" style="background:var(--purple)" data-w="70.3"><span>9.84</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">iBOT</div>
+        <div class="bar-track"><div class="bar-fill" id="rb1" style="background:rgba(107,114,128,.5)" data-w="80.8"><span>11.31</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DINO</div>
+        <div class="bar-track"><div class="bar-fill" id="rb2" style="background:rgba(107,114,128,.35)" data-w="93.1"><span>13.03</span></div></div>
+      </div>
+
+      <p class="bar-group-label">Stereo Depth — SceneFlow bad@0.5px ↓ (lower = better)</p>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">TDV</div>
+        <div class="bar-track"><div class="bar-fill" id="rb3" style="background:var(--purple)" data-w="56.89"><span>56.89%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DINO</div>
+        <div class="bar-track"><div class="bar-fill" id="rb4" style="background:rgba(107,114,128,.5)" data-w="63.25"><span>63.25%</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">iBOT</div>
+        <div class="bar-track"><div class="bar-fill" id="rb5" style="background:rgba(107,114,128,.35)" data-w="65.51"><span>65.51%</span></div></div>
+      </div>
+
+      <p class="bar-group-label">Semantic Seg — ADE20K mIoU ↑ (higher = better)</p>
+      <div class="bar-row">
+        <div class="bar-label">DINO</div>
+        <div class="bar-track"><div class="bar-fill" id="rb6" style="background:rgba(107,114,128,.5)" data-w="97.2"><span>10.71</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">iBOT</div>
+        <div class="bar-track"><div class="bar-fill" id="rb7" style="background:rgba(107,114,128,.35)" data-w="96.3"><span>10.60</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--purple-l)">TDV</div>
+        <div class="bar-track"><div class="bar-fill" id="rb8" style="background:var(--purple)" data-w="95.7"><span>10.54</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  TDV's optical flow advantage (9.84 vs. DINO's 13.03 EPE, −24%) is explained by its training objective: explicitly predicting how representations evolve between frames naturally preserves local motion structure that augmentation-based invariance discards. DINO and iBOT are trained to be invariant to temporal change — exactly the information optical flow requires.
+</p>
+<p>
+  On stereo depth, TDV makes significantly fewer large correspondence errors (56.89% vs. 65.51% bad@0.5px for iBOT), though its average disparity error is slightly higher — suggesting TDV nails most regions but struggles with ambiguous depth in appearance-heavy areas where semantic context helps more than motion modeling.
+</p>
+
+<table class="results-table">
+  <thead>
+    <tr><th>Ablation</th><th>KNN Top-5</th><th>Stable?</th></tr>
+  </thead>
+  <tbody>
+    <tr class="highlight-row"><td>Full TDV recipe</td><td class="mn best">17.05%</td><td>✓</td></tr>
+    <tr><td>No temperature sharpening</td><td class="mn">15.85%</td><td>✓</td></tr>
+    <tr><td>No centering</td><td class="mn">11.15%</td><td>✓</td></tr>
+    <tr><td>No [CLS] in cross-attention</td><td class="mn">10.78%</td><td>✓</td></tr>
+    <tr><td>No DINO loss on [CLS]</td><td class="mn">10.25%</td><td>✓</td></tr>
+    <tr><td>RoPE instead of abs. pos. enc.</td><td class="mn">10.25%</td><td>✓</td></tr>
+    <tr><td>No motion encoder</td><td class="mn" style="color:var(--red,#ef4444)">1.87%</td><td>✗ collapse</td></tr>
+    <tr><td>No MSE loss</td><td class="mn" style="color:var(--red,#ef4444)">1.58%</td><td>✗ collapse</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── §06: Implications ─────────────────── -->
+<section id="s-future" data-code="future">
+<div class="section-no">06 — Implications</div>
+<h2>The Path to Scale</h2>
+<p>
+  TDV's most important property is not what it achieves today, but what it removes from the recipe. Every eliminated inductive bias is one less bottleneck as data and compute grow. The paper demonstrates the trend empirically — weaker assumptions win at scale — and TDV removes all vision-specific assumptions.
+</p>
+
+<h3>Cross-Modality Transfer</h3>
+<p>
+  TDV uses no vision-specific techniques. The only requirement is a modality with temporal consistency — consecutive samples should differ primarily in a low-rank way. Audio spectrograms, robot proprioception, tactile sensors: any temporal signal where the "background" changes slowly and "events" are sparse will support the same additive latent composition principle.
+</p>
+
+<h3>Efficient Video Encoding</h3>
+<p>
+  Standard video models run every frame through a full image encoder — O(T × N) operations for T frames and N patches. TDV opens a different path: encode a keyframe fully with fθ, then propagate subsequent frames with the lightweight motion encoder. Only the initial frame requires the heavy backbone; subsequent frames need only the compact motion Δz. This mirrors MPEG's keyframe + P-frame structure, now learned end-to-end in representation space.
+</p>
+
+<h3>The Remaining Gap</h3>
+<p>
+  TDV's semantic performance (KNN, linear probe) lags behind DINO. The paper attributes this to the absence of local/global crop diversity that DINO uses to build invariance to viewpoint, color, and scale. Future work could add minimal semantic supervision — perhaps a small number of category-level labels at scale — without reintroducing the per-sample augmentation pipeline.
+</p>
+<p>
+  The deeper question TDV raises: if causality (the weakest temporal assumption) already gets within a few points of methods with strong semantic inductive biases, what does this suggest about where the semantic performance comes from? Potentially much of what SSL methods "learn" from augmentation invariance is recoverable from temporal structure alone — with larger video datasets and better hyperparameters to find out.
+</p>
+</section>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Vision Without Augmentations — TDV</h2>
+    <p>TDV, or Temporal Difference in Vision, is a self-supervised visual representation learning method from UIUC and NYU (including Yann LeCun) that removes all strong inductive biases from visual SSL. Instead of augmentations, masking, or cropping, TDV uses one principle: the current frame's embedding plus an encoded motion vector should equal the next frame's embedding. This is implemented as a frame encoder and a motion encoder trained jointly, with a teacher-student EMA setup preventing collapse.</p>
+    <p>On dense spatial tasks, TDV outperforms DINO and iBOT: optical flow endpoint error drops from 13.03 (DINO) to 9.84 (TDV) on MPI-Sintel, and stereo depth bad-pixel rate drops from 65.51% (iBOT) to 56.89% (TDV). Semantic segmentation is competitive at 10.54 vs 10.71 mIoU. The paper also confirms empirically that optimal inductive bias strength decreases as data scale increases — motivating a future where TDV-style assumptions-free learning becomes the dominant paradigm.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：无需数据增强的视觉表征学习——TDV</h2>
+    <p>TDV（视觉时间差分）是来自UIUC和纽约大学（包括Yann LeCun）的自监督视觉表征学习方法，完全去除了传统视觉SSL方法中的强归纳偏置。它不依赖图像增强、遮蔽或裁剪，而只使用一个原则：当前帧的嵌入加上编码后的运动向量等于下一帧的嵌入。该方法通过帧编码器和运动编码器联合训练实现，使用教师-学生EMA框架防止表征崩溃。</p>
+    <p>在密集空间任务上，TDV超越了DINO和iBOT：在MPI-Sintel数据集上，光流端点误差从DINO的13.03降至9.84；立体深度坏像素率从iBOT的65.51%降至56.89%。语义分割结果相当，mIoU为10.54对比DINO的10.71。论文还通过实验证实，随着数据规模增大，最优归纳偏置强度会下降，这为未来无假设学习范式成为主流提供了依据。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">tdv/experiment.py</div>
+      <div class="cs-section-title" id="cs-section-title">Scale Argument</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="scale">scale</button>
+    <button class="cs-tab" data-panel="collapse">collapse</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="motion">motion</button>
+    <button class="cs-tab" data-panel="results">results</button>
+    <button class="cs-tab" data-panel="future">future</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- scale panel -->
+    <div class="cs-panel active" id="panel-scale">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Figure 3: Masking ratio as inductive</span>
+<span class="cs-line cmt"># bias proxy across data scales</span>
+<span class="cs-line cmt"># ImageNet-1k KNN Top-1 accuracy</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Data subset → best masking ratio</span>
+<span class="cs-line cmt">#   0.1%  →  50% masking (+12pp lead)</span>
+<span class="cs-line cmt">#   1%    →  50% masking (+5pp lead)</span>
+<span class="cs-line cmt">#   10%   →  30% masking catching up</span>
+<span class="cs-line cmt">#   100%  →  30% masking surpasses 50%</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key result: optimal inductive bias</span>
+<span class="cs-line cmt"># strength monotonically decreases</span>
+<span class="cs-line cmt"># with data — motivating TDV</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">train_masking_probe</span>(</span>
+<span class="cs-line hl-p">    data_fraction, masking_ratio):</span>
+<span class="cs-line">    <span class="cmt"># pretrain MAE-style SSL</span></span>
+<span class="cs-line">    encoder = <span class="fn">pretrain</span>(</span>
+<span class="cs-line">        data=ImageNet[:data_fraction],</span>
+<span class="cs-line">        mask_ratio=masking_ratio</span>
+<span class="cs-line">    )</span>
+<span class="cs-line">    <span class="kw">return</span> <span class="fn">knn_accuracy</span>(encoder)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Inductive biases are approximately</span>
+<span class="cs-line cmt"># correct — at scale, the approximation</span>
+<span class="cs-line cmt"># error becomes a ceiling.</span>
+<span class="cs-line cmt"># TDV's causal assumption is exact:</span>
+<span class="cs-line cmt"># the past always precedes the future.</span>
+      </pre>
+    </div>
+
+    <!-- collapse panel -->
+    <div class="cs-panel" id="panel-collapse">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Table 1: Progressive DINO ablation</span>
+<span class="cs-line cmt"># SSv2 pretrain → ImageNet KNN Top-1</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Setup                Top-1  Stable?</span>
+<span class="cs-line cmt"># 2G+8L, full aug      24.63  ✓</span>
+<span class="cs-line cmt"># -augmentations       16.44  ✓</span>
+<span class="cs-line cmt"># -local crops         13.64  ✓</span>
+<span class="cs-line cmt"># -crop on 1 global     8.04  ✓</span>
+<span class="cs-line cmt"># -crop on both G       0.84  ✗ collapse</span>
+<span class="cs-line cmt"># ─────────────────────────────────────</span>
+<span class="cs-line cmt"># Full TDV recipe       8.79  ✓</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">why_collapse_happens</span>():</span>
+<span class="cs-line">    <span class="cmt"># Without augmentation, the model</span></span>
+<span class="cs-line">    <span class="cmt"># sees identical views → trivial sol.</span></span>
+<span class="cs-line">    <span class="cmt"># Set ALL embeddings to a constant:</span></span>
+<span class="cs-line">    <span class="cmt">#   loss = ||z_t - z_t||^2 = 0  ✓</span></span>
+<span class="cs-line">    <span class="cmt"># But KNN cannot distinguish images.</span></span>
+<span class="cs-line">    <span class="kw">pass</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">why_tdv_avoids_collapse</span>():</span>
+<span class="cs-line hl-c">    <span class="cmt"># TDV must predict DIFFERENT targets</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># (next frames) from DIFFERENT inputs.</span></span>
+<span class="cs-line hl-c">    <span class="cmt"># Constant embedding fails:</span></span>
+<span class="cs-line hl-c">    <span class="cmt">#   CE loss spikes when all frames</span></span>
+<span class="cs-line hl-c">    <span class="cmt">#   map to same distribution.</span></span>
+<span class="cs-line hl-c">    <span class="kw">pass</span></span>
+      </pre>
+    </div>
+
+    <!-- arch panel -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># TDV Forward Pass (simplified)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">tdv_forward</span>(x_t, x_t1, teacher):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Student: encode current frame</span></span>
+<span class="cs-line hl-p">    z_t = <span class="fn">frame_encoder</span>(x_t)</span>
+<span class="cs-line hl-p">    <span class="cmt"># z_t ∈ R^&#123;n × D&#125;, n patches</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">    <span class="cmt"># Compute pixel difference</span></span>
+<span class="cs-line hl-c">    delta_x = x_t1 - x_t  <span class="cmt"># low-rank!</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># Motion encoder (conditioned on z_t)</span></span>
+<span class="cs-line hl-g">    delta_z = <span class="fn">motion_encoder</span>(</span>
+<span class="cs-line hl-g">        delta_x, z_t  <span class="cmt"># cross-attention</span></span>
+<span class="cs-line hl-g">    )</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Additive composition ← KEY IDEA</span></span>
+<span class="cs-line">    z_hat_t1 = z_t + delta_z</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Teacher target (stop-gradient)</span></span>
+<span class="cs-line">    <span class="kw">with</span> torch.<span class="fn">no_grad</span>():</span>
+<span class="cs-line">        z_target = <span class="fn">teacher</span>(x_t1)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Losses</span></span>
+<span class="cs-line">    L_mse = ((z_hat_t1 - z_target)**2</span>
+<span class="cs-line">             ).<span class="fn">mean</span>()</span>
+<span class="cs-line">    L_dino = <span class="fn">dino_ce_loss</span>(</span>
+<span class="cs-line">        z_hat_t1, z_target  <span class="cmt"># [CLS]+patch</span></span>
+<span class="cs-line">    )</span>
+<span class="cs-line">    <span class="kw">return</span> lambda_mse * L_mse \</span>
+<span class="cs-line">         + lambda_dino * L_dino</span>
+      </pre>
+    </div>
+
+    <!-- motion panel -->
+    <div class="cs-panel" id="panel-motion">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Motion Encoder Architecture</span>
+<span class="cs-line cmt"># Input: pixel diff Δx, frame embed z_t</span>
+<span class="cs-line cmt"># Output: latent shift Δz ∈ R^&#123;n × D&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">MotionEncoder</span>(nn.Module):</span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, D, n_heads):</span>
+<span class="cs-line">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line">        <span class="cmt"># Patchify delta frame first</span></span>
+<span class="cs-line">        <span class="kw">self</span>.patch_embed = <span class="cls">PatchEmbed</span>(D)</span>
+<span class="cs-line">        <span class="cmt"># Cross-attention: Δx attends to z_t</span></span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.cross_attn = <span class="cls">CrossAttention</span>(</span>
+<span class="cs-line hl-c">            D, n_heads,</span>
+<span class="cs-line hl-c">            <span class="cmt"># query = Δx patches</span></span>
+<span class="cs-line hl-c">            <span class="cmt"># key/value = z_t tokens</span></span>
+<span class="cs-line hl-c">        )</span>
+<span class="cs-line">        <span class="kw">self</span>.mlp = <span class="cls">MLP</span>(D)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, delta_x, z_t):</span>
+<span class="cs-line">        <span class="cmt"># Embed pixel delta</span></span>
+<span class="cs-line">        h = <span class="kw">self</span>.<span class="fn">patch_embed</span>(delta_x)</span>
+<span class="cs-line">        <span class="cmt"># Ground motion in scene context</span></span>
+<span class="cs-line hl-g">        h = <span class="kw">self</span>.<span class="fn">cross_attn</span>(</span>
+<span class="cs-line hl-g">            query=h, kv=z_t</span>
+<span class="cs-line hl-g">        )  <span class="cmt"># same pixel change, different</span></span>
+<span class="cs-line hl-g">           <span class="cmt"># semantic meaning per scene</span></span>
+<span class="cs-line">        <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">mlp</span>(h)  <span class="cmt"># = Δz</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why low-rank?</span>
+<span class="cs-line cmt"># Background ≈ 85-95% of pixels → 0</span>
+<span class="cs-line cmt"># Only moving regions contribute signal</span>
+<span class="cs-line cmt"># → motion encoder learns compact</span>
+<span class="cs-line cmt">#   semantic motion features</span>
+      </pre>
+    </div>
+
+    <!-- results panel -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark results — ViT-S, SSv2</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Optical Flow (MPI-Sintel, EPE ↓)</span>
+<span class="cs-line cmt">#   TDV   9.84  ← best</span>
+<span class="cs-line cmt">#   iBOT  11.31</span>
+<span class="cs-line cmt">#   DINO  13.03</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Stereo Depth (bad@0.5px ↓)</span>
+<span class="cs-line cmt">#   TDV   56.89  ← best</span>
+<span class="cs-line cmt">#   DINO  63.25</span>
+<span class="cs-line cmt">#   iBOT  65.51</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Semantic Seg ADE20K mIoU ↑</span>
+<span class="cs-line cmt">#   DINO  10.71  ← best</span>
+<span class="cs-line cmt">#   iBOT  10.60</span>
+<span class="cs-line cmt">#   TDV   10.54  (competitive)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Key ablations (KNN Top-5)</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   Full TDV          17.05  ✓</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   No motion encoder  1.87  ✗ collapse</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   No MSE loss        1.58  ✗ collapse</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Both motion encoder AND MSE loss are</span>
+<span class="cs-line cmt"># critical — removing either collapses.</span>
+<span class="cs-line cmt"># Temporal invariance alone (no motion</span>
+<span class="cs-line cmt"># encoder) is insufficient.</span>
+      </pre>
+    </div>
+
+    <!-- future panel -->
+    <div class="cs-panel" id="panel-future">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># TDV future directions</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># 1. Scale to larger video data</span></span>
+<span class="cs-line hl-p"><span class="cmt">#    SSV2 (220k clips) is small.</span></span>
+<span class="cs-line hl-p"><span class="cmt">#    Weaker biases win at scale →</span></span>
+<span class="cs-line hl-p"><span class="cmt">#    TDV should gain most from more data</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># 2. Cross-modality transfer</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    No vision-specific components!</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    Any modality with temporal</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    consistency qualifies:</span></span>
+<span class="cs-line hl-c"><span class="cmt">#    audio, proprioception, touch</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># 3. Efficient video encoding</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    Standard: O(T × N) per frame</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    TDV: O(N) keyframe +</span></span>
+<span class="cs-line hl-g"><span class="cmt">#         O(motion) per subsequent</span></span>
+<span class="cs-line hl-g"><span class="cmt">#    Analogous to MPEG P-frames</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Core thesis: inductive biases</span>
+<span class="cs-line cmt"># are approximately correct.</span>
+<span class="cs-line cmt"># Causality is exactly correct.</span>
+<span class="cs-line cmt"># Exact assumptions have no ceiling.</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ─────────────────────────────────────────────────
+   TOC + sidebar toggles
+───────────────────────────────────────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ─────────────────────────────────────────────────
+   Code sidebar tab switching
+───────────────────────────────────────────────── */
+const tabMeta = {
+  scale:   { file: 'tdv/experiment.py',   title: 'Scale Argument' },
+  collapse:{ file: 'tdv/ablation.py',     title: 'Naive Removal Fails' },
+  arch:    { file: 'tdv/model.py',         title: 'TDV Architecture' },
+  motion:  { file: 'tdv/motion_encoder.py',title: 'Low-Rank Motion' },
+  results: { file: 'tdv/results.py',       title: 'Dense Spatial Results' },
+  future:  { file: 'tdv/future.py',        title: 'Implications' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t =>
+  t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ─────────────────────────────────────────────────
+   IntersectionObserver — TOC + sidebar sync
+───────────────────────────────────────────────── */
+const sectionMap = {
+  's-scale': 'scale', 's-collapse': 'collapse', 's-arch': 'arch',
+  's-motion': 'motion', 's-results': 'results', 's-future': 'future'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ─────────────────────────────────────────────────
+   §01 Scale Chart Canvas
+───────────────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('scale-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // Data: diff vs 50% masking (pp) at 4 data scales
+  // Source: paper Figure 3 description (approximate)
+  const scales = ['0.1%', '1%', '10%', '100%'];
+  const diff30 = [-12.5, -4.8, -0.4, 1.2];  // 30% masking vs 50% baseline
+  const diff10 = [-16.1, -11.2, -4.3, -0.7]; // 10% masking vs 50% baseline
+
+  const pad = { l: 52, r: 30, t: 24, b: 48 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  const yMin = -18, yMax = 3;
+  function xPos(i) { return pad.l + (i / (scales.length - 1)) * cw; }
+  function yPos(v) { return pad.t + ((yMax - v) / (yMax - yMin)) * ch; }
+
+  let highlightIdx = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    [-16, -12, -8, -4, 0].forEach(v => {
+      const y = yPos(v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y);
+      ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = v === 0 ? 1.5 : 1;
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText((v > 0 ? '+' : '') + v + 'pp', pad.l - 6, y + 3.5);
+    });
+
+    // Reference line label
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    ctx.fillText('50% masking (baseline)', pad.l - 6, yPos(0) - 6);
+
+    // x-axis labels
+    scales.forEach((s, i) => {
+      ctx.fillStyle = i === highlightIdx ? '#a78bfa' : '#6b7280';
+      ctx.font = i === highlightIdx ? 'bold 11px var(--ff-mono, monospace)' : '10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText(s, xPos(i), H - 10);
+    });
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Data scale (fraction of ImageNet-1k)', W / 2, H - 0);
+
+    // Draw 30% masking line (blue)
+    ctx.beginPath();
+    diff30.forEach((v, i) => {
+      const x = xPos(i), y = yPos(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw 10% masking line (green)
+    ctx.beginPath();
+    diff10.forEach((v, i) => {
+      const x = xPos(i), y = yPos(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw dots
+    diff30.forEach((v, i) => {
+      const x = xPos(i), y = yPos(v);
+      ctx.beginPath(); ctx.arc(x, y, i === highlightIdx ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = i === highlightIdx ? '#06b6d4' : 'rgba(6,182,212,.6)';
+      ctx.fill();
+      if (i === highlightIdx) {
+        ctx.fillStyle = '#06b6d4';
+        ctx.font = 'bold 10px var(--ff-mono, monospace)';
+        ctx.textAlign = 'left';
+        ctx.fillText((v > 0 ? '+' : '') + v + 'pp (30% mask)', x + 8, y - 2);
+      }
+    });
+    diff10.forEach((v, i) => {
+      const x = xPos(i), y = yPos(v);
+      ctx.beginPath(); ctx.arc(x, y, i === highlightIdx ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = i === highlightIdx ? '#10b981' : 'rgba(16,185,129,.6)';
+      ctx.fill();
+      if (i === highlightIdx) {
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 10px var(--ff-mono, monospace)';
+        ctx.textAlign = 'left';
+        ctx.fillText((v > 0 ? '+' : '') + v + 'pp (10% mask)', x + 8, y + 14);
+      }
+    });
+
+    // Legend
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    // 30% masking
+    ctx.fillStyle = '#06b6d4'; ctx.fillRect(pad.l, pad.t, 14, 2);
+    ctx.fillText('30% masking', pad.l + 18, pad.t + 5);
+    // 10% masking
+    ctx.fillStyle = '#10b981'; ctx.fillRect(pad.l + 110, pad.t, 14, 2);
+    ctx.fillText('10% masking', pad.l + 128, pad.t + 5);
+    // 50% masking
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(pad.l + 220, pad.t, 14, 2);
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('50% mask (ref)', pad.l + 238, pad.t + 5);
+
+    // Crossover annotation at 100%
+    if (highlightIdx === 3) {
+      ctx.fillStyle = '#a78bfa';
+      ctx.font = 'bold 10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText('← crossover!', xPos(3) - 8, yPos(1.2) - 14);
+    }
+  }
+
+  draw();
+
+  // Buttons
+  document.querySelectorAll('.scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      highlightIdx = parseInt(btn.dataset.idx);
+      draw();
+    });
+  });
+})();
+
+/* ─────────────────────────────────────────────────
+   §02 Collapse bars — IntersectionObserver trigger
+───────────────────────────────────────────────── */
+const collapseSec = document.getElementById('s-collapse');
+if (collapseSec) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        // The bars scale to their bar width relative to 30 (max displayed)
+        const maxVal = 30;
+        ['cb0','cb1','cb2','cb3','cb4','cb5'].forEach(id => {
+          const bar = document.getElementById(id);
+          if (bar) {
+            const w = parseFloat(bar.dataset.w);
+            bar.style.width = (w / maxVal * 100) + '%';
+          }
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(collapseSec);
+}
+
+/* ─────────────────────────────────────────────────
+   §04 Delta Canvas — frame/delta animation
+───────────────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('delta-canvas');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 240;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // 5 simulated frames of a dog (amber) + frisbee (cyan) moving right
+  // Grid is 10x7, each cell ~18px wide, ~18px tall
+  // Three panels side by side: frame_t, delta, latent shift
+  const FRAMES = 5;
+  let frameIdx = 0;
+  let animTimer = null;
+  let playing = false;
+
+  // Scene: 10 columns × 7 rows grid
+  // Dog occupies cols [1..3], rows [3..5] at frame 0, shifts right by 1 col per frame
+  // Frisbee occupies col [7], row [1] at frame 0, shifts right by 1 col per frame
+  function sceneAtFrame(f) {
+    const grid = Array.from({length: 7}, () => new Array(10).fill(0));
+    // 0=background, 1=dog, 2=frisbee
+    const dogCols = [1+f, 2+f, 3+f];
+    const dogRows = [2, 3, 4, 5];
+    const frisbeeCols = [7+f > 9 ? 9 : 7+f];
+    dogCols.forEach(c => { if (c >= 0 && c < 10) dogRows.forEach(r => { grid[r][c] = 1; }); });
+    frisbeeCols.forEach(c => { if (c >= 0 && c < 10) { grid[1][c] = 2; grid[2][c] = 2; } });
+    return grid;
+  }
+
+  const COLS = 10, ROWS = 7;
+  const panelW = Math.floor(W / 3) - 8;
+  const cellW = Math.floor(panelW / COLS);
+  const cellH = Math.floor((H - 48) / ROWS);
+  const panelY = 32;
+
+  const cellColors = [
+    'rgba(30,28,50,1)',   // 0 = background
+    'rgba(245,158,11,.85)', // 1 = dog (amber)
+    'rgba(6,182,212,.85)',  // 2 = frisbee (cyan)
+  ];
+  const deltaColors = [
+    'rgba(30,28,50,1)',   // 0 = no change
+    'rgba(245,158,11,.8)', // positive
+    'rgba(139,92,246,.8)', // negative
+  ];
+
+  function drawGrid(offX, grid) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = offX + c * cellW, y = panelY + r * cellH;
+        ctx.fillStyle = cellColors[grid[r][c]];
+        ctx.fillRect(x, y, cellW - 1, cellH - 1);
+      }
+    }
+  }
+
+  function drawDeltaGrid(offX, g1, g2) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const diff = g2[r][c] - g1[r][c];
+        const x = offX + c * cellW, y = panelY + r * cellH;
+        if (diff === 0) ctx.fillStyle = 'rgba(30,28,50,1)';
+        else if (diff > 0) ctx.fillStyle = 'rgba(245,158,11,.8)';
+        else ctx.fillStyle = 'rgba(139,92,246,.8)';
+        ctx.fillRect(x, y, cellW - 1, cellH - 1);
+      }
+    }
+  }
+
+  function drawLatentShift(offX, f) {
+    // Abstract latent space: show a small space with z_t dot, arrow, ẑ_{t+1} dot
+    const cx = offX + panelW / 2;
+    const cy = panelY + (ROWS * cellH) / 2;
+    const shift = f * 14;
+
+    // z_t dot
+    const ztX = cx - 40, ztY = cy + 20;
+    ctx.beginPath(); ctx.arc(ztX, ztY, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#8b5cf6'; ctx.fill();
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('zₜ', ztX, ztY + 18);
+
+    // Arrow showing Δz
+    const arrEndX = ztX + 30 + (f > 0 ? 12 : 0), arrEndY = ztY - 15;
+    ctx.beginPath(); ctx.moveTo(ztX + 8, ztY - 5);
+    ctx.lineTo(arrEndX - 6, arrEndY + 3);
+    ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2; ctx.stroke();
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(arrEndX, arrEndY);
+    ctx.lineTo(arrEndX - 8, arrEndY + 6);
+    ctx.lineTo(arrEndX - 4, arrEndY + 10);
+    ctx.closePath(); ctx.fillStyle = '#06b6d4'; ctx.fill();
+    // Δz label
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.fillText('Δz', (ztX + 8 + arrEndX) / 2 - 8, (ztY - 5 + arrEndY) / 2 - 4);
+
+    // ẑ_{t+1} dot
+    ctx.beginPath(); ctx.arc(arrEndX + 4, arrEndY - 4, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#10b981'; ctx.fill();
+    ctx.fillStyle = '#34d399';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('ẑₜ₊₁', arrEndX + 4, arrEndY - 4 + 18);
+
+    // Panel label
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Latent Space', cx, panelY + ROWS * cellH + 16);
+    ctx.fillStyle = '#374151';
+    ctx.font = '8px var(--ff-mono, monospace)';
+    ctx.fillText('zₜ + Δzₜ = ẑₜ₊₁', cx, panelY + ROWS * cellH + 26);
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W, H);
+
+    const f = frameIdx;
+    const g0 = sceneAtFrame(f);
+    const g1 = f < FRAMES - 1 ? sceneAtFrame(f + 1) : sceneAtFrame(f);
+
+    const off0 = 4;
+    const off1 = off0 + panelW + 8;
+    const off2 = off1 + panelW + 8;
+
+    // Panel borders
+    [off0, off1, off2].forEach(ox => {
+      ctx.strokeStyle = 'rgba(55,65,81,.7)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox, panelY, panelW, ROWS * cellH);
+    });
+
+    // Frame t
+    drawGrid(off0, g0);
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px var(--ff-mono, monospace)'; ctx.textAlign = 'left';
+    ctx.fillText('Frame t', off0, panelY - 8);
+    ctx.fillStyle = '#374151'; ctx.font = '8px var(--ff-mono, monospace)';
+    ctx.fillText('x_t  (full scene)', off0, panelY - 0);
+
+    // Delta
+    drawDeltaGrid(off1, g0, g1);
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px var(--ff-mono, monospace)'; ctx.textAlign = 'left';
+    ctx.fillText('Δx_t = x_{t+1} − x_t', off1, panelY - 8);
+    ctx.fillStyle = '#374151'; ctx.font = '8px var(--ff-mono, monospace)';
+    ctx.fillText('sparse — only edges of motion', off1, panelY - 0);
+
+    // Latent shift
+    drawLatentShift(off2, f);
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px var(--ff-mono, monospace)'; ctx.textAlign = 'left';
+    ctx.fillText('z_t + Δz_t → ẑ_{t+1}', off2, panelY - 8);
+
+    // Frame label
+    document.getElementById('delta-label').textContent =
+      'Frame ' + f + ' of ' + (FRAMES - 1);
+  }
+
+  drawFrame();
+
+  document.getElementById('delta-play')?.addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      clearInterval(animTimer);
+      document.getElementById('delta-play').textContent = '▶ Play';
+    } else {
+      playing = true;
+      document.getElementById('delta-play').textContent = '⏸ Pause';
+      animTimer = setInterval(() => {
+        frameIdx = (frameIdx + 1) % FRAMES;
+        drawFrame();
+        if (frameIdx === FRAMES - 1) {
+          playing = false;
+          clearInterval(animTimer);
+          document.getElementById('delta-play').textContent = '▶ Play';
+        }
+      }, 700);
+    }
+  });
+
+  document.getElementById('delta-reset')?.addEventListener('click', () => {
+    playing = false;
+    clearInterval(animTimer);
+    document.getElementById('delta-play').textContent = '▶ Play';
+    frameIdx = 0;
+    drawFrame();
+  });
+})();
+
+/* ─────────────────────────────────────────────────
+   §05 Results bars — IntersectionObserver trigger
+   Bars are normalized differently per group:
+   - Optical flow: 14 EPE = 100% track, bars show proportional length
+     (lower EPE = shorter bar = better, so we invert for display)
+   - Stereo: raw percentage
+   - Seg: raw mIoU out of 11
+   We use data-w already set as display-percentage.
+───────────────────────────────────────────────── */
+const resultsSec = document.getElementById('s-results');
+if (resultsSec) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 }).observe(resultsSec);
+}
+</script>
+</BaseLayout>
