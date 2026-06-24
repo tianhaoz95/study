@@ -1,0 +1,1016 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="The Dataset Recipe for Speculative Decoding Drafters | Catpuccino.ai"
+  description="Why community draft models underperform in production — and how EAGLE-3, DFlash, and SpecBundle nail the dataset recipe. Specific numbers on data scale, domain mix, and target-model regeneration."
+  crumb="Drafter Training Recipe"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:240px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.2s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.1)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-nav .step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+.ds-tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.ds-tab-btn{font-size:.72rem;font-family:var(--ff-mono);padding:.3rem .75rem;border-radius:5px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
+.ds-tab-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.ds-tab-btn:hover:not(.active){color:var(--text2)}
+.ds-total{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.875rem}
+.ds-total span{color:var(--cyan);font-weight:700}
+.ds-seg-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.625rem}
+.ds-seg-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right}
+.ds-seg-track{flex:1;background:var(--card2);border-radius:4px;height:18px;overflow:hidden}
+.ds-seg-fill{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:.4rem;transition:width .8s ease}
+.ds-seg-fill span{font-size:.62rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.9)}
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Training Data</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>The Dataset Recipe for Speculative Decoding Drafters</h1>
+  <p class="lead">Community draft models trained on ShareGPT alone leave 23% acceptance length on the table. EAGLE-3, DFlash, and SpecForge expose the exact ingredient list: why EAGLE-2 hit a data ceiling, how 1.4M balanced conversations push &tau; from 2.82&rarr;3.48, and why DFlash needs anchor sampling plus exponential loss weights.</p>
+  <div class="post-hero-meta">
+    <span>June 23, 2026</span>
+    <span>~12 min read</span>
+    <span>Papers: <code>arXiv:2503.01840</code> &middot; <code>arXiv:2603.18567</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2503.01840" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      EAGLE-3 PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/SafeAILab/EAGLE" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      EAGLE GitHub
+    </a>
+    <a class="hero-btn" href="https://github.com/sgl-project/SpecForge" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      SpecForge GitHub
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">&lsaquo;</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-gap"><a href="#s-gap"><span class="toc-num">01</span> The Gap</a></li>
+    <li class="toc-item" id="toc-s-wall"><a href="#s-wall"><span class="toc-num">02</span> Data Wall</a></li>
+    <li class="toc-item" id="toc-s-scale"><a href="#s-scale"><span class="toc-num">03</span> Scale Curve</a></li>
+    <li class="toc-item" id="toc-s-compose"><a href="#s-compose"><span class="toc-num">04</span> Composition</a></li>
+    <li class="toc-item" id="toc-s-regen"><a href="#s-regen"><span class="toc-num">05</span> Regeneration</a></li>
+    <li class="toc-item" id="toc-s-dflash"><a href="#s-dflash"><span class="toc-num">06</span> DFlash Recipe</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">07</span> Payoff</a></li>
+  </ol>
+</nav>
+
+<article class="post-body">
+
+<section id="s-gap" data-code="gap">
+<div class="section-no">01 &mdash; The Gap</div>
+<h2>Why Community Drafters Underperform</h2>
+<p>Speculative decoding speedup depends on <strong>&tau;</strong> &mdash; the average acceptance length, how many draft tokens the target model approves per verification pass. The speedup formula is S = &tau; / (1 + &gamma;&middot;c), where &gamma; is the speculation budget and c is the drafter's relative cost.</p>
+<p>SpecForge (arXiv:2603.18567) ran a controlled experiment: keep everything identical &mdash; same architecture, same hyperparameters, same target model (LLaMA-3.1-8B-Instruct) &mdash; and swap only the training dataset.</p>
+<div class="math-block">
+<div class="math-label">The acceptance-length gap &mdash; same architecture, different data</div>
+ShareGPT (120K) + UltraChat (200K) = <span class="math-var">320K conversations</span>
+  &rarr; &tau; = <strong style="color:var(--amber)">2.82</strong> on Math500  <span class="math-comment">&larr; official EAGLE-3 checkpoint [SpecForge, 2026]</span>
+
+Open-PerfectBlend (1.4M, balanced domains)
+  &rarr; &tau; = <strong style="color:var(--green)">3.48</strong> on Math500  <span class="math-comment">&larr; SpecBundle checkpoint [SpecForge, 2026]</span>
+
+Delta: <strong style="color:var(--cyan)">+23.4%</strong> acceptance length &rarr; <strong style="color:var(--cyan)">1.17&times;</strong> inference speedup
+</div>
+<p>A 23% boost in &tau; with zero architectural change. The improvement was largest on math and code: SpecBundle delivered 1.61&times;&ndash;4.48&times; throughput over the ShareGPT+UltraChat baseline on those tasks. The community checkpoints were blind to domains they were never trained on.</p>
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">acceptance length by domain &mdash; same architecture, different training data</span>
+    <span class="vp-hint">scroll to trigger</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="gap-bars">
+      <div style="font-size:.68rem;color:var(--muted);font-family:var(--ff-mono);margin-bottom:.75rem">LLaMA-3.1-8B-Instruct &middot; EAGLE-3 architecture &middot; &tau; (bar = &tau;/5 &times; 100%)</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.4rem;font-family:var(--ff-mono)">&blacktriangleright; ShareGPT + UltraChat (320K conversations)</div>
+      <div class="bar-row">
+        <div class="bar-label">Chat (MT-Bench)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="74" style="background:rgba(107,114,128,.5)"><span>3.70</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Math (Math500)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="56" style="background:rgba(107,114,128,.5)"><span>2.82</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Code (HumanEval)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="52" style="background:rgba(107,114,128,.5)"><span>2.63</span></div></div>
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);margin:.875rem 0 .4rem;font-family:var(--ff-mono)">&blacktriangleright; Open-PerfectBlend (1.4M &mdash; chat + math + code + instruct)</div>
+      <div class="bar-row">
+        <div class="bar-label">Chat (MT-Bench)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="76" style="background:var(--purple)"><span>3.80</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Math (Math500)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="70" style="background:var(--purple)"><span>3.48</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Code (HumanEval)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="66" style="background:var(--purple)"><span>3.28</span></div></div>
+      </div>
+    </div>
+    <div style="font-size:.67rem;color:var(--muted);margin-top:.5rem">Bar = &tau;/5 &times; 100%. Math+code gap largest because ShareGPT+UltraChat lack those domains. [Source: SpecForge arXiv:2603.18567]</div>
+  </div>
+</div>
+</section>
+
+<section id="s-wall" data-code="wall">
+<div class="section-no">02 &mdash; Data Wall</div>
+<h2>Why EAGLE-2 Hit a Data Ceiling</h2>
+<p>EAGLE-1 and EAGLE-2 autoregressively predict hidden <em>features</em> rather than tokens directly, adding a feature prediction loss l_fea on top of l_token. This acts as a structural constraint: at draft step 1, the model predicts f_hat(t+1). At step 2, the input is f_1,&hellip;,f_t, f_hat(t+1) &mdash; but f_hat(t+1) &ne; f(t+1). The draft falls off its training distribution immediately. Adding more data cannot fix a distribution shift that is architectural in origin.</p>
+<div class="vp" id="vp-wall">
+  <div class="vp-head">
+    <span class="vp-title">data scaling law &mdash; EAGLE-2 saturates, EAGLE-3 keeps climbing</span>
+    <span class="vp-hint">click buttons to overlay</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="ds-tab-btn active" id="wall-e2" onclick="drawWall('eagle2')">EAGLE-2</button>
+      <button class="ds-tab-btn" id="wall-e3" onclick="drawWall('eagle3')">EAGLE-3</button>
+      <button class="ds-tab-btn" id="wall-both" onclick="drawWall('both')">Both (compare)</button>
+    </div>
+    <canvas id="wall-canvas" style="width:100%;height:240px;display:block;border-radius:6px"></canvas>
+    <div style="font-size:.67rem;color:var(--muted);margin-top:.5rem">X: data scale relative to ShareGPT (1&times; &asymp; 120K conversations). Y: acceptance length on MT-bench. EAGLE-2 plateaus past 2&times;; EAGLE-3 keeps climbing to 8&times;. [Source: EAGLE-3 Fig.1, arXiv:2503.01840]</div>
+  </div>
+</div>
+<p>From EAGLE-3's Figure 1: at 1&times; ShareGPT, EAGLE-2 acceptance length &asymp; 3.70; at 8&times;, barely 3.75. EAGLE-3 goes from &asymp; 3.80 at 1&times; to &asymp; 4.40 at 8&times; &mdash; a 16% improvement from data alone, possible only because the architecture was fixed first.</p>
+</section>
+
+<section id="s-scale" data-code="scale">
+<div class="section-no">03 &mdash; Scale Curve</div>
+<h2>EAGLE-3's Architecture Unlocks Data Scaling</h2>
+<p>EAGLE-3 makes two changes. First, it <strong>drops the feature prediction loss</strong> &mdash; the draft model predicts tokens directly with no l_fea constraint. Second, it introduces <strong>Training-Time Test (TTT)</strong>: during training, after the draft generates its first token a(t+1), the model is fed that prediction and trained to continue drafting &mdash; simulating the actual multi-step inference loop.</p>
+<div class="vp" id="vp-ttt">
+  <div class="vp-head">
+    <span class="vp-title">training-time test &mdash; simulating inference-time error accumulation during training</span>
+    <span class="vp-hint">navigate steps</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="ttt-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Prefix: standard training sequence</div>
+          <div class="step-desc">The draft model receives multi-layer features from the target model (low, mid, high layers fused). It produces predicted token a(t+1). Feature prediction loss l_fea is removed entirely.</div>
+          <div class="step-code">input: [f_low, f_mid, f_high, &hellip;, f_t]  &rarr;  predict: a(t+1)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">TTT step 1: feed back the draft token</div>
+          <div class="step-desc">The draft prediction a(t+1) (not ground-truth f(t+1)) is appended to the context. The model attends to both the training prefix and its own previous draft output &mdash; matching inference behaviour exactly.</div>
+          <div class="step-code">input: [f_1, &hellip;, f_t, a(t+1)]  &rarr;  predict: a(t+2)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">TTT step 2: continue drafting from imperfect state</div>
+          <div class="step-desc">The chain continues, training the model to handle compounding error &mdash; the core distribution mismatch EAGLE-2 could never recover from. The model learns to draft robustly even when earlier predictions were wrong.</div>
+          <div class="step-code">input: [f_1, &hellip;, f_t, a(t+1), a(t+2)]  &rarr;  predict: a(t+3)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Multi-layer feature fusion: richer input signal</div>
+          <div class="step-desc">Instead of only top-layer features, EAGLE-3 fuses low-, mid-, and high-level features &mdash; richer semantic signal that benefits from more diverse training data. This is what enables the data scaling law.</div>
+          <div class="step-code">features: FC([f_low, f_mid, f_high])  &rarr;  draft input</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="ttt-prev" disabled>&larr; Prev</button>
+      <button id="ttt-next">Next &rarr;</button>
+      <span class="step-prog" id="ttt-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+<p>Key result: EAGLE-3 trained with &asymp;8&times; more data achieves a <strong>1.4&times; latency speedup over EAGLE-2</strong> at batch size 1. In SGLang at batch=64, EAGLE-3 achieves a 40% throughput improvement. [arXiv:2503.01840]</p>
+</section>
+
+<section id="s-compose" data-code="compose">
+<div class="section-no">04 &mdash; Composition</div>
+<h2>What Goes Into the Mix</h2>
+<p>Once the architecture unlocks data scaling, the question becomes: which data? The three main production recipes differ substantially in size, domain balance, and source selection.</p>
+<div class="vp" id="vp-compose">
+  <div class="vp-head">
+    <span class="vp-title">dataset composition &mdash; three recipes compared</span>
+    <span class="vp-hint">click to switch recipe</span>
+  </div>
+  <div class="vp-body">
+    <div class="ds-tabs">
+      <button class="ds-tab-btn active" onclick="showRecipe(0)">EAGLE-3 Baseline (320K)</button>
+      <button class="ds-tab-btn" onclick="showRecipe(1)">SpecBundle / Perfect-Blend (1.4M)</button>
+      <button class="ds-tab-btn" onclick="showRecipe(2)">DFlash (800K)</button>
+    </div>
+    <div class="ds-total">Total: <span id="ds-total-val">320K conversations</span></div>
+    <div id="ds-bars"></div>
+    <div style="font-size:.67rem;color:var(--muted);margin-top:.5rem" id="ds-note">Original dataset responses. Limited math/code coverage.</div>
+  </div>
+</div>
+<h3>EAGLE-3 Baseline: 320K Generic Conversations</h3>
+<p>The released EAGLE-3 drafts were trained on <strong>ShareGPT (120K)</strong> and <strong>UltraChat-200K</strong>, totaling &asymp;320K conversations. Both are dialogue-heavy and math/code-light. The drafts work well for chat but under-serve math and coding tasks.</p>
+<h3>SpecBundle: 1.4M Balanced with Target-Regenerated Responses</h3>
+<p>SpecForge's SpecBundle uses <strong>Open-PerfectBlend</strong> (Xu et al., 2024) &mdash; 1.4M conversations balanced across chat, math, coding, and instruction-following. Responses re-generated by target model at temperature 0.8. Training: 2 epochs, lr=1e-4, cosine annealing. [SpecForge arXiv:2603.18567]</p>
+<h3>DFlash: 800K Nemotron + CodeAlpaca</h3>
+<p>DFlash uses &asymp;<strong>800K samples from NVIDIA Nemotron Post-Training V2</strong> mixed with <strong>CodeAlpaca</strong>. All responses are target-model-generated.</p>
+<table class="results-table" style="margin-top:1.5rem">
+  <thead>
+    <tr><th>Recipe</th><th>Size</th><th>Domains</th><th>Responses</th><th>&tau; (Math500)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EAGLE-3 baseline</td><td class="mn">320K</td><td>Chat only</td><td>Original</td><td class="mn" style="color:var(--amber)">2.82</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>SpecBundle (Perfect-Blend)</td><td class="mn">1.4M</td><td>Chat+Math+Code+Instruct</td><td>Target-regen T=0.8</td><td class="mn best">3.48</td>
+    </tr>
+    <tr>
+      <td>DFlash (Nemotron+CodeAlpaca)</td><td class="mn">800K</td><td>Math+Code+Chat</td><td>Target-regen</td><td class="mn best">~6.49 avg &tau; *</td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:.75rem;color:var(--muted)">* DFlash &tau; measured on Qwen3-8B with block size 16 &mdash; not directly comparable to EAGLE-3 on LLaMA. [Sources: SpecForge arXiv:2603.18567; DFlash]</p>
+</section>
+
+<section id="s-regen" data-code="regen">
+<div class="section-no">05 &mdash; Regeneration</div>
+<h2>The Target-Regeneration Trick</h2>
+<p>Both SpecBundle and DFlash <strong>regenerate all dataset responses using the target model</strong> before training. A speculative draft model's job is to predict what <em>this specific target model</em> would say. Internet-scraped or GPT-generated responses use different phrasing, verbosity, and code styles than LLaMA-3.1-8B or Qwen3-8B.</p>
+<div class="vp" id="vp-regen">
+  <div class="vp-head">
+    <span class="vp-title">response regeneration &mdash; closing the train/inference distribution gap</span>
+    <span class="vp-hint">navigate steps</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="regen-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Original dataset response (e.g., from ChatGPT)</div>
+          <div class="step-desc">Prompt: "Solve 2x + 3 = 7." Original: "Sure! Let's solve step by step: 2x = 7 &minus; 3 = 4, so x = 2. Hope that helps! &#128522;" &mdash; verbose, emoji, hedged.</div>
+          <div class="step-code">Style: verbose, emoji, first-person hedging</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Target model's actual response (LLaMA-3.1-8B)</div>
+          <div class="step-desc">Same prompt &rarr; "2x + 3 = 7 &rarr; 2x = 4 &rarr; x = 2" &mdash; terse, no emoji, direct. A draft trained on the original response predicts the wrong style and gets rejected more often.</div>
+          <div class="step-code">Style: concise, direct, no hedging</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Regenerate with target model at T=0.8</div>
+          <div class="step-desc">Run every prompt through the target model at temperature 0.8 and save the output as the new training label. T=0.8 (not greedy) introduces diversity across epochs, acting as implicit data augmentation.</div>
+          <div class="step-code">response = target_model.generate(prompt, temperature=0.8)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Result: near-zero distribution mismatch</div>
+          <div class="step-desc">The draft is trained to predict exactly what the target would say. P-EAGLE found context-length mismatch alone causes 25% acceptance rate drops. Style mismatch is analogous. Both SpecForge and DFlash adopt this independently. [SpecForge &sect;6; DFlash &sect;4.2]</div>
+          <div class="step-code">SpecForge: regeneration required for "best performance"</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="regen-prev" disabled>&larr; Prev</button>
+      <button id="regen-next">Next &rarr;</button>
+      <span class="step-prog" id="regen-prog">Step 1 of 4</span>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="s-dflash" data-code="dflash">
+<div class="section-no">06 &mdash; DFlash Recipe</div>
+<h2>DFlash's Divergent Training Recipe</h2>
+<p>Block diffusion drafters require a fundamentally different data format. Where EAGLE-3 trains by teacher-forcing through the response sequence, DFlash trains a <em>denoising model</em> that predicts entire blocks of masked tokens in one parallel pass.</p>
+<h3>800K Samples: Nemotron + CodeAlpaca</h3>
+<p>DFlash collects &asymp;<strong>800K samples</strong> from NVIDIA Nemotron Post-Training Dataset V2 mixed with CodeAlpaca. All responses are regenerated by the target model. DFlash's anchor-sampling strategy provides implicit data augmentation, extracting multiple training examples per response.</p>
+<h3>Anchor Sampling: One Response, Many Training Blocks</h3>
+<p>DFlash <strong>randomly samples anchor tokens</strong> from the response, each anchor becoming the first (clean) token of a draft block, with the next block_size &minus; 1 positions masked. This directly matches inference-time behaviour: each verification cycle always starts from a clean "bonus token." DFlash's ablation (Table 9) shows this "substantially improves both acceptance length and speedup."</p>
+<div class="vp" id="vp-dflash">
+  <div class="vp-head">
+    <span class="vp-title">DFlash block training &mdash; anchor sampling + exponential loss weights</span>
+    <span class="vp-hint">click Play to animate</span>
+  </div>
+  <div class="vp-body">
+    <div style="display:flex;gap:.75rem;margin-bottom:1rem;align-items:center">
+      <button id="dflash-play" style="padding:.3rem .75rem;font-size:.72rem;font-family:var(--ff-mono);border-radius:5px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);cursor:pointer">&#9654; Play</button>
+      <button id="dflash-reset" style="padding:.3rem .75rem;font-size:.72rem;font-family:var(--ff-mono);border-radius:5px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);cursor:pointer">&#8635; Reset</button>
+      <span id="dflash-status" style="font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)">t = 0.0</span>
+    </div>
+    <canvas id="dflash-canvas" style="width:100%;height:200px;display:block;border-radius:6px;background:rgba(26,26,46,0.6)"></canvas>
+    <div style="font-size:.67rem;color:var(--muted);margin-top:.5rem">Blue: prompt tokens. Yellow anchor (r1): clean starting token. Green&rarr;purple: masked tokens predicted in parallel. Right bar: loss weights w_k = exp(-(k-1)/16). [Source: DFlash &sect;4.2]</div>
+  </div>
+</div>
+<h3>Loss Weighting: Prioritizing Early Positions</h3>
+<p>Errors cascade in speculative decoding: if the draft gets position 0 wrong, all subsequent positions are rejected. DFlash applies an exponentially decaying weight to the cross-entropy loss:</p>
+<div class="math-block">
+<div class="math-label">DFlash positional loss weight [DFlash &sect;4.2, Eq.4]</div>
+w_k = exp( -(k-1) / <span class="math-var">&gamma;</span> )   <span class="math-comment">k = position within block (1-indexed), &gamma; = block size = 16</span>
+
+k=1:  w = 1.000   <span class="math-comment">&larr; first masked position, full weight</span>
+k=4:  w &asymp; 0.832
+k=8:  w &asymp; 0.646
+k=15: w &asymp; 0.418   <span class="math-comment">&larr; last position, lower weight</span>
+</div>
+<h3>Shared Embedding and LM Head (Frozen)</h3>
+<p>DFlash's draft model shares the frozen target model's token embedding layer and LM head. Only the 5 transformer layers of the draft are trained &mdash; reducing trainable parameters by 30&ndash;40% and forcing tight distributional alignment.</p>
+</section>
+
+<section id="s-results" data-code="results">
+<div class="section-no">07 &mdash; Payoff</div>
+<h2>What Better Recipes Deliver</h2>
+<p>Architecture unlock (EAGLE-3 TTT) + domain-balanced data (1.4M Perfect-Blend or 800K Nemotron+CodeAlpaca) + target-model regeneration = substantially faster inference with no change to the target model.</p>
+<div class="vp" id="vp-results">
+  <div class="vp-head">
+    <span class="vp-title">end-to-end throughput speedup over baseline autoregressive decoding</span>
+    <span class="vp-hint">scroll to trigger</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="result-bars">
+      <div style="font-size:.68rem;color:var(--muted);font-family:var(--ff-mono);margin-bottom:.75rem">LLaMA-3.1-8B / Qwen3-8B &middot; SGLang serving &middot; mixed benchmarks</div>
+      <div class="bar-row">
+        <div class="bar-label">No speculative decoding</div>
+        <div class="bar-track"><div class="bar-fill" data-rw="14" style="background:rgba(107,114,128,.3)"><span>1.0&times;</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">EAGLE-3 (ShareGPT+UltraChat)</div>
+        <div class="bar-track"><div class="bar-fill" data-rw="38" style="background:rgba(107,114,128,.55)"><span>~1.76&times;</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SpecBundle (Perfect-Blend 1.4M)</div>
+        <div class="bar-track"><div class="bar-fill" data-rw="63" style="background:var(--purple)"><span>4.48&times;</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DFlash (Nemotron+CodeAlpaca)</div>
+        <div class="bar-track"><div class="bar-fill" data-rw="69" style="background:var(--cyan)"><span>4.86&times;</span></div></div>
+      </div>
+    </div>
+    <div style="font-size:.67rem;color:var(--muted);margin-top:.625rem">Sources: DFlash Table 1; SpecForge Tables 2&ndash;3.</div>
+  </div>
+</div>
+<h3>Key Takeaways for Practitioners</h3>
+<ul>
+  <li><strong>Architecture first:</strong> EAGLE-2's feature prediction loss was a hard data ceiling. Only EAGLE-3 TTT (or DFlash) enables meaningful data scaling. [arXiv:2503.01840]</li>
+  <li><strong>1M+ balanced conversations:</strong> The 320K community baseline leaves 23% acceptance length uncaptured. Empirically validated threshold is &asymp;1.4M balanced conversations. [arXiv:2603.18567]</li>
+  <li><strong>Regenerate responses with the target model:</strong> T=0.8 for diversity. Both SpecBundle and DFlash independently adopt this. [SpecForge &sect;6; DFlash &sect;4.2]</li>
+  <li><strong>Domain coverage predicts per-task acceptance rate:</strong> Math/code coverage in training data maps directly to math/code acceptance rate. SpecBundle achieves 1.61&times;&ndash;4.48&times; better throughput on coding/math specifically. [SpecForge &sect;6.1]</li>
+  <li><strong>For diffusion drafters, anchor sampling multiplies data:</strong> DFlash extracts multiple training examples per response via random anchor placement. [DFlash &sect;4.2]</li>
+  <li><strong>Long-context alignment matters for reasoning models:</strong> P-EAGLE found reasoning traces hit P90 = 10,800 tokens; drafts trained on short sequences see &asymp;25% acceptance rate drops. [P-EAGLE, arXiv]</li>
+</ul>
+</section>
+
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: The Dataset Recipe for Speculative Decoding Drafters</h2>
+    <p>Speculative decoding accelerates LLM inference by having a cheap draft model propose tokens that the main model verifies in parallel. The key metric is acceptance length — how many draft tokens survive verification. Community draft models trained on ShareGPT and UltraChat, roughly 320 thousand conversations of mostly chat content, achieve an acceptance length of 2.82 on math benchmarks. Switching to Open-PerfectBlend — 1.4 million balanced conversations covering chat, math, coding, and instruction following — improves acceptance length to 3.48, a 23 percent gain and 1.17 times inference speedup with no architectural changes.</p>
+    <p>But data scaling only works once the architecture allows it. EAGLE-1 and EAGLE-2 predict hidden features rather than tokens directly, creating a data ceiling. EAGLE-3 fixes this by removing the feature prediction loss and adding Training-Time Test. Both SpecForge's SpecBundle and DFlash independently found that regenerating dataset responses using the target model at temperature 0.8 is essential. DFlash additionally uses anchor sampling and exponential positional loss weighting. End-to-end, better data recipes push speedups from about 1.76 times to 4.48 to 4.86 times over baseline autoregressive decoding.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：投机解码草稿模型的数据配方</h2>
+    <p>投机解码通过让轻量草稿模型预测多个候选词元、再由主模型并行验证来加速推理，核心指标是接受长度——即每次验证通过的草稿词元数量。社区常用的草稿模型基于ShareGPT加UltraChat共32万条对话训练，在数学任务上的接受长度仅为2.82。换用Open-PerfectBlend——140万条均衡数据——接受长度提升至3.48，相当于23%的增益与1.17倍的推理加速，架构不变。</p>
+    <p>然而，数据扩展的前提是架构本身允许受益于更多数据。EAGLE-1/2存在"数据天花板"。EAGLE-3通过移除特征预测损失并引入训练时测试解决了这一问题。SpecForge的SpecBundle与DFlash都独立发现，用目标模型以温度0.8重新生成数据集的回答至关重要。DFlash还额外采用锚点采样和指数位置损失加权。最终，更好的数据配方将端到端速度从约1.76倍提升至4.48到4.86倍。</p>
+  </div>
+</div>
+
+</article>
+
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">recipe/gap.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Acceptance-Length Gap</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">&rsaquo;</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="gap">gap</button>
+    <button class="cs-tab" data-panel="wall">wall</button>
+    <button class="cs-tab" data-panel="scale">scale</button>
+    <button class="cs-tab" data-panel="compose">compose</button>
+    <button class="cs-tab" data-panel="regen">regen</button>
+    <button class="cs-tab" data-panel="dflash">dflash</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-gap">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Acceptance-length gap: same arch, different data</span>
+<span class="cs-line cmt"># Source: SpecForge (arXiv:2603.18567)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Speedup formula</span>
+<span class="cs-line hl-p">S = (1 - alpha**(gamma+1)) / ((1-alpha)*(1+gamma*c))</span>
+<span class="cs-line cmt"># alpha=per-token accept rate, gamma=budget, c=cost ratio</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Dataset comparison (LLaMA-3.1-8B, Math500)</span>
+<span class="cs-line">BASELINE = dict(</span>
+<span class="cs-line hl-a">    "data":  "ShareGPT+UltraChat",</span>
+<span class="cs-line hl-a">    "total": 320_000,</span>
+<span class="cs-line hl-a">    "tau":   2.82,</span>
+<span class="cs-line hl-a">    cover=["chat"],</span>
+<span class="cs-line">)</span>
+<span class="cs-line">SPECBUNDLE = dict(</span>
+<span class="cs-line hl-g">    "data":  "Open-PerfectBlend",</span>
+<span class="cs-line hl-g">    "total": 1_400_000,</span>
+<span class="cs-line hl-g">    "tau":   3.48,</span>
+<span class="cs-line hl-g">    cover=["chat","math","code","instruct"],</span>
+<span class="cs-line">)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># delta = (3.48 - 2.82) / 2.82 = +23.4%</span>
+<span class="cs-line hl-c">delta_tau = 0.234</span>
+<span class="cs-line hl-c">speedup_gain = 1.17  <span class="cmt"># x over baseline</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># On coding benchmarks: gap = 1.61x to 4.48x</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-wall">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-2 data wall (arXiv:2503.01840 Fig.1)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># EAGLE-1/2 train two losses:</span>
+<span class="cs-line hl-a">loss = l_fea + l_token</span>
+<span class="cs-line cmt"># l_fea creates architectural constraint</span>
+<span class="cs-line cmt"># f_hat(t+1) != f(t+1) at inference</span>
+<span class="cs-line cmt"># -> step-2 falls off training distribution</span>
+<span class="cs-line cmt"># -> more data cannot fix this</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Scaling (MT-bench, LLaMA-3.1-8B)</span>
+<span class="cs-line">EAGLE2_scaling = &#123;  # tau by data scale</span>
+<span class="cs-line hl-a">    1: 3.70,  <span class="cmt"># 1x ShareGPT baseline</span></span>
+<span class="cs-line hl-a">    2: 3.73,</span>
+<span class="cs-line hl-a">    4: 3.74,</span>
+<span class="cs-line hl-a">    8: 3.75,  <span class="cmt"># barely moves</span></span>
+<span class="cs-line">}</span>
+<span class="cs-line">EAGLE3_scaling = &#123;  # tau by data scale</span>
+<span class="cs-line hl-g">    1: 3.80,  <span class="cmt"># 1x ShareGPT baseline</span></span>
+<span class="cs-line hl-g">    2: 3.95,</span>
+<span class="cs-line hl-g">    4: 4.20,</span>
+<span class="cs-line hl-g">    8: 4.40,  <span class="cmt"># keeps climbing (+16%)</span></span>
+<span class="cs-line">}</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-scale">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># EAGLE-3 Training-Time Test (TTT)</span>
+<span class="cs-line cmt"># Source: EAGLE-3 (arXiv:2503.01840)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Change 1: remove feature prediction loss</span>
+<span class="cs-line hl-p">loss = l_token   <span class="cmt"># no l_fea constraint</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Change 2: multi-layer feature fusion</span>
+<span class="cs-line hl-c">draft_input = FC([f_low, f_mid, f_high])</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Change 3: Training-Time Test</span>
+<span class="cs-line">def ttt_step(q, K_train, V_train, K_pred, V_pred):</span>
+<span class="cs-line">    S = q @ K_train.T / sqrt(d_k)</span>
+<span class="cs-line hl-p">    for k_i in K_pred:  <span class="cmt"># growing context</span></span>
+<span class="cs-line hl-p">        S = concat(S, q @ k_i / sqrt(d_k))</span>
+<span class="cs-line">    return softmax(S) @ concat(V_train, V_pred)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key results (arXiv:2503.01840)</span>
+<span class="cs-line hl-g">speedup_vs_eagle2 = 1.4   <span class="cmt"># x at batch=1</span></span>
+<span class="cs-line hl-g">throughput_b64    = 1.40  <span class="cmt"># x SGLang (+40%)</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-compose">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Dataset composition: 3 production recipes</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. EAGLE-3 official (arXiv:2503.01840)</span>
+<span class="cs-line">eagle3_official = [</span>
+<span class="cs-line hl-a">    ("ShareGPT",  120_000, "chat"),</span>
+<span class="cs-line hl-a">    ("UltraChat", 200_000, "chat/dialogue"),</span>
+<span class="cs-line">]  <span class="cmt"># 320K total; no math or code</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. SpecBundle (arXiv:2603.18567)</span>
+<span class="cs-line">perfect_blend = [</span>
+<span class="cs-line hl-g">    ("chat",    350_000, "conversation"),</span>
+<span class="cs-line hl-g">    ("math",    350_000, "math reasoning"),</span>
+<span class="cs-line hl-g">    ("code",    350_000, "code generation"),</span>
+<span class="cs-line hl-g">    ("instruct",350_000, "instruct follow"),</span>
+<span class="cs-line">]  <span class="cmt"># 1.4M; ALL responses regen'd @ T=0.8</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. DFlash</span>
+<span class="cs-line">dflash_data = [</span>
+<span class="cs-line hl-c">    ("Nemotron-PTV2", 700_000, "reasoning+math+code"),</span>
+<span class="cs-line hl-c">    ("CodeAlpaca",    100_000, "code instructions"),</span>
+<span class="cs-line">]  <span class="cmt"># ~800K; responses: target-generated</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Training (SpecBundle)</span>
+<span class="cs-line">config = dict(epochs=2, lr=1e-4,</span>
+<span class="cs-line">              sched="cosine", regen_t=0.8)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-regen">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Target-model regeneration</span>
+<span class="cs-line cmt"># SpecForge §6; DFlash §4.2</span>
+<span class="cs-line"> </span>
+<span class="cs-line">def regenerate(dataset, target_model, temp=0.8):</span>
+<span class="cs-line">    result = []</span>
+<span class="cs-line">    for sample in dataset:</span>
+<span class="cs-line hl-p">        resp = target_model.generate(</span>
+<span class="cs-line hl-p">            sample["prompt"],</span>
+<span class="cs-line hl-p">            temperature=temp,  <span class="cmt"># diversity</span></span>
+<span class="cs-line hl-p">            do_sample=True,</span>
+<span class="cs-line hl-p">        )</span>
+<span class="cs-line hl-g">        result.append(dict(prompt=sample["prompt"],</span>
+<span class="cs-line hl-g">                         response=resp))</span>
+<span class="cs-line">    return result</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why T=0.8 (not greedy T=0)?</span>
+<span class="cs-line cmt"># T=0: same response every epoch (no augment)</span>
+<span class="cs-line cmt"># T=0.8: diversity across epochs (augment)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># P-EAGLE: context-length mismatch</span>
+<span class="cs-line cmt"># GPT-OSS 120B reasoning traces:</span>
+<span class="cs-line cmt"># Median: 3,891 tokens</span>
+<span class="cs-line cmt"># P90:    10,800 tokens</span>
+<span class="cs-line cmt"># Mismatch -> -25% acceptance rate</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-dflash">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DFlash training recipe (DFlash §4.2)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 1. Data: ~800K samples</span>
+<span class="cs-line">DATA = ["Nemotron-PTV2", "CodeAlpaca"]</span>
+<span class="cs-line cmt"># All responses: target-model generated</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 2. Anchor sampling (not uniform blocks)</span>
+<span class="cs-line">def make_block(response, block_size=16):</span>
+<span class="cs-line hl-p">    anchor = random_sample(response)</span>
+<span class="cs-line hl-p">    masked = [anchor] + [MASK]*(block_size-1)</span>
+<span class="cs-line hl-p">    target = response[anchor:anchor+block_size-1]</span>
+<span class="cs-line hl-p">    return masked, target</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 3. Positional loss weights (Eq.4)</span>
+<span class="cs-line">def pos_weight(k, gamma=16):</span>
+<span class="cs-line hl-a">    return exp(-(k-1) / gamma)</span>
+<span class="cs-line cmt"># k=1: 1.000 (first masked, full weight)</span>
+<span class="cs-line cmt"># k=4: 0.832  k=8: 0.646  k=15: 0.418</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># 4. Shared embedding + LM head (frozen)</span>
+<span class="cs-line hl-g">draft.embed   = target.embed    <span class="cmt"># frozen</span></span>
+<span class="cs-line hl-g">draft.lm_head = target.lm_head  <span class="cmt"># frozen</span></span>
+<span class="cs-line cmt"># only 5 transformer layers are trained</span>
+<span class="cs-line"> </span>
+<span class="cs-line">config = dict(layers=5, block_size=16, kv_layers=5)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Acceptance length and speedup summary</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Math500 tau (LLaMA-3.1-8B)</span>
+<span class="cs-line cmt"># Source: SpecForge (arXiv:2603.18567)</span>
+<span class="cs-line">tau_math500 = dict(</span>
+<span class="cs-line hl-a">    "ShareGPT+UltraChat (320K)": 2.82,</span>
+<span class="cs-line hl-g">    "Perfect-Blend (1.4M)":      3.48,</span>
+<span class="cs-line">)  <span class="cmt"># delta +23.4% -> 1.17x speedup</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Qwen3-8B avg (T=0) [DFlash Table 1]</span>
+<span class="cs-line">qwen38b = dict(</span>
+<span class="cs-line hl-a">    "EAGLE-3(16)": dict(tau=2.96, speedup=1.76),</span>
+<span class="cs-line hl-a">    "EAGLE-3(60)": dict(tau=3.40, speedup=2.02),</span>
+<span class="cs-line hl-g">    "DFlash(16)":  dict(tau=6.49, speedup=4.86),</span>
+<span class="cs-line">}</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Practical recipe</span>
+<span class="cs-line hl-p">RECIPE = dict(</span>
+<span class="cs-line hl-p">    size    = ">=1M conversations",</span>
+<span class="cs-line hl-p">    domains = ["chat","math","code","instruct"],</span>
+<span class="cs-line hl-p">    regen   = True,   <span class="cmt"># target-model responses</span></span>
+<span class="cs-line hl-p">    temp    = 0.8,    <span class="cmt"># regen diversity</span></span>
+<span class="cs-line hl-p">    epochs  = 2,</span>
+<span class="cs-line hl-p">    lr      = 1e-4,</span>
+<span class="cs-line hl-p">    arch    = "EAGLE-3 TTT or DFlash",</span>
+<span class="cs-line hl-p">)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div>
+
+<script>
+// TOC + sidebar toggles
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// Code sidebar tab switching
+const tabMeta = {
+  gap:     { file: 'recipe/gap.py',     title: 'The Acceptance-Length Gap' },
+  wall:    { file: 'recipe/wall.py',    title: 'EAGLE-2 Data Wall' },
+  scale:   { file: 'recipe/ttt.py',     title: 'Training-Time Test' },
+  compose: { file: 'recipe/compose.py', title: 'Dataset Composition' },
+  regen:   { file: 'recipe/regen.py',   title: 'Target Regeneration' },
+  dflash:  { file: 'recipe/dflash.py',  title: 'DFlash Training Recipe' },
+  results: { file: 'recipe/results.py', title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// IntersectionObserver TOC sync
+const sectionMap = {
+  's-gap':'gap','s-wall':'wall','s-scale':'scale',
+  's-compose':'compose','s-regen':'regen','s-dflash':'dflash','s-results':'results'
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// §01 gap bars
+const gapSection = document.getElementById('s-gap');
+if (gapSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#gap-bars .bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(gapSection);
+}
+
+// §02 wall canvas
+const wallCanvas = document.getElementById('wall-canvas');
+let wallCtx, wallW, wallH;
+if (wallCanvas) {
+  const DPR = window.devicePixelRatio || 1;
+  wallW = wallCanvas.clientWidth; wallH = 240;
+  wallCanvas.width = wallW * DPR; wallCanvas.height = wallH * DPR;
+  wallCtx = wallCanvas.getContext('2d');
+  wallCtx.scale(DPR, DPR);
+}
+const E2 = [{x:1,y:3.70},{x:2,y:3.73},{x:4,y:3.74},{x:8,y:3.75}];
+const E3 = [{x:1,y:3.80},{x:2,y:3.95},{x:4,y:4.20},{x:8,y:4.40}];
+
+function drawWall(mode) {
+  if (!wallCtx) return;
+  const W = wallW, H = wallH;
+  wallCtx.clearRect(0,0,W,H);
+  document.getElementById('wall-e2').classList.toggle('active', mode==='eagle2');
+  document.getElementById('wall-e3').classList.toggle('active', mode==='eagle3');
+  document.getElementById('wall-both').classList.toggle('active', mode==='both');
+  const PAD = {l:48,r:24,t:20,b:38};
+  const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+  const minY = 3.6, maxY = 4.5;
+  wallCtx.strokeStyle = 'rgba(255,255,255,0.04)'; wallCtx.lineWidth = 1;
+  [3.7,3.8,3.9,4.0,4.1,4.2,4.3,4.4].forEach(yv => {
+    const y = PAD.t + plotH * (1 - (yv-minY)/(maxY-minY));
+    wallCtx.beginPath(); wallCtx.moveTo(PAD.l,y); wallCtx.lineTo(PAD.l+plotW,y); wallCtx.stroke();
+  });
+  wallCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+  wallCtx.beginPath(); wallCtx.moveTo(PAD.l,PAD.t); wallCtx.lineTo(PAD.l,PAD.t+plotH); wallCtx.lineTo(PAD.l+plotW,PAD.t+plotH); wallCtx.stroke();
+  wallCtx.fillStyle = 'rgba(160,160,180,0.7)'; wallCtx.font = '10px monospace'; wallCtx.textAlign = 'center';
+  [1,2,4,8].forEach(xv => {
+    const x = PAD.l + plotW * Math.log2(xv) / Math.log2(8);
+    wallCtx.fillText(xv+'x', x, PAD.t+plotH+14);
+  });
+  wallCtx.fillStyle = 'rgba(150,150,170,0.5)'; wallCtx.font = '9px monospace';
+  wallCtx.fillText('data scale (x ShareGPT)', PAD.l+plotW/2, H-2);
+  wallCtx.textAlign = 'right'; wallCtx.font = '10px monospace'; wallCtx.fillStyle = 'rgba(160,160,180,0.7)';
+  [3.7,3.9,4.1,4.3].forEach(yv => {
+    const y = PAD.t + plotH * (1-(yv-minY)/(maxY-minY));
+    wallCtx.fillText(yv.toFixed(1), PAD.l-5, y+4);
+  });
+  function toC(pt) {
+    return {x: PAD.l+plotW*Math.log2(pt.x)/Math.log2(8), y: PAD.t+plotH*(1-(pt.y-minY)/(maxY-minY))};
+  }
+  function drawLine(data, color, label) {
+    const pts = data.map(toC);
+    wallCtx.strokeStyle = color; wallCtx.lineWidth = 2.5;
+    wallCtx.beginPath();
+    pts.forEach((p,i) => i===0 ? wallCtx.moveTo(p.x,p.y) : wallCtx.lineTo(p.x,p.y));
+    wallCtx.stroke();
+    pts.forEach(p => { wallCtx.beginPath(); wallCtx.arc(p.x,p.y,4,0,Math.PI*2); wallCtx.fillStyle=color; wallCtx.fill(); });
+    const last = pts[pts.length-1];
+    wallCtx.fillStyle=color; wallCtx.font='bold 10px monospace'; wallCtx.textAlign='left';
+    wallCtx.fillText(label, last.x+7, last.y+4);
+  }
+  if (mode==='eagle2'||mode==='both') drawLine(E2,'#f59e0b','EAGLE-2');
+  if (mode==='eagle3'||mode==='both') drawLine(E3,'#8b5cf6','EAGLE-3');
+  if (mode==='both') {
+    const a2=toC({x:8,y:3.75}), a3=toC({x:8,y:4.40});
+    wallCtx.strokeStyle='rgba(16,185,129,0.5)'; wallCtx.setLineDash([3,3]); wallCtx.lineWidth=1;
+    wallCtx.beginPath(); wallCtx.moveTo(a2.x-20,a2.y); wallCtx.lineTo(a2.x-20,a3.y); wallCtx.stroke();
+    wallCtx.setLineDash([]); wallCtx.fillStyle='rgba(16,185,129,0.8)'; wallCtx.font='9px monospace'; wallCtx.textAlign='center';
+    wallCtx.fillText('+16%', a2.x-34, (a2.y+a3.y)/2+3);
+  }
+}
+window.drawWall = drawWall;
+if (wallCanvas) drawWall('eagle2');
+
+// Step navigator
+function makeStepNav(stepsId, prevId, nextId, progId) {
+  let step = 0;
+  const boxes = document.querySelectorAll('#' + stepsId + ' .step-box');
+  const prev = document.getElementById(prevId), next = document.getElementById(nextId), prog = document.getElementById(progId);
+  function update() {
+    boxes.forEach((b,i) => {
+      b.classList.remove('active','done');
+      if (i===step) b.classList.add('active'); else if (i<step) b.classList.add('done');
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i<step ? '✓' : String(i+1);
+    });
+    if (prev) prev.disabled = step===0;
+    if (next) next.disabled = step===boxes.length-1;
+    if (prog) prog.textContent = 'Step '+(step+1)+' of '+boxes.length;
+  }
+  prev?.addEventListener('click', () => { if(step>0){step--;update();} });
+  next?.addEventListener('click', () => { if(step<boxes.length-1){step++;update();} });
+  update();
+}
+makeStepNav('ttt-steps','ttt-prev','ttt-next','ttt-prog');
+makeStepNav('regen-steps','regen-prev','regen-next','regen-prog');
+
+// §04 Dataset composition
+const RECIPES = [
+  { total:'320K conversations', note:'Original responses. Chat-only; limited math and code.',
+    segs:[{label:'ShareGPT (120K)',pct:37.5,color:'rgba(107,114,128,.6)'},{label:'UltraChat (200K)',pct:62.5,color:'rgba(107,114,128,.4)'}] },
+  { total:'1.4M conversations', note:'All responses regenerated by target model at T=0.8. Balanced across 4 domains.',
+    segs:[{label:'Chat',pct:25,color:'var(--purple)'},{label:'Math reasoning',pct:25,color:'var(--cyan)'},{label:'Code generation',pct:25,color:'var(--green)'},{label:'Instruction follow',pct:25,color:'var(--amber)'}] },
+  { total:'~800K samples', note:'Target-generated responses. Anchor sampling augments each response into multiple examples.',
+    segs:[{label:'Nemotron Post-Training V2',pct:87.5,color:'var(--cyan)'},{label:'CodeAlpaca',pct:12.5,color:'var(--green)'}] }
+];
+function showRecipe(idx) {
+  document.querySelectorAll('.ds-tab-btn').forEach((b,i) => b.classList.toggle('active',i===idx));
+  const r = RECIPES[idx];
+  document.getElementById('ds-total-val').textContent = r.total;
+  document.getElementById('ds-note').textContent = r.note;
+  const c = document.getElementById('ds-bars');
+  c.innerHTML = '';
+  r.segs.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'ds-seg-row';
+    row.innerHTML = '<div class="ds-seg-label">'+s.label+'</div><div class="ds-seg-track"><div class="ds-seg-fill" style="width:'+s.pct+'%;background:'+s.color+'"><span>'+s.pct+'%</span></div></div>';
+    c.appendChild(row);
+  });
+}
+window.showRecipe = showRecipe;
+showRecipe(0);
+
+// §06 DFlash canvas
+const dflashCanvas = document.getElementById('dflash-canvas');
+let dCtx, dW, dH, dT=0, dRun=false, dRAF=null;
+if (dflashCanvas) {
+  const DPR=window.devicePixelRatio||1;
+  dW=dflashCanvas.clientWidth; dH=200;
+  dflashCanvas.width=dW*DPR; dflashCanvas.height=dH*DPR;
+  dCtx=dflashCanvas.getContext('2d'); dCtx.scale(DPR,DPR);
+}
+function easeIO(t){return t<.5?2*t*t:-1+(4-2*t)*t;}
+function drawDFlash(t) {
+  if (!dCtx) return;
+  const ease = easeIO(Math.min(t,1));
+  dCtx.clearRect(0,0,dW,dH);
+  dCtx.fillStyle='rgba(20,20,38,0.7)'; dCtx.fillRect(0,0,dW,dH);
+  const PROMPT=['User:','Solve','2x+3=7','.'],BN=7,TW=40,TH=26,GAP=4;
+  const totW=PROMPT.length*(TW+GAP)+12+(1+BN)*(TW+GAP)+80;
+  const startX=(dW-totW)/2, Y=50;
+  dCtx.font='8px monospace'; dCtx.fillStyle='rgba(150,150,180,0.6)'; dCtx.textAlign='center';
+  dCtx.fillText('PROMPT', startX+PROMPT.length*(TW+GAP)/2, Y-12);
+  const respX=startX+PROMPT.length*(TW+GAP)+12;
+  dCtx.fillText('RESPONSE BLOCK', respX+(1+BN)*(TW+GAP)/2, Y-12);
+  PROMPT.forEach((tok,i) => {
+    const x=startX+i*(TW+GAP);
+    dCtx.fillStyle='rgba(6,182,212,0.2)'; dCtx.fillRect(x,Y,TW,TH);
+    dCtx.strokeStyle='rgba(6,182,212,0.5)'; dCtx.lineWidth=1; dCtx.strokeRect(x,Y,TW,TH);
+    dCtx.fillStyle='rgba(6,182,212,0.9)'; dCtx.font='9px monospace'; dCtx.textAlign='center';
+    dCtx.fillText(tok,x+TW/2,Y+17);
+  });
+  // Anchor
+  const ax=respX;
+  dCtx.fillStyle='rgba(245,158,11,0.3)'; dCtx.fillRect(ax,Y,TW,TH);
+  dCtx.strokeStyle='rgba(245,158,11,0.8)'; dCtx.lineWidth=1.5; dCtx.strokeRect(ax,Y,TW,TH);
+  dCtx.fillStyle='rgba(245,158,11,0.95)'; dCtx.font='9px monospace'; dCtx.textAlign='center';
+  dCtx.fillText('r1⚓',ax+TW/2,Y+17);
+  // Masked
+  const phase=ease*BN;
+  for (let k=1;k<=BN;k++) {
+    const mx=respX+k*(TW+GAP), pred=phase>=k, wk=Math.exp(-(k-1)/16);
+    dCtx.fillStyle=pred?'rgba(139,92,246,'+(0.2+wk*0.5)+')':'rgba(16,185,129,0.15)';
+    dCtx.fillRect(mx,Y,TW,TH);
+    dCtx.strokeStyle=pred?'rgba(139,92,246,0.7)':'rgba(16,185,129,0.5)'; dCtx.lineWidth=1; dCtx.strokeRect(mx,Y,TW,TH);
+    dCtx.fillStyle=pred?'#c4b5fd':'rgba(16,185,129,0.8)'; dCtx.font='9px monospace'; dCtx.textAlign='center';
+    dCtx.fillText(pred?'r'+(k+1):'<M>',mx+TW/2,Y+17);
+  }
+  // Loss weight bar
+  const lx=dW-52,ly=14,lh=dH-30,lw=12;
+  dCtx.fillStyle='rgba(150,150,180,0.6)'; dCtx.font='8px monospace'; dCtx.textAlign='center';
+  dCtx.fillText('wt',lx+lw/2,ly-4);
+  for (let py=0;py<lh;py++) {
+    const frac=1-py/lh;
+    dCtx.fillStyle='rgba(139,92,'+(Math.round(246*frac))+','+(0.15+frac*0.7)+')';
+    dCtx.fillRect(lx,ly+py,lw,1);
+  }
+  ['1.0','0.6'].forEach((lbl,i) => {
+    dCtx.fillStyle='rgba(150,150,180,0.5)'; dCtx.font='8px monospace'; dCtx.textAlign='left';
+    dCtx.fillText(lbl,lx+lw+3,ly+lh*i+3);
+  });
+  if (ease>0.1) {
+    dCtx.fillStyle='rgba(139,92,246,'+Math.min(1,(ease-0.1)*3)+')';
+    dCtx.font='10px monospace'; dCtx.textAlign='center';
+    dCtx.fillText('← parallel diffusion prediction →',respX+(1+BN)*(TW+GAP)/2,Y+TH+20);
+  }
+  dCtx.fillStyle='rgba(150,150,180,0.4)'; dCtx.font='9px monospace'; dCtx.textAlign='left';
+  dCtx.fillText('t = '+(ease*100).toFixed(0)+'%',10,dH-8);
+  document.getElementById('dflash-status').textContent='t = '+ease.toFixed(2);
+}
+function dTick(){if(!dRun)return;dT=Math.min(dT+0.008,1);drawDFlash(dT);if(dT<1)dRAF=requestAnimationFrame(dTick);else{dRun=false;document.getElementById('dflash-play').textContent='▶ Play';}}
+document.getElementById('dflash-play')?.addEventListener('click',()=>{if(dRun){dRun=false;document.getElementById('dflash-play').textContent='▶ Play';}else{if(dT>=1)dT=0;dRun=true;document.getElementById('dflash-play').textContent='⏸ Pause';dRAF=requestAnimationFrame(dTick);}});
+document.getElementById('dflash-reset')?.addEventListener('click',()=>{dRun=false;dT=0;document.getElementById('dflash-play').textContent='▶ Play';drawDFlash(0);});
+if (dflashCanvas) drawDFlash(0);
+
+// §07 results bars
+const resultsSection = document.getElementById('s-results');
+if (resultsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#result-bars .bar-fill[data-rw]').forEach(b => {
+          b.style.width = b.dataset.rw + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(resultsSection);
+}
+</script>
+</BaseLayout>
