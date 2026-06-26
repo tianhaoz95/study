@@ -1,0 +1,1328 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="JetSpec: Breaking the Speculative Decoding Scaling Ceiling | Catpuccino.ai"
+  description="JetSpec fuses parallel drafting speed with causal tree quality using a tree-causal attention mask, reaching 9.64× speedup on MATH-500 — without the causality-efficiency dilemma."
+  crumb="JetSpec"
+>
+
+<style is:global>
+/* ── Post base ── */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* ── Three-column layout ── */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* ── Viz panels ── */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* ── TOC sidebar ── */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* ── Code sidebar ── */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* ── Math blocks ── */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* ── Results bars ── */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:180px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:1rem;margin-bottom:.2rem;font-family:var(--ff-mono)}
+
+/* ── Dilemma comparison grid ── */
+.dilemma-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+.dilemma-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem}
+.dilemma-card.bad{border-color:rgba(239,68,68,.3)}
+.dilemma-card.good{border-color:rgba(16,185,129,.3)}
+.dilemma-card h4{font-size:.78rem;font-weight:700;margin-bottom:.5rem;font-family:var(--ff-mono)}
+.dilemma-card.bad h4{color:#f87171}
+.dilemma-card.good h4{color:var(--green)}
+.dilemma-card p{font-size:.78rem;color:var(--muted2);line-height:1.6;margin-bottom:.6rem}
+.dilemma-card .dc-stat{font-family:var(--ff-mono);font-size:.7rem;padding:.3rem .6rem;border-radius:4px;display:inline-block;margin-top:.3rem}
+.dilemma-card.bad .dc-stat{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+.dilemma-card.good .dc-stat{background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+
+/* ── Comparison canvas ── */
+#tree-canvas{width:100%;display:block}
+
+/* ── Arch SVG ── */
+.arch-wrap{overflow-x:auto;margin:1.5rem 0}
+.arch-wrap svg{display:block;margin:0 auto;min-width:580px}
+
+/* ── Budget ctrl buttons ── */
+.ctrl-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.ctrl-btn{padding:.3rem .8rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.ctrl-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.ctrl-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+
+/* ── Results table ── */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* ── Callout ── */
+.callout{border-left:3px solid var(--purple);background:var(--purple-dim);border-radius:0 8px 8px 0;padding:.875rem 1.1rem;margin:1.25rem 0;font-size:.85rem;color:var(--muted2);line-height:1.7}
+.callout strong{color:var(--purple-l)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .dilemma-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Inference Efficiency</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>JetSpec: Breaking the Speculative Decoding Scaling Ceiling</h1>
+  <p class="lead">Existing spec-decoding drafters face a causality-efficiency dilemma: autoregressive drafters are causally correct but slow, while block-diffusion drafters are fast but generate mutually inconsistent trees. JetSpec resolves this with a tree-causal attention mask — one forward pass, branch-wise causal conditioning — achieving 9.64× speedup on MATH-500 with a 256-token draft budget.</p>
+  <div class="post-hero-meta">
+    <span>June 26, 2026</span>
+    <span>~9 min read</span>
+    <span>Paper: <code>arXiv:2606.18394</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.18394v2" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/hao-ai-lab/JetSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-ceiling"><a href="#s-ceiling"><span class="toc-num">01</span> Scaling Ceiling</a></li>
+    <li class="toc-item" id="toc-s-dilemma"><a href="#s-dilemma"><span class="toc-num">02</span> The Dilemma</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">03</span> Architecture</a></li>
+    <li class="toc-item" id="toc-s-causality"><a href="#s-causality"><span class="toc-num">04</span> Causal Conditioning</a></li>
+    <li class="toc-item" id="toc-s-scaling"><a href="#s-scaling"><span class="toc-num">05</span> Budget Scaling</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ── §01 SCALING CEILING ── -->
+<section id="s-ceiling" data-code="ceiling">
+<div class="section-no">01 — The Scaling Ceiling</div>
+<h2>Why bigger draft budgets stop helping</h2>
+<p>Speculative decoding works by having a cheap draft model propose a batch of N tokens, then verifying all of them in one pass with the expensive target LLM. When verification passes, you commit multiple tokens per forward call — free throughput. The expected end-to-end speedup is governed by a simple formula:</p>
+
+<div class="math-block">
+  <div class="math-label">Expected Speedup</div>
+  <span class="math-var">S</span> = (1 − <span class="math-var">α</span><sup>N+1</sup>) / ((1 − <span class="math-var">α</span>) × (<span class="math-var">N</span> × <span class="math-var">c</span> + 1))
+  <div style="margin-top:.5rem;font-size:.72rem;color:var(--muted)">
+    α = acceptance rate per token &nbsp;|&nbsp; N = draft length &nbsp;|&nbsp; c = drafter cost / target cost
+  </div>
+</div>
+
+<p>Two parameters determine whether adding more draft tokens actually helps: <strong>α</strong> (how often the target model accepts a drafted token) and <strong>c</strong> (how expensive each draft token is relative to one target forward pass). The chart below shows how these interact — toggle between typical and ultra-low drafting cost to see the wall appear and disappear.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">expected speedup vs. draft budget N</span>
+    <span class="vp-hint">toggle drafting cost</span>
+  </div>
+  <div class="vp-body">
+    <div class="ctrl-row">
+      <button class="ctrl-btn active" id="btn-c-typical" onclick="setCost(0.05)">c = 0.05 (typical AR drafter)</button>
+      <button class="ctrl-btn" id="btn-c-low" onclick="setCost(0.0005)">c = 0.0005 (ultra-low, block-parallel)</button>
+    </div>
+    <canvas id="ceiling-canvas" style="width:100%;display:block;border-radius:8px" height="260"></canvas>
+  </div>
+</div>
+
+<p>At <strong>c = 0.05</strong> (an autoregressive drafter like EAGLE), speedup plateaus quickly around N = 16–32 regardless of α. The cumulative drafting overhead Nc cancels out the acceptance gains. At <strong>c = 0.0005</strong> (block-diffusion drafters like DFlash), speedup scales beautifully with budget — but only if α stays high. This is exactly the tension JetSpec has to resolve: you need both ultra-low cost <em>and</em> high acceptance rate simultaneously.</p>
+
+<div class="callout">
+  <strong>The fundamental challenge:</strong> Block-diffusion drafters achieve ultra-low c by predicting all tokens in one pass — but without causal conditioning, their draft tokens are mutually inconsistent, dragging α down. Autoregressive drafters keep α high with causal conditioning — but their cost c scales with tree depth. No prior method solves both at once.
+</div>
+</section>
+
+<!-- ── §02 THE DILEMMA ── -->
+<section id="s-dilemma" data-code="dilemma">
+<div class="section-no">02 — The Causality-Efficiency Dilemma</div>
+<h2>Fast but inconsistent vs. consistent but slow</h2>
+
+<p>When drafting a token tree, each branch represents a speculative continuation. For the target model to accept a branch, every token must be causally valid — each token should be conditioned on the actual tokens preceding it along that branch. Existing methods fail this in opposite directions:</p>
+
+<div class="dilemma-grid">
+  <div class="dilemma-card bad">
+    <h4>✗ EAGLE / Autoregressive Drafters</h4>
+    <p>Each depth requires a separate sequential draft pass. For a tree of depth 4, you run 4 serial forward calls through the draft head — cost grows linearly with depth.</p>
+    <div class="dc-stat">cost c grows with tree depth</div>
+  </div>
+  <div class="dilemma-card bad">
+    <h4>✗ DFlash / Block-Diffusion Drafters</h4>
+    <p>All depths generated in one pass — but using <em>branch-agnostic marginals</em>. Tokens at each position are predicted independently of which token was chosen at earlier positions in this branch.</p>
+    <div class="dc-stat">acceptance α hurt by inconsistency</div>
+  </div>
+</div>
+
+<h3>A concrete failure: the inconsistent tree</h3>
+<p>On a real MATH-500 prompt, DFlash's block-diffusion head ranks the branch <em>"the given told that"</em> first — its combined marginal surrogate score is −3.76 nats. But when the target model evaluates this branch <em>causally</em> (conditioning each token on its actual predecessors), the true log-probability is <strong>−63.32 nats</strong>. A 59-nat gap. The tokens are individually plausible but mutually incompatible — "given" doesn't follow "the" in this context, and "told" doubly clashes. The actual best continuation <em>"are given that the"</em> sits at rank 3 with a target joint score of −0.08 nats. Budget is wasted drafting and verifying incoherent branches.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">branch-agnostic vs. causal tree scoring — real MATH-500 example</span>
+    <span class="vp-hint">red = inconsistent (large surrogate↔target gap), green = consistent</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="tree-canvas" height="280"></canvas>
+  </div>
+</div>
+
+<p>Across 50 MATH-500 prompts, the diffusion head's rank-1 surrogate-to-target gap exceeds the causal head's on <strong>92% of prompts</strong>, with a median 5× larger gap (+62.81 nats vs +12.36 nats). This directly translates to fewer accepted tokens per verification step.</p>
+</section>
+
+<!-- ── §03 ARCHITECTURE ── -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">03 — JetSpec Architecture</div>
+<h2>One forward pass, branch-wise causality</h2>
+<p>JetSpec's key insight is that you can have both: generate all tree-node logits in a single parallel forward pass, <em>while</em> enforcing branch-wise causal conditioning through a tree-causal attention mask. The mask is computed once per tree shape and applied to the draft head — zero extra sequential passes needed.</p>
+
+<div class="arch-wrap">
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="max-width:680px;width:100%;height:auto;font-family:var(--ff-mono)">
+  <!-- Background -->
+  <rect width="640" height="300" fill="#0d0d14"/>
+
+  <!-- Target model (frozen) -->
+  <rect x="20" y="80" width="110" height="140" rx="8" fill="#1a1a2e" stroke="#3b3b5c" stroke-width="1.5"/>
+  <text x="75" y="103" text-anchor="middle" fill="#6b7280" font-size="9" font-weight="600" letter-spacing="1">FROZEN</text>
+  <text x="75" y="118" text-anchor="middle" fill="#e5c07b" font-size="10" font-weight="700">Target LLM</text>
+  <text x="75" y="133" text-anchor="middle" fill="#6b7280" font-size="9">Qwen3-8B</text>
+  <!-- Layers in target -->
+  <rect x="32" y="148" width="86" height="12" rx="3" fill="rgba(139,92,246,.15)" stroke="rgba(139,92,246,.3)" stroke-width="1"/>
+  <text x="75" y="158" text-anchor="middle" fill="#8b5cf6" font-size="8">Layer N (top)</text>
+  <rect x="32" y="165" width="86" height="12" rx="3" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.2)" stroke-width="1"/>
+  <text x="75" y="175" text-anchor="middle" fill="#8b5cf6" font-size="8">Layer M (mid)</text>
+  <rect x="32" y="182" width="86" height="12" rx="3" fill="rgba(139,92,246,.07)" stroke="rgba(139,92,246,.15)" stroke-width="1"/>
+  <text x="75" y="192" text-anchor="middle" fill="#8b5cf6" font-size="8">Layer 1 (base)</text>
+  <text x="75" y="215" text-anchor="middle" fill="#4b5563" font-size="8">parameters frozen</text>
+
+  <!-- Arrow: target → fusion -->
+  <line x1="131" y1="150" x2="168" y2="150" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="149" y="143" text-anchor="middle" fill="#4b5563" font-size="8">hidden states</text>
+
+  <!-- Feature fusion -->
+  <rect x="170" y="110" width="90" height="80" rx="8" fill="#1a1a2e" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="215" y="133" text-anchor="middle" fill="#6b7280" font-size="9" font-weight="600" letter-spacing="1">FUSION</text>
+  <text x="215" y="148" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700">Feature</text>
+  <text x="215" y="162" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700">Fusion</text>
+  <text x="215" y="180" text-anchor="middle" fill="#4b5563" font-size="8">concat + project</text>
+
+  <!-- Arrow: fusion → draft head -->
+  <line x1="261" y1="150" x2="298" y2="150" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="279" y="143" text-anchor="middle" fill="#4b5563" font-size="8">h_fused</text>
+
+  <!-- Draft head box -->
+  <rect x="300" y="80" width="130" height="140" rx="8" fill="#1a1a2e" stroke="#10b981" stroke-width="1.5"/>
+  <text x="365" y="103" text-anchor="middle" fill="#6b7280" font-size="9" font-weight="600" letter-spacing="1">DRAFT HEAD</text>
+  <text x="365" y="120" text-anchor="middle" fill="#10b981" font-size="10" font-weight="700">Causal Parallel</text>
+  <text x="365" y="135" text-anchor="middle" fill="#10b981" font-size="10" font-weight="700">Draft Layers</text>
+
+  <!-- Tree-causal mask diagram inside box -->
+  <!-- small grid showing mask pattern -->
+  <rect x="318" y="148" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="333" y="148" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="348" y="148" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="363" y="148" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="318" y="163" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="333" y="163" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="348" y="163" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="363" y="163" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="318" y="178" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="333" y="178" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="348" y="178" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="363" y="178" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="318" y="193" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <rect x="333" y="193" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="348" y="193" width="13" height="13" rx="2" fill="rgba(255,255,255,.04)"/>
+  <rect x="363" y="193" width="13" height="13" rx="2" fill="rgba(16,185,129,.3)"/>
+  <text x="382" y="168" fill="#6b7280" font-size="8">←tree-causal</text>
+  <text x="382" y="179" fill="#6b7280" font-size="8">  mask</text>
+  <text x="365" y="217" text-anchor="middle" fill="#4b5563" font-size="8">all nodes in 1 pass</text>
+
+  <!-- Arrow: draft head → candidate tree -->
+  <line x1="431" y1="150" x2="468" y2="150" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="449" y="143" text-anchor="middle" fill="#4b5563" font-size="8">logits</text>
+
+  <!-- Candidate tree -->
+  <rect x="470" y="70" width="155" height="160" rx="8" fill="#1a1a2e" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="548" y="93" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="600" letter-spacing="1">CANDIDATE TREE</text>
+  <!-- Root node -->
+  <circle cx="548" cy="115" r="10" fill="#f59e0b" fill-opacity=".25" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="548" y="119" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="700">root</text>
+  <!-- Branch nodes depth 1 -->
+  <line x1="538" y1="125" x2="514" y2="148" stroke="#4b5563" stroke-width="1"/>
+  <line x1="548" y1="125" x2="548" y2="148" stroke="#4b5563" stroke-width="1"/>
+  <line x1="558" y1="125" x2="582" y2="148" stroke="#4b5563" stroke-width="1"/>
+  <circle cx="514" cy="153" r="8" fill="rgba(16,185,129,.2)" stroke="#10b981" stroke-width="1"/>
+  <text x="514" y="157" text-anchor="middle" fill="#10b981" font-size="7">are</text>
+  <circle cx="548" cy="153" r="8" fill="rgba(16,185,129,.2)" stroke="#10b981" stroke-width="1"/>
+  <text x="548" y="157" text-anchor="middle" fill="#10b981" font-size="7">the</text>
+  <circle cx="582" cy="153" r="8" fill="rgba(16,185,129,.2)" stroke="#10b981" stroke-width="1"/>
+  <text x="582" y="157" text-anchor="middle" fill="#10b981" font-size="7">given</text>
+  <!-- Depth 2 -->
+  <line x1="514" y1="161" x2="502" y2="183" stroke="#4b5563" stroke-width="1"/>
+  <line x1="514" y1="161" x2="524" y2="183" stroke="#4b5563" stroke-width="1"/>
+  <circle cx="502" cy="188" r="7" fill="rgba(16,185,129,.15)" stroke="#10b981" stroke-width="1"/>
+  <text x="502" y="192" text-anchor="middle" fill="#10b981" font-size="7">told</text>
+  <circle cx="524" cy="188" r="7" fill="rgba(16,185,129,.15)" stroke="#10b981" stroke-width="1"/>
+  <text x="524" y="192" text-anchor="middle" fill="#10b981" font-size="7">said</text>
+  <text x="548" y="218" text-anchor="middle" fill="#4b5563" font-size="8">best-first expanded</text>
+  <text x="548" y="230" text-anchor="middle" fill="#4b5563" font-size="8">by branch log-prob</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- Labels below -->
+  <text x="75" y="240" text-anchor="middle" fill="#6b7280" font-size="9">Frozen target</text>
+  <text x="215" y="240" text-anchor="middle" fill="#06b6d4" font-size="9">Multi-layer fusion</text>
+  <text x="365" y="240" text-anchor="middle" fill="#10b981" font-size="9">Causal parallel head</text>
+  <text x="548" y="250" text-anchor="middle" fill="#f59e0b" font-size="9">Branch-aware tree</text>
+</svg>
+</div>
+
+<p>The frozen target model provides hidden states from multiple intermediate layers. A feature fusion module concatenates and projects these into a compact representation. The causal parallel draft head then attends to this representation with a <strong>tree-causal attention mask</strong>: every tree node can attend to the original prefix and all its branch ancestors, but not to sibling branches or descendants. All tree-node logits are computed in one forward pass — no sequential depth unrolling needed.</p>
+
+<div class="callout">
+  <strong>Key mechanism:</strong> The tree-causal mask enforces that node v only attends to its ancestors Anc(v). This means <code>q(y_v | x, h_fused, π&lt;v)</code> — each node's distribution conditions on the actual tokens chosen along its branch, exactly matching the target model's autoregressive factorization. No extra sequential passes required.
+</div>
+</section>
+
+<!-- ── §04 CAUSAL CONDITIONING ── -->
+<section id="s-causality" data-code="causality">
+<div class="section-no">04 — Causal Conditioning in Action</div>
+<h2>How the mask eliminates the inconsistency gap</h2>
+<p>The tree-causal attention mask induces a <em>branch-wise draft factorization</em> that mirrors the target model's autoregressive factorization. For each candidate branch, the joint draft probability is the product of per-node conditionals, where each node sees its own branch prefix — not a shared branch-agnostic distribution:</p>
+
+<div class="math-block">
+  <div class="math-label">Branch-wise draft factorization (JetSpec)</div>
+  q(π(v) | x) = ∏<sub>u ∈ π(v)</sub> q(y<sub>u</sub> | x, h<sub>fused</sub>, π<sub>&lt;u</sub>)
+  <br/><span class="math-comment">← each node conditioned on its concrete branch ancestors π&lt;u</span>
+  <br/><br/>
+  <div class="math-label">Branch-agnostic surrogate (DFlash)</div>
+  q<sub>sur</sub>(y<sub>1:k</sub> | x) ∝ ∏<sub>i</sub> r<sub>i</sub>(y<sub>i</sub> | x)
+  <br/><span class="math-comment">← tokens at each depth predicted from shared branch-agnostic distribution</span>
+</div>
+
+<p>The canvas below visualizes the same decoding step with both approaches side by side — using real numbers from the MATH-500 failure example. The "surrogate score" is what the drafter uses to rank branches; the "target score" is what actually matters for acceptance. A large gap means wasted budget.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">causality gap: DFlash surrogate vs. target — real MATH-500 step 0</span>
+    <span class="vp-hint">drag slider to reveal accepted tokens</span>
+  </div>
+  <div class="vp-body">
+    <div class="ctrl-row" style="justify-content:center;margin-bottom:1rem">
+      <label style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);display:flex;align-items:center;gap:.75rem">
+        verification step:
+        <input type="range" id="verify-slider" min="0" max="3" value="0" step="1" style="width:140px;accent-color:var(--purple)">
+        <span id="verify-label" style="color:var(--purple-l);min-width:50px">step 0</span>
+      </label>
+    </div>
+    <canvas id="causality-canvas" style="width:100%;display:block;border-radius:8px" height="240"></canvas>
+  </div>
+</div>
+
+<p>With JetSpec's causal conditioning, the rank-1 branch <em>"are told that"</em> has a surrogate-to-target gap of only <strong>−0.34 nats</strong>. The verification step accepts 6 tokens from this branch. DFlash's rank-1 branch <em>"the given told that"</em> has a gap of <strong>−59.56 nats</strong> — the target model immediately rejects it after the first token, accepting only 4 tokens total despite using the same draft budget.</p>
+</section>
+
+<!-- ── §05 BUDGET SCALING ── -->
+<section id="s-scaling" data-code="scaling">
+<div class="section-no">05 — Budget Scaling</div>
+<h2>Turning larger budgets into actual speedup</h2>
+<p>Because JetSpec simultaneously achieves ultra-low drafting cost c (one forward pass regardless of tree depth) and high acceptance rate α (causally consistent branches), it can convert larger draft budgets into longer accepted prefixes. The chart shows speedup on MATH-500 across budgets from 16 to 256 draft tokens — comparing EAGLE-3 (sequential AR), DDTree (DFlash head + tree), and JetSpec.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">speedup (×) vs. draft budget — MATH-500, Qwen3-8B, H100, temperature 0</span>
+    <span class="vp-hint">click a method to highlight</span>
+  </div>
+  <div class="vp-body">
+    <div class="ctrl-row" id="chart-legend">
+      <button class="ctrl-btn active" id="leg-eagle" onclick="setChartHL('eagle')">EAGLE-3</button>
+      <button class="ctrl-btn active" id="leg-ddtree" onclick="setChartHL('ddtree')">DDTree</button>
+      <button class="ctrl-btn active" id="leg-jetspec" onclick="setChartHL('jetspec')">JetSpec</button>
+      <button class="ctrl-btn active" id="leg-all" onclick="setChartHL('all')">all</button>
+    </div>
+    <canvas id="scaling-canvas" style="width:100%;display:block;border-radius:8px" height="280"></canvas>
+  </div>
+</div>
+
+<p>EAGLE-3's speedup barely grows past N=32 — the sequential drafting cost grows proportionally and throttles any acceptance gains. DDTree scales better (from 6.51× at 64 to 8.78× at 256) but is limited by its branch-agnostic draft head. JetSpec scales most strongly: <strong>6.76× → 8.93× → 9.64×</strong> at budgets 64 → 128 → 256, achieving 10% higher speedup than DDTree at the largest budget.</p>
+
+<h3>Training data matters</h3>
+<p>JetSpec uses target-model regenerated sequences for training — the draft head learns from the actual distribution it will be verifying against. Using the original training corpus instead ("JetSpec-Corpus") reduces speedup substantially at budget 256 (7.82× → 3.36× on GSM8K), confirming that matching the draft head to the target model's own generation style is critical for high acceptance rates.</p>
+</section>
+
+<!-- ── §06 RESULTS ── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>State-of-the-art across math, coding, and chat</h2>
+<p>JetSpec is evaluated on Qwen3-8B and Qwen3-30B-A3B (dense and MoE). At draft budget 256 and temperature 0, JetSpec consistently outperforms both DDTree and the original DFlash drafter across all benchmark categories.</p>
+
+<div class="bar-group-label">Budget 256, Qwen3-8B, H100 — Speedup (×) over autoregressive baseline</div>
+<div class="results-bars" id="results-bars">
+  <!-- MATH-500 -->
+  <div class="bar-row">
+    <div class="bar-label">EAGLE-3 (MATH-500)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="24.6" style="background:rgba(107,114,128,.4)"><span>2.36×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">DFlash (MATH-500)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="86.7" style="background:rgba(6,182,212,.55)"><span>8.33×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">DDTree (MATH-500)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="91.5" style="background:rgba(6,182,212,.7)"><span>8.78×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">JetSpec (MATH-500)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:var(--purple)"><span>9.64×</span></div></div>
+  </div>
+  <!-- HumanEval -->
+  <div class="bar-group-label" style="margin-top:.5rem">HumanEval (coding)</div>
+  <div class="bar-row">
+    <div class="bar-label">DDTree (HumanEval)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="81.3" style="background:rgba(6,182,212,.7)"><span>6.31×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">JetSpec (HumanEval)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="91.7" style="background:var(--purple)"><span>7.12×</span></div></div>
+  </div>
+  <!-- MT-Bench -->
+  <div class="bar-group-label" style="margin-top:.5rem">MT-Bench (chat)</div>
+  <div class="bar-row">
+    <div class="bar-label">DDTree (MT-Bench)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="44.3" style="background:rgba(6,182,212,.7)"><span>4.26×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">JetSpec (MT-Bench)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.6" style="background:var(--purple)"><span>4.58×</span></div></div>
+  </div>
+</div>
+
+<h3>MoE generalization</h3>
+<p>On Qwen3-30B-A3B (a Mixture-of-Experts model), JetSpec maintains its advantage: <strong>9.45×</strong> speedup on MATH-500 vs DDTree's 8.61×, and <strong>10.65</strong> average accepted length τ vs 9.49. The causal tree drafting generalizes beyond dense transformers.</p>
+
+<h3>Serving under load</h3>
+<p>Integrated into vLLM, JetSpec's optimal budget depends on serving load. At batch size 1, budget 256 achieves <strong>968 tokens/sec</strong> and 6.75× speedup — budget 16 manages only 443 TPS and 3.09×. As batch size grows to 32, the gap narrows and budget 128 becomes more efficient due to lower per-step tree-verification overhead. This suggests serving-time dynamic budget scheduling as a promising future direction.</p>
+
+<div class="callout">
+  <strong>Why reverse-KL hurts:</strong> JetSpec uses forward-KL distillation. Reverse-KL (mode-seeking) concentrates draft probability mass too aggressively, causing a <strong>36–46% relative drop</strong> in speedup compared to forward-KL. Tree drafting benefits from covering the target model's full distribution, not just its mode — forward-KL preserves this coverage.
+</div>
+
+<!-- LISTEN-FRIENDLY CONTENT -->
+<div class="listen-friendly-content" style="display:none" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: JetSpec — Breaking the Speculative Decoding Scaling Ceiling</h2>
+    <p>Speculative decoding accelerates LLM inference by having a cheap draft model propose multiple tokens, then verifying them in parallel with the target model. The expected speedup depends on two variables: acceptance rate alpha and drafting cost c. Existing methods face a causality-efficiency dilemma — autoregressive drafters like EAGLE produce high-quality causally-conditioned drafts but cost scales with tree depth. Block-diffusion drafters like DFlash generate all tokens in one fast pass but produce mutually inconsistent branches, hurting acceptance rates. On a real MATH-500 example, DFlash's top-ranked branch had a surrogate score of minus 3.76 nats but a true target score of minus 63.32 nats — a 59-nat gap from inconsistent token combinations.</p>
+    <p>JetSpec solves this with a tree-causal attention mask applied to a parallel draft head. All tree nodes are generated in one forward pass, but each node can only attend to its own branch ancestors, enforcing causal conditioning without sequential depth passes. This produces branch-wise draft distributions that mirror the target model's autoregressive factorization. At draft budget 256, JetSpec achieves 9.64x speedup on MATH-500 with Qwen3-8B on H100 GPUs, compared to 8.78x for DDTree and 8.33x for DFlash. The method generalizes to MoE models, achieves 9.45x on Qwen3-30B-A3B, and integrates into vLLM for real serving workloads.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：JetSpec — 突破推测解码的加速上限</h2>
+    <p>推测解码通过让轻量级草稿模型提出多个候选词元，再由目标模型并行验证来加速大语言模型推理。加速效果取决于两个关键变量：词元接受率 alpha 和草稿生成成本 c。现有方法面临因果性与效率的两难困境：自回归草稿器（如 EAGLE）在因果一致性上表现良好，但生成成本随树深线性增长；块扩散草稿器（如 DFlash）虽能一次前向传播生成所有词元，却因忽略分支内部的因果依赖，导致候选词元相互矛盾，降低了接受率。在一个真实的 MATH-500 示例中，DFlash 排名第一的候选分支代理得分为 −3.76 奈特，但目标模型的真实得分为 −63.32 奈特，相差近 60 奈特。</p>
+    <p>JetSpec 通过对并行草稿头施加树状因果注意力掩码来解决这一难题：所有树节点在一次前向传播中生成，但每个节点只能关注其所在分支的祖先节点，无需额外的顺序展开步骤。这使得草稿分布与目标模型的自回归分解保持一致。在草稿预算为 256 的情况下，JetSpec 在 Qwen3-8B 模型、H100 GPU 上的 MATH-500 基准测试中实现了 9.64 倍加速，超过 DDTree 的 8.78 倍和 DFlash 的 8.33 倍。该方法在混合专家模型上同样有效，并已成功集成至 vLLM 用于实际推理服务。</p>
+  </div>
+</div>
+
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">jetspec/speedup.py</div>
+      <div class="cs-section-title" id="cs-section-title">Scaling Ceiling</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="ceiling">ceiling</button>
+    <button class="cs-tab" data-panel="dilemma">dilemma</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="causality">causality</button>
+    <button class="cs-tab" data-panel="scaling">scaling</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <!-- panel: ceiling -->
+    <div class="cs-panel active" id="panel-ceiling">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Expected speedup formula (Eq. 2)</span>
+<span class="cs-line cmt"># α = acceptance rate per token</span>
+<span class="cs-line cmt"># N = draft length (budget)</span>
+<span class="cs-line cmt"># c = drafter cost / target cost</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">expected_speedup</span>(alpha, N, c):</span>
+<span class="cs-line hl-p">    num = <span class="num">1</span> - alpha ** (N + <span class="num">1</span>)</span>
+<span class="cs-line hl-p">    den = (<span class="num">1</span> - alpha) * (N * c + <span class="num">1</span>)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> num / den</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Typical AR drafter (EAGLE)</span>
+<span class="cs-line">c_typical = <span class="num">0.05</span>   <span class="cmt"># ~5% of target cost</span></span>
+<span class="cs-line">alpha     = <span class="num">0.90</span></span>
+<span class="cs-line">S_16  = <span class="fn">expected_speedup</span>(alpha, <span class="num">16</span>,  c_typical)</span>
+<span class="cs-line">S_256 = <span class="fn">expected_speedup</span>(alpha, <span class="num">256</span>, c_typical)</span>
+<span class="cs-line cmt"># → S_16 ≈ 5.2×, S_256 ≈ 4.3× (diminishes!)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ultra-low cost (JetSpec/DFlash)</span>
+<span class="cs-line">c_low = <span class="num">0.0005</span>   <span class="cmt"># &lt;0.1% of target cost</span></span>
+<span class="cs-line">S_16  = <span class="fn">expected_speedup</span>(alpha, <span class="num">16</span>,  c_low)</span>
+<span class="cs-line">S_256 = <span class="fn">expected_speedup</span>(alpha, <span class="num">256</span>, c_low)</span>
+<span class="cs-line cmt"># → S_16 ≈ 6.5×, S_256 ≈ 14.8× (scales!)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Key insight: need BOTH low c AND high α</span>
+<span class="cs-line cmt"># Low c alone isn't enough if α degrades</span>
+<span class="cs-line hl-c">alpha_bad = <span class="num">0.70</span>   <span class="cmt"># DFlash w/ inconsistency</span></span>
+<span class="cs-line hl-c">S_256_bad = <span class="fn">expected_speedup</span>(alpha_bad, <span class="num">256</span>, c_low)</span>
+<span class="cs-line hl-c"><span class="cmt"># → only 3.3× despite ultra-low cost!</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: dilemma -->
+    <div class="cs-panel" id="panel-dilemma">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Branch-agnostic DFlash scoring (Eq. 3)</span>
+<span class="cs-line cmt"># Each position has independent marginal r_i</span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">dflash_branch_score</span>(tokens, r):</span>
+<span class="cs-line hl-a">    <span class="cmt"># r[i][tok] = P(tok at depth i | prefix x)</span></span>
+<span class="cs-line hl-a">    <span class="kw">return</span> sum(<span class="fn">log</span>(r[i][tok])</span>
+<span class="cs-line hl-a">               <span class="kw">for</span> i, tok <span class="kw">in</span> <span class="fn">enumerate</span>(tokens))</span>
+<span class="cs-line cmt"># ↑ NO conditioning on chosen ancestors!</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Real MATH-500 example (prompt 0, step 0):</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DFlash rank-1 branch: "the given told that"</span>
+<span class="cs-line hl-a">surrogate_score = -<span class="num">3.76</span>   <span class="cmt"># looks good!</span></span>
+<span class="cs-line hl-a">target_joint   = -<span class="num">63.32</span>  <span class="cmt"># actually terrible</span></span>
+<span class="cs-line hl-a">gap = -<span class="num">59.56</span>  <span class="cmt"># 59-nat gap → rejected immediately</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Actual best branch: "are given that the"</span>
+<span class="cs-line hl-g">target_joint_best = -<span class="num">0.08</span>  <span class="cmt"># near-perfect</span></span>
+<span class="cs-line hl-g">dflash_rank = <span class="num">3</span>  <span class="cmt"># buried at rank 3!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Aggregate over 50 MATH-500 prompts:</span>
+<span class="cs-line">diffusion_median_gap = <span class="num">62.81</span>  <span class="cmt"># nats</span></span>
+<span class="cs-line">causal_median_gap    = <span class="num">12.36</span>  <span class="cmt"># nats (5× smaller)</span></span>
+<span class="cs-line cmt"># 92% of prompts: diffusion gap &gt; causal gap</span>
+<span class="cs-line cmt"># accepted token ratio: 1.95× better (causal)</span>
+      </pre>
+    </div>
+
+    <!-- panel: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Tree-causal attention mask (Eq. 5)</span>
+<span class="cs-line cmt"># For two tree nodes u, v:</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">tree_causal_mask</span>(u, v, tree):</span>
+<span class="cs-line hl-p">    <span class="cmt"># v can attend to u only if u is ancestor</span></span>
+<span class="cs-line hl-p">    <span class="kw">if</span> u <span class="kw">in</span> tree.<span class="fn">ancestors</span>(v) <span class="kw">or</span> u == v:</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> <span class="num">0</span>       <span class="cmt"># visible</span></span>
+<span class="cs-line hl-p">    <span class="kw">else</span>:</span>
+<span class="cs-line hl-p">        <span class="kw">return</span> -<span class="fn">inf</span>()  <span class="cmt"># masked</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Masked attention (Eq. 6)</span>
+<span class="cs-line cmt"># Qv = query for node v</span>
+<span class="cs-line cmt"># K, V = keys/values across all tree nodes</span>
+<span class="cs-line hl-c">Attn_v = <span class="fn">softmax</span>(Qv @ K.T / sqrt(d) + M_v) @ V</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># All nodes processed in ONE forward pass:</span>
+<span class="cs-line cmt"># → no sequential depth unrolling needed</span>
+<span class="cs-line cmt"># → cost c stays ultra-low regardless of depth</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Feature fusion: concat hidden layers</span>
+<span class="cs-line">h_fused = <span class="fn">cat</span>([h_layer_N, h_layer_M, h_layer_1])</span>
+<span class="cs-line">h_fused = <span class="fn">linear</span>(h_fused)  <span class="cmt"># project to draft dim</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Training: forward-KL distillation</span>
+<span class="cs-line cmt"># (NOT reverse-KL — see ablation)</span>
+<span class="cs-line hl-g">L = <span class="fn">KL_divergence</span>(p_teacher, q_draft)</span>
+<span class="cs-line hl-g"><span class="cmt"># forward-KL preserves teacher's full coverage</span></span>
+<span class="cs-line hl-g"><span class="cmt"># reverse-KL → 36–46% speedup drop in ablation</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: causality -->
+    <div class="cs-panel" id="panel-causality">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Branch-wise factorization (Eq. 7)</span>
+<span class="cs-line cmt"># JetSpec: each node conditioned on branch prefix</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">jetspec_branch_prob</span>(branch, x, h_fused):</span>
+<span class="cs-line hl-p">    log_prob = <span class="num">0</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i, (node, ancestors) <span class="kw">in</span> <span class="fn">enumerate</span>(branch):</span>
+<span class="cs-line hl-p">        <span class="cmt"># π&lt;u = actual ancestor tokens along branch</span></span>
+<span class="cs-line hl-p">        log_prob += <span class="fn">log</span>(<span class="fn">q</span>(node | x, h_fused, ancestors))</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> log_prob</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Tree expansion (Algorithm 1 excerpt)</span>
+<span class="cs-line cmt"># Score = accumulated draft log-probability</span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">score_branch</span>(branch):</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> sum(<span class="fn">log</span>(<span class="fn">q</span>(y | x, h_fused, pi_lt_y))</span>
+<span class="cs-line hl-c">               <span class="kw">for</span> y, pi_lt_y <span class="kw">in</span> branch)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># MATH-500 prompt 0 example comparison:</span>
+<span class="cs-line cmt"># JetSpec rank-1: "are told that"</span>
+<span class="cs-line">jetspec_surrogate = -<span class="num">0.42</span>  <span class="cmt"># nats</span></span>
+<span class="cs-line">jetspec_target    = -<span class="num">0.08</span>  <span class="cmt"># nats</span></span>
+<span class="cs-line">jetspec_gap       = -<span class="num">0.34</span>  <span class="cmt"># ← tiny!</span></span>
+<span class="cs-line">jetspec_accepted  = <span class="num">6</span>       <span class="cmt"># tokens accepted</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DFlash rank-1: "the given told that"</span>
+<span class="cs-line">dflash_surrogate  = -<span class="num">3.76</span>  <span class="cmt"># nats</span></span>
+<span class="cs-line">dflash_target     = -<span class="num">63.32</span> <span class="cmt"># nats</span></span>
+<span class="cs-line">dflash_gap        = -<span class="num">59.56</span> <span class="cmt"># ← 175× larger!</span></span>
+<span class="cs-line">dflash_accepted   = <span class="num">4</span>       <span class="cmt"># tokens accepted</span></span>
+      </pre>
+    </div>
+
+    <!-- panel: scaling -->
+    <div class="cs-panel" id="panel-scaling">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Table 2: MATH-500, Qwen3-8B, H100, T=0</span>
+<span class="cs-line cmt"># Format: budget → (speedup×, avg_accepted_τ)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># EAGLE-3 (sequential AR drafter)</span>
+<span class="cs-line">eagle3 = &#123;</span>
+<span class="cs-line">    <span class="num">16</span>: (<span class="num">3.61</span>, <span class="num">2.10</span>),   <span class="cmt"># barely uses budget</span></span>
+<span class="cs-line">    <span class="num">32</span>: (<span class="num">3.87</span>, <span class="num">2.23</span>),</span>
+<span class="cs-line">    <span class="num">64</span>: (<span class="num">4.13</span>, <span class="num">2.36</span>),   <span class="cmt"># plateaus</span></span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DDTree (DFlash head + best-first tree)</span>
+<span class="cs-line">ddtree = &#123;</span>
+<span class="cs-line">    <span class="num">64</span>:  (<span class="num">6.51</span>, <span class="num">7.16</span>),</span>
+<span class="cs-line">    <span class="num">128</span>: (<span class="num">8.27</span>, <span class="num">9.19</span>),</span>
+<span class="cs-line">    <span class="num">256</span>: (<span class="num">8.78</span>, <span class="num">9.81</span>),</span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># JetSpec (causal parallel head + tree)</span>
+<span class="cs-line hl-p">jetspec = &#123;</span>
+<span class="cs-line hl-p">    <span class="num">16</span>:  (<span class="num">6.06</span>, <span class="num">7.75</span>),  <span class="cmt"># ≈ DFlash at low budget</span></span>
+<span class="cs-line hl-p">    <span class="num">32</span>:  (<span class="num">6.35</span>, <span class="num">8.23</span>),  <span class="cmt"># scales up (DFlash drops)</span></span>
+<span class="cs-line hl-p">    <span class="num">64</span>:  (<span class="num">6.76</span>, <span class="num">7.42</span>),</span>
+<span class="cs-line hl-p">    <span class="num">128</span>: (<span class="num">8.93</span>, <span class="num">9.95</span>),</span>
+<span class="cs-line hl-p">    <span class="num">256</span>: (<span class="num">9.64</span>, <span class="num">10.76</span>), <span class="cmt"># τ=10.76 tokens/step!</span></span>
+<span class="cs-line hl-p">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># MoE: Qwen3-30B-A3B, budget=256</span>
+<span class="cs-line">jetspec_moe_math500 = (<span class="num">9.45</span>, <span class="num">10.65</span>)</span>
+<span class="cs-line">ddtree_moe_math500  = (<span class="num">8.61</span>, <span class="num">9.49</span>)</span>
+      </pre>
+    </div>
+
+    <!-- panel: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Figure 1: Speedup across all benchmarks</span>
+<span class="cs-line cmt"># Budget=256, Qwen3-8B, H100, temp=0</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># benchmark: (DFlash, DDTree, JetSpec) speedup</span>
+<span class="cs-line">results = &#123;</span>
+<span class="cs-line hl-p">    <span class="str">'MATH-500'</span>:  (<span class="num">8.33</span>, <span class="num">8.78</span>, <span class="num">9.64</span>),</span>
+<span class="cs-line hl-p">    <span class="str">'AIME25'</span>:    (<span class="num">7.67</span>, <span class="num">7.12</span>, <span class="num">8.78</span>),</span>
+<span class="cs-line hl-p">    <span class="str">'GSM8K'</span>:     (<span class="num">7.82</span>, <span class="num">7.04</span>, <span class="num">7.82</span>),</span>
+<span class="cs-line hl-c">    <span class="str">'HumanEval'</span>: (<span class="num">5.85</span>, <span class="num">6.31</span>, <span class="num">7.12</span>),</span>
+<span class="cs-line hl-c">    <span class="str">'MBPP'</span>:      (<span class="num">4.80</span>, <span class="num">6.09</span>, <span class="num">6.73</span>),</span>
+<span class="cs-line hl-c">    <span class="str">'LCB'</span>:       (<span class="num">6.75</span>, <span class="num">6.73</span>, <span class="num">7.67</span>),</span>
+<span class="cs-line hl-g">    <span class="str">'MT-Bench'</span>:  (<span class="num">2.72</span>, <span class="num">4.26</span>, <span class="num">4.58</span>),</span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># vLLM serving (H100, batch_size=1)</span>
+<span class="cs-line">serving = &#123;</span>
+<span class="cs-line">    <span class="str">'budget_16'</span>:  &#123;<span class="str">'tps'</span>: <span class="num">443</span>, <span class="str">'speedup'</span>: <span class="num">3.09</span>&#125;,</span>
+<span class="cs-line">    <span class="str">'budget_64'</span>:  &#123;<span class="str">'tps'</span>: <span class="num">703</span>, <span class="str">'speedup'</span>: <span class="num">4.90</span>&#125;,</span>
+<span class="cs-line">    <span class="str">'budget_128'</span>: &#123;<span class="str">'tps'</span>: <span class="num">851</span>, <span class="str">'speedup'</span>: <span class="num">5.93</span>&#125;,</span>
+<span class="cs-line hl-p">    <span class="str">'budget_256'</span>: &#123;<span class="str">'tps'</span>: <span class="num">968</span>, <span class="str">'speedup'</span>: <span class="num">6.75</span>&#125;,</span>
+<span class="cs-line">&#125;</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation: loss objective on MATH-500</span>
+<span class="cs-line">forward_kl_speedup  = <span class="num">8.46</span>  <span class="cmt"># ← best</span></span>
+<span class="cs-line">sft_speedup         = <span class="num">8.42</span>  <span class="cmt"># ≈ forward KL</span></span>
+<span class="cs-line">reverse_kl_speedup  = <span class="num">5.25</span>  <span class="cmt"># 38% worse!</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── Sidebar toggles ──
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const collapsed = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', collapsed);
+  tocToggle.textContent = collapsed ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const collapsed = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', collapsed);
+  csToggle.textContent = collapsed ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ──
+const tabMeta = {
+  ceiling:   { file: 'jetspec/speedup.py',     title: 'Scaling Ceiling' },
+  dilemma:   { file: 'jetspec/dilemma.py',     title: 'The Causality Dilemma' },
+  arch:      { file: 'jetspec/architecture.py',title: 'Architecture & Training' },
+  causality: { file: 'jetspec/causality.py',   title: 'Causal Conditioning' },
+  scaling:   { file: 'jetspec/results.py',     title: 'Budget Scaling Data' },
+  results:   { file: 'jetspec/benchmarks.py',  title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC + sidebar ──
+const sectionMap = {
+  's-ceiling':   'ceiling',
+  's-dilemma':   'dilemma',
+  's-arch':      'arch',
+  's-causality': 'causality',
+  's-scaling':   'scaling',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(function(s) {
+  new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(function(li) {
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id);
+        });
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s);
+});
+
+// ── §01 Scaling Ceiling Canvas ──
+(function() {
+  const canvas = document.getElementById('ceiling-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  let currentC = 0.05;
+
+  function speedup(alpha, N, c) {
+    return (1 - Math.pow(alpha, N + 1)) / ((1 - alpha) * (N * c + 1));
+  }
+
+  function drawCeiling(c) {
+    const W = canvas.clientWidth;
+    const H = 260;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { l: 52, r: 20, t: 20, b: 36 };
+    const cW = W - pad.l - pad.r;
+    const cH = H - pad.t - pad.b;
+    const budgets = [2, 4, 8, 16, 32, 64, 128, 256];
+    const maxY = c < 0.001 ? 20 : 10;
+    const yTicks = c < 0.001 ? [0,4,8,12,16,20] : [0,2,4,6,8,10];
+
+    function xPos(N) {
+      return pad.l + (Math.log2(N) - Math.log2(2)) / (Math.log2(256) - Math.log2(2)) * cW;
+    }
+    function yPos(s) {
+      return pad.t + cH - Math.min(s, maxY) / maxY * cH;
+    }
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    yTicks.forEach(function(y) {
+      ctx.beginPath();
+      ctx.moveTo(pad.l, yPos(y));
+      ctx.lineTo(pad.l + cW, yPos(y));
+      ctx.stroke();
+    });
+    budgets.forEach(function(N) {
+      ctx.beginPath();
+      ctx.moveTo(xPos(N), pad.t);
+      ctx.lineTo(xPos(N), pad.t + cH);
+      ctx.stroke();
+    });
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + cH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + cH); ctx.lineTo(pad.l + cW, pad.t + cH); ctx.stroke();
+
+    // labels
+    ctx.fillStyle = 'rgba(107,114,128,.8)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    yTicks.forEach(function(y) {
+      ctx.fillText(y + '×', pad.l - 6, yPos(y) + 4);
+    });
+    ctx.textAlign = 'center';
+    [16, 64, 128, 256].forEach(function(N) {
+      ctx.fillText(N, xPos(N), pad.t + cH + 18);
+    });
+    ctx.fillStyle = 'rgba(107,114,128,.6)';
+    ctx.fillText('draft budget N', pad.l + cW / 2, pad.t + cH + 32);
+
+    // lines for different alpha values
+    var configs = [
+      { alpha: 0.75, color: 'rgba(139,92,246,.45)' },
+      { alpha: 0.85, color: 'rgba(139,92,246,.7)' },
+      { alpha: 0.95, color: 'rgba(139,92,246,1)' },
+    ];
+
+    var Ns = [];
+    for (var i = 2; i <= 256; i = Math.round(i * 1.08) + 1) Ns.push(i);
+
+    configs.forEach(function(cfg) {
+      ctx.beginPath();
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth = 2;
+      var first = true;
+      Ns.forEach(function(N) {
+        var s = speedup(cfg.alpha, N, c);
+        var x = xPos(N);
+        var y = yPos(s);
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // label at end
+      var s2 = speedup(cfg.alpha, 256, c);
+      ctx.fillStyle = cfg.color;
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText('α=' + cfg.alpha, xPos(256) - 5, yPos(s2) - 6);
+    });
+
+    // annotation
+    ctx.fillStyle = c < 0.001 ? 'rgba(16,185,129,.8)' : 'rgba(245,158,11,.8)';
+    ctx.font = '10px var(--ff-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText(c < 0.001 ? 'ultra-low cost — speedup scales!' : 'typical AR cost — hits wall at N≈32', pad.l + 6, pad.t + 16);
+  }
+
+  window.setCost = function(c) {
+    currentC = c;
+    document.getElementById('btn-c-typical').classList.toggle('active', c === 0.05);
+    document.getElementById('btn-c-low').classList.toggle('active', c < 0.001);
+    drawCeiling(c);
+  };
+
+  drawCeiling(currentC);
+  window.addEventListener('resize', function() { drawCeiling(currentC); });
+})();
+
+// ── §02 Tree Comparison Canvas ──
+(function() {
+  var canvas = document.getElementById('tree-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var DPR = window.devicePixelRatio || 1;
+
+  function drawTreeSide(cx, tokens, isConsistent, startY) {
+    var nodeH = 48, nodeW = 88;
+    var fillBase = isConsistent ? 'rgba(16,185,129,' : 'rgba(239,68,68,';
+    var strokeBase = isConsistent ? '#10b981' : '#ef4444';
+    var textBase = isConsistent ? '#6ee7b7' : '#fca5a5';
+    var opacities = ['.25)', '.2)', '.15)', '.1)'];
+
+    tokens.forEach(function(tok, i) {
+      var y = startY + i * nodeH;
+      if (i > 0) {
+        ctx.strokeStyle = isConsistent ? 'rgba(16,185,129,.4)' : 'rgba(239,68,68,.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, y - nodeH + 18);
+        ctx.lineTo(cx, y - 8);
+        ctx.stroke();
+      }
+      ctx.fillStyle = fillBase + opacities[Math.min(i, opacities.length - 1)];
+      ctx.strokeStyle = strokeBase;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.rect(cx - nodeW/2, y - 8, nodeW, 28);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = textBase;
+      ctx.font = 'bold 12px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText('"' + tok + '"', cx, y + 6);
+    });
+  }
+
+  function resize() {
+    var W = canvas.clientWidth;
+    var H = 280;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    var mid = W / 2;
+    var leftCx = mid * 0.45;
+    var rightCx = mid + mid * 0.45;
+
+    // divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(mid, 0); ctx.lineTo(mid, H); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // headers
+    ctx.font = 'bold 11px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('DFlash (branch-agnostic)', leftCx, 16);
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('JetSpec (causal)', rightCx, 16);
+
+    // rank labels
+    ctx.font = 'bold 11px var(--ff-mono, monospace)';
+    ctx.fillStyle = '#ef4444';
+    ctx.textAlign = 'center';
+    ctx.fillText('rank #1', leftCx, 30);
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('rank #1', rightCx, 30);
+
+    var startY = 50;
+    drawTreeSide(leftCx,  ['the', 'given', 'told', 'that'], false, startY);
+    drawTreeSide(rightCx, ['are', 'told', 'that'], true, startY);
+
+    // scores at bottom
+    var dflashY = startY + 4 * 48 + 10;
+    var jetspecY = startY + 3 * 48 + 10;
+
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(107,114,128,.6)';
+    ctx.fillText('surrogate: −3.76 nats', leftCx, dflashY);
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('target: −63.32 nats', leftCx, dflashY + 14);
+    ctx.fillText('gap: −59.56 nats', leftCx, dflashY + 28);
+    ctx.fillStyle = 'rgba(239,68,68,.18)';
+    ctx.strokeStyle = 'rgba(239,68,68,.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(leftCx - 44, dflashY + 36, 88, 22); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fca5a5';
+    ctx.font = 'bold 10px var(--ff-mono, monospace)';
+    ctx.fillText('✓ 4 tokens accepted', leftCx, dflashY + 51);
+
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.fillStyle = 'rgba(107,114,128,.6)';
+    ctx.fillText('surrogate: −0.42 nats', rightCx, jetspecY);
+    ctx.fillStyle = '#6ee7b7';
+    ctx.fillText('target: −0.08 nats', rightCx, jetspecY + 14);
+    ctx.fillText('gap: −0.34 nats', rightCx, jetspecY + 28);
+    ctx.fillStyle = 'rgba(16,185,129,.18)';
+    ctx.strokeStyle = 'rgba(16,185,129,.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(rightCx - 44, jetspecY + 36, 88, 22); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#6ee7b7';
+    ctx.font = 'bold 10px var(--ff-mono, monospace)';
+    ctx.fillText('✓ 6 tokens accepted', rightCx, jetspecY + 51);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+})();
+
+// ── §04 Causality slider canvas ──
+(function() {
+  var canvas = document.getElementById('causality-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var DPR = window.devicePixelRatio || 1;
+  var slider = document.getElementById('verify-slider');
+  var label  = document.getElementById('verify-label');
+
+  var dflashTokens  = ['the', 'given', 'told', 'that'];
+  var jetspecTokens = ['are', 'told', 'that'];
+
+  function drawSide(cx, tokens, step, isConsistent) {
+    var tokenW = 62, tokenH = 28, gap = 8;
+    var totalW = tokens.length * tokenW + (tokens.length - 1) * gap;
+    var startX = cx - totalW / 2;
+    var y = 90;
+
+    tokens.forEach(function(tok, i) {
+      var x = startX + i * (tokenW + gap);
+      var verified = (i < step);
+      // For DFlash: only first token might be accepted; for JetSpec: all 3
+      var accepted = isConsistent ? verified : (i === 0 && verified);
+      var fill, stroke, textCol;
+      if (verified) {
+        if (accepted) {
+          fill = 'rgba(16,185,129,.2)'; stroke = '#10b981'; textCol = '#6ee7b7';
+        } else {
+          fill = 'rgba(239,68,68,.2)'; stroke = '#ef4444'; textCol = '#fca5a5';
+        }
+      } else {
+        fill = 'rgba(107,114,128,.1)'; stroke = 'rgba(107,114,128,.3)'; textCol = 'rgba(107,114,128,.6)';
+      }
+      ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.rect(x, y, tokenW, tokenH); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = textCol;
+      ctx.font = 'bold 11px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText('"' + tok + '"', x + tokenW/2, y + 18);
+      if (verified) {
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = accepted ? '#10b981' : '#ef4444';
+        ctx.fillText(accepted ? '✓' : '✗', x + tokenW/2, y - 6);
+      }
+    });
+    // result
+    if (step > 0) {
+      var count = isConsistent ? Math.min(step, tokens.length) : Math.min(step, 1);
+      ctx.fillStyle = isConsistent ? '#10b981' : '#ef4444';
+      ctx.font = 'bold 10px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText(count + ' accepted', cx, y + tokenH + 18);
+    }
+  }
+
+  function draw(step) {
+    var W = canvas.clientWidth;
+    var H = 240;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    var mid = W / 2;
+
+    // divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(mid, 20); ctx.lineTo(mid, H - 20); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // headers
+    ctx.font = 'bold 11px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('DFlash rank-1: "the given told that"', mid * 0.5, 22);
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('JetSpec rank-1: "are told that"', mid + mid * 0.5, 22);
+
+    // score rows
+    var scoreRows = [
+      ['surrogate:', '−3.76', '−0.42'],
+      ['target:',    '−63.32', '−0.08'],
+      ['gap:',       '−59.56', '−0.34'],
+    ];
+    scoreRows.forEach(function(row, ri) {
+      var sy = 40 + ri * 18;
+      ctx.fillStyle = 'rgba(107,114,128,.6)';
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText(row[0], mid - 55, sy);
+      ctx.fillStyle = ri === 2 ? '#f87171' : 'rgba(248,113,113,.8)';
+      ctx.textAlign = 'center';
+      ctx.fillText(row[1], mid - 22, sy);
+      ctx.fillStyle = ri === 2 ? '#10b981' : 'rgba(16,185,129,.8)';
+      ctx.fillText(row[2], mid + mid - 55, sy);
+    });
+
+    drawSide(mid * 0.5,      dflashTokens,  step, false);
+    drawSide(mid + mid * 0.5, jetspecTokens, step, true);
+
+    ctx.fillStyle = 'rgba(107,114,128,.5)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('target model verifying tokens left → right', W / 2, H - 10);
+  }
+
+  slider?.addEventListener('input', function() {
+    var v = parseInt(slider.value);
+    label.textContent = 'step ' + v;
+    draw(v);
+  });
+
+  draw(0);
+  window.addEventListener('resize', function() { draw(parseInt(slider ? slider.value : 0)); });
+})();
+
+// ── §05 Budget Scaling Line Chart ──
+(function() {
+  var canvas = document.getElementById('scaling-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var DPR = window.devicePixelRatio || 1;
+  var highlight = 'all';
+
+  var data = {
+    eagle:   [[16, 3.61], [32, 3.87], [64, 4.13]],
+    ddtree:  [[64, 6.51], [128, 8.27], [256, 8.78]],
+    jetspec: [[16, 6.06], [32, 6.35], [64, 6.76], [128, 8.93], [256, 9.64]],
+    dflash:  [[16, 6.12], [32, 5.39]],
+  };
+
+  var colors = {
+    eagle:   '#6b7280',
+    ddtree:  '#06b6d4',
+    jetspec: '#8b5cf6',
+    dflash:  'rgba(245,158,11,.7)',
+  };
+
+  var lineLabels = {
+    eagle:   'EAGLE-3',
+    ddtree:  'DDTree',
+    jetspec: 'JetSpec',
+    dflash:  'DFlash',
+  };
+
+  function drawScaling() {
+    var W = canvas.clientWidth;
+    var H = 280;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(DPR, DPR);
+    ctx.clearRect(0, 0, W, H);
+
+    var pad = { l: 52, r: 100, t: 24, b: 40 };
+    var cW = W - pad.l - pad.r;
+    var cH = H - pad.t - pad.b;
+    var xMin = Math.log2(16), xMax = Math.log2(256);
+
+    function xPos(N) { return pad.l + (Math.log2(N) - xMin) / (xMax - xMin) * cW; }
+    function yPos(s) { return pad.t + cH - Math.min(s, 11) / 11 * cH; }
+
+    // grid
+    [0,2,4,6,8,10].forEach(function(y) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.l, yPos(y)); ctx.lineTo(pad.l + cW, yPos(y)); ctx.stroke();
+    });
+    [16, 32, 64, 128, 256].forEach(function(N) {
+      ctx.beginPath(); ctx.moveTo(xPos(N), pad.t); ctx.lineTo(xPos(N), pad.t + cH); ctx.stroke();
+    });
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + cH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + cH); ctx.lineTo(pad.l + cW, pad.t + cH); ctx.stroke();
+
+    // axis labels
+    ctx.fillStyle = 'rgba(107,114,128,.6)';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'right';
+    [0,2,4,6,8,10].forEach(function(y) { ctx.fillText(y + '×', pad.l - 6, yPos(y) + 4); });
+    ctx.textAlign = 'center';
+    [16, 32, 64, 128, 256].forEach(function(N) { ctx.fillText(N, xPos(N), pad.t + cH + 16); });
+    ctx.fillText('draft budget', pad.l + cW / 2, pad.t + cH + 32);
+
+    // draw lines
+    Object.keys(data).forEach(function(key) {
+      var pts = data[key];
+      var alpha = (highlight === 'all' || highlight === key) ? 1 : 0.15;
+      var color = colors[key];
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = key === 'jetspec' ? 2.5 : 1.5;
+      ctx.setLineDash(key === 'eagle' ? [5, 3] : key === 'dflash' ? [3, 3] : []);
+      ctx.beginPath();
+      pts.forEach(function(pt, i) {
+        if (i === 0) ctx.moveTo(xPos(pt[0]), yPos(pt[1]));
+        else ctx.lineTo(xPos(pt[0]), yPos(pt[1]));
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // dots
+      ctx.fillStyle = color;
+      pts.forEach(function(pt) {
+        ctx.beginPath();
+        ctx.arc(xPos(pt[0]), yPos(pt[1]), key === 'jetspec' ? 4 : 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // label at last point
+      var last = pts[pts.length - 1];
+      ctx.fillStyle = color;
+      ctx.font = '9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'left';
+      ctx.fillText(lineLabels[key], xPos(last[0]) + 8, yPos(last[1]) + 4);
+
+      ctx.globalAlpha = 1;
+    });
+
+    // annotate JetSpec peak
+    if (highlight === 'all' || highlight === 'jetspec') {
+      ctx.fillStyle = 'rgba(139,92,246,.2)';
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(xPos(256), yPos(9.64), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#a78bfa';
+      ctx.font = 'bold 9px var(--ff-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText('9.64×', xPos(256), yPos(9.64) - 13);
+    }
+  }
+
+  window.setChartHL = function(key) {
+    highlight = key;
+    ['eagle','ddtree','jetspec','all'].forEach(function(k) {
+      var el = document.getElementById('leg-' + k);
+      if (el) el.classList.toggle('active', k === key || key === 'all');
+    });
+    drawScaling();
+  };
+
+  drawScaling();
+  window.addEventListener('resize', drawScaling);
+})();
+
+// ── §06 Animated bar chart ──
+(function() {
+  var barsSection = document.getElementById('s-results');
+  if (!barsSection) return;
+  new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#results-bars .bar-fill[data-w]').forEach(function(b) {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+})();
+</script>
+</BaseLayout>

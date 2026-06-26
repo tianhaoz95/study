@@ -9,6 +9,8 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "jetspec.pdf":                                "https://arxiv.org/pdf/2606.18394v2",
+    "hyperdflash.pdf":                            "https://arxiv.org/pdf/2606.26744",
     "mlevolve.pdf":                               "https://arxiv.org/pdf/2606.06473",
     "smt-path-sharing.pdf":                       "https://arxiv.org/pdf/2606.22905v1",
     "aohp-agent-native-os.pdf":                  "https://arxiv.org/pdf/2606.23449",
