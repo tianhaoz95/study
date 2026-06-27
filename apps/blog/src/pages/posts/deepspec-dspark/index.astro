@@ -1,0 +1,1286 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="DSpark: Semi-Autoregressive Speculative Decoding with Confidence Scheduling | Catpuccino.ai"
+  description="DeepSeek's DSpark combines a parallel draft backbone with a lightweight Markov head and a load-aware confidence scheduler — achieving +30% accepted length over Eagle3 and +51% production throughput."
+  crumb="DSpark"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bar chart */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Step navigator */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.step-nav button:disabled{opacity:.35;cursor:default}
+
+/* Load slider */
+.load-slider-wrap{display:flex;align-items:center;gap:.875rem;margin:1rem 0}
+.load-slider-wrap label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);white-space:nowrap;min-width:80px}
+.load-slider-wrap input[type=range]{flex:1;accent-color:var(--purple)}
+.load-val{font-size:.72rem;font-family:var(--ff-mono);color:var(--cyan);min-width:60px}
+
+/* Domain tabs for bar chart */
+.domain-tabs{display:flex;gap:.375rem;margin-bottom:1rem}
+.domain-tab{font-size:.7rem;font-family:var(--ff-mono);padding:.28rem .7rem;border-radius:4px;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
+.domain-tab:hover{color:var(--text2)}
+.domain-tab.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple-l)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">LLM Inference</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>DSpark: Semi-Autoregressive Decoding with Load-Aware Confidence Scheduling</h1>
+  <p class="lead">Parallel draft models are fast but incoherent — they predict every token independently, so "of course" and "no problem" collide into nonsense like "of problem." DSpark inserts a Markov head after a parallel backbone to fix suffix decay, then adds a load-aware confidence scheduler to stop wasting compute verifying tokens that are almost certain to be rejected. The result: +30% accepted length over Eagle3, +16% over DFlash, and +51% production throughput on DeepSeek-V4.</p>
+  <div class="post-hero-meta">
+    <span>June 27, 2026</span>
+    <span>~10 min read</span>
+    <span>DeepSpec / DSpark paper</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://github.com/deepseek-ai/DeepSpec/raw/main/DSpark_paper.pdf" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/deepseek-ai/DeepSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub (DeepSpec)
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-collision"><a href="#s-collision"><span class="toc-num">01</span> Multi-Modal Collision</a></li>
+    <li class="toc-item" id="toc-s-arch"><a href="#s-arch"><span class="toc-num">02</span> Semi-AR Architecture</a></li>
+    <li class="toc-item" id="toc-s-sched"><a href="#s-sched"><span class="toc-num">03</span> Confidence Scheduling</a></li>
+    <li class="toc-item" id="toc-s-poswise"><a href="#s-poswise"><span class="toc-num">04</span> Position-Wise Analysis</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">05</span> Benchmark Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- ═══════════════════════════════════════════════════════ §01 -->
+<section id="s-collision" data-code="collision">
+<div class="section-no">01 — Multi-Modal Collision</div>
+<h2>The Problem: Parallel Drafters Predict in Isolation</h2>
+
+<p>Speculative decoding accelerates inference with a simple trick: a lightweight draft model proposes <em>γ</em> tokens, the large target model verifies them all in a single forward pass, and accepted tokens come for free. Speed hinges on how many tokens are accepted per round — the accepted length τ.</p>
+
+<p>Two architectures dominate modern drafters. <strong>Autoregressive drafters</strong> (Eagle3) generate tokens one-at-a-time, conditioning each on all previous. High quality, but drafting latency grows linearly with block size — so you're forced into shallow, narrow architectures. <strong>Parallel drafters</strong> (DFlash) generate all γ tokens in one forward pass, so drafting latency is essentially O(1) regardless of block size. Deep, wide networks become affordable.</p>
+
+<p>The catch for parallel drafters: every position is predicted <em>independently</em>. The model marginalizes over all possible predecessors rather than conditioning on the one actually sampled. When two completions are both valid — say "of <strong>course</strong>" and "no <strong>problem</strong>" — the first-position prediction might sample "of" while the second-position prediction, unaware of that choice, produces "problem." Result: "of problem" — a multi-modal collision.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">multi-modal collision — parallel vs semi-AR draft</span>
+    <span class="vp-hint">click to replay</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="collision-canvas" style="width:100%;height:200px;display:block;cursor:pointer"></canvas>
+  </div>
+</div>
+
+<p>The animation above shows the core problem: when the context supports two completions ("of course" / "no problem"), a parallel drafter produces an incoherent combination because it can't see what position 1 chose. DSpark's Markov head reads the sampled token at position 1 before committing position 2 — resolving the collision every time.</p>
+
+<p>This acceptance decay isn't just a theoretical concern. In production, chat prompts sustain conditional acceptance rates that drop from 0.72 at position 1 to 0.63 at position 7 for DFlash — wasting nearly half the draft block on tokens that will be rejected. On longer blocks (γ = 15), this decay compounds to a 30% gap over DSpark.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §02 -->
+<section id="s-arch" data-code="arch">
+<div class="section-no">02 — Semi-Autoregressive Architecture</div>
+<h2>The Fix: A Lightweight Sequential Head on Top of a Parallel Backbone</h2>
+
+<p>DSpark's core idea is elegant: <em>keep the expensive part parallel, make the cheap part sequential.</em> The parallel backbone (DFlash) runs one forward pass over the full block, producing hidden states h₁…hγ and base logits U₁…Uγ. Then a lightweight Markov head runs a tiny sequential loop — one step per draft token — to inject dependency.</p>
+
+<h3>The Parallel Stage</h3>
+<p>DSpark reuses DFlash's parallel backbone with one minor change: instead of taking an anchor token + γ mask tokens and predicting only the masked positions, DSpark treats the anchor itself as the first prediction position. This means γ input tokens produce γ draft logits — same compute, one extra prediction.</p>
+
+<h3>The Markov Head</h3>
+<p>The Markov head is a low-rank transition matrix approximated as B = W₁W₂, where W₁ ∈ ℝ<sup>V×r</sup> and W₂ ∈ ℝ<sup>r×V</sup> with rank r = 256. Given the previous sampled token x<sub>k−1</sub>, the transition bias for position k is just:</p>
+
+<div class="math-block">
+  <div class="math-label">Markov transition bias</div>
+  <span class="math-var">B</span>(x<sub>k−1</sub>, ·) = W₁[x<sub>k−1</sub>] · W₂  ∈ ℝ<sup>V</sup><br>
+  <span class="math-var">p</span><sub>k</sub>(v | x<sub>0</sub>, x<sub>&lt;k</sub>) = softmax( U<sub>k</sub>(v) + B(x<sub>k−1</sub>, v) )<br>
+  <span class="math-comment">— W₁ is an embedding lookup, W₂ is a logit projection. Rank 256 keeps it tiny.</span>
+</div>
+
+<p>The sequential loop is O(γ) with a tiny constant: W₁[x<sub>k−1</sub>] is one embedding lookup, and the bias addition is a matrix-vector product. At batch size 128, this adds only 0.2–1.3% overhead to the full round latency while lifting accepted length by up to 30%.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">DSpark architecture — click through the decoding cycle</span>
+    <span class="vp-hint">click Next to advance</span>
+  </div>
+  <div class="vp-body">
+    <div class="step-list" id="arch-steps">
+      <div class="step-box active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Target generates anchor token D</div>
+          <div class="step-desc">One full target-model forward pass on prompt A·B·C produces token D. D becomes the anchor for this draft cycle.</div>
+          <div class="step-code">x_anchor = target_model(prompt)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Parallel backbone: one pass → γ logits + hidden states</div>
+          <div class="step-desc">DFlash backbone takes D + γ−1 mask tokens, produces base logits U₁…Uγ and hidden states h₁…hγ in a single forward pass. KV injection from target layers grounds the draft in context.</div>
+          <div class="step-code">U, H, C = parallel_backbone(x_anchor)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Markov head: sequential loop → adjusted draft tokens</div>
+          <div class="step-desc">For k=1…γ: sample x_k from softmax(U_k + W₁[x_&#123;k−1&#125;]·W₂). Each position conditions on the previously sampled token — eliminating multi-modal collision.</div>
+          <div class="step-code">for k in range(gamma):
+    bias = W1[x[k-1]] @ W2
+    x[k] = sample(U[k] + bias)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Confidence head prunes the draft block</div>
+          <div class="step-desc">Confidence scores c₁…cγ are estimated from h_k and W₁[x_&#123;k−1&#125;]. The hardware-aware scheduler computes the optimal prefix length based on system load and truncates low-confidence tails.</div>
+          <div class="step-code">c = sigmoid(w @ concat(H[k], W1[x[k-1]]))
+ell = scheduler.select_prefix(c, load)</div>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Target verifies the scheduled prefix</div>
+          <div class="step-desc">Target model verifies x₁…x_ℓ* in one pass. Accepted tokens come for free; the first rejection at position k redirects from k onward. Next cycle starts with the last accepted token as anchor.</div>
+          <div class="step-code">accepted = target_verify(x_draft[:ell_star])
+new_anchor = accepted[-1]</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button id="arch-prev" disabled>← Prev</button>
+      <span style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted)" id="arch-prog">Step 1 of 5</span>
+      <button id="arch-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<h3>Why 2 Layers Beat 5</h3>
+<p>Adding the Markov head is so efficient that a <strong>2-layer DSpark outperforms a 5-layer DFlash</strong> across all domains. Injecting sequential dependency offers a dramatically better accuracy-parameter trade-off than simply stacking more parallel layers. The first-to-second-layer gain is the steepest; beyond 5 layers the marginal returns plateau.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §03 -->
+<section id="s-sched" data-code="sched">
+<div class="section-no">03 — Confidence-Scheduled Verification</div>
+<h2>Verify Smarter: Route Compute Only to High-Confidence Tokens</h2>
+
+<p>Even with a better drafter, blindly verifying the full block wastes compute. DSpark's second innovation is a confidence head that estimates per-position acceptance probability, paired with a hardware-aware scheduler that picks the optimal verification length for the current system load.</p>
+
+<h3>Confidence Head</h3>
+<p>A lightweight linear layer + sigmoid estimates c_k — the conditional probability that token k will be accepted, given all prior tokens were accepted. It's supervised against the analytical acceptance rate 1 − ½‖p<sup>d</sup><sub>k</sub> − p<sup>t</sup><sub>k</sub>‖₁ (the total variation distance between draft and target distributions).</p>
+
+<p>Raw neural estimates are overconfident, so DSpark applies <strong>Sequential Temperature Scaling (STS)</strong>: calibrate positions left-to-right, fixing earlier temperatures, minimizing ECE of the cumulative acceptance product at each step. This reduces average ECE from 3–8% to ~1% — critical for the scheduler to reason accurately about prefix survival probabilities.</p>
+
+<h3>Hardware-Aware Scheduler</h3>
+<p>The key insight: the cost of verifying an extra token depends entirely on system load. Under light load, even a token likely to be rejected is nearly free to verify. Under heavy load, that same token occupies batch capacity that could serve another user.</p>
+
+<p>The scheduler maximizes expected system-level throughput by solving: "given current engine load and confidence estimates, what prefix length ℓ* maximizes tokens accepted per GPU-second?" At low concurrency, ℓ* = γ (verify everything). As batch pressure rises, ℓ* shrinks, dropping low-confidence tails first.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">confidence scheduler — drag to change system load</span>
+    <span class="vp-hint">see how prefix length adapts</span>
+  </div>
+  <div class="vp-body">
+    <div class="load-slider-wrap">
+      <label>System load</label>
+      <input type="range" id="load-slider" min="0" max="100" value="20">
+      <span class="load-val" id="load-val">Low (20%)</span>
+    </div>
+    <canvas id="sched-canvas" style="width:100%;height:220px;display:block"></canvas>
+  </div>
+</div>
+
+<p>In offline threshold sweeps on Qwen3-4B chat data, raising the confidence threshold from 0 to 0.7 increases the overall acceptance rate from 45.7% to 95.7% — a 2× improvement — while dramatically reducing the verified token count. On structured code tasks, the effect is milder (acceptance 67.6% → 92.0%) because code naturally sustains higher acceptance throughout the block.</p>
+
+<h3>Asynchronous Deployment in ZOS</h3>
+<p>Production deployment required one more trick: ZOS (Zero-Overhead Scheduling) needs to know the next batch size <em>before</em> the current step completes. DSpark approximates the scheduling signal using confidence estimates from 2 steps prior — a causal barrier that prevents information leakage while enabling seamless CUDA graph replay. Latency cost: zero.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §04 -->
+<section id="s-poswise" data-code="poswise">
+<div class="section-no">04 — Position-Wise Analysis</div>
+<h2>Capacity First, Coherence Throughout</h2>
+
+<p>DSpark's advantage has a clear structural explanation. The interactive chart below shows per-position conditional acceptance rates for Eagle3, DFlash, and DSpark on the Qwen3-4B target. "Conditional" means: given all earlier positions were accepted, what fraction of position-k tokens are also accepted? This removes the confound of prefix errors and measures pure per-position quality.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">position-wise conditional acceptance — Qwen3-4B</span>
+    <span class="vp-hint">switch domains</span>
+  </div>
+  <div class="vp-body">
+    <div class="domain-tabs">
+      <button class="domain-tab active" data-domain="math">Math</button>
+      <button class="domain-tab" data-domain="code">Code</button>
+      <button class="domain-tab" data-domain="chat">Chat</button>
+    </div>
+    <canvas id="poswise-canvas" style="width:100%;height:260px;display:block"></canvas>
+  </div>
+</div>
+
+<h3>The Capacity Advantage at Position 1</h3>
+<p>At position 1, both DFlash and DSpark start much higher than Eagle3. Why? Parallel drafters can afford deep, wide architectures (O(1) draft latency), while Eagle3 must stay shallow (O(γ) latency). This structural capacity gap produces a meaningful accuracy margin at position 1 — and because speculative decoding is a strict prefix-matching process, the first token has the highest leverage. A rejection at position 1 invalidates the entire block.</p>
+
+<p>The numbers: on Chat, DFlash starts at 0.72 vs Eagle3 at 0.53 — a 0.19 gap that cascades through the entire block. On Math, DFlash starts at 0.88 vs Eagle3 at 0.81.</p>
+
+<h3>The Coherence Advantage at Positions 2–7</h3>
+<p>But here's the twist: Eagle3 <em>improves</em> down the block. On Chat, Eagle3 rises from 0.53 to 0.74 by position 7, while DFlash drops from 0.72 to 0.63. Eagle3's autoregressive conditioning means later tokens become <em>easier</em> given earlier context — once it commits to "of course," position 2 is nearly certain. DFlash's independence means it can't exploit this conditional certainty.</p>
+
+<p>DSpark combines both advantages: it starts high (parallel backbone capacity at position 1) and stays high (Markov head coherence at positions 2–7). On Chat, DSpark maintains ~0.85–0.88 conditional acceptance throughout the full block — neither decaying like DFlash nor starting low like Eagle3.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ §05 -->
+<section id="s-results" data-code="results">
+<div class="section-no">05 — Benchmark Results</div>
+<h2>Offline Accepted Length and Online Production Throughput</h2>
+
+<p>DSpark was evaluated across four target model families and nine benchmarks spanning math, code, and chat. All drafters were trained on the same data (Open-PerfectBlend, 1.3M samples, regenerated responses) for 10 epochs. Block size γ = 7, temperature 1.0 — standard speculative decoding with chain-based drafting.</p>
+
+<div class="domain-tabs" id="result-domain-tabs">
+  <button class="domain-tab active" data-rdomain="math">Math (Qwen3-4B)</button>
+  <button class="domain-tab" data-rdomain="code">Code (Qwen3-4B)</button>
+  <button class="domain-tab" data-rdomain="chat">Chat (Qwen3-4B)</button>
+</div>
+
+<div id="result-bars-math">
+  <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">Accepted length τ per round ↑ higher is better</div>
+  <div class="results-bars">
+    <div class="bar-row"><div class="bar-label">Eagle3 — GSM8K</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="73.4"><span>5.14</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — GSM8K</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="77.1"><span>5.40</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — GSM8K</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="87.3"><span>6.11</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — MATH500</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="66.0"><span>4.62</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — MATH500</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="69.3"><span>4.85</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — MATH500</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="81.4"><span>5.70</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — AIME25</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="56.0"><span>3.92</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — AIME25</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="59.3"><span>4.15</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — AIME25</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="69.9"><span>4.89</span></div></div></div>
+  </div>
+</div>
+
+<div id="result-bars-code" style="display:none">
+  <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">Accepted length τ per round ↑ higher is better</div>
+  <div class="results-bars">
+    <div class="bar-row"><div class="bar-label">Eagle3 — MBPP</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="52.7"><span>3.69</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — MBPP</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="62.9"><span>4.40</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — MBPP</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="73.3"><span>5.13</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — HumanEval</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="59.4"><span>4.16</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — HumanEval</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="67.7"><span>4.74</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — HumanEval</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="76.9"><span>5.38</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — LiveCodeBench</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="53.9"><span>3.77</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — LiveCodeBench</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="59.7"><span>4.18</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — LiveCodeBench</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="69.4"><span>4.86</span></div></div></div>
+  </div>
+</div>
+
+<div id="result-bars-chat" style="display:none">
+  <div style="font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.5rem">Accepted length τ per round ↑ higher is better</div>
+  <div class="results-bars">
+    <div class="bar-row"><div class="bar-label">Eagle3 — MT-Bench</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="34.1"><span>2.39</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — MT-Bench</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="43.9"><span>3.07</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — MT-Bench</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="52.0"><span>3.64</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — Alpaca</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="32.3"><span>2.26</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — Alpaca</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="42.3"><span>2.96</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — Alpaca</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="50.6"><span>3.54</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">Eagle3 — Arena-Hard</div><div class="bar-track"><div class="bar-fill" style="background:rgba(107,114,128,.6)" data-w="36.4"><span>2.55</span></div></div></div>
+    <div class="bar-row"><div class="bar-label">DFlash — Arena-Hard</div><div class="bar-track"><div class="bar-fill" style="background:rgba(6,182,212,.5)" data-w="40.4"><span>2.83</span></div></div></div>
+    <div class="bar-row"><div class="bar-label" style="color:var(--purple-l)">DSpark — Arena-Hard</div><div class="bar-track"><div class="bar-fill" style="background:var(--purple)" data-w="47.0"><span>3.29</span></div></div></div>
+  </div>
+</div>
+
+<h3>Production Deployment: DeepSeek-V4</h3>
+<p>DSpark replaced MTP-1 (the previous single-token drafter) in DeepSeek-V4-Flash and V4-Pro serving engines. Under live user traffic, at the practically relevant 80 tok/s/user SLA, DSpark improves aggregate throughput by <strong>+51%</strong> (Flash) and <strong>+52%</strong> (Pro). At matched throughput levels, per-user generation speed accelerates by 60–85% (Flash) and 57–78% (Pro). Under strict 120 TPS SLA where MTP-1's capacity degenerates, DSpark maintains robust throughput — effectively shifting the entire Pareto frontier of inference serving outward.</p>
+
+<table class="results-table" style="margin-top:1rem">
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>SLA</th>
+      <th>Throughput gain</th>
+      <th>TPS/user gain</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>V4-Flash</td>
+      <td class="mn">80 tok/s/user</td>
+      <td class="mn best">+51%</td>
+      <td class="mn">+60–85%</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>V4-Flash</td>
+      <td class="mn">120 tok/s/user (strict)</td>
+      <td class="mn best">+661%*</td>
+      <td class="mn">baseline collapses</td>
+    </tr>
+    <tr>
+      <td>V4-Pro</td>
+      <td class="mn">35 tok/s/user</td>
+      <td class="mn best">+52%</td>
+      <td class="mn">+57–78%</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>V4-Pro</td>
+      <td class="mn">50 tok/s/user (strict)</td>
+      <td class="mn best">+406%*</td>
+      <td class="mn">baseline collapses</td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:.72rem;color:var(--muted)">* At strict SLAs, MTP-1 enters a low-concurrency regime — the high ratio reflects that DSpark extends the feasible interactivity frontier rather than multiplying over a well-utilized baseline.</p>
+</section>
+
+<!-- Listen-friendly hidden summary -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: DSpark — Semi-Autoregressive Speculative Decoding</h2>
+    <p>DSpark from DeepSeek is a new speculative decoding framework that solves two problems with parallel draft models. First, parallel drafters predict every token independently, leading to multi-modal collisions where incoherent combinations like "of problem" get generated because positions don't condition on each other. DSpark adds a lightweight Markov head — a low-rank transition matrix — after the parallel backbone, letting each draft token condition on the previously sampled token. This sequential loop adds negligible latency while lifting accepted length by 16 to 30 percent over DFlash.</p>
+    <p>Second, DSpark adds a confidence head that estimates per-position acceptance probability, paired with a hardware-aware scheduler that dynamically prunes low-confidence draft token tails based on current system load. At moderate load it verifies everything; under high concurrency it truncates aggressively, routing compute only to tokens with a positive expected return. In offline benchmarks on Qwen3-4B, DSpark improves accepted length by 30.9 percent over Eagle3 and 16.3 percent over DFlash. In production on DeepSeek-V4, DSpark delivers 51 to 52 percent higher aggregate throughput and 60 to 85 percent faster per-user generation at matched capacity.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：DSpark — 半自回归投机解码</h2>
+    <p>DeepSeek 的 DSpark 是一套新的投机解码框架，解决了并行草稿模型的两个核心问题。首先，并行草稿器独立预测每个词元，会产生多模态碰撞——由于各位置之间缺乏依赖，可能生成"of problem"这样不连贯的组合。DSpark 在并行主干网络之后加入了一个轻量级 Markov 头——一个低秩转移矩阵——让每个草稿词元能够基于上一个已采样词元进行条件化。这个顺序循环几乎不增加延迟，却能将接受长度提升 16 到 30 个百分点。</p>
+    <p>其次，DSpark 增加了一个置信度头，用于估计每个位置的接受概率，并配合感知硬件负载的调度器，根据当前系统负载动态裁剪低置信度的草稿词元尾部。在较低负载时验证全部词元；高并发时则积极截断，仅将计算资源用于期望收益为正的词元。在 Qwen3-4B 的离线基准测试中，DSpark 的接受长度比 Eagle3 提升 30.9%，比 DFlash 提升 16.3%。在 DeepSeek-V4 的生产环境中，DSpark 在相同容量下实现了 51 到 52% 的吞吐量提升和 60 到 85% 的每用户生成速度提升。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dspark/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">Multi-Modal Collision</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="collision">collision</button>
+    <button class="cs-tab" data-panel="arch">arch</button>
+    <button class="cs-tab" data-panel="sched">sched</button>
+    <button class="cs-tab" data-panel="poswise">analysis</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+    <!-- PANEL: collision -->
+    <div class="cs-panel active" id="panel-collision">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Multi-modal collision in parallel drafters</span>
+<span class="cs-line cmt"># Context supports two completions equally:</span>
+<span class="cs-line cmt">#   "of course"  vs  "no problem"</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Parallel drafter: each position is</span>
+<span class="cs-line cmt"># independent — marginalizes over all priors</span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">parallel_draft</span>(anchor, backbone):</span>
+<span class="cs-line hl-a">    <span class="cmt"># One pass → all γ logits at once</span></span>
+<span class="cs-line hl-a">    U = backbone(anchor)  <span class="cmt"># [γ, V]</span></span>
+<span class="cs-line hl-a">    <span class="kw">return</span> [<span class="fn">sample</span>(U[k]) <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(gamma)]</span>
+<span class="cs-line hl-a">    <span class="cmt"># pos1 samples "of", pos2 independently</span></span>
+<span class="cs-line hl-a">    <span class="cmt"># samples "problem" → "of problem" ✗</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># DSpark: Markov head resolves collision</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">dspark_draft</span>(anchor, backbone, W1, W2):</span>
+<span class="cs-line hl-g">    U, H = <span class="fn">backbone</span>(anchor)  <span class="cmt"># [γ,V], [γ,d]</span></span>
+<span class="cs-line hl-g">    x = [anchor]</span>
+<span class="cs-line hl-g">    <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(gamma):</span>
+<span class="cs-line hl-g">        bias = W1[x[k-<span class="num">1</span>]] @ W2  <span class="cmt"># [V]</span></span>
+<span class="cs-line hl-g">        x_k = <span class="fn">sample</span>(U[k] + bias)</span>
+<span class="cs-line hl-g">        x.<span class="fn">append</span>(x_k)</span>
+<span class="cs-line hl-g">    <span class="cmt"># pos1 samples "of" → bias boosts</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># "course" at pos2 → "of course" ✓</span></span>
+<span class="cs-line hl-g">    <span class="kw">return</span> x[<span class="num">1</span>:]</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Accepted length τ formula</span>
+<span class="cs-line cmt"># L = (T_draft + T_verify) / τ</span>
+<span class="cs-line cmt"># Parallel: T_draft = O(1)  → deep arch OK</span>
+<span class="cs-line cmt"># Autoregressive: T_draft = O(γ) → shallow</span>
+<span class="cs-line cmt"># DSpark: T_draft ≈ O(1) + tiny serial loop</span>
+      </pre>
+    </div>
+    <!-- PANEL: arch -->
+    <div class="cs-panel" id="panel-arch">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># DSpark architecture in full</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 1. Parallel backbone (DFlash-style)</span>
+<span class="cs-line cmt">#    KV-inject target hidden states</span>
+<span class="cs-line hl-p"><span class="kw">class</span> <span class="cls">DSpark</span>:</span>
+<span class="cs-line hl-p">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, backbone, r=<span class="num">256</span>):</span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.backbone = backbone   <span class="cmt"># DFlash</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.W1 = <span class="cls">nn</span>.<span class="fn">Embedding</span>(V, r) <span class="cmt"># Markov emb</span></span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.W2 = <span class="cls">nn</span>.<span class="fn">Linear</span>(r, V, bias=<span class="cls">False</span>)</span>
+<span class="cs-line hl-p">        <span class="kw">self</span>.conf = <span class="cls">nn</span>.<span class="fn">Linear</span>(d+r, <span class="num">1</span>) <span class="cmt"># conf head</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 2. Semi-AR generation</span>
+<span class="cs-line hl-c">    <span class="kw">def</span> <span class="fn">draft</span>(<span class="kw">self</span>, anchor, target_kv):</span>
+<span class="cs-line hl-c">        U, H = <span class="kw">self</span>.backbone(anchor, target_kv)</span>
+<span class="cs-line hl-c">        x, c = [anchor], []</span>
+<span class="cs-line hl-c">        <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(gamma):</span>
+<span class="cs-line hl-c">            emb = <span class="kw">self</span>.W1(x[-<span class="num">1</span>])       <span class="cmt"># [r]</span></span>
+<span class="cs-line hl-c">            bias = <span class="kw">self</span>.W2(emb)          <span class="cmt"># [V]</span></span>
+<span class="cs-line hl-c">            x_k = <span class="fn">sample</span>(U[k] + bias)</span>
+<span class="cs-line hl-c">            x.<span class="fn">append</span>(x_k)</span>
+<span class="cs-line hl-c">            feat = <span class="fn">cat</span>([H[k], emb])     <span class="cmt"># [d+r]</span></span>
+<span class="cs-line hl-c">            c_k = <span class="fn">sigmoid</span>(<span class="kw">self</span>.conf(feat))</span>
+<span class="cs-line hl-c">            c.<span class="fn">append</span>(c_k)</span>
+<span class="cs-line hl-c">        <span class="kw">return</span> x[<span class="num">1</span>:], c</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 3. Training loss (three components)</span>
+<span class="cs-line cmt"># α_ce=0.1  α_tv=0.9  α_conf=1.0</span>
+<span class="cs-line hl-g">    <span class="kw">def</span> <span class="fn">loss</span>(<span class="kw">self</span>, draft_logits, target_logits,</span>
+<span class="cs-line hl-g">             sampled_x, target_hidden):</span>
+<span class="cs-line hl-g">        Lce = <span class="fn">cross_entropy</span>(draft_logits, sampled_x)</span>
+<span class="cs-line hl-g">        Ltv = <span class="fn">total_variation_dist</span>(</span>
+<span class="cs-line hl-g">                  draft_logits, target_logits)</span>
+<span class="cs-line hl-g">        c_star = <span class="num">1</span> - <span class="num">0.5</span>*<span class="fn">tv_dist</span>(</span>
+<span class="cs-line hl-g">                     draft_logits, target_logits)</span>
+<span class="cs-line hl-g">        Lconf = <span class="fn">bce</span>(self.conf_preds, c_star)</span>
+<span class="cs-line hl-g">        <span class="kw">return</span> <span class="num">0.1</span>*Lce + <span class="num">0.9</span>*Ltv + <span class="num">1.0</span>*Lconf</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># 2-layer DSpark &gt; 5-layer DFlash</span>
+<span class="cs-line cmt"># Sequential dependency beats parallel depth</span>
+      </pre>
+    </div>
+    <!-- PANEL: sched -->
+    <div class="cs-panel" id="panel-sched">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Confidence-scheduled verification</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Confidence head: one linear + sigmoid</span>
+<span class="cs-line hl-c">c_k = <span class="fn">sigmoid</span>(w @ <span class="fn">concat</span>(H[k], W1[x[k-<span class="num">1</span>]]))</span>
+<span class="cs-line hl-c"><span class="cmt"># supervised on analytical acceptance rate:</span></span>
+<span class="cs-line hl-c">c_star_k = <span class="num">1</span> - <span class="num">0.5</span> * ||p_draft_k - p_target_k||_1</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Sequential Temperature Scaling (STS)</span>
+<span class="cs-line cmt"># calibrate positions left-to-right:</span>
+<span class="cs-line hl-p"><span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, gamma+<span class="num">1</span>):</span>
+<span class="cs-line hl-p">    <span class="cmt"># optimize T_k minimizing ECE of</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># cumulative product ∏_&#123;i≤k&#125; c_i^&#123;1/T_i&#125;</span></span>
+<span class="cs-line hl-p">    T_k = <span class="fn">optimize_temperature</span>(k, val_set)</span>
+<span class="cs-line hl-p">    <span class="cmt"># ECE reduced from 3-8% → ~1%</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Hardware-aware prefix scheduler</span>
+<span class="cs-line cmt"># Maximize: E[accepted] / GPU-cost(verify ℓ)</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">select_prefix</span>(confidence, SPS_curve):</span>
+<span class="cs-line hl-g">    <span class="cmt"># survival probs: ∏_&#123;i≤k&#125; c_i</span></span>
+<span class="cs-line hl-g">    surv = <span class="fn">cumprod</span>(confidence)  <span class="cmt"># [γ]</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># expected accepted length</span></span>
+<span class="cs-line hl-g">    tau = <span class="fn">sum</span>(surv[:<span class="num">k</span>]) + <span class="num">1</span>  <span class="cmt"># for prefix k</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># maximize τ * SPS(B + k) / SPS(B)</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># where B = current batch tokens</span></span>
+<span class="cs-line hl-g">    ell_star = <span class="fn">argmax_k</span>(tau_k * sps_ratio)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> ell_star</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Chat domain threshold sweep:</span>
+<span class="cs-line cmt"># threshold 0.0 → accept 45.7%</span>
+<span class="cs-line cmt"># threshold 0.5 → accept 75.2%</span>
+<span class="cs-line cmt"># threshold 0.7 → accept 95.7%</span>
+<span class="cs-line cmt"># Math domain: 76.9% → 92.5%</span>
+<span class="cs-line cmt"># Code domain: 67.6% → 92.0%</span>
+      </pre>
+    </div>
+    <!-- PANEL: poswise -->
+    <div class="cs-panel" id="panel-poswise">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Position-wise conditional acceptance</span>
+<span class="cs-line cmt"># Qwen3-4B, empirical from rollouts</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Chat domain — positions 1 to 7</span>
+<span class="cs-line cmt">#               Pos1   Pos4   Pos7</span>
+<span class="cs-line hl-a">Eagle3_chat = [<span class="num">0.53</span>, <span class="num">0.64</span>, <span class="num">0.74</span>]  <span class="cmt"># rising ↑</span></span>
+<span class="cs-line hl-c">DFlash_chat = [<span class="num">0.72</span>, <span class="num">0.68</span>, <span class="num">0.63</span>]  <span class="cmt"># decay ↓</span></span>
+<span class="cs-line hl-g">DSpark_chat = [<span class="num">0.88</span>, <span class="num">0.86</span>, <span class="num">0.85</span>]  <span class="cmt"># stable →</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Math domain (higher overall)</span>
+<span class="cs-line hl-a">Eagle3_math = [<span class="num">0.81</span>, <span class="num">0.84</span>, <span class="num">0.85</span>]  <span class="cmt"># stable</span></span>
+<span class="cs-line hl-c">DFlash_math = [<span class="num">0.88</span>, <span class="num">0.84</span>, <span class="num">0.78</span>]  <span class="cmt"># decay</span></span>
+<span class="cs-line hl-g">DSpark_math = [<span class="num">0.93</span>, <span class="num">0.91</span>, <span class="num">0.89</span>]  <span class="cmt"># high+stable</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why Eagle3 rises on chat:</span>
+<span class="cs-line cmt"># AR conditioning on prior tokens →</span>
+<span class="cs-line cmt"># later positions become more predictable</span>
+<span class="cs-line cmt"># once prefix is committed.</span>
+<span class="cs-line cmt"></span>
+<span class="cs-line cmt"># Why DFlash decays:</span>
+<span class="cs-line cmt"># Independence → multi-modal collision at</span>
+<span class="cs-line cmt"># later positions worsens as more context</span>
+<span class="cs-line cmt"># locks in a semantic path DFlash ignores.</span>
+<span class="cs-line cmt"></span>
+<span class="cs-line cmt"># DSpark: capacity (parallel, deep arch)</span>
+<span class="cs-line cmt"># + coherence (Markov head conditioning)</span>
+<span class="cs-line cmt"># = high AND stable across all positions</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># The "A little autoregression goes</span>
+<span class="cs-line cmt"># a long way" finding:</span>
+<span class="cs-line cmt"># 2-layer DSpark &gt; 5-layer DFlash</span>
+<span class="cs-line cmt"># Markov rank r=256 ≪ transformer width</span>
+      </pre>
+    </div>
+    <!-- PANEL: results -->
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Benchmark: accepted length τ, Qwen3-4B</span>
+<span class="cs-line cmt"># γ=7, temp=1.0, chain drafting</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Math domain macro-avg</span>
+<span class="cs-line hl-a">Eagle3_math_avg = <span class="num">4.56</span>  <span class="cmt"># baseline</span></span>
+<span class="cs-line hl-c">DFlash_math_avg = <span class="num">4.80</span>  <span class="cmt"># +5.3%</span></span>
+<span class="cs-line hl-g">DSpark_math_avg = <span class="num">5.57</span>  <span class="cmt"># +22.2% vs Eagle</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Code domain macro-avg</span>
+<span class="cs-line hl-a">Eagle3_code_avg = <span class="num">3.87</span></span>
+<span class="cs-line hl-c">DFlash_code_avg = <span class="num">4.44</span></span>
+<span class="cs-line hl-g">DSpark_code_avg = <span class="num">5.12</span>  <span class="cmt"># +32.3% vs Eagle</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Chat domain macro-avg</span>
+<span class="cs-line hl-a">Eagle3_chat_avg = <span class="num">2.40</span></span>
+<span class="cs-line hl-c">DFlash_chat_avg = <span class="num">2.95</span></span>
+<span class="cs-line hl-g">DSpark_chat_avg = <span class="num">3.49</span>  <span class="cmt"># +45.4% vs Eagle</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Cross-model (macro-avg improvement)</span>
+<span class="cs-line cmt"># over Eagle3: +30.9% / +26.7% / +30.0%</span>
+<span class="cs-line cmt"># (Qwen3 4B / 8B / 14B)</span>
+<span class="cs-line cmt"># over DFlash: +16.3% / +18.4% / +18.3%</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Production: DeepSeek-V4 live traffic</span>
+<span class="cs-line hl-p">throughput_gain_flash = <span class="str">"51% @ 80 TPS SLA"</span></span>
+<span class="cs-line hl-p">throughput_gain_pro   = <span class="str">"52% @ 35 TPS SLA"</span></span>
+<span class="cs-line hl-p">tps_user_gain_flash   = <span class="str">"60-85% faster"</span></span>
+<span class="cs-line hl-p">tps_user_gain_pro     = <span class="str">"57-78% faster"</span></span>
+<span class="cs-line cmt"># replaced MTP-1 in production 2 weeks</span>
+<span class="cs-line cmt"># after DeepSeek-V4-preview release</span>
+      </pre>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── Sidebar/TOC toggles ───────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tab switching ───────────────────────
+const tabMeta = {
+  collision: { file: 'dspark/draft.py',      title: 'Multi-Modal Collision' },
+  arch:      { file: 'dspark/model.py',      title: 'Semi-AR Architecture' },
+  sched:     { file: 'dspark/scheduler.py',  title: 'Confidence Scheduling' },
+  poswise:   { file: 'dspark/analysis.py',   title: 'Position-Wise Analysis' },
+  results:   { file: 'dspark/results.py',    title: 'Benchmark Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver: sync TOC + sidebar tab ─────
+const sectionMap = {
+  's-collision': 'collision',
+  's-arch':      'arch',
+  's-sched':     'sched',
+  's-poswise':   'poswise',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── §01: Multi-modal collision canvas ────────────────
+(function() {
+  const canvas = document.getElementById('collision-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  function resize() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return [W, H];
+  }
+  let [W, H] = resize();
+
+  // Two rows: top = parallel drafter, bottom = DSpark
+  // Each shows: [ANCHOR] → token1 → token2 → token3
+  // Parallel: picks "of" | "problem" (collision)
+  // DSpark:   picks "of" | "course"  (correct)
+
+  const phases = [
+    { label: 'Context', dur: 600 },
+    { label: 'Pos 1 sampled', dur: 700 },
+    { label: 'Pos 2 prediction', dur: 700 },
+    { label: 'Done', dur: 1200 },
+  ];
+  let phase = 0, t = 0, animId = null;
+
+  function lerp(a, b, tt) { return a + (b - a) * Math.max(0, Math.min(1, tt)); }
+  function easeOut(tt) { return 1 - (1 - tt) * (1 - tt); }
+
+  const tokens = [
+    { label: 'say',      x: 0.12 },
+    { label: '"of',      x: 0.27 },
+    { label: 'course"',  x: 0.45 },
+    { label: 'OR',       x: 0.27, isOr: true },
+    { label: '"no',      x: 0.45 },
+    { label: 'problem"', x: 0.63 },
+  ];
+
+  function draw(fraction) {
+    [W, H] = [canvas.clientWidth, canvas.clientHeight];
+    ctx.clearRect(0, 0, W * DPR, H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const rowTop = H * 0.28;    // parallel drafter
+    const rowBot = H * 0.72;    // DSpark
+    const f = fraction;
+
+    ctx.font = '600 11px "JetBrains Mono",monospace';
+
+    // Labels on left
+    ctx.fillStyle = 'rgba(245,158,11,0.9)';
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 10px "JetBrains Mono",monospace';
+    ctx.fillText('Parallel', W * 0.08, rowTop + 4);
+    ctx.fillStyle = 'rgba(16,185,129,0.9)';
+    ctx.fillText('DSpark', W * 0.08, rowBot + 4);
+
+    // Context tokens: "The answer is..."
+    const ctxTokens = ['The', 'answer', 'is...'];
+    ctxTokens.forEach((tok, i) => {
+      const x = W * (0.12 + i * 0.10);
+      const a = Math.min(1, f * 4);
+      drawToken(ctx, x, rowTop, tok, `rgba(99,102,241,${a * 0.7})`, '#c7d2fe', a);
+      drawToken(ctx, x, rowBot, tok, `rgba(99,102,241,${a * 0.7})`, '#c7d2fe', a);
+    });
+
+    // Arrow after context
+    if (f > 0.2) {
+      const a = Math.min(1, (f - 0.2) * 5);
+      ctx.strokeStyle = `rgba(107,114,128,${a * 0.5})`;
+      ctx.lineWidth = 1.5;
+      const ax = W * 0.42;
+      ctx.beginPath(); ctx.moveTo(ax, rowTop); ctx.lineTo(ax + 18, rowTop); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, rowBot); ctx.lineTo(ax + 18, rowBot); ctx.stroke();
+    }
+
+    // Phase 1: Pos 1 "of" sampled (both models agree)
+    if (f > 0.25) {
+      const a = easeOut(Math.min(1, (f - 0.25) * 4));
+      const x1 = W * 0.52;
+      drawToken(ctx, x1, rowTop, '"of', `rgba(245,158,11,${a * 0.3})`, `rgba(245,158,11,${a * 0.9})`, a);
+      drawToken(ctx, x1, rowBot, '"of', `rgba(16,185,129,${a * 0.3})`, `rgba(16,185,129,${a * 0.9})`, a);
+    }
+
+    // Phase 2: Pos 2 — parallel picks "problem" (collision!), DSpark picks "course"
+    if (f > 0.55) {
+      const a = easeOut(Math.min(1, (f - 0.55) * 4));
+      const x2 = W * 0.70;
+
+      // Parallel: "problem" — red, wrong
+      drawToken(ctx, x2, rowTop, 'problem"', `rgba(239,68,68,${a * 0.3})`, `rgba(239,68,68,${a * 0.95})`, a);
+      // Small ✗
+      if (a > 0.5) {
+        ctx.fillStyle = `rgba(239,68,68,${a})`;
+        ctx.font = `bold ${14 * a}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('✗', x2 + 50, rowTop - 16);
+      }
+
+      // DSpark: "course" — green, correct
+      drawToken(ctx, x2, rowBot, 'course"', `rgba(16,185,129,${a * 0.3})`, `rgba(16,185,129,${a * 0.95})`, a);
+      if (a > 0.5) {
+        ctx.fillStyle = `rgba(16,185,129,${a})`;
+        ctx.font = `bold ${14 * a}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('✓', x2 + 46, rowBot - 16);
+      }
+
+      // Result labels
+      if (a > 0.7) {
+        ctx.fillStyle = `rgba(239,68,68,${(a - 0.7) * 3.33})`;
+        ctx.font = 'italic 10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('"of problem" — collision!', W * 0.83, rowTop + 4);
+        ctx.fillStyle = `rgba(16,185,129,${(a - 0.7) * 3.33})`;
+        ctx.fillText('"of course" — coherent', W * 0.83, rowBot + 4);
+      }
+    }
+
+    ctx.font = '600 11px "JetBrains Mono",monospace';
+  }
+
+  function drawToken(ctx, cx, cy, label, bg, textCol, alpha) {
+    const pad = 7, h = 26;
+    ctx.font = '600 11px "JetBrains Mono",monospace';
+    const tw = ctx.measureText(label).width;
+    const x = cx - tw / 2 - pad;
+    const y = cy - h / 2;
+    const w = tw + pad * 2;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = bg;
+    roundRect(ctx, x, y, w, h, 5);
+    ctx.fill();
+    ctx.strokeStyle = textCol;
+    ctx.lineWidth = 1;
+    roundRect(ctx, x, y, w, h, 5);
+    ctx.stroke();
+    ctx.fillStyle = textCol;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy + 4);
+    ctx.globalAlpha = 1;
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  let progF = 0;
+  let lastTs = null;
+  let playing = true;
+
+  function animate(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = ts - lastTs; lastTs = ts;
+    if (playing) {
+      progF += dt / 2400;
+      if (progF >= 1.2) { progF = 0; }
+    }
+    draw(Math.min(progF, 1));
+    animId = requestAnimationFrame(animate);
+  }
+
+  draw(0);
+  animId = requestAnimationFrame(animate);
+
+  canvas.addEventListener('click', () => {
+    progF = 0;
+  });
+})();
+
+// ─── §02: Architecture step navigator ─────────────────
+(function() {
+  let step = 0;
+  const boxes  = document.querySelectorAll('#arch-steps .step-box');
+  const prevBtn = document.getElementById('arch-prev');
+  const nextBtn = document.getElementById('arch-next');
+  const progEl  = document.getElementById('arch-prog');
+  function updateSteps() {
+    boxes.forEach((b, i) => {
+      b.classList.remove('active', 'done');
+      if (i === step) b.classList.add('active');
+      else if (i < step) b.classList.add('done');
+    });
+    if (prevBtn) prevBtn.disabled = step === 0;
+    if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+    if (progEl) progEl.textContent = `Step ${step+1} of ${boxes.length}`;
+    boxes.forEach((b, i) => {
+      const n = b.querySelector('.step-num');
+      if (n) n.textContent = i < step ? '✓' : String(i + 1);
+    });
+  }
+  prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+  nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+  updateSteps();
+})();
+
+// ─── §03: Confidence scheduling canvas ────────────────
+(function() {
+  const canvas = document.getElementById('sched-canvas');
+  const slider = document.getElementById('load-slider');
+  const loadVal = document.getElementById('load-val');
+  if (!canvas || !slider) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = 220;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return [W, H];
+  }
+  let [W, H] = resize();
+
+  // Show γ=7 draft tokens as colored bars
+  // confidence c1..c7 for a "chat" scenario
+  const conf = [0.88, 0.82, 0.76, 0.66, 0.55, 0.44, 0.35];
+  // cumulative survival
+  const surv = conf.map((_, i) => conf.slice(0, i+1).reduce((a,b)=>a*b,1));
+
+  function getOptimalLen(load) {
+    // At load 0% → verify all 7
+    // At load 100% → verify only top-1 or 2
+    // Simple model: threshold = 0.3 + load/100 * 0.5
+    const threshold = 0.3 + (load / 100) * 0.55;
+    for (let k = conf.length - 1; k >= 0; k--) {
+      if (surv[k] >= threshold) return k + 1;
+    }
+    return 1;
+  }
+
+  function draw(load) {
+    [W, H] = [canvas.clientWidth, 220];
+    ctx.clearRect(0, 0, W * DPR, H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const gamma = 7;
+    const BAR_W = 52, GAP = 10;
+    const totalW = gamma * BAR_W + (gamma - 1) * GAP;
+    const startX = (W - totalW) / 2;
+    const optLen = getOptimalLen(load);
+    const maxH = H * 0.55;
+    const baseY = H * 0.72;
+
+    // Axis label
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.font = '10px "JetBrains Mono",monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('Draft position →', startX, H * 0.92);
+    ctx.textAlign = 'right';
+    ctx.fillText('Cumulative survival prob ↑', startX + totalW, H * 0.92);
+
+    for (let k = 0; k < gamma; k++) {
+      const x = startX + k * (BAR_W + GAP);
+      const accepted = k < optLen;
+      const h = surv[k] * maxH;
+      const y = baseY - h;
+
+      // Bar
+      ctx.fillStyle = accepted
+        ? `rgba(139,92,246,0.75)`
+        : `rgba(107,114,128,0.22)`;
+      ctx.strokeStyle = accepted
+        ? 'rgba(139,92,246,0.9)'
+        : 'rgba(107,114,128,0.3)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(x, y, BAR_W, h);
+      ctx.strokeRect(x, y, BAR_W, h);
+
+      // Confidence label
+      ctx.fillStyle = accepted ? '#a78bfa' : 'rgba(107,114,128,0.6)';
+      ctx.font = 'bold 9px "JetBrains Mono",monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(surv[k].toFixed(2), x + BAR_W / 2, y - 5);
+
+      // Position label
+      ctx.fillStyle = 'rgba(107,114,128,0.7)';
+      ctx.font = '9px "JetBrains Mono",monospace';
+      ctx.fillText('pos ' + (k + 1), x + BAR_W / 2, baseY + 14);
+
+      // Accepted/dropped label
+      if (k === optLen - 1 && optLen < gamma) {
+        // Cutoff line
+        const cutX = x + BAR_W + GAP / 2;
+        ctx.strokeStyle = 'rgba(239,68,68,0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(cutX, H * 0.05);
+        ctx.lineTo(cutX, baseY + 5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(239,68,68,0.8)';
+        ctx.font = 'bold 9px "JetBrains Mono",monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('pruned →', cutX + 28, H * 0.12);
+      }
+    }
+
+    // Legend
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillRect(startX, H * 0.05, 12, 10);
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.font = '10px "JetBrains Mono",monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`verified (${optLen} tokens)`, startX + 16, H * 0.05 + 9);
+
+    ctx.fillStyle = 'rgba(107,114,128,0.22)';
+    ctx.strokeStyle = 'rgba(107,114,128,0.3)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(startX + 130, H * 0.05, 12, 10);
+    ctx.strokeRect(startX + 130, H * 0.05, 12, 10);
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.fillText(`pruned (${gamma - optLen} tokens)`, startX + 146, H * 0.05 + 9);
+  }
+
+  draw(20);
+
+  slider.addEventListener('input', () => {
+    const v = parseInt(slider.value);
+    const label = v < 30 ? 'Low' : v < 60 ? 'Medium' : v < 85 ? 'High' : 'Critical';
+    loadVal.textContent = `${label} (${v}%)`;
+    draw(v);
+  });
+})();
+
+// ─── §04: Position-wise acceptance chart ──────────────
+(function() {
+  const canvas = document.getElementById('poswise-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const W = canvas.clientWidth, H = 260;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+    return [W, H];
+  }
+  let [W, H] = resize();
+
+  const DOMAINS = {
+    math: {
+      eagle: [0.81, 0.82, 0.83, 0.84, 0.84, 0.85, 0.85],
+      dflash:[0.88, 0.86, 0.84, 0.82, 0.80, 0.79, 0.78],
+      dspark:[0.93, 0.92, 0.91, 0.91, 0.90, 0.90, 0.89],
+      yMin: 0.70, yMax: 0.96,
+    },
+    code: {
+      eagle: [0.68, 0.70, 0.72, 0.74, 0.74, 0.74, 0.75],
+      dflash:[0.82, 0.80, 0.78, 0.76, 0.74, 0.72, 0.70],
+      dspark:[0.89, 0.88, 0.87, 0.87, 0.86, 0.85, 0.84],
+      yMin: 0.60, yMax: 0.94,
+    },
+    chat: {
+      eagle: [0.53, 0.57, 0.61, 0.64, 0.68, 0.71, 0.74],
+      dflash:[0.72, 0.70, 0.68, 0.66, 0.65, 0.64, 0.63],
+      dspark:[0.88, 0.87, 0.87, 0.86, 0.86, 0.85, 0.85],
+      yMin: 0.45, yMax: 0.95,
+    },
+  };
+
+  let activeDomain = 'math';
+
+  function drawChart(domain) {
+    [W, H] = [canvas.clientWidth, 260];
+    ctx.clearRect(0, 0, W * DPR, H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const d = DOMAINS[domain];
+    const PAD_L = 54, PAD_R = 24, PAD_T = 28, PAD_B = 38;
+    const cW = W - PAD_L - PAD_R;
+    const cH = H - PAD_T - PAD_B;
+    const { yMin, yMax } = d;
+
+    function xp(i) { return PAD_L + (i / 6) * cW; }
+    function yp(v) { return PAD_T + cH - ((v - yMin) / (yMax - yMin)) * cH; }
+
+    // Grid
+    const gridY = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    gridY.forEach(v => {
+      if (v < yMin || v > yMax) return;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, yp(v));
+      ctx.lineTo(W - PAD_R, yp(v));
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(107,114,128,0.6)';
+      ctx.font = '9px "JetBrains Mono",monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(v.toFixed(1), PAD_L - 6, yp(v) + 3);
+    });
+
+    // X axis
+    ctx.fillStyle = 'rgba(107,114,128,0.7)';
+    ctx.font = '9px "JetBrains Mono",monospace';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 6; i++) {
+      ctx.fillText(String(i + 1), xp(i), H - PAD_B + 14);
+    }
+    ctx.fillStyle = 'rgba(107,114,128,0.6)';
+    ctx.fillText('Draft position', PAD_L + cW / 2, H - 4);
+
+    // Lines
+    const series = [
+      { data: d.eagle, color: '#f59e0b', label: 'Eagle3 (AR)', dash: [5, 3] },
+      { data: d.dflash, color: '#06b6d4', label: 'DFlash (parallel)', dash: [3, 2] },
+      { data: d.dspark, color: '#8b5cf6', label: 'DSpark (semi-AR)', dash: [] },
+    ];
+
+    series.forEach(s => {
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.dash.length ? 1.5 : 2.5;
+      ctx.setLineDash(s.dash);
+      ctx.beginPath();
+      s.data.forEach((v, i) => {
+        if (i === 0) ctx.moveTo(xp(i), yp(v));
+        else ctx.lineTo(xp(i), yp(v));
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dots
+      s.data.forEach((v, i) => {
+        ctx.beginPath();
+        ctx.arc(xp(i), yp(v), s.dash.length ? 3 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = s.color;
+        ctx.fill();
+      });
+
+      // Label at rightmost point
+      const lastV = s.data[6];
+      ctx.fillStyle = s.color;
+      ctx.font = 'bold 9px "JetBrains Mono",monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.label, xp(6) + 6, yp(lastV) + 3);
+    });
+
+    // Title
+    ctx.fillStyle = 'rgba(107,114,128,0.8)';
+    ctx.font = '10px "JetBrains Mono",monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Conditional acceptance — ${domain} domain`, PAD_L, PAD_T - 10);
+  }
+
+  drawChart(activeDomain);
+
+  document.querySelectorAll('.domain-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const dom = this.dataset.domain;
+      if (!dom) return;
+      document.querySelectorAll('.domain-tab:not([data-rdomain])').forEach(b =>
+        b.classList.toggle('active', b.dataset.domain === dom));
+      activeDomain = dom;
+      drawChart(dom);
+    });
+  });
+})();
+
+// ─── §05: Result bars (domain switch) ─────────────────
+(function() {
+  const tabs = document.querySelectorAll('[data-rdomain]');
+  const sections = {
+    math: document.getElementById('result-bars-math'),
+    code: document.getElementById('result-bars-code'),
+    chat: document.getElementById('result-bars-chat'),
+  };
+  let active = 'math';
+
+  function activateDomain(d) {
+    active = d;
+    Object.entries(sections).forEach(([k, el]) => {
+      if (el) el.style.display = k === d ? 'block' : 'none';
+    });
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.rdomain === d));
+    // Animate bars in the new section
+    const bars = sections[d] ? sections[d].querySelectorAll('.bar-fill[data-w]') : [];
+    bars.forEach(b => { b.style.width = '0%'; });
+    requestAnimationFrame(() => {
+      bars.forEach(b => {
+        b.style.width = (parseFloat(b.dataset.w)) + '%';
+      });
+    });
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => activateDomain(t.dataset.rdomain)));
+
+  // IntersectionObserver triggers bars
+  const resultsSection = document.getElementById('s-results');
+  if (resultsSection) {
+    new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          activateDomain(active);
+        }
+      });
+    }, { threshold: 0.2 }).observe(resultsSection);
+  }
+})();
+</script>
+</BaseLayout>
