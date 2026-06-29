@@ -1,0 +1,317 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Collections | Catpuccino.ai" crumb="Collections">
+
+<!-- Reuses shared .bookmarks-page / .bm-card / .bookmarks-state styles from global.css -->
+
+<div class="bookmarks-page">
+  <div class="bookmarks-header">
+    <div class="bookmarks-eyebrow">Curated Reading</div>
+    <h1 id="col-page-title">Collections</h1>
+    <p class="bookmarks-count-label" id="col-count-label"></p>
+  </div>
+
+  <!-- Loading -->
+  <div class="bookmarks-state is-active" id="col-loading">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <h2>Loading…</h2>
+  </div>
+
+  <!-- Not signed in -->
+  <div class="bookmarks-state" id="col-signed-out">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <h2>Sign in to see your collections</h2>
+    <p>Organize posts into your own collections and access them from any device.</p>
+    <button class="btn-signin-large" id="col-signin-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Empty state (signed in, no collections) -->
+  <div class="bookmarks-state" id="col-empty">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <h2>No collections yet</h2>
+    <p>Create a collection from any post — use the collection icon on a post card or the “Collect” button inside a post.</p>
+    <a href="/" class="browse-btn">Browse posts →</a>
+  </div>
+
+  <!-- Collections list view -->
+  <div id="col-list-view" style="display:none">
+    <form id="col-create-form" class="col-create-form" novalidate>
+      <input type="text" id="col-create-name" maxlength="80" autocomplete="off" placeholder="Create a new collection…" aria-label="New collection name" />
+      <button type="submit" class="btn btn-primary">New collection</button>
+    </form>
+    <div class="collections-grid" id="col-grid"></div>
+  </div>
+
+  <!-- Collection detail view -->
+  <div id="col-detail-view" style="display:none">
+    <a href="/collections" class="col-back-link">← All collections</a>
+    <div class="col-detail-empty bookmarks-state" id="col-detail-empty" style="display:none">
+      <h2>This collection is empty</h2>
+      <p>Add posts to it using the collection icon on any post.</p>
+      <a href="/" class="browse-btn">Browse posts →</a>
+    </div>
+    <div class="bookmarks-grid" id="col-detail-grid" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+  import { auth } from '../../lib/firebase';
+  import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User } from 'firebase/auth';
+  import {
+    listCollections, createCollection, deleteCollection, renameCollection,
+    getCollection, getCollectionPosts, removePostFromCollection,
+    type Collection,
+  } from '../../lib/collections';
+  import type { BookmarkMeta } from '../../lib/bookmarks';
+
+  const elLoading   = document.getElementById('col-loading')!;
+  const elSignedOut = document.getElementById('col-signed-out')!;
+  const elEmpty     = document.getElementById('col-empty')!;
+  const elListView  = document.getElementById('col-list-view')!;
+  const elDetail    = document.getElementById('col-detail-view')!;
+  const elGrid      = document.getElementById('col-grid')!;
+  const elDetailGrid  = document.getElementById('col-detail-grid')!;
+  const elDetailEmpty = document.getElementById('col-detail-empty')!;
+  const elCount     = document.getElementById('col-count-label')!;
+  const elTitle     = document.getElementById('col-page-title')!;
+  const createForm  = document.getElementById('col-create-form') as HTMLFormElement;
+  const createInput = document.getElementById('col-create-name') as HTMLInputElement;
+
+  function showState(which: 'loading' | 'signed-out' | 'empty' | 'list' | 'detail') {
+    elLoading.classList.toggle('is-active',   which === 'loading');
+    elSignedOut.classList.toggle('is-active', which === 'signed-out');
+    elEmpty.classList.toggle('is-active',     which === 'empty');
+    elListView.style.display = which === 'list' ? '' : 'none';
+    elDetail.style.display   = which === 'detail' ? '' : 'none';
+  }
+
+  function esc(s: string) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function currentCollectionId(): string | null {
+    return new URLSearchParams(window.location.search).get('id');
+  }
+
+  let currentUser: User | null = null;
+
+  // ── List view ───────────────────────────────────────────────
+  function buildCollectionCard(c: Collection): string {
+    const n = c.postCount;
+    return `<div class="collection-card-wrapper" data-cid="${esc(c.id)}">
+      <a class="collection-card" href="/collections?id=${encodeURIComponent(c.id)}">
+        <div class="collection-card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>${esc(c.name)}</h3>
+        <div class="collection-card-meta">
+          <span>${n} post${n === 1 ? '' : 's'}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>
+      <button class="col-rename-btn" title="Rename collection" data-cid="${esc(c.id)}" data-name="${esc(c.name)}" aria-label="Rename collection">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+      </button>
+      <button class="col-delete-btn" title="Delete collection" data-cid="${esc(c.id)}" data-name="${esc(c.name)}" aria-label="Delete collection">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>`;
+  }
+
+  async function renderList() {
+    if (!currentUser) return;
+    showState('loading');
+    elTitle.textContent = 'Collections';
+    let collections: Collection[] = [];
+    try {
+      collections = await listCollections(currentUser.uid);
+    } catch (err) {
+      console.error('[collections] list failed:', err);
+    }
+    if (collections.length === 0) {
+      showState('empty');
+      elCount.style.display = 'none';
+      return;
+    }
+    elGrid.innerHTML = collections.map(buildCollectionCard).join('');
+    elCount.textContent = `${collections.length} collection${collections.length === 1 ? '' : 's'}`;
+    elCount.style.display = '';
+    showState('list');
+  }
+
+  // ── Detail view ─────────────────────────────────────────────
+  function buildPostCard(bm: BookmarkMeta): string {
+    const tags = (bm.tags ?? [])
+      .map(t => `<span class="tag ${esc(t.cls)}">${esc(t.text)}</span>`)
+      .join('');
+    return `<div class="bm-card-wrapper" data-slug="${esc(bm.slug)}">
+      <a class="bm-card" href="${esc(bm.href)}">
+        <div class="tags">${tags}</div>
+        <h3>${esc(bm.title)}</h3>
+        <div class="post-meta">
+          <span>${esc(bm.date)}</span>
+          <span class="post-arrow">→</span>
+        </div>
+      </a>
+      <button class="bm-remove-btn" aria-label="Remove from collection" data-slug="${esc(bm.slug)}" title="Remove from collection">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }
+
+  let detailPosts: BookmarkMeta[] = [];
+  let detailCid: string | null = null;
+
+  async function renderDetail(cid: string) {
+    if (!currentUser) return;
+    showState('loading');
+    detailCid = cid;
+    let meta: Collection | null = null;
+    try {
+      [meta, detailPosts] = await Promise.all([
+        getCollection(currentUser.uid, cid),
+        getCollectionPosts(currentUser.uid, cid),
+      ]);
+    } catch (err) {
+      console.error('[collections] detail load failed:', err);
+    }
+    if (!meta) {
+      // Collection no longer exists — fall back to list
+      window.history.replaceState({}, '', '/collections');
+      renderList();
+      return;
+    }
+    elTitle.textContent = meta.name;
+    elCount.textContent = `${detailPosts.length} post${detailPosts.length === 1 ? '' : 's'}`;
+    elCount.style.display = '';
+    if (detailPosts.length === 0) {
+      elDetailGrid.style.display = 'none';
+      elDetailEmpty.style.display = '';
+    } else {
+      elDetailEmpty.style.display = 'none';
+      elDetailGrid.innerHTML = detailPosts.map(buildPostCard).join('');
+      elDetailGrid.style.display = '';
+    }
+    showState('detail');
+  }
+
+  // ── Event wiring ────────────────────────────────────────────
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    const name = createInput.value.trim();
+    if (!name) return;
+    const submitBtn = createForm.querySelector('button[type=submit]') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    try {
+      await createCollection(currentUser.uid, name);
+      createInput.value = '';
+      await renderList();
+    } catch (err) {
+      console.error('[collections] create failed:', err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  elGrid.addEventListener('click', async (e: MouseEvent) => {
+    const renameBtn = (e.target as Element).closest<HTMLButtonElement>('.col-rename-btn');
+    const deleteBtn = (e.target as Element).closest<HTMLButtonElement>('.col-delete-btn');
+    if (!currentUser) return;
+
+    if (renameBtn) {
+      e.preventDefault();
+      const cid = renameBtn.dataset.cid!;
+      const current = renameBtn.dataset.name ?? '';
+      const next = prompt('Rename collection:', current);
+      if (next == null) return;
+      const trimmed = next.trim();
+      if (!trimmed || trimmed === current) return;
+      try {
+        await renameCollection(currentUser.uid, cid, trimmed);
+        await renderList();
+      } catch (err) {
+        console.error('[collections] rename failed:', err);
+      }
+      return;
+    }
+
+    if (deleteBtn) {
+      e.preventDefault();
+      const cid = deleteBtn.dataset.cid!;
+      const name = deleteBtn.dataset.name ?? 'this collection';
+      if (!confirm(`Delete “${name}”? The posts stay on the site; only this collection is removed.`)) return;
+      const wrapper = deleteBtn.closest('.collection-card-wrapper');
+      if (wrapper) (wrapper as HTMLElement).style.opacity = '0.4';
+      try {
+        await deleteCollection(currentUser.uid, cid);
+        await renderList();
+      } catch (err) {
+        console.error('[collections] delete failed:', err);
+        if (wrapper) (wrapper as HTMLElement).style.opacity = '';
+      }
+    }
+  });
+
+  elDetailGrid.addEventListener('click', async (e: MouseEvent) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('.bm-remove-btn');
+    if (!btn || !currentUser || !detailCid) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const slug = btn.dataset.slug ?? '';
+    if (!slug) return;
+    detailPosts = detailPosts.filter(p => p.slug !== slug);
+    btn.closest('.bm-card-wrapper')?.remove();
+    elCount.textContent = `${detailPosts.length} post${detailPosts.length === 1 ? '' : 's'}`;
+    if (detailPosts.length === 0) {
+      elDetailGrid.style.display = 'none';
+      elDetailEmpty.style.display = '';
+    }
+    try {
+      await removePostFromCollection(currentUser.uid, detailCid, slug);
+    } catch (err) {
+      console.error('[collections] remove post failed:', err);
+    }
+  });
+
+  document.getElementById('col-signin-btn')?.addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      console.error('Sign in failed:', err);
+    }
+  });
+
+  function route() {
+    const cid = currentCollectionId();
+    if (cid) renderDetail(cid);
+    else renderList();
+  }
+
+  // Support browser back/forward between list and detail
+  window.addEventListener('popstate', () => {
+    if (currentUser) route();
+  });
+
+  onAuthStateChanged(auth, async (user: User | null) => {
+    currentUser = user;
+    if (!user) {
+      showState('signed-out');
+      elCount.style.display = 'none';
+      elTitle.textContent = 'Collections';
+      return;
+    }
+    route();
+  });
+</script>
+
+</BaseLayout>

@@ -33,6 +33,14 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Collections: each user owns their own collections and the posts within them
+    match /users/{uid}/collections/{collectionId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /posts/{slug} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
     // Contact messages: public write-only, validated inputs, only admins can read
     match /contact_messages/{id} {
       allow create: if request.resource.data.keys().hasOnly(['email', 'message', 'createdAt'])
@@ -58,6 +66,8 @@ service cloud.firestore {
         && (!('path' in request.resource.data) || (request.resource.data.path is string && request.resource.data.path.size() <= 1000))
         && request.resource.data.createdAt == request.time;
       allow read: if isAdmin();
+      // Admins can mark feedback as done and delete it
+      allow update, delete: if isAdmin();
     }
 
     // Admin access control: users can read their own status; write-only via Admin SDK

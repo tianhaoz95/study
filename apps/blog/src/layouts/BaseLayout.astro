@@ -78,6 +78,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     <a class="nav-link" href="/about" data-i18n="nav-about">About</a>
     <a class="nav-link" id="nav-bookmarks-link" href="/bookmarks" style="display:none" data-i18n="nav-bookmarks">Bookmarks</a>
     <a class="nav-link" id="nav-rl-link" href="/reading-list" style="display:none" data-i18n="nav-reading-list">Reading List</a>
+    <a class="nav-link" id="nav-collections-link" href="/collections" style="display:none" data-i18n="nav-collections">Collections</a>
     <a class="nav-link" id="nav-admin-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Admin</a>
     <a class="nav-link nav-subscribe" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
 
@@ -112,6 +113,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
   <a class="mobile-menu-link" href="/about" data-i18n="nav-about">About</a>
   <a class="mobile-menu-link" href="/bookmarks" id="mobile-bookmarks-link" style="display:none" data-i18n="nav-bookmarks">Bookmarks</a>
   <a class="mobile-menu-link" href="/reading-list" id="mobile-rl-link" style="display:none" data-i18n="nav-reading-list">Reading List</a>
+  <a class="mobile-menu-link" href="/collections" id="mobile-collections-link" style="display:none" data-i18n="nav-collections">Collections</a>
   <a class="mobile-menu-link" href={subscribeUrl} target="_blank" rel="noopener noreferrer" data-i18n="nav-subscribe">Subscribe</a>
   <button class="mobile-menu-link mobile-menu-suggest" id="suggest-btn-mobile">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; opacity:0.8;">
@@ -253,6 +255,29 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       Thank you! Your feedback has been saved.
     </p>
     <p id="feedback-error" class="suggest-feedback suggest-error" style="display:none"></p>
+  </div>
+</div>
+
+<div id="collection-modal" class="modal-backdrop" aria-hidden="true" role="presentation">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="collection-modal-title">
+    <div class="modal-header">
+      <h2 id="collection-modal-title" data-i18n="collection-modal-title">Add to Collection</h2>
+      <button class="btn-icon modal-close" id="collection-close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p class="modal-desc collection-modal-post" id="collection-modal-post"></p>
+    <div class="collection-picker-list" id="collection-picker-list">
+      <div class="collection-picker-loading">Loading…</div>
+    </div>
+    <form id="collection-create-form" class="collection-create-form" novalidate>
+      <input type="text" id="collection-new-name" name="name" autocomplete="off" maxlength="80"
+        placeholder="New collection name…" aria-label="New collection name" />
+      <button type="submit" class="btn btn-primary" id="collection-create-submit" data-i18n="collection-create-btn">
+        Create &amp; add
+      </button>
+    </form>
+    <p id="collection-error" class="suggest-feedback suggest-error" style="display:none"></p>
   </div>
 </div>
 
@@ -573,6 +598,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-about':    'About',
       'nav-bookmarks': 'Bookmarks',
       'nav-reading-list': 'Reading List',
+      'nav-collections': 'Collections',
       'nav-subscribe': 'Subscribe',
       'nav-suggest':  'Suggest Topic',
       'nav-feedback': 'Feedback',
@@ -597,6 +623,8 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'feedback-label-rating': 'How would you rate your experience?',
       'feedback-submit': 'Submit feedback',
       'feedback-success': 'Thank you! Your feedback has been saved.',
+      'collection-modal-title': 'Add to Collection',
+      'collection-create-btn': 'Create & add',
       'tts-trigger': 'Listen to Post',
       'tts-prev': 'Previous paragraph',
       'tts-next': 'Next paragraph',
@@ -620,6 +648,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'nav-about':    '关于',
       'nav-bookmarks': '书签',
       'nav-reading-list': '阅读列表',
+      'nav-collections': '收藏夹',
       'nav-subscribe': '订阅',
       'nav-suggest':  '建议主题',
       'nav-feedback': '反馈建议',
@@ -644,6 +673,8 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       'feedback-label-rating': '你对本站的评分如何？',
       'feedback-submit': '提交反馈',
       'feedback-success': '感谢！你的反馈已成功保存。',
+      'collection-modal-title': '加入收藏夹',
+      'collection-create-btn': '创建并加入',
       'tts-trigger': '听文章',
       'tts-prev': '上一段',
       'tts-next': '下一段',
@@ -941,6 +972,11 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Reading List
                 <span class="dropdown-rl-count" id="dropdown-rl-count" style="display:none">0</span>
+              </a>
+              <a href="/collections" class="dropdown-collections-link" id="dropdown-collections-link">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Collections
+                <span class="dropdown-collections-count" id="dropdown-collections-count" style="display:none">0</span>
               </a>
               <button class="btn-signout" id="auth-signout-btn">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -1448,7 +1484,8 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
 
   function _setUserNavVisible(visible: boolean) {
     for (const id of ['mobile-bookmarks-link', 'nav-bookmarks-link',
-                       'mobile-rl-link', 'nav-rl-link']) {
+                       'mobile-rl-link', 'nav-rl-link',
+                       'mobile-collections-link', 'nav-collections-link']) {
       const el = document.getElementById(id) as HTMLElement | null;
       if (el) el.style.display = visible ? '' : 'none';
     }
@@ -1798,6 +1835,248 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
     _applyUpvoteCounts();
     _initComments();
   }
+</script>
+
+<script>
+  // ── Collections: "Add to collection" picker ─────────────────
+  import { auth } from '../lib/firebase';
+  import { onAuthStateChanged, type User } from 'firebase/auth';
+  import {
+    listCollectionsWithMembership,
+    addPostToCollection,
+    removePostFromCollection,
+    createCollection,
+    listCollections,
+    type CollectionWithMembership,
+  } from '../lib/collections';
+  import type { BookmarkMeta } from '../lib/bookmarks';
+
+  const _cPathParts = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+  const _cPageSlug = _cPathParts[0] === 'posts' && _cPathParts[1] ? _cPathParts[1] : null;
+
+  let _cUser: User | null = null;
+  let _activeMeta: BookmarkMeta | null = null;
+  let _picker: CollectionWithMembership[] = [];
+
+  const modal      = document.getElementById('collection-modal');
+  const postLabel  = document.getElementById('collection-modal-post');
+  const listEl     = document.getElementById('collection-picker-list');
+  const createForm = document.getElementById('collection-create-form') as HTMLFormElement | null;
+  const nameInput  = document.getElementById('collection-new-name') as HTMLInputElement | null;
+  const errorEl    = document.getElementById('collection-error');
+
+  function _cSvg(): string {
+    return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+  }
+
+  function _esc(s: string): string {
+    const d = document.createElement('div');
+    d.innerText = s;
+    return d.innerHTML;
+  }
+
+  function _metaFromBtn(btn: HTMLElement): BookmarkMeta {
+    let tags: { text: string; cls: string }[] = [];
+    try { tags = JSON.parse(btn.dataset.tags ?? '[]'); } catch (e) {}
+    return {
+      slug:  btn.dataset.slug  ?? '',
+      title: btn.dataset.title ?? '',
+      date:  btn.dataset.date  ?? '',
+      href:  btn.dataset.href  ?? '',
+      tags,
+    };
+  }
+
+  function _openModal() {
+    if (!modal) return;
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    if (errorEl) errorEl.style.display = 'none';
+  }
+
+  function _closeModal() {
+    if (!modal) return;
+    modal.setAttribute('aria-hidden', 'true');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    _activeMeta = null;
+    if (createForm) createForm.reset();
+  }
+
+  function _renderPicker() {
+    if (!listEl) return;
+    if (_picker.length === 0) {
+      listEl.innerHTML = `<div class="collection-picker-empty">No collections yet. Create one below to get started.</div>`;
+      return;
+    }
+    listEl.innerHTML = _picker.map(c => `
+      <button class="collection-picker-row ${c.hasPost ? 'is-member' : ''}" data-cid="${_esc(c.id)}" aria-pressed="${c.hasPost}">
+        <span class="collection-picker-check" aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="collection-picker-name">${_esc(c.name)}</span>
+        <span class="collection-picker-count">${c.postCount}</span>
+      </button>
+    `).join('');
+  }
+
+  async function _toggleMembership(cid: string) {
+    if (!_cUser || !_activeMeta) return;
+    const entry = _picker.find(c => c.id === cid);
+    if (!entry) return;
+    const meta = _activeMeta;
+    const wasMember = entry.hasPost;
+    // Optimistic update
+    entry.hasPost = !wasMember;
+    entry.postCount = Math.max(0, entry.postCount + (wasMember ? -1 : 1));
+    _renderPicker();
+    try {
+      if (wasMember) {
+        await removePostFromCollection(_cUser.uid, cid, meta.slug);
+      } else {
+        await addPostToCollection(_cUser.uid, cid, meta);
+      }
+    } catch (err) {
+      // Revert on failure
+      entry.hasPost = wasMember;
+      entry.postCount = Math.max(0, entry.postCount + (wasMember ? 1 : -1));
+      _renderPicker();
+      if (errorEl) {
+        errorEl.textContent = 'Could not update collection. Please try again.';
+        errorEl.style.display = '';
+      }
+      console.error('[collections] toggle failed:', err);
+    }
+  }
+
+  async function _openPickerForButton(btn: HTMLElement) {
+    if (!_cUser) {
+      btn.style.color = 'var(--red)';
+      btn.style.borderColor = 'var(--red)';
+      setTimeout(() => { btn.style.color = ''; btn.style.borderColor = ''; }, 800);
+      return;
+    }
+    _activeMeta = _metaFromBtn(btn);
+    if (!_activeMeta.slug) return;
+    if (postLabel) postLabel.textContent = _activeMeta.title || 'this post';
+    _openModal();
+    if (listEl) listEl.innerHTML = `<div class="collection-picker-loading">Loading…</div>`;
+    try {
+      _picker = await listCollectionsWithMembership(_cUser.uid, _activeMeta.slug);
+      _renderPicker();
+    } catch (err) {
+      console.error('[collections] load failed:', err);
+      if (listEl) listEl.innerHTML = `<div class="collection-picker-empty">Failed to load collections.</div>`;
+    }
+  }
+
+  // Click handler (capture phase): cards are <a>, so intercept before navigation
+  document.addEventListener('click', (e: MouseEvent) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('.post-collection-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    _openPickerForButton(btn);
+  }, true);
+
+  // Picker row toggles
+  listEl?.addEventListener('click', (e: MouseEvent) => {
+    const row = (e.target as Element).closest<HTMLButtonElement>('.collection-picker-row');
+    if (!row) return;
+    const cid = row.dataset.cid;
+    if (cid) _toggleMembership(cid);
+  });
+
+  // Create-and-add
+  createForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!_cUser || !_activeMeta || !nameInput) return;
+    const name = nameInput.value.trim();
+    if (!name) return;
+    const submitBtn = document.getElementById('collection-create-submit') as HTMLButtonElement | null;
+    if (submitBtn) submitBtn.disabled = true;
+    if (errorEl) errorEl.style.display = 'none';
+    try {
+      const cid = await createCollection(_cUser.uid, name);
+      await addPostToCollection(_cUser.uid, cid, _activeMeta);
+      _picker.unshift({ id: cid, name, postCount: 1, hasPost: true });
+      _renderPicker();
+      nameInput.value = '';
+      _updateCollectionsCount(_picker.length);
+    } catch (err) {
+      console.error('[collections] create failed:', err);
+      if (errorEl) {
+        errorEl.textContent = 'Could not create collection. Please try again.';
+        errorEl.style.display = '';
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('collection-close')?.addEventListener('click', _closeModal);
+  modal?.addEventListener('click', (e) => { if (e.target === modal) _closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('is-open')) _closeModal();
+  });
+
+  // ── Hero "Add to collection" button (post pages) ────────────
+  function _initPostPageCollectionBtn() {
+    if (!_cPageSlug) return;
+    if (document.getElementById('post-hero-collection')) return;
+    const heroMeta = document.querySelector<HTMLElement>('.post-hero-meta');
+    if (!heroMeta) return;
+
+    const titleEl = document.querySelector<HTMLElement>('.post-hero h1');
+    const tagEls  = document.querySelectorAll<HTMLElement>('.post-hero .tag');
+    const dateEl  = heroMeta.querySelector<HTMLElement>('span');
+    const tags: { text: string; cls: string }[] = [];
+    tagEls.forEach(el => {
+      const cls = Array.from(el.classList).find(c => c.startsWith('tag-')) ?? '';
+      tags.push({ text: el.textContent?.trim() ?? '', cls: `tag ${cls}` });
+    });
+
+    const btn = document.createElement('button');
+    btn.id = 'post-hero-collection';
+    btn.className = 'post-collection-btn post-collection-hero';
+    btn.setAttribute('aria-label', 'Add to collection');
+    btn.dataset.slug  = _cPageSlug;
+    btn.dataset.title = titleEl?.textContent?.trim() ?? '';
+    btn.dataset.date  = dateEl?.textContent?.trim() ?? '';
+    btn.dataset.href  = window.location.pathname;
+    btn.dataset.tags  = JSON.stringify(tags);
+    btn.innerHTML = `${_cSvg()}<span>Collect</span>`;
+    heroMeta.appendChild(btn);
+  }
+
+  function _removePostPageCollectionBtn() {
+    document.getElementById('post-hero-collection')?.remove();
+  }
+
+  function _updateCollectionsCount(n: number | null) {
+    const el = document.getElementById('dropdown-collections-count');
+    if (!el) return;
+    if (n === null || n === 0) { el.style.display = 'none'; }
+    else { el.textContent = String(n); el.style.display = ''; }
+  }
+
+  onAuthStateChanged(auth, async (user: User | null) => {
+    _cUser = user;
+    if (user) {
+      _initPostPageCollectionBtn();
+      try {
+        const cols = await listCollections(user.uid);
+        _updateCollectionsCount(cols.length);
+      } catch (err) {
+        console.warn('[collections] count load failed:', err);
+      }
+    } else {
+      _removePostPageCollectionBtn();
+      _updateCollectionsCount(null);
+      if (modal?.classList.contains('is-open')) _closeModal();
+    }
+  });
 </script>
 
 <script>
