@@ -57,7 +57,16 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy to Firebase Hosting
-        run: npx firebase-tools@latest deploy --only hosting:heji-study --project heji-study
+        run: |
+          set -o pipefail
+          if npx firebase-tools@latest deploy --only hosting:heji-study --project heji-study 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
+            exit 0
+          elif grep -q "is the current active version" "$RUNNER_TEMP/deploy.log"; then
+            echo "No content changes — site already at this version; treating as success."
+            exit 0
+          else
+            exit 1
+          fi
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
 
