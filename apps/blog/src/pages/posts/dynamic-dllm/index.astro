@@ -1,0 +1,1369 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Dynamic-dLLM: Training-Free Acceleration for Diffusion LLMs | Catpuccino.ai"
+  description="Diffusion LLMs scale as O(L³) with no KV-cache — but Dynamic-dLLM gets 4.48× faster using two adaptive strategies: layer-by-layer dynamic cache budgeting and per-token confidence-tracking thresholds. Plug-and-play, no retraining."
+  crumb="Dynamic-dLLM"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+
+/* Math blocks */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Results bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+.bar-group-label{font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:.5rem 0 .2rem;font-family:var(--ff-mono)}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Toggle controls */
+.mode-btns{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.mode-btn{padding:.3rem .75rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;font-weight:600}
+.mode-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.mode-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.mode-annotation{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted);margin-left:.5rem}
+
+/* Arch SVG */
+.arch-svg-wrap{margin:1.75rem 0;overflow-x:auto}
+.arch-svg-wrap svg{min-width:580px;display:block;margin:0 auto}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LLMs</span>
+    <span class="tag tag-cyan">Inference Efficiency</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Dynamic-dLLM: Adaptive Cache &amp; Thresholds for 4.48× Faster Diffusion LLMs</h1>
+  <p class="lead">Diffusion LLMs are powerful but computationally brutal — O(L³) complexity with no KV-cache. Dynamic-dLLM fixes this with two training-free adaptive strategies: layer-by-layer dynamic cache budgeting and per-token confidence-tracking thresholds. Result: up to 4.48× throughput on LLaDA-8B with near-baseline accuracy, no fine-tuning required.</p>
+  <div class="post-hero-meta">
+    <span>June 28, 2026</span>
+    <span>~10 min read</span>
+    <span>Paper: <code>arXiv:2606.26120</code> · ICLR 2026</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.26120v1" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+    <a class="hero-btn" href="https://github.com/TianyiWu233/DYNAMIC-DLLM" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The O(L³) Wall</a></li>
+    <li class="toc-item" id="toc-s-layer"><a href="#s-layer"><span class="toc-num">02</span> Layer Dynamics</a></li>
+    <li class="toc-item" id="toc-s-threshold"><a href="#s-threshold"><span class="toc-num">03</span> Threshold Trap</a></li>
+    <li class="toc-item" id="toc-s-method"><a href="#s-method"><span class="toc-num">04</span> DCU + APD</a></li>
+    <li class="toc-item" id="toc-s-tradeoff"><a href="#s-tradeoff"><span class="toc-num">05</span> Budget Tradeoff</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 ─ Problem ────────────────────────────────────────────────────── -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The O(L³) Wall</div>
+<h2>Why diffusion LLMs are computationally brutal</h2>
+<p>
+  Autoregressive models generate tokens left-to-right, one at a time. Each step is O(L) and they cache key-value activations once per token — so total generation cost is O(L²). Diffusion LLMs work differently: they start with a fully masked sequence and iteratively unmask tokens over T denoising steps. Every step must process <em>all L tokens</em> with full bidirectional attention. No KV-cache. Total cost: <strong>O(L² × T)</strong> — effectively O(L³) since T scales with L.
+</p>
+<p>
+  For L=512 with T=64 steps, that's 512 × 512 × 64 = 16.8 billion operations. Compare to the final autoregressive forward pass: 512 × 512 = 262K. The gap is staggering. This is why LLaDA-8B achieves only 8–10 tokens per second on a high-end GPU — about 10× slower than comparable autoregressive models.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">compute-cost — AR vs dLLM for L=512 tokens, T=64 steps</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-compute" width="600" height="200" style="width:100%;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  The root problem is that each denoising step must re-evaluate all token representations from scratch. Unlike autoregressive models where a token's key-value pair is computed once and cached, diffusion LLMs update tokens continuously across steps — a token unmasked at step 15 gets re-evaluated at step 14, 13, 12, and so on. Prior acceleration methods tried static caching (reuse cached features for "stable" tokens) or fixed-threshold parallel decoding (unmask multiple tokens per step when confidence exceeds τ). Both use the same strategy for every layer and every step — and both ignore how differently each layer actually behaves.
+</p>
+</section>
+
+<!-- §02 ─ Layer Dynamics ────────────────────────────────────────────── -->
+<section id="s-layer" data-code="layer">
+<div class="section-no">02 — Layers Have Different Update Needs</div>
+<h2>Shallow layers are stable; deep layers are dynamic</h2>
+<p>
+  The key insight behind Dynamic Cache Updating: token representations change at vastly different rates depending on which layer you're in. The authors measured how often tokens' internal features change between consecutive decoding steps and found a clear pattern — shallow layers (1–12) are highly stable, while deep layers (20–32) fluctuate significantly at every step.
+</p>
+<p>
+  Existing methods apply the same cache-update budget to every layer. This wastes compute on stable shallow layers (refreshing things that haven't changed) while under-investing in dynamic deep layers (missing important updates). The fix: measure each layer's actual dynamism and allocate budget proportionally.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">layer-budget — cache update allocation by layer</span>
+    <span class="vp-hint">click to compare Static vs DCU allocation</span>
+  </div>
+  <div class="vp-body">
+    <div class="mode-btns">
+      <button class="mode-btn active" data-layer-mode="static" id="btn-layer-static">Static (Uniform)</button>
+      <button class="mode-btn" data-layer-mode="dcu" id="btn-layer-dcu">DCU (Dynamic)</button>
+      <span class="mode-annotation" id="layer-annotation">Same budget for every layer — wastes compute on stable layers</span>
+    </div>
+    <canvas id="canvas-layer" width="600" height="240" style="width:100%;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  DCU measures token-level dissimilarity at each layer using cosine distance between inputs at adjacent steps. Layers with high average dissimilarity get a proportionally larger update budget. Crucially, computing input-level similarity is cheap — the authors show that layer inputs correlate strongly with downstream activations (Key, Value, Attention Output, FFN Output all have Spearman ρ ≥ 0.94), so the proxy is accurate without extra forward passes.
+</p>
+<p>
+  One edge case: if a token gets skipped for updates across multiple layers (its input doesn't change because it wasn't updated upstream), its variation score drops to zero and it may get starved of updates indefinitely — "stuck in the mud." DCU addresses this with a <strong>Mandatory Update Window</strong>: a fixed-size neighborhood around the "key token" (the highest-confidence token about to be unmasked) is always updated, regardless of the adaptive budget.
+</p>
+</section>
+
+<!-- §03 ─ Threshold Trap ─────────────────────────────────────────────── -->
+<section id="s-threshold" data-code="threshold">
+<div class="section-no">03 — The Threshold Trap</div>
+<h2>Confidence fluctuates — a fixed threshold commits at the wrong time</h2>
+<p>
+  Parallel decoding speeds up diffusion LLMs by unmasking multiple tokens per step: any token whose confidence exceeds a fixed threshold τ (e.g., 0.7) gets committed in the current step. But confidence isn't monotonic. A token can be 82% confident at step 15, drop to 34% at step 12 as surrounding context changes, then stabilize at 95% at step 4. A fixed threshold would commit it too early — with the wrong value.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">confidence-trajectory — token confidence across 16 decoding steps</span>
+    <span class="vp-hint">toggle to see when commitment happens</span>
+  </div>
+  <div class="vp-body">
+    <div class="mode-btns">
+      <button class="mode-btn active" data-thresh-mode="fixed" id="btn-thresh-fixed">Fixed Threshold (τ=0.70)</button>
+      <button class="mode-btn" data-thresh-mode="adaptive" id="btn-thresh-adaptive">Adaptive Threshold (APD)</button>
+      <span class="mode-annotation" id="thresh-annotation">Commits at step 11 → WRONG (confidence drops to 0.34 after)</span>
+    </div>
+    <canvas id="canvas-thresh" width="600" height="260" style="width:100%;display:block;border-radius:6px"></canvas>
+  </div>
+</div>
+
+<p>
+  The paper's observation: the gap between the top prediction and the runner-up is a better signal than absolute confidence. When a token's distribution is concentrated (large gap between #1 and #2 probabilities), it's stable even if the absolute confidence is moderate. When the distribution is diffuse, commitment should be delayed — even if absolute confidence looks high.
+</p>
+<p>
+  APD also tracks <em>temporal instability</em>: the cosine distance between a token's confidence distributions at consecutive steps. Large shifts signal that the model is still updating its prediction — raise the threshold. Small shifts signal stability — lower the threshold for early commitment.
+</p>
+
+<div class="math-block">
+  <div class="math-label">Adaptive Parallel Decoding — threshold update rule</div>
+  <span class="math-var">τᵢᵗ</span> = <span class="math-var">τᵢᵗ⁺¹</span> − <span class="math-var">α</span>·<span class="math-var">cᵢᵗ</span> + <span class="math-var">β</span>·<span class="math-var">Hᵢᵗ</span>
+  <br><span class="math-comment">τᵢᵗ = threshold for token i at step t</span>
+  <br><span class="math-comment">cᵢᵗ = confidence concentration = 1 − (second-highest probability)</span>
+  <br><span class="math-comment">  → large cᵢᵗ means peaked distribution → lower threshold (commit early)</span>
+  <br><span class="math-comment">Hᵢᵗ = cosine distance between confidence at steps t and t+1</span>
+  <br><span class="math-comment">  → large Hᵢᵗ means unstable prediction → raise threshold (hold off)</span>
+</div>
+</section>
+
+<!-- §04 ─ Method ─────────────────────────────────────────────────────── -->
+<section id="s-method" data-code="method">
+<div class="section-no">04 — Dynamic-dLLM: Two Components</div>
+<h2>DCU + APD: a unified adaptive framework</h2>
+
+<div class="arch-svg-wrap">
+<svg viewBox="0 0 720 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Input tokens -->
+  <rect x="10" y="130" width="90" height="60" rx="6" fill="#1a1a2e" stroke="#374151"/>
+  <text x="55" y="152" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">Step t tokens</text>
+  <text x="55" y="166" text-anchor="middle" font-size="10" fill="#f0f0f8" font-family="monospace" font-weight="700">xᵗ</text>
+  <text x="55" y="179" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">some masked</text>
+
+  <!-- Arrow -->
+  <path d="M100 160 L130 160" stroke="#4b5563" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- DCU block -->
+  <rect x="130" y="90" width="170" height="140" rx="8" fill="rgba(6,182,212,.07)" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="215" y="113" text-anchor="middle" font-size="9" fill="#06b6d4" font-family="monospace" font-weight="700">DYNAMIC CACHE UPDATING</text>
+  <text x="215" y="130" text-anchor="middle" font-size="8" fill="#67e8f9" font-family="monospace">1. Measure input similarity</text>
+  <text x="215" y="144" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">dᵢᵗ·ˡ = cosine_dist(xᵗˡ, xᵗ⁺¹ˡ)</text>
+  <text x="215" y="160" text-anchor="middle" font-size="8" fill="#67e8f9" font-family="monospace">2. Layer-wise budget allocation</text>
+  <text x="215" y="174" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">B_layer ∝ mean(dᵢᵗ·ˡ)</text>
+  <text x="215" y="190" text-anchor="middle" font-size="8" fill="#67e8f9" font-family="monospace">3. Mandatory update window</text>
+  <text x="215" y="204" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">always update ±B_window around</text>
+  <text x="215" y="216" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">the highest-confidence token</text>
+
+  <!-- Arrow DCU to model -->
+  <path d="M300 160 L340 160" stroke="#4b5563" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Main transformer model -->
+  <rect x="340" y="115" width="120" height="90" rx="8" fill="rgba(139,92,246,.10)" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="400" y="138" text-anchor="middle" font-size="9" fill="#8b5cf6" font-family="monospace" font-weight="700">TRANSFORMER</text>
+  <text x="400" y="153" text-anchor="middle" font-size="8" fill="#a78bfa" font-family="monospace">dLLM backbone</text>
+  <text x="400" y="169" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">selective cache update</text>
+  <text x="400" y="183" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">per DCU budget</text>
+  <text x="400" y="197" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">zt = fθ(xt) ∈ R^L×|V|</text>
+
+  <!-- Arrow model to APD -->
+  <path d="M460 160 L500 160" stroke="#4b5563" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- APD block -->
+  <rect x="500" y="90" width="170" height="140" rx="8" fill="rgba(16,185,129,.07)" stroke="#10b981" stroke-width="1.5"/>
+  <text x="585" y="113" text-anchor="middle" font-size="9" fill="#10b981" font-family="monospace" font-weight="700">ADAPTIVE PARALLEL DECODING</text>
+  <text x="585" y="130" text-anchor="middle" font-size="8" fill="#6ee7b7" font-family="monospace">1. Confidence concentration</text>
+  <text x="585" y="144" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">cᵢᵗ = 1 − max(zᵢᵗ excl. top-1)</text>
+  <text x="585" y="160" text-anchor="middle" font-size="8" fill="#6ee7b7" font-family="monospace">2. Temporal instability</text>
+  <text x="585" y="174" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">Hᵢᵗ = cosine_dist(zᵢᵗ, zᵢᵗ⁺¹)</text>
+  <text x="585" y="190" text-anchor="middle" font-size="8" fill="#6ee7b7" font-family="monospace">3. Adaptive threshold update</text>
+  <text x="585" y="204" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">τᵢᵗ = τᵢᵗ⁺¹ − α·cᵢᵗ + β·Hᵢᵗ</text>
+  <text x="585" y="218" text-anchor="middle" font-size="8" fill="#6b7280" font-family="monospace">commit if conf(xᵢᵗ) ≥ τᵢᵗ</text>
+
+  <!-- Output arrow -->
+  <path d="M670 160 L705 160" stroke="#4b5563" stroke-width="1.5" marker-end="url(#a1)"/>
+  <text x="713" y="158" font-size="8" fill="#6b7280" font-family="monospace" transform="rotate(90,713,160)">xᵗ⁻¹</text>
+
+  <!-- DCU annotation below -->
+  <text x="215" y="248" text-anchor="middle" font-size="8" fill="#06b6d4" font-family="monospace" font-style="italic">adaptive layer budget</text>
+  <!-- APD annotation below -->
+  <text x="585" y="248" text-anchor="middle" font-size="8" fill="#10b981" font-family="monospace" font-style="italic">adaptive per-token threshold</text>
+
+  <!-- Top note: training-free -->
+  <rect x="280" y="20" width="160" height="26" rx="5" fill="rgba(245,158,11,.1)" stroke="#f59e0b" stroke-width="1"/>
+  <text x="360" y="36" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="monospace" font-weight="700">TRAINING-FREE · PLUG-AND-PLAY</text>
+
+  <!-- Arrow from note down -->
+  <path d="M360 46 L360 115" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+
+  <defs>
+    <marker id="a1" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#4b5563"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+
+<p>
+  Both components work together seamlessly. DCU runs during the transformer forward pass, controlling which tokens' cached features get refreshed per layer. APD runs after the forward pass, using the output logits to decide which tokens are confident enough to unmask in the current step. Neither component requires any gradient computation — just two extra operations on existing activations.
+</p>
+<p>
+  The mandatory update window in DCU ensures that the neighborhood around the most confident token (the one APD is most likely to commit) always gets fresh activations, preventing cascade errors from stale caches.
+</p>
+</section>
+
+<!-- §05 ─ Budget Tradeoff ───────────────────────────────────────────── -->
+<section id="s-tradeoff" data-code="tradeoff">
+<div class="section-no">05 — Cache Budget: Speed vs Accuracy Tradeoff</div>
+<h2>B<sub>layer</sub>=32 hits the sweet spot</h2>
+<p>
+  The two key hyperparameters in DCU are <strong>B<sub>layer</sub></strong> (the per-layer cache update budget — how many tokens get their cache refreshed per layer per step) and <strong>B<sub>window</sub></strong> (the mandatory update window size around the key token). Both control the accuracy/throughput tradeoff.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">budget-tradeoff — accuracy and throughput vs B_layer on LLaDA-8B-Instruct (GSM8K)</span>
+    <span class="vp-hint">click a budget to highlight</span>
+  </div>
+  <div class="vp-body">
+    <canvas id="canvas-budget" width="600" height="240" style="width:100%;display:block;border-radius:6px"></canvas>
+    <div id="budget-note" style="font-size:.72rem;color:var(--muted);font-family:var(--ff-mono);margin-top:.5rem;text-align:center">
+      B_layer=32 — accuracy plateau, throughput peak — chosen as default
+    </div>
+  </div>
+</div>
+
+<p>
+  Larger B<sub>layer</sub> means more tokens get fresh cache updates → higher accuracy but lower throughput (more compute per step). The ablation shows accuracy reaches a plateau around B<sub>layer</sub>=32 while throughput drops rapidly above it. The window B<sub>window</sub> has a similar shape but smaller B<sub>window</sub> causes steeper accuracy drops — the mandatory window is critical for preventing "stuck in the mud" tokens from corrupting the entire generation.
+</p>
+<p>
+  The adaptive threshold in APD can reduce inference steps by approximately <strong>30%</strong> compared to a fixed threshold with the same initialization at τ=0.9, achieving the same accuracy while finishing earlier. This is because the adaptive threshold quickly drops for tokens that have stabilized, enabling earlier commitment without the error rate of a globally low fixed threshold.
+</p>
+</section>
+
+<!-- §06 ─ Results ────────────────────────────────────────────────────── -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Results</div>
+<h2>Consistent speedups across models and benchmarks</h2>
+
+<h3>Average speedup on LLaDA-8B-Instruct</h3>
+<div class="results-bars" id="results-bars">
+  <div class="bar-group-label">Baseline + feature cache methods</div>
+  <div class="bar-row">
+    <div class="bar-label">Baseline (no acceleration)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="31.25" style="background:rgba(107,114,128,.4)"><span>1.00×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">dKV-Cache</div>
+    <div class="bar-track"><div class="bar-fill" data-w="49.7" style="background:rgba(107,114,128,.5)"><span>1.59×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">dLLM-Cache</div>
+    <div class="bar-track"><div class="bar-fill" data-w="70.9" style="background:rgba(107,114,128,.55)"><span>2.27×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Fast-dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="70.9" style="background:rgba(6,182,212,.45)"><span>2.27×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">Dynamic-dLLM (DCU only)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="82.2" style="background:var(--purple)"><span>2.63×</span></div></div>
+  </div>
+  <div class="bar-group-label" style="margin-top:.5rem">+ Parallel decoding variants</div>
+  <div class="bar-row">
+    <div class="bar-label">Fast-dLLM*</div>
+    <div class="bar-track"><div class="bar-fill" data-w="89.1" style="background:rgba(6,182,212,.45)"><span>2.85×</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--green)">Dynamic-dLLM* (DCU + APD)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="100" style="background:linear-gradient(90deg,var(--purple),var(--green))"><span>3.21×</span></div></div>
+  </div>
+</div>
+<p style="font-size:.8rem;color:var(--muted);font-family:var(--ff-mono);margin-top:.5rem">
+  Average across MMLU, ARC-C, GSM8K, GPQA, HumanEval on LLaDA-8B-Instruct. All accuracy metrics within 0.5pp of baseline.
+</p>
+
+<h3>Peak speedup by benchmark (LLaDA-8B-Instruct, Dynamic-dLLM*)</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Benchmark</th>
+      <th>Baseline TPS</th>
+      <th>Dynamic-dLLM* TPS</th>
+      <th>Speedup</th>
+      <th>Accuracy delta</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MMLU (5-shot)</td>
+      <td class="mn">10.19</td>
+      <td class="mn">34.14</td>
+      <td class="mn best">3.35×</td>
+      <td class="mn" style="color:var(--green)">−0.03pp</td>
+    </tr>
+    <tr>
+      <td>ARC-Challenge (0-shot)</td>
+      <td class="mn">25.49</td>
+      <td class="mn">42.31</td>
+      <td class="mn best">1.66×</td>
+      <td class="mn" style="color:var(--amber)">−0.74pp</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><strong>GSM8K (4-shot)</strong></td>
+      <td class="mn">8.32</td>
+      <td class="mn">37.29</td>
+      <td class="mn best">4.48×</td>
+      <td class="mn" style="color:var(--green)">−0.20pp</td>
+    </tr>
+    <tr>
+      <td>GPQA (5-shot)</td>
+      <td class="mn">7.60</td>
+      <td class="mn">31.84</td>
+      <td class="mn best">4.19×</td>
+      <td class="mn" style="color:var(--amber)">−0.28pp</td>
+    </tr>
+    <tr>
+      <td>HumanEval (0-shot)</td>
+      <td class="mn">15.54</td>
+      <td class="mn">36.83</td>
+      <td class="mn best">2.37×</td>
+      <td class="mn" style="color:var(--amber)">−0.46pp</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Cross-model results</h3>
+<p>
+  Dynamic-dLLM* achieves <strong>3.20× average</strong> on LLaDA-1.5 and <strong>2.95× average</strong> on Dream-v0-7B-Instruct — both with near-baseline accuracy across all benchmarks. The method generalizes across architectures without any model-specific tuning.
+</p>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display: none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Dynamic-dLLM</h2>
+    <p>Diffusion LLMs like LLaDA and Dream are powerful but slow — their computational cost scales as O(L cubed) because they cannot use KV-cache and must re-evaluate all tokens at every denoising step. Dynamic-dLLM is a training-free framework that addresses this with two adaptive components: Dynamic Cache Updating, which measures how much each layer's token representations change between steps and allocates cache-refresh budgets proportionally, and Adaptive Parallel Decoding, which tracks each token's confidence concentration and temporal stability to set a per-token commitment threshold that drops when predictions stabilize.</p>
+    <p>On LLaDA-8B-Instruct, Dynamic-dLLM achieves 3.21 times average throughput improvement across five benchmarks, peaking at 4.48 times speedup on GSM8K math, all while maintaining near-baseline accuracy. The method generalizes to LLaDA-1.5 and Dream-v0-7B-Instruct with similar gains, and requires no fine-tuning — it is a fully plug-and-play solution.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：Dynamic-dLLM</h2>
+    <p>LLaDA和Dream等扩散大语言模型功能强大，但速度较慢——其计算复杂度为O(L的三次方)，因为它们无法使用KV缓存，且必须在每个去噪步骤中重新计算所有标记。Dynamic-dLLM是一个无需训练的框架，通过两个自适应组件来解决这一问题：动态缓存更新（DCU），它测量每层标记表示在相邻步骤间的变化程度，并按比例分配缓存刷新预算；以及自适应并行解码（APD），它追踪每个标记的置信度集中度和时间稳定性，为每个标记设置动态承诺阈值，当预测趋于稳定时阈值降低。</p>
+    <p>在LLaDA-8B-Instruct上，Dynamic-dLLM在五个基准测试上实现了平均3.21倍的吞吐量提升，在GSM8K数学推理任务上峰值达到4.48倍加速，同时保持接近基线的准确率。该方法无需任何微调，可直接应用于LLaDA-1.5和Dream-v0-7B-Instruct并取得相似的加速效果。</p>
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">dynamic_dllm/inference.py</div>
+      <div class="cs-section-title" id="cs-section-title">The O(L³) Wall</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="layer">dcu</button>
+    <button class="cs-tab" data-panel="threshold">apd</button>
+    <button class="cs-tab" data-panel="method">arch</button>
+    <button class="cs-tab" data-panel="tradeoff">ablation</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># dLLM inference: O(L² × T) total compute</span>
+<span class="cs-line cmt"># No KV-cache — every step processes all tokens</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="kw">def</span> <span class="fn">dllm_inference</span>(model, prompt, T=<span class="num">64</span>):</span>
+<span class="cs-line hl-a">    L = len(prompt) + gen_length</span>
+<span class="cs-line hl-a">    x = concat(prompt, [MASK] * gen_length)</span>
+<span class="cs-line hl-a">    </span>
+<span class="cs-line hl-a">    <span class="kw">for</span> t <span class="kw">in</span> <span class="fn">range</span>(T, <span class="num">0</span>, -<span class="num">1</span>):       <span class="cmt"># T steps</span></span>
+<span class="cs-line hl-a">        z = model(x)                 <span class="cmt"># O(L²) — full attn</span></span>
+<span class="cs-line hl-a">        x = unmask_tokens(x, z, t)   <span class="cmt"># select tokens</span></span>
+<span class="cs-line hl-a">    <span class="kw">return</span> x</span>
+<span class="cs-line hl-a">    <span class="cmt"># Total: T × O(L²) = O(L³) for T ~ L</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># AR model: O(L²) total (one step per token)</span>
+<span class="cs-line"><span class="kw">def</span> <span class="fn">ar_inference</span>(model, prompt, gen_length):</span>
+<span class="cs-line">    x = list(prompt)</span>
+<span class="cs-line">    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(gen_length):    <span class="cmt"># L steps</span></span>
+<span class="cs-line">        tok = model(x, kv_cache)    <span class="cmt"># O(L) with cache</span></span>
+<span class="cs-line">        x.append(tok)</span>
+<span class="cs-line">    <span class="kw">return</span> x</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Concrete numbers (L=512, T=64):</span>
+<span class="cs-line cmt">#   dLLM:  512 × 512 × 64  = 16.8B ops</span>
+<span class="cs-line cmt">#   AR:    512 × 512        = 262K ops (final step)</span>
+<span class="cs-line cmt"># → dLLM pays ~64,000× more per generation</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Existing fixes (flawed):</span>
+<span class="cs-line cmt"># dLLM-Cache: static cache — same budget/layer</span>
+<span class="cs-line cmt"># Fast-dLLM:  fixed threshold — misses volatility</span>
+<span class="cs-line cmt"># Both ignore dynamics across layers and steps</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-layer">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Dynamic Cache Updating (DCU) — Section 3.1</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">dcu_allocate</span>(x_curr, x_prev, B_layer, B_window):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Step 1: measure token dissimilarity per layer</span></span>
+<span class="cs-line hl-p">    d = &#123;&#125;  <span class="cmt"># d[l][i] = cosine distance for token i, layer l</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> l <span class="kw">in</span> <span class="fn">range</span>(num_layers):</span>
+<span class="cs-line hl-p">        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(seq_len):</span>
+<span class="cs-line hl-p">            d[l][i] = <span class="num">1</span> - <span class="fn">cosine_sim</span>(x_curr[l][i], x_prev[l][i])</span>
+<span class="cs-line hl-p">    </span>
+<span class="cs-line hl-c">    <span class="cmt"># Step 2: layer-wise dynamism score</span></span>
+<span class="cs-line hl-c">    s = &#123;l: <span class="fn">mean</span>(d[l].values()) <span class="kw">for</span> l <span class="kw">in</span> <span class="fn">range</span>(num_layers)&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># Step 3: proportional budget allocation</span></span>
+<span class="cs-line hl-g">    total = B_layer * num_layers</span>
+<span class="cs-line hl-g">    budget = &#123;l: total * s[l] / <span class="fn">sum</span>(s.values()) <span class="kw">for</span> l <span class="kw">in</span> s&#125;</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Step 4: mandatory update window (prevent stuck-in-mud)</span></span>
+<span class="cs-line">    key_pos = <span class="fn">argmax</span>(confidence)   <span class="cmt"># most confident token</span></span>
+<span class="cs-line">    window = <span class="fn">range</span>(key_pos - B_window//<span class="num">2</span>,</span>
+<span class="cs-line">                   key_pos + B_window//<span class="num">2</span>)</span>
+<span class="cs-line">    <span class="kw">for</span> l <span class="kw">in</span> <span class="fn">range</span>(num_layers):</span>
+<span class="cs-line">        update_set[l] |= window     <span class="cmt"># always update window</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key property: d correlates with deeper features</span>
+<span class="cs-line cmt"># Spearman ρ ≥ 0.94 for Key, Value, Attn, FFN</span>
+<span class="cs-line cmt"># → cheap proxy, no extra forward pass needed</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Finding: update rate increases with layer depth</span>
+<span class="cs-line cmt"># Layers 1-12: ~25% tokens need update</span>
+<span class="cs-line cmt"># Layers 20-32: ~70% tokens need update</span>
+<span class="cs-line cmt"># Static methods waste compute on shallow layers</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-threshold">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Adaptive Parallel Decoding (APD) — Section 3.2</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">apd_update_threshold</span>(z_curr, z_prev, tau_prev, alpha, beta):</span>
+<span class="cs-line hl-p">    <span class="cmt"># z_curr[i] = confidence distribution over vocab for token i</span></span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(seq_len):</span>
+<span class="cs-line hl-p">        <span class="cmt"># concentration: 1 - second-highest prob</span></span>
+<span class="cs-line hl-p">        top1_idx = <span class="fn">argmax</span>(z_curr[i])</span>
+<span class="cs-line hl-p">        c = <span class="num">1</span> - <span class="fn">max</span>(z_curr[i][j] <span class="kw">for</span> j != top1_idx)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c">        <span class="cmt"># temporal instability: distribution shift</span></span>
+<span class="cs-line hl-c">        H = <span class="num">1</span> - <span class="fn">cosine_sim</span>(z_curr[i], z_prev[i])</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">        <span class="cmt"># update threshold</span></span>
+<span class="cs-line hl-g">        tau[i] = tau_prev[i] - alpha * c + beta * H</span>
+<span class="cs-line hl-g">        <span class="cmt"># large c → confident → lower threshold → commit early</span></span>
+<span class="cs-line hl-g">        <span class="cmt"># large H → unstable → raise threshold → hold off</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># Commit token if confidence exceeds its threshold</span></span>
+<span class="cs-line">    commit = &#123;i <span class="kw">for</span> i <span class="kw">if</span> <span class="fn">max</span>(z_curr[i]) &gt;= tau[i]&#125;</span>
+<span class="cs-line">    <span class="kw">return</span> commit, tau</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key finding (ablation):</span>
+<span class="cs-line cmt"># Fixed τ=0.9: X inference steps</span>
+<span class="cs-line cmt"># Adaptive τ starting at 0.9: 0.7X steps (-30%)</span>
+<span class="cs-line cmt"># Same accuracy — adaptive commits earlier on</span>
+<span class="cs-line cmt"># stable tokens, holds off on unstable ones</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Why fixed thresholds fail:</span>
+<span class="cs-line cmt"># token "the" at step 15: conf=0.82 (crosses τ=0.7)</span>
+<span class="cs-line cmt"># → committed, but at step 12 would have been 0.34</span>
+<span class="cs-line cmt"># → committed wrong token, error propagates</span>
+<span class="cs-line cmt"># APD: H is high at step 15 → threshold stays 0.85</span>
+<span class="cs-line cmt">    # → correctly waits until step 4 (conf=0.91, stable)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-method">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Dynamic-dLLM unified inference loop</span>
+<span class="cs-line cmt"># Both components are plug-and-play — no fine-tuning</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">dynamic_dllm_step</span>(model, x_curr, x_prev, tau, params):</span>
+<span class="cs-line hl-p">    B_layer, B_window, alpha, beta = params</span>
+<span class="cs-line hl-p">    </span>
+<span class="cs-line hl-c">    <span class="cmt"># 1. DCU: compute layer-adaptive update sets</span></span>
+<span class="cs-line hl-c">    update_sets = <span class="fn">dcu_allocate</span>(x_curr, x_prev,</span>
+<span class="cs-line hl-c">                                B_layer, B_window)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g">    <span class="cmt"># 2. Forward pass with selective cache update</span></span>
+<span class="cs-line hl-g">    z = model.<span class="fn">forward_with_cache</span>(x_curr,</span>
+<span class="cs-line hl-g">                                  update_sets=update_sets)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># 3. APD: adaptive threshold per token</span></span>
+<span class="cs-line">    z_prev = model.<span class="fn">get_prev_logits</span>()</span>
+<span class="cs-line">    commit, tau_new = <span class="fn">apd_update_threshold</span>(</span>
+<span class="cs-line">        z, z_prev, tau, alpha, beta)</span>
+<span class="cs-line"> </span>
+<span class="cs-line">    <span class="cmt"># 4. Update sequence</span></span>
+<span class="cs-line">    x_new = <span class="fn">unmask_committed</span>(x_curr, z, commit)</span>
+<span class="cs-line">    <span class="kw">return</span> x_new, tau_new</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Defaults: B_layer=32, B_window=32</span>
+<span class="cs-line cmt"># α, β tuned per model (small values, stable)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Feature correlation justifying DCU proxy:</span>
+<span class="cs-line cmt"># Layer input vs Attention output: ρ=0.94</span>
+<span class="cs-line cmt"># Layer input vs FFN output:       ρ=0.97</span>
+<span class="cs-line cmt"># Layer input vs Key:               ρ=0.99</span>
+<span class="cs-line cmt"># Layer input vs Value:             ρ=0.99</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-tradeoff">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Ablation: B_layer on GSM8K (LLaDA-8B-Instruct)</span>
+<span class="cs-line cmt"># B_window=32 fixed, no parallel decoding</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># B_layer   Accuracy   TPS    Speedup</span>
+<span class="cs-line cmt"># 8         74.2%      32.1   3.86×</span>
+<span class="cs-line cmt"># 16        76.8%      29.8   3.58×</span>
+<span class="cs-line cmt"># 32        78.2%      27.2   3.27×   ← sweet spot</span>
+<span class="cs-line cmt"># 48        78.3%      22.1   2.66×</span>
+<span class="cs-line cmt"># 64        78.2%      16.3   1.96×</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Pattern: accuracy plateaus at ~32</span>
+<span class="cs-line cmt">          # throughput drops sharply above 32</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: B_window (B_layer=32 fixed)</span>
+<span class="cs-line cmt"># B_window  Accuracy   TPS    Notes</span>
+<span class="cs-line cmt"># 8         71.4%      31.0   accuracy suffers</span>
+<span class="cs-line cmt"># 16        76.1%      29.4   partial recovery</span>
+<span class="cs-line cmt"># 32        78.2%      27.2   sweet spot (default)</span>
+<span class="cs-line cmt"># 48        78.1%      24.8   diminishing returns</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Ablation: dynamic vs fixed threshold (APD)</span>
+<span class="cs-line cmt"># Init τ=0.9 (high, safe initialization)</span>
+<span class="cs-line cmt"># Fixed τ=0.9:    X steps, accuracy Y</span>
+<span class="cs-line cmt"># Adaptive τ=0.9: 0.7X steps, accuracy Y (-30% steps)</span>
+<span class="cs-line cmt"># Same accuracy — adaptive finishes faster by</span>
+<span class="cs-line cmt"># committing stable tokens earlier</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># Conclusion: Dynamic strategy strictly dominates</span></span>
+<span class="cs-line hl-p"><span class="cmt"># static strategy at every operating point</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Key results — Dynamic-dLLM* (DCU + APD)</span>
+<span class="cs-line cmt"># Evaluated on NVIDIA Pro6000 GPUs</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># LLaDA-8B-Instruct (Table 1)</span>
+<span class="cs-line cmt"># Benchmark    Base TPS  Ours TPS  Speedup  Acc Δ</span>
+<span class="cs-line cmt"># MMLU         10.19     34.14     3.35×    −0.03pp</span>
+<span class="cs-line cmt"># ARC-C        25.49     42.31     1.66×    −0.74pp</span>
+<span class="cs-line hl-g"><span class="cmt"># GSM8K         8.32     37.29     4.48×    −0.20pp  ← peak</span></span>
+<span class="cs-line cmt"># GPQA          7.60     31.84     4.19×    −0.28pp</span>
+<span class="cs-line cmt"># HumanEval    15.54     36.83     2.37×    −0.46pp</span>
+<span class="cs-line cmt"># Average speedup: 3.21×, avg accuracy Δ: −0.34pp</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># LLaDA-1.5 (Table 2)</span>
+<span class="cs-line cmt"># GSM8K: 8.30 → 37.02 TPS (4.46×), acc: 61.08→60.67</span>
+<span class="cs-line cmt"># Average speedup: 3.20×</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Dream-v0-7B-Instruct (Table 3)</span>
+<span class="cs-line cmt"># GSM8K: 8.05 → 31.48 TPS (3.91×), acc: 77.47→77.52</span>
+<span class="cs-line cmt"># Average speedup: 2.95×</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Comparison (LLaDA-8B avg speedup)</span>
+<span class="cs-line cmt"># dKV-Cache:      1.59×</span>
+<span class="cs-line cmt"># dLLM-Cache:     2.27×</span>
+<span class="cs-line cmt"># Fast-dLLM:      2.27×</span>
+<span class="cs-line cmt"># Fast-dLLM*:     2.85×</span>
+<span class="cs-line hl-p"><span class="cmt"># Dynamic-dLLM:   2.63×  (DCU only)</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Dynamic-dLLM*:  3.21×  (DCU + APD) ← best</span></span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+/* ─── TOC + sidebar toggles ─────────────────────────────────────────── */
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+/* ─── Code sidebar tab switching ───────────────────────────────────── */
+const tabMeta = {
+  problem:   { file: 'dynamic_dllm/inference.py',   title: 'The O(L³) Wall' },
+  layer:     { file: 'dynamic_dllm/dcu.py',         title: 'Dynamic Cache Updating' },
+  threshold: { file: 'dynamic_dllm/apd.py',         title: 'Adaptive Parallel Decoding' },
+  method:    { file: 'dynamic_dllm/forward.py',     title: 'DCU + APD Pipeline' },
+  tradeoff:  { file: 'dynamic_dllm/ablation.py',    title: 'Budget Tradeoff' },
+  results:   { file: 'dynamic_dllm/results.py',     title: 'Results & Numbers' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+/* ─── IntersectionObserver ─────────────────────────────────────────── */
+const sectionMap = {
+  's-problem':   'problem',
+  's-layer':     'layer',
+  's-threshold': 'threshold',
+  's-method':    'method',
+  's-tradeoff':  'tradeoff',
+  's-results':   'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+/* ─── §01: Compute cost canvas ─────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('canvas-compute');
+  if (!canvas) return;
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 200;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  const PAD = 20;
+  const chartW = W - PAD * 2;
+  const chartH = H - PAD * 2 - 20;
+  const lengths = [128, 256, 512, 1024, 2048];
+  const T = 64;
+
+  // Normalize to 1.0 at L=128
+  const base = 128 * 128; // AR cost at L=128
+  const arCosts  = lengths.map(L => (L * L) / base);
+  const dllmCosts = lengths.map(L => (L * L * T) / base);
+  const maxCost = dllmCosts[dllmCosts.length - 1];
+
+  // Draw grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD + chartH - (chartH * i / 4);
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(PAD + chartW, y); ctx.stroke();
+  }
+
+  // X axis labels
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  lengths.forEach((L, i) => {
+    const x = PAD + (chartW * i / (lengths.length - 1));
+    ctx.fillText('L=' + L, x, PAD + chartH + 16);
+  });
+
+  // Y label
+  ctx.save();
+  ctx.translate(12, PAD + chartH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Relative Compute Cost', 0, 0);
+  ctx.restore();
+
+  function drawLine(costs, color) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    costs.forEach((c, i) => {
+      const x = PAD + (chartW * i / (costs.length - 1));
+      const y = PAD + chartH - (chartH * Math.min(c / maxCost, 1));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // Dot at end
+    const lastX = PAD + chartW;
+    const lastY = PAD + chartH - (chartH * Math.min(costs[costs.length-1] / maxCost, 1));
+    ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+  }
+
+  drawLine(arCosts, '#06b6d4');
+  drawLine(dllmCosts, '#8b5cf6');
+
+  // Labels
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#06b6d4';
+  ctx.textAlign = 'left';
+  ctx.fillText('AR — O(L²)', PAD + chartW + 4, PAD + chartH - (chartH * arCosts[arCosts.length-1] / maxCost) + 4);
+  ctx.fillStyle = '#8b5cf6';
+  ctx.fillText('dLLM — O(L² × T)', PAD + chartW / 2, PAD + 14);
+  ctx.fillStyle = '#f59e0b';
+  ctx.textAlign = 'left';
+  ctx.fillText('L=512: dLLM is ~64× more expensive', PAD + 4, PAD + chartH - 8);
+})();
+
+/* ─── §02: Layer budget canvas ─────────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('canvas-layer');
+  if (!canvas) return;
+
+  // Simulate layer dynamics: update rate increases with depth
+  function seededRand(n) { return ((1664525*n+1013904223)&0x7fffffff)/0x7fffffff; }
+
+  let layerMode = 'static';
+
+  function draw(mode) {
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = 240;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    ctx.fillStyle = '#0d0d14';
+    ctx.fillRect(0, 0, W, H);
+
+    const NUM_LAYERS = 32;
+    const NUM_STEPS = 16;
+    const PAD_L = 55, PAD_T = 20, PAD_R = 20, PAD_B = 30;
+    const cellW = (W - PAD_L - PAD_R) / NUM_STEPS;
+    const cellH = (H - PAD_T - PAD_B) / NUM_LAYERS;
+
+    // Update rates: each layer has a base dynamism score
+    // Shallow (0-10): low (0.1-0.35), deep (20-31): high (0.5-0.85)
+    function layerDynamism(l) {
+      return 0.1 + (l / (NUM_LAYERS - 1)) * 0.75 + seededRand(l * 3) * 0.1;
+    }
+
+    for (let l = 0; l < NUM_LAYERS; l++) {
+      for (let s = 0; s < NUM_STEPS; s++) {
+        let intensity;
+        if (mode === 'static') {
+          intensity = 0.45 + seededRand(l * 20 + s) * 0.1; // uniform with noise
+        } else {
+          // DCU: proportional to layer dynamism, with step variation
+          const base = layerDynamism(l);
+          intensity = base + seededRand(l * 20 + s) * 0.05;
+        }
+        intensity = Math.max(0, Math.min(1, intensity));
+
+        const x = PAD_L + s * cellW;
+        const y = PAD_T + l * cellH;
+
+        // Color: dark blue (low) → orange (high)
+        const r = Math.round(intensity < 0.5
+          ? 6 + (intensity / 0.5) * (245 - 6)
+          : 245);
+        const g = Math.round(intensity < 0.5
+          ? 182 * (1 - intensity / 0.5) + 158 * (intensity / 0.5)
+          : 158 * (1 - (intensity - 0.5) / 0.5) + 107 * (intensity - 0.5) / 0.5);
+        const b = Math.round(intensity < 0.5
+          ? 212 - (intensity / 0.5) * 212
+          : 17);
+        const alpha = 0.15 + intensity * 0.7;
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fillRect(x + 0.5, y + 0.5, cellW - 1, cellH - 1);
+      }
+    }
+
+    // Layer axis labels
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    [0, 8, 16, 24, 31].forEach(l => {
+      const y = PAD_T + l * cellH + cellH / 2;
+      ctx.fillText('L' + (l + 1), PAD_L - 4, y + 3);
+    });
+
+    // Step axis labels
+    ctx.textAlign = 'center';
+    [0, 4, 8, 12, 15].forEach(s => {
+      const x = PAD_L + s * cellW + cellW / 2;
+      ctx.fillText('t=' + (15 - s), x, H - PAD_B + 14);
+    });
+
+    // Y axis label
+    ctx.save();
+    ctx.translate(12, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Layer (shallow → deep)', 0, 0);
+    ctx.restore();
+
+    // Color legend
+    const gradX = PAD_L;
+    const gradY = H - PAD_B + 4;
+    const gradW = (W - PAD_L - PAD_R) / 2;
+    const grad = ctx.createLinearGradient(gradX, 0, gradX + gradW, 0);
+    grad.addColorStop(0, 'rgba(6,182,212,.7)');
+    grad.addColorStop(0.5, 'rgba(245,158,11,.7)');
+    grad.addColorStop(1, 'rgba(239,68,68,.7)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(gradX, gradY, gradW, 6);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('low update', gradX, gradY - 2);
+    ctx.textAlign = 'right';
+    ctx.fillText('high update', gradX + gradW, gradY - 2);
+  }
+
+  draw('static');
+
+  document.getElementById('btn-layer-static')?.addEventListener('click', () => {
+    layerMode = 'static';
+    document.getElementById('btn-layer-static').classList.add('active');
+    document.getElementById('btn-layer-dcu').classList.remove('active');
+    document.getElementById('layer-annotation').textContent = 'Same budget for every layer — wastes compute on stable layers';
+    draw('static');
+  });
+  document.getElementById('btn-layer-dcu')?.addEventListener('click', () => {
+    layerMode = 'dcu';
+    document.getElementById('btn-layer-static').classList.remove('active');
+    document.getElementById('btn-layer-dcu').classList.add('active');
+    document.getElementById('layer-annotation').textContent = 'DCU: budget proportional to layer dynamism — shallow layers spend less, deep layers get more';
+    draw('dcu');
+  });
+
+  window.addEventListener('resize', () => draw(layerMode));
+})();
+
+/* ─── §03: Confidence trajectory canvas ────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('canvas-thresh');
+  if (!canvas) return;
+
+  // Confidence trajectory over 16 steps (step 16 down to 0)
+  // Simulates a token that rises, dips, then stabilizes
+  const CONF = [
+    // step 16→0 (index 0 = step 16, index 15 = step 1)
+    0.55, 0.68, 0.82, 0.74,  // steps 16→13: rises, looks confident
+    0.61, 0.38, 0.28, 0.35,  // steps 12→9:  dips — context changes!
+    0.52, 0.70, 0.81, 0.88,  // steps 8→5:   rises again
+    0.91, 0.93, 0.95, 0.97   // steps 4→1:   stabilizes high
+  ];
+
+  // Adaptive threshold trajectory: starts 0.88, drops when stable
+  const ADAPTIVE_THRESH = [
+    0.88, 0.87, 0.86, 0.88,  // volatile early: stays high
+    0.89, 0.91, 0.92, 0.90,  // dip: H is high, threshold rises
+    0.88, 0.85, 0.82, 0.79,  // stabilizing: c increases, drops
+    0.75, 0.72, 0.70, 0.68   // stable: commits here (step 4)
+  ];
+  const FIXED_THRESH = 0.70; // flat red line
+
+  // Fixed commits at index 2 (step 14: conf=0.82 >= 0.70) → wrong
+  // Adaptive commits at index 12 (step 4: conf=0.91 >= 0.75) → correct
+  const FIXED_COMMIT_IDX = 2;
+  const ADAPTIVE_COMMIT_IDX = 12;
+
+  let threshMode = 'fixed';
+
+  function draw(mode) {
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = 260;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    ctx.fillStyle = '#0d0d14';
+    ctx.fillRect(0, 0, W, H);
+
+    const PAD_L = 48, PAD_T = 20, PAD_R = 30, PAD_B = 40;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const N = CONF.length;
+
+    function toX(i) { return PAD_L + (chartW * i / (N - 1)); }
+    function toY(v) { return PAD_T + chartH * (1 - v); }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 0.5;
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, toY(v)); ctx.lineTo(PAD_L + chartW, toY(v));
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText((v * 100).toFixed(0) + '%', PAD_L - 4, toY(v) + 3);
+    });
+
+    // X axis labels (step numbers, right to left)
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    [0, 3, 6, 9, 12, 15].forEach(i => {
+      ctx.fillText('t=' + (N - i), toX(i), H - PAD_B + 14);
+    });
+
+    // Y label
+    ctx.save();
+    ctx.translate(12, PAD_T + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Token Confidence', 0, 0);
+    ctx.restore();
+
+    // X label
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('← decoding steps (left = early, right = late)', PAD_L + chartW / 2, H - 6);
+
+    // Draw threshold line
+    if (mode === 'fixed') {
+      // Fixed threshold: flat red line at 0.70
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(239,68,68,.8)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 3]);
+      ctx.moveTo(toX(0), toY(FIXED_THRESH));
+      ctx.lineTo(toX(N - 1), toY(FIXED_THRESH));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#f87171';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('Fixed τ = 0.70', toX(0) + 4, toY(FIXED_THRESH) - 4);
+    } else {
+      // Adaptive threshold: draw as a line
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(16,185,129,.8)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 2]);
+      ADAPTIVE_THRESH.forEach((v, i) => {
+        const x = toX(i), y = toY(v);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#6ee7b7';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('Adaptive τ (APD)', toX(0) + 4, toY(ADAPTIVE_THRESH[0]) - 4);
+    }
+
+    // Draw confidence curve (purple)
+    ctx.beginPath();
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 2.5;
+    CONF.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(toX(i), toY(v)); else ctx.lineTo(toX(i), toY(v));
+    });
+    ctx.stroke();
+
+    // Draw confidence dots
+    CONF.forEach((v, i) => {
+      ctx.beginPath();
+      ctx.arc(toX(i), toY(v), 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#a78bfa';
+      ctx.fill();
+    });
+
+    // Commit marker
+    const commitIdx = mode === 'fixed' ? FIXED_COMMIT_IDX : ADAPTIVE_COMMIT_IDX;
+    const commitConf = CONF[commitIdx];
+    const cx = toX(commitIdx), cy = toY(commitConf);
+
+    // Vertical line at commit
+    ctx.beginPath();
+    ctx.strokeStyle = mode === 'fixed' ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.6)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 2]);
+    ctx.moveTo(cx, PAD_T); ctx.lineTo(cx, PAD_T + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Circle at commit point
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.strokeStyle = mode === 'fixed' ? '#ef4444' : '#10b981';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Label
+    const label = mode === 'fixed'
+      ? '⚠ Committed here (step 14, conf=82%)\nbut later drops to 34%!'
+      : '✓ Committed here (step 4, conf=91%)\nstable — correct prediction';
+    const lines = label.split('\n');
+    const labelX = cx + (commitIdx > N/2 ? -8 : 8);
+    const labelAlign = commitIdx > N/2 ? 'right' : 'left';
+    ctx.fillStyle = mode === 'fixed' ? '#f87171' : '#6ee7b7';
+    ctx.font = '9px monospace';
+    ctx.textAlign = labelAlign;
+    lines.forEach((line, li) => {
+      ctx.fillText(line, labelX, cy - 18 + li * 13);
+    });
+  }
+
+  draw('fixed');
+
+  document.getElementById('btn-thresh-fixed')?.addEventListener('click', () => {
+    threshMode = 'fixed';
+    document.getElementById('btn-thresh-fixed').classList.add('active');
+    document.getElementById('btn-thresh-adaptive').classList.remove('active');
+    document.getElementById('thresh-annotation').textContent = 'Commits at step 14 → WRONG (confidence drops to 34% after)';
+    draw('fixed');
+  });
+  document.getElementById('btn-thresh-adaptive')?.addEventListener('click', () => {
+    threshMode = 'adaptive';
+    document.getElementById('btn-thresh-fixed').classList.remove('active');
+    document.getElementById('btn-thresh-adaptive').classList.add('active');
+    document.getElementById('thresh-annotation').textContent = 'APD tracks stability — commits at step 4 when prediction is stable → CORRECT';
+    draw('adaptive');
+  });
+
+  window.addEventListener('resize', () => draw(threshMode));
+})();
+
+/* ─── §05: Budget tradeoff canvas ──────────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('canvas-budget');
+  if (!canvas) return;
+
+  // Accuracy and throughput vs B_layer (from ablation data)
+  // B_layer: 4, 8, 16, 24, 32, 40, 48, 64
+  const bValues  = [4,   8,    16,   24,   32,   40,   48,   64];
+  const accuracy = [70.1, 74.2, 76.8, 77.9, 78.2, 78.3, 78.2, 78.2]; // GSM8K accuracy
+  const throughput = [38.1, 32.1, 29.8, 28.4, 27.2, 25.1, 22.1, 16.3]; // TPS
+
+  let highlightIdx = 4; // B=32
+
+  function draw() {
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = 240;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    ctx.fillStyle = '#0d0d14';
+    ctx.fillRect(0, 0, W, H);
+
+    const PAD_L = 55, PAD_T = 20, PAD_R = 80, PAD_B = 40;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+    const N = bValues.length;
+
+    const accMin = 68, accMax = 80;
+    const tpsMax = 42;
+
+    function toX(i) { return PAD_L + (chartW * i / (N - 1)); }
+    function toAccY(v) { return PAD_T + chartH * (1 - (v - accMin) / (accMax - accMin)); }
+    function toTpsY(v) { return PAD_T + chartH * (1 - v / tpsMax); }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 0.5;
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(f => {
+      const y = PAD_T + chartH * (1 - f);
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(PAD_L + chartW, y); ctx.stroke();
+    });
+
+    // X axis labels
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    bValues.forEach((b, i) => {
+      ctx.fillText('B=' + b, toX(i), H - PAD_B + 14);
+    });
+    ctx.fillText('Cache budget B_layer', PAD_L + chartW / 2, H - 4);
+
+    // Left Y axis (accuracy)
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    [68, 72, 76, 80].forEach(v => {
+      ctx.fillText(v + '%', PAD_L - 4, toAccY(v) + 3);
+    });
+    ctx.save();
+    ctx.translate(14, PAD_T + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Accuracy (GSM8K)', 0, 0);
+    ctx.restore();
+
+    // Right Y axis (throughput)
+    ctx.fillStyle = '#8b5cf6';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    [10, 20, 30, 40].forEach(v => {
+      ctx.fillText(v + ' TPS', PAD_L + chartW + 4, toTpsY(v) + 3);
+    });
+
+    // Highlight band for sweet spot
+    if (highlightIdx >= 0) {
+      const hx = toX(highlightIdx);
+      ctx.fillStyle = 'rgba(139,92,246,.08)';
+      ctx.fillRect(hx - 15, PAD_T, 30, chartH);
+      ctx.strokeStyle = 'rgba(139,92,246,.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath(); ctx.moveTo(hx, PAD_T); ctx.lineTo(hx, PAD_T + chartH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Accuracy line (cyan)
+    ctx.beginPath();
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2;
+    accuracy.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(toX(i), toAccY(v)); else ctx.lineTo(toX(i), toAccY(v));
+    });
+    ctx.stroke();
+
+    // Throughput line (purple)
+    ctx.beginPath();
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 2;
+    throughput.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(toX(i), toTpsY(v)); else ctx.lineTo(toX(i), toTpsY(v));
+    });
+    ctx.stroke();
+
+    // Dots
+    accuracy.forEach((v, i) => {
+      ctx.beginPath(); ctx.arc(toX(i), toAccY(v), i === highlightIdx ? 5 : 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#06b6d4'; ctx.fill();
+    });
+    throughput.forEach((v, i) => {
+      ctx.beginPath(); ctx.arc(toX(i), toTpsY(v), i === highlightIdx ? 5 : 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#8b5cf6'; ctx.fill();
+    });
+
+    // Legend
+    ctx.fillStyle = '#06b6d4'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('─ Accuracy', PAD_L + 4, PAD_T + 14);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fillText('─ Throughput (TPS)', PAD_L + 80, PAD_T + 14);
+  }
+
+  draw();
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
+    const DPR = window.devicePixelRatio || 1;
+    const W = canvas.width / DPR;
+    const PAD_L = 55, PAD_R = 80;
+    const chartW = W - PAD_L - PAD_R;
+    const N = bValues.length;
+    let closest = 0, minD = Infinity;
+    bValues.forEach((_, i) => {
+      const x = (PAD_L + chartW * i / (N - 1)) * DPR;
+      if (Math.abs(clickX - x) < minD) { minD = Math.abs(clickX - x); closest = i; }
+    });
+    highlightIdx = closest;
+    const note = document.getElementById('budget-note');
+    if (note) note.textContent = `B_layer=${bValues[closest]} — accuracy: ${accuracy[closest]}%, throughput: ${throughput[closest]} TPS`;
+    draw();
+  });
+
+  window.addEventListener('resize', draw);
+})();
+
+/* ─── §06: Animated bars ────────────────────────────────────────────── */
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = parseFloat(b.dataset.w) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+
+</BaseLayout>
