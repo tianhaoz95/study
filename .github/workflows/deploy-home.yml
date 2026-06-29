@@ -51,10 +51,15 @@ jobs:
           VITE_SUBSCRIBE_URL: https://heji-study-subscribe.web.app
           VITE_GITHUB_URL: https://github.com/tianhaoz95/study
 
-      - name: Deploy to Firebase Hosting
-        run: npx firebase-tools@15.22.1 deploy --only hosting:heji-study --token "$FIREBASE_TOKEN"
+      - name: Authenticate to Firebase
+        run: printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools@15.22.1 deploy --only hosting:heji-study --project heji-study
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
 
       - name: Update deployment status
         uses: bobheadxi/deployments@v1
