@@ -31,19 +31,19 @@ jobs:
           token: ${{ github.token }}
           env: firestore
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Authenticate to Firebase
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/firebase-sa.json"
-          echo "decoded bytes: $(wc -c < "$RUNNER_TEMP/firebase-sa.json")"
-          node -e "const c=require(process.env.RUNNER_TEMP+'/firebase-sa.json'); console.log('type:', c.type, 'client_email:', c.client_email, 'has_private_key:', !!c.private_key)"
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/firebase-sa.json"
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy to Firebase Firestore
-        run: npx firebase-tools@15.22.1 deploy --only firestore:rules --project heji-study --debug 2>&1 | grep -ivE "private_key|BEGIN|END" | tail -40
+        run: npx firebase-tools@15.22.1 deploy --only firestore:rules --project heji-study
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
-          NODE_OPTIONS: --dns-result-order=ipv4first
 
       - name: Update deployment status
         uses: bobheadxi/deployments@v1
