@@ -46,10 +46,15 @@ jobs:
         run: npm run build
         working-directory: apps/blog
 
-      - name: Deploy to Firebase Hosting
-        run: npx firebase-tools@15.22.1 deploy --only hosting:heji-study-blog --token "$FIREBASE_TOKEN"
+      - name: Authenticate to Firebase
+        run: printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools@15.22.1 deploy --only hosting:heji-study-blog --project heji-study
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
 
       - name: Update deployment status
         uses: bobheadxi/deployments@v1
