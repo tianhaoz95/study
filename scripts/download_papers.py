@@ -9,6 +9,7 @@ import urllib.request
 REFERENCES_DIR = os.path.join(os.path.dirname(__file__), "..", "references")
 
 PAPERS = {
+    "mamba-mtp.pdf":                              "https://arxiv.org/pdf/2606.23567",
     "mtp-speculative-decoding.pdf":               "https://arxiv.org/pdf/2606.25331",
     "deepspec-dspark.pdf":                        "https://github.com/deepseek-ai/DeepSpec/raw/main/DSpark_paper.pdf",
     "jetspec.pdf":                                "https://arxiv.org/pdf/2606.18394v2",
