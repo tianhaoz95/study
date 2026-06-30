@@ -1,0 +1,1243 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Drafter Training Showdown: SpecForge vs TorchSpec vs Speculators vs DeepSpec | Catpuccino.ai"
+  description="A practical comparison of the four major speculative decoding training frameworks — SpecForge, TorchSpec, speculators, and DeepSpec — across compatibility, algorithms, community, and design philosophy."
+  crumb="Spec Training Tools"
+>
+
+<style is:global>
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:130px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Algorithm matrix */
+.algo-matrix{display:grid;gap:2px;margin:1.5rem 0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.algo-matrix .am-row{display:grid;grid-template-columns:140px repeat(6,1fr);gap:2px}
+.algo-matrix .am-row.am-header{background:var(--surface)}
+.am-cell{padding:.45rem .4rem;font-size:.67rem;font-family:var(--ff-mono);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.3}
+.am-cell.am-label{justify-content:flex-start;padding-left:.7rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.am-cell.am-fw{font-weight:700;font-size:.72rem;letter-spacing:-.01em;justify-content:flex-start;padding-left:.7rem;cursor:pointer;transition:background .15s;color:var(--text2)}
+.am-cell.am-fw:hover{background:rgba(255,255,255,.04)}
+.am-row.am-highlight .am-fw{color:var(--purple-l)}
+.am-row.am-highlight .am-data{background:rgba(139,92,246,.06)}
+.am-data{background:var(--card);transition:background .15s}
+.am-yes{color:var(--green);font-size:.9rem}
+.am-no{color:rgba(255,255,255,.15);font-size:.8rem}
+.am-partial{color:var(--amber);font-size:.75rem}
+
+/* Positioning canvas */
+#pos-canvas-wrap{position:relative;width:100%;padding-bottom:56%;background:var(--card);border-radius:8px;overflow:hidden}
+#pos-canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+.pos-info{padding:.75rem 1rem;font-size:.78rem;color:var(--muted2);font-family:var(--ff-mono);min-height:3.2rem;border-top:1px solid var(--border);line-height:1.6}
+.pos-info strong{color:var(--text2)}
+
+/* Decision grid */
+.decision-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1.5rem 0}
+.d-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem}
+.d-card h4{font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:.4rem;display:flex;align-items:center;gap:.5rem}
+.d-card h4::before{content:'';width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.d-card.d-sf h4::before{background:#8b5cf6}
+.d-card.d-ts h4::before{background:#06b6d4}
+.d-card.d-sp h4::before{background:#10b981}
+.d-card.d-ds h4::before{background:#f59e0b}
+.d-card p{font-size:.75rem;color:var(--muted);line-height:1.6;margin:0}
+
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+  .decision-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Speculative Decoding</span>
+    <span class="tag tag-cyan">Training Frameworks</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Drafter Training Showdown: SpecForge, TorchSpec, Speculators & DeepSpec Compared</h1>
+  <p class="lead">
+    Four open-source frameworks now compete for your drafter training pipeline — and they make radically different bets on where the bottleneck is. SpecForge bets on SGLang-native simplicity. TorchSpec bets on memory-streaming disaggregation. Speculators bets on vLLM standardization. DeepSpec bets on full-stack reproducibility. One is right for your stack; the others will silently slow you down.
+  </p>
+  <div class="post-hero-meta">
+    <span>June 30, 2026</span>
+    <span>~14 min read</span>
+    <span>Survey / Comparison</span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://github.com/sgl-project/SpecForge" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      SpecForge
+    </a>
+    <a class="hero-btn" href="https://github.com/lightseekorg/TorchSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      TorchSpec
+    </a>
+    <a class="hero-btn" href="https://github.com/vllm-project/speculators" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Speculators
+    </a>
+    <a class="hero-btn" href="https://github.com/deepseek-ai/DeepSpec" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      DeepSpec
+    </a>
+  </div>
+</header>
+
+<div class="post-grid" id="post-grid">
+
+<!-- TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-pipeline"><a href="#s-pipeline"><span class="toc-num">01</span> The Training Pipeline</a></li>
+    <li class="toc-item" id="toc-s-philosophies"><a href="#s-philosophies"><span class="toc-num">02</span> Design Philosophies</a></li>
+    <li class="toc-item" id="toc-s-algorithms"><a href="#s-algorithms"><span class="toc-num">03</span> Algorithm Coverage</a></li>
+    <li class="toc-item" id="toc-s-backends"><a href="#s-backends"><span class="toc-num">04</span> Backend Compatibility</a></li>
+    <li class="toc-item" id="toc-s-scale"><a href="#s-scale"><span class="toc-num">05</span> Scale & Storage</a></li>
+    <li class="toc-item" id="toc-s-community"><a href="#s-community"><span class="toc-num">06</span> Community & Code Quality</a></li>
+    <li class="toc-item" id="toc-s-verdict"><a href="#s-verdict"><span class="toc-num">07</span> Which One to Pick</a></li>
+  </ol>
+</nav>
+
+<!-- ARTICLE -->
+<article class="post-body">
+
+<section id="s-pipeline" data-code="pipeline">
+<div class="section-no">01 — The Training Pipeline</div>
+<h2>What Every Drafter Training Framework Must Do</h2>
+<p>
+  Speculative decoding cuts LLM inference latency by letting a small, cheap <em>draft model</em> propose several tokens at once. The large target model then verifies all of them in a single forward pass — accepting as many as it agrees with. If the drafter is well-aligned with the target, you get near-linear throughput scaling without touching output quality.
+</p>
+<p>
+  Training that drafter is a three-stage pipeline. Stage 1: run the target model over a training corpus and save its internal hidden states — the per-token activations just before the final projection layer. Stage 2: train the drafter to predict the target's next hidden state given the current one, using those saved activations as supervision. Stage 3: convert the drafter to a format the inference server understands and deploy it alongside the target.
+</p>
+
+<!-- Pipeline SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">drafter_training_pipeline.svg</span>
+    <span class="vp-hint">the three stages every framework must cover</span>
+  </div>
+  <div class="vp-body">
+    <svg viewBox="0 0 640 180" style="width:100%;font-family:var(--ff-mono);overflow:visible">
+      <!-- Stage boxes -->
+      <rect x="8" y="40" width="170" height="90" rx="8" fill="rgba(6,182,212,.08)" stroke="rgba(6,182,212,.35)" stroke-width="1.5"/>
+      <text x="93" y="72" text-anchor="middle" font-size="10" fill="#06b6d4" letter-spacing="1" font-weight="700">STAGE 1</text>
+      <text x="93" y="89" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Hidden State</text>
+      <text x="93" y="104" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Extraction</text>
+      <text x="93" y="120" text-anchor="middle" font-size="9" fill="#6b7280">target model → h_t activations</text>
+
+      <!-- Arrow 1 -->
+      <line x1="178" y1="85" x2="225" y2="85" stroke="#374151" stroke-width="1.5"/>
+      <polygon points="225,80 235,85 225,90" fill="#374151"/>
+
+      <rect x="235" y="40" width="170" height="90" rx="8" fill="rgba(139,92,246,.08)" stroke="rgba(139,92,246,.35)" stroke-width="1.5"/>
+      <text x="320" y="72" text-anchor="middle" font-size="10" fill="#8b5cf6" letter-spacing="1" font-weight="700">STAGE 2</text>
+      <text x="320" y="89" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Draft Model</text>
+      <text x="320" y="104" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Training</text>
+      <text x="320" y="120" text-anchor="middle" font-size="9" fill="#6b7280">drafter learns: h_t → h&#123;t+1&#125; prediction</text>
+
+      <!-- Arrow 2 -->
+      <line x1="405" y1="85" x2="452" y2="85" stroke="#374151" stroke-width="1.5"/>
+      <polygon points="452,80 462,85 452,90" fill="#374151"/>
+
+      <rect x="462" y="40" width="170" height="90" rx="8" fill="rgba(16,185,129,.08)" stroke="rgba(16,185,129,.35)" stroke-width="1.5"/>
+      <text x="547" y="72" text-anchor="middle" font-size="10" fill="#10b981" letter-spacing="1" font-weight="700">STAGE 3</text>
+      <text x="547" y="89" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Deploy to</text>
+      <text x="547" y="104" text-anchor="middle" font-size="11.5" fill="#e2e8f0" font-weight="600">Inference Engine</text>
+      <text x="547" y="120" text-anchor="middle" font-size="9" fill="#6b7280">vLLM / SGLang / TRT-LLM</text>
+
+      <!-- Stage labels bottom -->
+      <text x="93" y="155" text-anchor="middle" font-size="8.5" fill="#4b5563">bottleneck: disk I/O</text>
+      <text x="93" y="166" text-anchor="middle" font-size="8.5" fill="#4b5563">or memory bandwidth</text>
+      <text x="320" y="155" text-anchor="middle" font-size="8.5" fill="#4b5563">bottleneck: GPU-hours</text>
+      <text x="320" y="166" text-anchor="middle" font-size="8.5" fill="#4b5563">and data quality</text>
+      <text x="547" y="155" text-anchor="middle" font-size="8.5" fill="#4b5563">bottleneck: format</text>
+      <text x="547" y="166" text-anchor="middle" font-size="8.5" fill="#4b5563">compatibility</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The bottleneck shifts depending on your setup. Stage 1 is the quiet killer: saving hidden states for a trillion-token dataset at fp16 generates petabytes of intermediate data. Stage 3 is where most frameworks used to fail — format mismatches meant weeks of custom glue code between training and production. The four frameworks we compare all cover the same three stages, but their bets on where the real friction lives couldn't be more different.
+</p>
+</section>
+
+<section id="s-philosophies" data-code="philosophies">
+<div class="section-no">02 — Design Philosophies</div>
+<h2>Four Different Bets on the Same Problem</h2>
+<p>
+  Each framework makes a core architectural decision that shapes everything else: which inference engine to target, where data lives during training, and how much of the pipeline to own. Hover or tap any dot to see the profile.
+</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">framework_positioning.canvas</span>
+    <span class="vp-hint">click a dot to highlight</span>
+  </div>
+  <div class="vp-body" style="padding:.75rem">
+    <div id="pos-canvas-wrap">
+      <canvas id="pos-canvas"></canvas>
+    </div>
+    <div class="pos-info" id="pos-info">Click a framework dot to see its design philosophy.</div>
+  </div>
+</div>
+
+<h3>SpecForge — "SGLang Native, Maintenance-First"</h3>
+<p>
+  Built by the SGLang / LMSYS team, SpecForge's core bet is that most spec decoding friction comes from <em>maintainability failures</em>: code that trains fine but breaks silently when the inference server updates. Their solution is tight coupling to SGLang with a stated policy to keep training code runnable out-of-the-box. The tradeoff is obvious — if your production fleet runs vLLM or TensorRT-LLM, SpecForge's first-class guarantees stop at the SGLang boundary.
+</p>
+
+<h3>TorchSpec — "Disaggregated, Production-Scale Streaming"</h3>
+<p>
+  LightSeek's TorchSpec makes the most radical architectural choice: inference and training workers are completely decoupled, connected via <a href="https://github.com/kvcache-ai/Mooncake" style="color:var(--cyan)">Mooncake</a> — an in-memory tensor store that streams hidden states directly from inference GPUs to training GPUs without ever touching disk. This removes the 38TB elephant in the room (Stage 1 disk I/O) entirely. The tradeoff: you need Mooncake deployed and working, SGLang is "best-effort," and a known SEGFAULT on TCP-only hosts requires a workaround environment variable.
+</p>
+
+<h3>Speculators (vllm-project) — "Standard Format, Broadest Coverage"</h3>
+<p>
+  The vLLM team's answer is standardization: a Hugging Face-compatible draft model format that deploys directly with <code style="color:var(--cyan);font-size:.8rem">vllm serve &lt;model&gt;</code>. No post-training conversion, no server-specific config. Where SpecForge optimizes for SGLang depth, speculators optimizes for model breadth — it supports more algorithms (EAGLE-3, DFlash, P-EAGLE, MTP Finetuning), more model families (from 8B to 675B MoE), and VLMs. The community is the vLLM ecosystem, with Slack channels and RedHatAI publishing reference checkpoints.
+</p>
+
+<h3>DeepSpec — "Full-Stack, Reproducible Pipeline"</h3>
+<p>
+  DeepSeek's DeepSpec is the only framework designed primarily for <em>comparing</em> algorithms under controlled conditions. It owns the full pipeline — data download, target cache generation, training, and evaluation — with a single launch script. This makes it invaluable for research (you can run Eagle3 vs DFlash vs DSpark on identical data) but its storage demands are brutal: the default Qwen3-4B setup generates approximately 38 TB of target cache. Notably, DeepSpec's training layer is built <em>on top of</em> SpecForge — it's essentially a reproducibility harness around multiple algorithm implementations.
+</p>
+</section>
+
+<section id="s-algorithms" data-code="algorithms">
+<div class="section-no">03 — Algorithm Coverage</div>
+<h2>Which Framework Supports Which Drafter Method</h2>
+<p>
+  The speculative decoding algorithm landscape has consolidated around a few dominant approaches. Click any framework row to highlight its coverage.
+</p>
+
+<!-- Algorithm Matrix -->
+<div class="algo-matrix" id="algo-matrix">
+  <div class="am-row am-header">
+    <div class="am-cell am-label">Framework</div>
+    <div class="am-cell am-label" title="EAGLE-style feature-based autoregressive drafting">EAGLE-3</div>
+    <div class="am-cell am-label" title="Block-parallel drafting with anchor sampling">DFlash</div>
+    <div class="am-cell am-label" title="DFlash + GRU logit correction (SpecForge-only)">Domino</div>
+    <div class="am-cell am-label" title="Parallel multi-token prediction via COD sampling">P-EAGLE</div>
+    <div class="am-cell am-label" title="Fine-tune native MTP heads (e.g. Qwen3)">MTP FT</div>
+    <div class="am-cell am-label" title="DeepSeek's Markov-head architecture">DSpark</div>
+  </div>
+  <div class="am-row" data-fw="specforge" id="amr-specforge">
+    <div class="am-cell am-fw">SpecForge</div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+  </div>
+  <div class="am-row" data-fw="torchspec" id="amr-torchspec">
+    <div class="am-cell am-fw">TorchSpec</div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-partial">contrib</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+  </div>
+  <div class="am-row" data-fw="speculators" id="amr-speculators">
+    <div class="am-cell am-fw">speculators</div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+  </div>
+  <div class="am-row" data-fw="deepspec" id="amr-deepspec">
+    <div class="am-cell am-fw">DeepSpec</div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-no">—</span></div>
+    <div class="am-cell am-data"><span class="am-yes">✓</span></div>
+  </div>
+</div>
+
+<p style="font-size:.75rem;color:var(--muted);margin-top:.5rem">
+  ✓ first-class &nbsp;·&nbsp; <span style="color:var(--amber)">contrib</span> community-contributed, may lag behind &nbsp;·&nbsp; — not supported
+</p>
+
+<h3>EAGLE-3: The Universal Baseline</h3>
+<p>
+  All four frameworks support EAGLE-3 — the current dominant approach for autoregressive drafter training. EAGLE-3 trains a small transformer head to predict the target model's next hidden state, feeding its own predictions back autoregressively during drafting. The "3" version adds an LK loss that penalizes distribution mismatch rather than just next-token accuracy, significantly improving acceptance rates on diverse out-of-distribution prompts.
+</p>
+
+<h3>DFlash: The High-Ceiling Bet</h3>
+<p>
+  DFlash (from z-lab) takes a completely different approach: instead of predicting the next hidden state autoregressively, it uses anchor sampling to condition the drafter on hidden states from <em>multiple layers</em> of the verifier, then generates an entire block of draft tokens in parallel. This allows much higher acceptance lengths on math and coding tasks — measured acceptance lengths of τ ≈ 3.74 on math_reasoning with Qwen3-8B (speculators), compared to τ ≈ 2.5–3.0 typical for EAGLE-3 on the same data. DFlash is supported in three of the four frameworks; TorchSpec has community-contributed support that may lag behind the reference implementation.
+</p>
+
+<h3>DSpark: DeepSeek's Architecture Bet</h3>
+<p>
+  DSpark (DeepSpec's flagship algorithm) replaces the transformer draft head with a Markov-head architecture: a low-rank transition matrix (rank=256) that models token prediction as a probabilistic Markov chain. The result is dramatically lower drafter inference latency — the head itself runs much faster than a full transformer layer — while maintaining competitive acceptance rates. DSpark is only available in DeepSpec. The paper reports +30.9% τ over EAGLE-3 and +16.3% over DFlash on Qwen3-4B.
+</p>
+
+<h3>P-EAGLE & MTP Finetuning: Speculators Exclusives</h3>
+<p>
+  Speculators is the only framework supporting P-EAGLE (Parallel EAGLE), which predicts multiple draft tokens in a single forward pass using Conditional-On-Distribution (COD) sampling — trading individual acceptance accuracy for lower draft latency. It's also the only framework supporting MTP Finetuning: fine-tuning the native multi-token prediction heads that models like Qwen3 already have built in, without training a separate drafter model at all. For Qwen3 target models, MTP Finetuning is often the simplest path to spec decoding — no separate model, just a fine-tuned head.
+</p>
+</section>
+
+<section id="s-backends" data-code="backends">
+<div class="section-no">04 — Backend Compatibility</div>
+<h2>Which Inference Engine Does Each Framework Target</h2>
+<p>
+  Choosing the wrong framework for your inference backend means your drafter model trains fine but then fails to load, runs slowly, or requires manual format conversion. Backend compatibility is not a footnote — it's the decision that eliminates two of the four options immediately for most teams.
+</p>
+
+<!-- Backend compatibility SVG -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">backend_compatibility.svg</span>
+    <span class="vp-hint">solid line = first-class · dashed = best-effort · dotted = eval only</span>
+  </div>
+  <div class="vp-body">
+    <svg viewBox="0 0 640 300" style="width:100%;font-family:var(--ff-mono);overflow:visible">
+      <!-- Frameworks column -->
+      <text x="0" y="20" font-size="8.5" fill="#6b7280" letter-spacing="1" font-weight="700">FRAMEWORKS</text>
+      <rect x="0" y="30" width="130" height="32" rx="6" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1.5"/>
+      <text x="65" y="51" text-anchor="middle" font-size="10.5" fill="#a78bfa" font-weight="700">SpecForge</text>
+      <rect x="0" y="78" width="130" height="32" rx="6" fill="rgba(6,182,212,.1)" stroke="rgba(6,182,212,.35)" stroke-width="1.5"/>
+      <text x="65" y="99" text-anchor="middle" font-size="10.5" fill="#67e8f9" font-weight="700">TorchSpec</text>
+      <rect x="0" y="126" width="130" height="32" rx="6" fill="rgba(16,185,129,.1)" stroke="rgba(16,185,129,.35)" stroke-width="1.5"/>
+      <text x="65" y="147" text-anchor="middle" font-size="10.5" fill="#6ee7b7" font-weight="700">speculators</text>
+      <rect x="0" y="174" width="130" height="32" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.35)" stroke-width="1.5"/>
+      <text x="65" y="195" text-anchor="middle" font-size="10.5" fill="#fcd34d" font-weight="700">DeepSpec</text>
+
+      <!-- Inference engines column -->
+      <text x="280" y="20" font-size="8.5" fill="#6b7280" letter-spacing="1" font-weight="700">INFERENCE ENGINES</text>
+      <rect x="280" y="30" width="100" height="32" rx="6" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+      <text x="330" y="51" text-anchor="middle" font-size="10.5" fill="#e2e8f0" font-weight="600">SGLang</text>
+      <rect x="280" y="80" width="100" height="32" rx="6" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+      <text x="330" y="101" text-anchor="middle" font-size="10.5" fill="#e2e8f0" font-weight="600">vLLM</text>
+      <rect x="280" y="130" width="100" height="32" rx="6" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+      <text x="330" y="151" text-anchor="middle" font-size="10.5" fill="#e2e8f0" font-weight="600">TRT-LLM</text>
+      <rect x="280" y="180" width="100" height="32" rx="6" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+      <text x="330" y="201" text-anchor="middle" font-size="10.5" fill="#e2e8f0" font-weight="600">TokenSpeed</text>
+
+      <!-- SpecForge → SGLang (native/first-class) -->
+      <line x1="130" y1="46" x2="280" y2="46" stroke="#8b5cf6" stroke-width="2"/>
+      <text x="205" y="42" text-anchor="middle" font-size="8" fill="#8b5cf6">native</text>
+
+      <!-- SpecForge → vLLM (partial) -->
+      <path d="M130,46 C210,46 210,96 280,96" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="5,3" fill="none"/>
+      <text x="215" y="76" text-anchor="middle" font-size="8" fill="#8b5cf6">partial</text>
+
+      <!-- TorchSpec → vLLM (first-class) -->
+      <line x1="130" y1="94" x2="280" y2="96" stroke="#06b6d4" stroke-width="2"/>
+      <text x="205" y="90" text-anchor="middle" font-size="8" fill="#06b6d4">first-class</text>
+
+      <!-- TorchSpec → TRT-LLM (first-class) -->
+      <path d="M130,94 C210,94 210,146 280,146" stroke="#06b6d4" stroke-width="2" fill="none"/>
+      <text x="215" y="130" text-anchor="middle" font-size="8" fill="#06b6d4">first-class</text>
+
+      <!-- TorchSpec → TokenSpeed (first-class) -->
+      <path d="M130,94 C210,94 210,196 280,196" stroke="#06b6d4" stroke-width="2" fill="none"/>
+
+      <!-- TorchSpec → SGLang (best effort) -->
+      <path d="M130,94 C160,94 160,46 280,46" stroke="#06b6d4" stroke-width="1" stroke-dasharray="3,4" fill="none" opacity=".5"/>
+      <text x="165" y="64" text-anchor="middle" font-size="7.5" fill="#6b7280">best effort</text>
+
+      <!-- speculators → vLLM (native) -->
+      <line x1="130" y1="142" x2="280" y2="96" stroke="#10b981" stroke-width="2"/>
+      <text x="205" y="125" text-anchor="middle" font-size="8" fill="#10b981">native</text>
+
+      <!-- DeepSpec → vLLM (eval only) -->
+      <path d="M130,190 C210,190 210,96 280,96" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3,5" fill="none"/>
+      <text x="218" y="175" text-anchor="middle" font-size="8" fill="#f59e0b">eval only</text>
+
+      <!-- Legend -->
+      <line x1="400" y1="250" x2="430" y2="250" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="435" y="254" font-size="8.5" fill="#9ca3af">native / first-class</text>
+      <line x1="400" y1="265" x2="430" y2="265" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="435" y="269" font-size="8.5" fill="#9ca3af">partial / best-effort</text>
+      <line x1="400" y1="280" x2="430" y2="280" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,5"/>
+      <text x="435" y="284" font-size="8.5" fill="#9ca3af">eval / inference only</text>
+    </svg>
+  </div>
+</div>
+
+<p>
+  The clearest takeaway: if you're on <strong style="color:var(--text2)">SGLang</strong>, use SpecForge. If you're on <strong style="color:var(--text2)">vLLM</strong>, use speculators. If you're on <strong style="color:var(--text2)">TensorRT-LLM or multi-backend</strong>, use TorchSpec. If you're doing <strong style="color:var(--text2)">algorithm research</strong>, use DeepSpec. The frameworks were designed around these use cases — using any of them outside their intended backend requires extra conversion work that negates their main design benefit.
+</p>
+
+<p>
+  TorchSpec is the exception: it explicitly lists vLLM, TensorRT-LLM, and TokenSpeed as first-class inference targets, with a Worker Extension hook for vLLM, a patch for TRT-LLM's native "SaveHiddenStates" mode, and community support for SGLang. This makes it the natural choice for organizations running a heterogeneous inference fleet or planning to migrate between backends.
+</p>
+</section>
+
+<section id="s-scale" data-code="scale">
+<div class="section-no">05 — Scale & Storage</div>
+<h2>The Hidden Cost: Where Do the Hidden States Live?</h2>
+<p>
+  The most underappreciated design dimension is where Stage 1 hidden states live during training. This is not a config knob — it's a fundamental architectural choice that determines your storage bill, your training throughput, and whether you can even run the pipeline at your target scale.
+</p>
+
+<!-- Storage comparison bar chart -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">storage_requirements.canvas</span>
+    <span class="vp-hint">approximate disk requirements for a ~100B-token training set</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="storage-bars">
+      <div class="bar-row">
+        <div class="bar-label">DeepSpec<br>(offline)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(245,158,11,.7)"><span>~38 TB</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SpecForge<br>(offline)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="72" style="background:rgba(139,92,246,.65)"><span>~18 TB*</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">speculators<br>(offline)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="55" style="background:rgba(16,185,129,.6)"><span>~14 TB*</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">speculators<br>(online)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="5" style="background:rgba(16,185,129,.9)"><span>~minimal</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TorchSpec<br>(streaming)</div>
+        <div class="bar-track"><div class="bar-fill" data-w="2" style="background:rgba(6,182,212,.9)"><span>~0 TB disk</span></div></div>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:.5rem;line-height:1.5">* Estimated from hidden-state dimensionality and dataset size. DeepSpec's 38 TB figure is explicitly stated in their README for the default Qwen3-4B setting. Offline totals vary significantly by model size, dataset size, and whether multiple verifier layers are stored (DFlash requires more). Online/streaming modes do not require large pre-saved datasets.</p>
+  </div>
+</div>
+
+<h3>Offline vs. Online vs. Streaming</h3>
+<p>
+  <strong style="color:var(--text2)">Offline mode</strong> (SpecForge, speculators, DeepSpec) pre-generates all hidden states and writes them to disk before training begins. Training then reads from disk sequentially — fast if your storage tier is fast (NVMe SSD RAID), catastrophic if it's spinning disk or a slow network filesystem. DeepSpec's 38 TB figure is not an exaggeration: a single hidden state vector for a 4B model is ~4096 floats × 2 bytes = 8 KB. At 100B tokens, that's 800 TB before any layer stacking — the 38 TB figure assumes batching and compression tricks. Even so, it's a massive I/O commitment.
+</p>
+<p>
+  <strong style="color:var(--text2)">Online mode</strong> (speculators) generates hidden states just-in-time using a live vLLM instance running the target model alongside training. This removes the storage requirement entirely, but now your training throughput is coupled to how fast the target model can generate sequences. For large target models, this becomes the bottleneck.
+</p>
+<p>
+  <strong style="color:var(--text2)">Streaming mode</strong> (TorchSpec via Mooncake) is the most architecturally novel: dedicated inference workers run the target model at full speed, and their hidden states are transferred directly to training GPUs over a high-speed memory fabric — bypassing disk entirely. Inference and training scale independently. The catch is operational complexity: Mooncake is a separate infrastructure component with its own configuration, and a known SEGFAULT on TCP-only hosts requires setting <code style="color:var(--cyan);font-size:.8rem">MC_STORE_MEMCPY=0</code> as a workaround.
+</p>
+
+<h3>Model Size Coverage</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Min Model</th>
+      <th>Max Model</th>
+      <th>MoE?</th>
+      <th>VLM?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="mn">SpecForge</span></td>
+      <td class="mn">~7B</td>
+      <td class="mn">120B+</td>
+      <td>✓</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><span class="mn">TorchSpec</span></td>
+      <td class="mn">~7B</td>
+      <td class="mn">MiniMax-M2.5</td>
+      <td>✓</td>
+      <td>—</td>
+    </tr>
+    <tr class="highlight-row">
+      <td><span class="mn">speculators</span></td>
+      <td class="mn">8B</td>
+      <td class="mn best">675B+</td>
+      <td class="best">✓</td>
+      <td class="best">✓</td>
+    </tr>
+    <tr>
+      <td><span class="mn">DeepSpec</span></td>
+      <td class="mn">4B</td>
+      <td class="mn">14B (default)</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<section id="s-community" data-code="community">
+<div class="section-no">06 — Community & Code Quality</div>
+<h2>Maintenance, Stars, and Who's Behind It</h2>
+<p>
+  Code quality and community support are not soft metrics for a framework you'll be debugging at 3am. They determine whether a bug you hit has a filed issue, whether the code compiles against the latest PyTorch, and whether there's a human who will review your PR.
+</p>
+
+<!-- GitHub stars animated bar chart -->
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">github_stars.canvas</span>
+    <span class="vp-hint">GitHub ⭐ as of June 2026</span>
+  </div>
+  <div class="vp-body">
+    <div class="results-bars" id="community-bars">
+      <div class="bar-row">
+        <div class="bar-label">DeepSpec</div>
+        <div class="bar-track"><div class="bar-fill" data-w="100" style="background:rgba(245,158,11,.7)"><span>5,200 ★</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">SpecForge</div>
+        <div class="bar-track"><div class="bar-fill" data-w="18" style="background:rgba(139,92,246,.7)"><span>949 ★</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">speculators</div>
+        <div class="bar-track"><div class="bar-fill" data-w="10" style="background:rgba(16,185,129,.7)"><span>543 ★</span></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TorchSpec</div>
+        <div class="bar-track"><div class="bar-fill" data-w="4" style="background:rgba(6,182,212,.7)"><span>183 ★</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>DeepSpec: Brand Gravity, Research Focus</h3>
+<p>
+  DeepSpec's 5,200 stars are almost entirely explained by its DeepSeek pedigree — any DeepSeek release gets a large initial burst of attention. The meaningful signal is that the codebase is actively maintained and that pre-trained checkpoints have been released on Hugging Face for all supported algorithm/model pairs. The limitation is scope: the default models (Qwen3-4B to 14B, Gemma-4-12B) represent a narrow slice of real production workloads, and extending the pipeline to a new target model requires understanding the full data-prep → training → evaluation chain.
+</p>
+
+<h3>SpecForge: LMSYS Backing, Industry Partners</h3>
+<p>
+  SpecForge's ~949 stars understate its institutional weight. It's a flagship LMSYS project with named partners including NVIDIA, Google, and Meituan, backed by Voltage Park GPU infrastructure for large-scale training. The SpecBundle — a curated set of production-grade pretrained draft models — is a significant differentiator: it means you can start with a pre-trained checkpoint and skip Stage 2 entirely for supported model families. Code quality is high: ~438 commits, MIT licensed, and the team has a stated policy to keep the codebase runnable out-of-the-box.
+</p>
+
+<h3>Speculators: vLLM Ecosystem, Community Breadth</h3>
+<p>
+  Speculators sits inside the vLLM GitHub organization with dedicated Slack channels (#speculators, #feat-spec-decode) and public office hours. Red Hat's AI team publishes reference checkpoints under the RedHatAI Hugging Face org. The Apache 2.0 license (vs MIT for the others) makes it slightly more permissive for enterprise use. The 543 stars and 122 forks suggest active external contribution. Of the four frameworks, speculators has the most complete documentation for new users — each supported algorithm has its own CLI example in the README.
+</p>
+
+<h3>TorchSpec: Production Adoption, Sparse Public Docs</h3>
+<p>
+  TorchSpec's 183 stars tell a misleading story. The framework is in production at DigitalOcean and CoreWeave, and was used to train the draft models for Kimi-K2.5, MiniMax-M2.5, and Qwen3-Coder-Next — models serving real user traffic at scale. LightSeek is a company, not a community project, which means prioritization is driven by internal customer needs rather than public issues. The public documentation is relatively sparse (the README skips performance numbers), and the Mooncake dependency is a non-trivial operational requirement. The code quality appears high based on commit activity and enterprise usage, but you may find fewer community answers to esoteric questions.
+</p>
+</section>
+
+<section id="s-verdict" data-code="verdict">
+<div class="section-no">07 — Which One to Pick</div>
+<h2>The Decision Guide</h2>
+<p>
+  After all the dimensions, the decision usually collapses to two questions: <em>which inference engine do you serve on?</em> and <em>do you need to run your own training or just use a pretrained drafter?</em> Here's the matrix.
+</p>
+
+<div class="decision-grid">
+  <div class="d-card d-sf">
+    <h4>SpecForge</h4>
+    <p>
+      Pick if: your production fleet runs SGLang. You want to train EAGLE-3, DFlash, or Domino with minimal ops overhead. You're willing to start with a SpecBundle pretrained checkpoint. You want LMSYS-quality maintenance guarantees and named industry partner support.
+    </p>
+  </div>
+  <div class="d-card d-ts">
+    <h4>TorchSpec</h4>
+    <p>
+      Pick if: your cluster runs TensorRT-LLM or a mixed inference stack (vLLM + TRT-LLM). You're training on very large models (100B+) where 38TB of offline storage is unacceptable. You have the infrastructure to deploy Mooncake. You're a cloud provider or model lab doing this at production scale.
+    </p>
+  </div>
+  <div class="d-card d-sp">
+    <h4>speculators</h4>
+    <p>
+      Pick if: your production fleet runs vLLM. You want the widest algorithm selection (P-EAGLE, MTP Finetuning). Your target model is a Qwen3 that already has built-in MTP heads. You need VLM support. You want a large, active community and documented examples.
+    </p>
+  </div>
+  <div class="d-card d-ds">
+    <h4>DeepSpec</h4>
+    <p>
+      Pick if: you're doing algorithm research and need controlled comparisons between EAGLE-3, DFlash, and DSpark. You want access to DeepSeek's DSpark architecture. You have 38+ TB of storage available. You're not deploying to production immediately — this is a research pipeline, not a serving layer.
+    </p>
+  </div>
+</div>
+
+<h3>What About Performance?</h3>
+<p>
+  Across-framework performance comparisons are methodologically fraught — acceptance rate (τ) depends heavily on training data composition, data quality, dataset size, training duration, and the specific benchmark used. The frameworks themselves flag this: DeepSpec's README explicitly warns that "cross-paper comparisons require aligned training setups to remain meaningful."
+</p>
+<p>
+  What we can say with confidence: the algorithm you pick matters more than the framework you use to train it. DFlash consistently outperforms EAGLE-3 on math and coding tasks (τ ≈ 3.74 vs ≈ 2.5–3.0 on math_reasoning, Qwen3-8B). DSpark further improves on DFlash's τ by ~16% on the same model according to DeepSpec's evaluation. P-EAGLE trades individual acceptance rate for lower drafter latency by generating multiple tokens per forward pass. The framework is the training infrastructure; the algorithm is what moves the needle.
+</p>
+
+<h3>The Hidden Dependency</h3>
+<p>
+  One structural fact that doesn't show up in README comparisons: <strong style="color:var(--text2)">DeepSpec's training layer is built on SpecForge</strong>. If you look at the DeepSpec codebase, you'll find it calling SpecForge's training routines for EAGLE-3 and DFlash — DeepSpec adds the data pipeline, evaluation harness, and DSpark algorithm on top. This is actually a good sign for SpecForge's code quality (it was selected as the foundation for DeepSeek's internal research framework), but it also means that bugs in SpecForge's training code propagate into DeepSpec.
+</p>
+</section>
+
+<!-- Listen-friendly summary -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Drafter Training Frameworks Compared</h2>
+    <p>Training a speculative decoding draft model requires three stages: extracting hidden states from the target model, training the drafter on those states, and deploying to an inference engine. Four open-source frameworks now handle this pipeline, each with a different bet on the key bottleneck.</p>
+    <p>SpecForge, from the SGLang team, prioritizes maintainability and native SGLang integration. TorchSpec, from LightSeek, streams hidden states directly from inference GPUs to training workers via the Mooncake tensor store, eliminating disk I/O entirely. Speculators, from the vLLM team, emphasizes a standardized Hugging Face model format and the widest algorithm selection including EAGLE-3, DFlash, P-EAGLE, and MTP Finetuning. DeepSpec, from DeepSeek, provides a full-stack reproducible pipeline for comparing algorithms — its default setup requires approximately 38 terabytes of storage.</p>
+    <p>The algorithm matters more than the framework. DFlash achieves acceptance lengths around 3.74 on math tasks versus 2.5 to 3.0 for EAGLE-3. DSpark, DeepSeek's architecture, improves further by 30 percent over EAGLE-3. The framework choice primarily follows your inference engine: SpecForge for SGLang, speculators for vLLM, TorchSpec for TensorRT-LLM or mixed fleets, and DeepSpec for research comparisons.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：推测解码训练框架对比</h2>
+    <p>训练推测解码草稿模型需要三个阶段：从目标模型提取隐藏状态，在这些状态上训练草稿模型，然后部署到推理引擎。四个开源框架现在各自处理这条流水线，每个框架对关键瓶颈的判断各有不同。</p>
+    <p>SpecForge 来自 SGLang 团队，优先考虑可维护性和与 SGLang 的原生集成。TorchSpec 来自 LightSeek，通过 Mooncake 张量存储将隐藏状态直接从推理 GPU 流式传输到训练工作节点，完全消除磁盘 I/O。speculators 来自 vLLM 团队，强调标准化的 Hugging Face 模型格式，支持最广泛的算法，包括 EAGLE-3、DFlash、P-EAGLE 和 MTP 微调。DeepSpec 来自 DeepSeek，提供了一个用于比较算法的全栈可复现流水线——其默认设置大约需要 38 TB 的存储空间。</p>
+    <p>算法比框架更重要。DFlash 在数学任务上的接受长度约为 3.74，而 EAGLE-3 为 2.5 到 3.0。DeepSeek 的 DSpark 架构比 EAGLE-3 进一步提升约 30%。框架的选择主要取决于你的推理引擎：SGLang 用 SpecForge，vLLM 用 speculators，TensorRT-LLM 或混合部署用 TorchSpec，研究比较用 DeepSpec。</p>
+  </div>
+</div>
+
+</article>
+
+<!-- CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">pipeline.py</div>
+      <div class="cs-section-title" id="cs-section-title">Training Pipeline</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="pipeline">pipeline</button>
+    <button class="cs-tab" data-panel="philosophies">design</button>
+    <button class="cs-tab" data-panel="algorithms">algorithms</button>
+    <button class="cs-tab" data-panel="backends">backends</button>
+    <button class="cs-tab" data-panel="scale">scale</button>
+    <button class="cs-tab" data-panel="community">community</button>
+    <button class="cs-tab" data-panel="verdict">verdict</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-pipeline">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The three-stage drafter training pipeline</span>
+<span class="cs-line cmt"># all frameworks implement some version of this</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── Stage 1: Extract hidden states ──────</span>
+<span class="cs-line cmt"># Run target model over training corpus,</span>
+<span class="cs-line cmt"># save per-token activations at layer -2</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># speculators offline:</span></span>
+<span class="cs-line">speculators generate-data \</span>
+<span class="cs-line">  --model Qwen3-8B \</span>
+<span class="cs-line">  --dataset ShareGPT \</span>
+<span class="cs-line">  --output-dir ./hidden_states/</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># speculators online (no disk needed):</span></span>
+<span class="cs-line">speculators train \</span>
+<span class="cs-line">  --model Qwen3-8B \</span>
+<span class="cs-line">  --online  <span class="cmt"># vLLM runs alongside training</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># TorchSpec streaming (Mooncake):</span></span>
+<span class="cs-line"><span class="cmt"># Inference workers stream hidden states</span></span>
+<span class="cs-line"><span class="cmt"># directly to training workers in-memory</span></span>
+<span class="cs-line">torchspec launch \</span>
+<span class="cs-line">  --inference-engine vllm \</span>
+<span class="cs-line">  --mooncake-store tcp://mc-host:8080</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── Stage 2: Train drafter ──────────────</span>
+<span class="cs-line cmt"># Learn: hidden_state_t → hidden_state_t+1</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># ── Stage 3: Deploy ─────────────────────</span>
+<span class="cs-line hl-g"><span class="cmt"># speculators → direct vLLM deploy:</span></span>
+<span class="cs-line">vllm serve RedHatAI/Qwen3-8B-speculator.eagle3</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># SpecForge → direct SGLang deploy:</span></span>
+<span class="cs-line">python -m sglang.launch_server \</span>
+<span class="cs-line">  --model Qwen3-8B \</span>
+<span class="cs-line">  --speculative-draft specbundle/qwen3-8b</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-philosophies">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Design philosophy summary</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># SpecForge — SGLang-native</span></span>
+<span class="cs-line cmt">#   • Tight SGLang coupling by design</span>
+<span class="cs-line cmt">#   • "Runnable out-of-the-box" policy</span>
+<span class="cs-line cmt">#   • SpecBundle pretrained checkpoints</span>
+<span class="cs-line cmt">#   • NVIDIA + Google + Meituan partners</span>
+<span class="cs-line cmt">#   • MIT license, LMSYS org</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># TorchSpec — Disaggregated streaming</span></span>
+<span class="cs-line cmt">#   • Mooncake tensor store, no disk I/O</span>
+<span class="cs-line cmt">#   • Inference/training scale independently</span>
+<span class="cs-line cmt">#   • vLLM + TRT-LLM first-class</span>
+<span class="cs-line cmt">#   • Production: DigitalOcean, CoreWeave</span>
+<span class="cs-line cmt">#   • Models: Kimi-K2.5, MiniMax-M2.5</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># speculators — vLLM-native, standardized</span></span>
+<span class="cs-line cmt">#   • HuggingFace-compatible format</span>
+<span class="cs-line cmt">#   • Online + offline modes</span>
+<span class="cs-line cmt">#   • 8B–675B models, MoE, VLM</span>
+<span class="cs-line cmt">#   • Apache 2.0, RedHatAI HF models</span>
+<span class="cs-line cmt">#   • vLLM Slack community</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># DeepSpec — Full-stack reproducibility</span></span>
+<span class="cs-line cmt">#   • Data → train → eval in one repo</span>
+<span class="cs-line cmt">#   • Built on top of SpecForge</span>
+<span class="cs-line cmt">#   • Includes DSpark algorithm</span>
+<span class="cs-line cmt">#   • 38 TB cache for Qwen3-4B default</span>
+<span class="cs-line cmt">#   • DeepSeek AI, 5200+ stars</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-algorithms">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Algorithm quick reference</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># EAGLE-3 (all frameworks)</span></span>
+<span class="cs-line cmt"># Autoregressive hidden-state prediction</span>
+<span class="cs-line cmt"># Loss: LK distribution matching</span>
+<span class="cs-line cmt"># τ typical: ~2.5–3.2 (general tasks)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># DFlash (SpecForge, speculators, DeepSpec)</span></span>
+<span class="cs-line cmt"># Block-parallel with anchor sampling</span>
+<span class="cs-line cmt"># Uses hidden states from multiple layers</span>
+<span class="cs-line cmt"># Loss: D-PACE (block acceptance)</span>
+<span class="cs-line cmt"># τ math: ~3.74 (Qwen3-8B, speculators)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># Domino (SpecForge only)</span></span>
+<span class="cs-line cmt"># DFlash + GRU logit correction head</span>
+<span class="cs-line cmt"># Corrects distribution at draft time</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># P-EAGLE (speculators only)</span></span>
+<span class="cs-line cmt"># Parallel multi-token prediction</span>
+<span class="cs-line cmt"># COD sampling: one forward pass → N tokens</span>
+<span class="cs-line cmt"># Trades per-token accuracy for speed</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># MTP Finetuning (speculators only)</span></span>
+<span class="cs-line cmt"># Fine-tune built-in MTP heads (Qwen3)</span>
+<span class="cs-line cmt"># No separate drafter model needed</span>
+<span class="cs-line cmt"># Smallest ops burden of all options</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># DSpark (DeepSpec only)</span></span>
+<span class="cs-line cmt"># Markov head (rank-256 transition matrix)</span>
+<span class="cs-line cmt"># +30.9% τ over EAGLE-3 (Qwen3-4B)</span>
+<span class="cs-line cmt"># +16.3% τ over DFlash (Qwen3-4B)</span>
+<span class="cs-line cmt"># +51% production throughput</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-backends">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Backend compatibility at a glance</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p"><span class="cmt"># SpecForge → SGLang</span></span>
+<span class="cs-line cmt"># Training integrates natively with SGLang</span>
+<span class="cs-line cmt"># SpecBundle deploys directly</span>
+<span class="cs-line cmt"># vLLM: partial support (extra conversion)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># TorchSpec → vLLM / TRT-LLM / TokenSpeed</span></span>
+<span class="cs-line cmt"># vLLM: Worker Extension hook</span>
+<span class="cs-line cmt"># TRT-LLM: SaveHiddenStates native mode</span>
+<span class="cs-line cmt">#   (single-node TP only for now)</span>
+<span class="cs-line cmt"># SGLang: best community effort</span>
+<span class="cs-line cmt"># Mooncake bug: MC_STORE_MEMCPY=0</span>
+<span class="cs-line cmt">#   (TCP-only hosts SEGFAULT otherwise)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># speculators → vLLM</span></span>
+<span class="cs-line cmt"># Zero-conversion deploy:</span>
+<span class="cs-line">vllm serve RedHatAI/Qwen3-8B-spec.eagle3</span>
+<span class="cs-line cmt"># Config auto-loaded from speculator_config</span>
+<span class="cs-line cmt"># DFlash in vLLM: PR already merged</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-a"><span class="cmt"># DeepSpec → vLLM (eval only)</span></span>
+<span class="cs-line cmt"># Not a serving framework</span>
+<span class="cs-line cmt"># Evaluation runs via vLLM backend</span>
+<span class="cs-line cmt"># Checkpoints on HuggingFace for download</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Rule of thumb:</span>
+<span class="cs-line cmt">#   SGLang fleet       → SpecForge</span>
+<span class="cs-line cmt">#   vLLM fleet         → speculators</span>
+<span class="cs-line cmt">#   TRT-LLM / mixed    → TorchSpec</span>
+<span class="cs-line cmt">#   Research / compare → DeepSpec</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-scale">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Storage math for hidden-state extraction</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Single hidden state vector:</span>
+<span class="cs-line cmt">#   Qwen3-4B  → 2560 floats × 2B = 5 KB</span>
+<span class="cs-line cmt">#   Qwen3-8B  → 4096 floats × 2B = 8 KB</span>
+<span class="cs-line cmt">#   Qwen3-32B → 5120 floats × 2B = 10 KB</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># At 100B tokens (typical dataset):</span>
+<span class="cs-line hl-a">storage_gb = hidden_dim * 2 * n_tokens / 1e9</span>
+<span class="cs-line cmt">#   4B model:  ~500 GB  per hidden layer</span>
+<span class="cs-line cmt">#   DFlash stores 3–5 layers → 1.5–2.5 TB</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># DeepSpec default: Qwen3-4B + all layers</span>
+<span class="cs-line cmt"># = ~38 TB (explicitly stated in README)</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-c"><span class="cmt"># TorchSpec streaming: bypass disk entirely</span></span>
+<span class="cs-line cmt"># Mooncake holds only the in-flight batch</span>
+<span class="cs-line cmt"># Inference GPU → (TCP/RDMA) → train GPU</span>
+<span class="cs-line cmt"># No persistent storage needed</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-g"><span class="cmt"># speculators online mode:</span></span>
+<span class="cs-line cmt"># vLLM runs target model alongside trainer</span>
+<span class="cs-line cmt"># Generates hidden states on-the-fly</span>
+<span class="cs-line cmt"># Bottleneck: target model throughput</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Practical rec:</span>
+<span class="cs-line cmt">#   &lt; 10 TB budget   → speculators online</span>
+<span class="cs-line cmt">#   10–50 TB budget  → SpecForge offline</span>
+<span class="cs-line cmt">#   50+ TB budget    → DeepSpec offline</span>
+<span class="cs-line cmt">#   No disk budget   → TorchSpec streaming</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-community">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Community & ecosystem snapshot</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># GitHub stars (June 2026):</span>
+<span class="cs-line hl-a"><span class="cmt">#   DeepSpec   5,200 ★  (DeepSeek brand)</span></span>
+<span class="cs-line hl-p"><span class="cmt">#   SpecForge    949 ★  (LMSYS/SGLang)</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   speculators  543 ★  (vllm-project)</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   TorchSpec    183 ★  (LightSeek)</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Licenses:</span>
+<span class="cs-line cmt">#   SpecForge   MIT</span>
+<span class="cs-line cmt">#   TorchSpec   MIT</span>
+<span class="cs-line cmt">#   speculators Apache 2.0</span>
+<span class="cs-line cmt">#   DeepSpec    MIT</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Community channels:</span>
+<span class="cs-line cmt">#   speculators: vLLM Slack</span>
+<span class="cs-line cmt">#                #speculators</span>
+<span class="cs-line cmt">#                #feat-spec-decode</span>
+<span class="cs-line cmt">#   SpecForge:   GitHub issues + Discord</span>
+<span class="cs-line cmt">#   TorchSpec:   GitHub issues (sparse)</span>
+<span class="cs-line cmt">#   DeepSpec:    GitHub issues</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Pretrained checkpoints:</span>
+<span class="cs-line hl-p"><span class="cmt">#   SpecForge: SpecBundle on HuggingFace</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   speculators: RedHatAI/* on HuggingFace</span></span>
+<span class="cs-line hl-a"><span class="cmt">#   DeepSpec: deepseek-ai/* on HuggingFace</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   TorchSpec: production, not published</span></span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Production users (confirmed):</span>
+<span class="cs-line cmt">#   SpecForge:   GPT-OSS Eagle3 models</span>
+<span class="cs-line cmt">#   TorchSpec:   DigitalOcean, CoreWeave</span>
+<span class="cs-line cmt">#                Kimi-K2.5, MiniMax-M2.5</span>
+<span class="cs-line cmt">#   speculators: vLLM ecosystem widely</span>
+<span class="cs-line cmt">#   DeepSpec:    DeepSeek internal</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-verdict">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Decision flowchart</span>
+<span class="cs-line"> </span>
+<span class="cs-line hl-p">if serving_engine == "SGLang":</span>
+<span class="cs-line">    use("SpecForge")</span>
+<span class="cs-line hl-g">elif serving_engine == "vLLM":</span>
+<span class="cs-line">    use("speculators")</span>
+<span class="cs-line hl-c">elif serving_engine in ["TRT-LLM", "mixed"]:</span>
+<span class="cs-line">    use("TorchSpec")</span>
+<span class="cs-line hl-a">elif goal == "research_comparison":</span>
+<span class="cs-line">    use("DeepSpec")</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Secondary tiebreakers:</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Want DSpark?</span>
+<span class="cs-line cmt">#   → DeepSpec only</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Want MTP finetuning or P-EAGLE?</span>
+<span class="cs-line cmt">#   → speculators only</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Want Domino (DFlash+GRU)?</span>
+<span class="cs-line cmt">#   → SpecForge only</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># No disk budget, training at 100B+ scale?</span>
+<span class="cs-line cmt">#   → TorchSpec streaming</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Want pretrained checkpoints, skip Stage 2?</span>
+<span class="cs-line cmt">#   SpecForge SpecBundle (SGLang)</span>
+<span class="cs-line cmt">#   speculators RedHatAI/* (vLLM)</span>
+<span class="cs-line cmt">#   DeepSpec deepseek-ai/* (research)</span>
+<span class="cs-line"> </span>
+<span class="cs-line cmt"># Key insight: DeepSpec = SpecForge core</span>
+<span class="cs-line cmt"># + data pipeline + eval harness + DSpark</span>
+<span class="cs-line cmt"># It's a superset for research,</span>
+<span class="cs-line cmt"># not a production serving framework</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ── TOC & sidebar toggles ────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ── Code sidebar tab switching ───────────────────────────
+const tabMeta = {
+  pipeline:    { file: 'pipeline.py',     title: 'Training Pipeline' },
+  philosophies:{ file: 'design.md',       title: 'Design Philosophies' },
+  algorithms:  { file: 'algorithms.py',   title: 'Algorithm Coverage' },
+  backends:    { file: 'backends.sh',     title: 'Backend Compatibility' },
+  scale:       { file: 'storage_math.py', title: 'Scale & Storage' },
+  community:   { file: 'ecosystem.md',    title: 'Community & Code Quality' },
+  verdict:     { file: 'decision.py',     title: 'Which One to Pick' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ── IntersectionObserver: sync TOC & code tab ───────────
+const sectionMap = {
+  's-pipeline':    'pipeline',
+  's-philosophies':'philosophies',
+  's-algorithms':  'algorithms',
+  's-backends':    'backends',
+  's-scale':       'scale',
+  's-community':   'community',
+  's-verdict':     'verdict',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.25 }).observe(s)
+);
+
+// ── Algorithm matrix: click to highlight ────────────────
+document.querySelectorAll('.am-row[data-fw] .am-fw').forEach(cell => {
+  cell.addEventListener('click', () => {
+    const fw = cell.closest('.am-row').dataset.fw;
+    document.querySelectorAll('.am-row[data-fw]').forEach(row => {
+      row.classList.toggle('am-highlight', row.dataset.fw === fw &&
+        !row.classList.contains('am-highlight') || false);
+    });
+    // Toggle: if already highlighted, dehighlight
+    const row = document.getElementById('amr-' + fw);
+    if (row) row.classList.toggle('am-highlight');
+  });
+});
+
+// ── Positioning canvas ───────────────────────────────────
+(function() {
+  const wrap = document.getElementById('pos-canvas-wrap');
+  const canvas = document.getElementById('pos-canvas');
+  if (!canvas || !wrap) return;
+
+  const FWS = [
+    {
+      id: 'specforge', label: 'SpecForge',
+      x: 0.68, y: 0.22,  // right (SGLang-coupled), production
+      color: '#8b5cf6',
+      desc: '<strong>SpecForge</strong> — SGLang-native, LMSYS-maintained. Best for SGLang production fleets. EAGLE-3 + DFlash + Domino. SpecBundle pretrained checkpoints available. Partners: NVIDIA, Google, Meituan.',
+    },
+    {
+      id: 'torchspec', label: 'TorchSpec',
+      x: 0.22, y: 0.18,  // left (multi-engine), top (large-scale production)
+      color: '#06b6d4',
+      desc: '<strong>TorchSpec</strong> — Disaggregated streaming via Mooncake. Zero disk I/O for hidden states. First-class vLLM + TRT-LLM support. Production at DigitalOcean, CoreWeave. For 100B+ models where storage is a constraint.',
+    },
+    {
+      id: 'speculators', label: 'speculators',
+      x: 0.35, y: 0.32,  // left-center (vLLM-focused but standardized), production-ish
+      color: '#10b981',
+      desc: '<strong>speculators</strong> — vLLM-native, broadest algorithm support (EAGLE-3, DFlash, P-EAGLE, MTP Finetuning). Standardized HuggingFace format. 8B–675B, MoE + VLM. RedHatAI checkpoints. Apache 2.0.',
+    },
+    {
+      id: 'deepspec', label: 'DeepSpec',
+      x: 0.50, y: 0.72,  // center, lower (research pipeline)
+      color: '#f59e0b',
+      desc: '<strong>DeepSpec</strong> — Full-stack reproducible pipeline (data → train → eval). Built on SpecForge. Includes DSpark (+30.9% τ over EAGLE-3). Requires ~38 TB storage. DeepSeek AI. For algorithm comparison research.',
+    },
+  ];
+
+  let hoveredIdx = -1;
+  let W, H, DPR;
+
+  function resize() {
+    W = wrap.clientWidth;
+    H = Math.round(W * 0.56);
+    DPR = window.devicePixelRatio || 1;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    draw();
+  }
+
+  function draw() {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const PAD = 56, iW = W - PAD * 2, iH = H - PAD * 2;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const gx = PAD + iW * (i / 4), gy = PAD + iH * (i / 4);
+      ctx.beginPath(); ctx.moveTo(gx, PAD); ctx.lineTo(gx, PAD + iH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD, gy); ctx.lineTo(PAD + iW, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PAD, PAD + iH / 2); ctx.lineTo(PAD + iW, PAD + iH / 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + iW / 2, PAD); ctx.lineTo(PAD + iW / 2, PAD + iH); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#4b5563';
+    ctx.font = '9px var(--ff-mono, monospace)';
+    ctx.textAlign = 'center';
+    ctx.fillText('← multi-engine', PAD + iW * 0.18, PAD + iH / 2 - 6);
+    ctx.fillText('engine-coupled →', PAD + iW * 0.82, PAD + iH / 2 - 6);
+    ctx.textAlign = 'left';
+    ctx.save();
+    ctx.translate(PAD - 10, PAD + iH * 0.18);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('production scale ↑', 0, 0);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(PAD - 10, PAD + iH * 0.78);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('↓ research / pipeline', 0, 0);
+    ctx.restore();
+
+    // Framework dots
+    FWS.forEach((fw, i) => {
+      const cx = PAD + fw.x * iW;
+      const cy = PAD + fw.y * iH;
+      const r  = hoveredIdx === i ? 14 : 11;
+      const isHov = hoveredIdx === i;
+
+      // Glow
+      if (isHov) {
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 36);
+        grad.addColorStop(0, fw.color + '40');
+        grad.addColorStop(1, fw.color + '00');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Dot
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = isHov ? fw.color : fw.color + 'cc';
+      ctx.fill();
+      if (isHov) {
+        ctx.strokeStyle = fw.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // Label
+      ctx.fillStyle = isHov ? fw.color : 'rgba(226,232,240,0.85)';
+      ctx.font = `${isHov ? 600 : 500} ${isHov ? 10.5 : 9.5}px var(--ff-mono, monospace)`;
+      ctx.textAlign = 'center';
+      const labelY = (fw.y < 0.5) ? cy + r + 14 : cy - r - 5;
+      ctx.fillText(fw.label, cx, labelY);
+    });
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const PAD = 56, iW = W - PAD * 2, iH = H - PAD * 2;
+    let found = -1;
+    FWS.forEach((fw, i) => {
+      const cx = PAD + fw.x * iW, cy = PAD + fw.y * iH;
+      const dist = Math.hypot(mx - cx, my - cy);
+      if (dist < 22) found = i;
+    });
+    if (found !== hoveredIdx) {
+      hoveredIdx = found;
+      draw();
+      const info = document.getElementById('pos-info');
+      if (info) {
+        info.innerHTML = found >= 0 ? FWS[found].desc : 'Click a framework dot to see its design philosophy.';
+      }
+    }
+    canvas.style.cursor = found >= 0 ? 'pointer' : 'default';
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    hoveredIdx = -1;
+    draw();
+    const info = document.getElementById('pos-info');
+    if (info) info.textContent = 'Click a framework dot to see its design philosophy.';
+  });
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const PAD = 56, iW = W - PAD * 2, iH = H - PAD * 2;
+    FWS.forEach((fw, i) => {
+      const cx = PAD + fw.x * iW, cy = PAD + fw.y * iH;
+      if (Math.hypot(mx - cx, my - cy) < 22) {
+        const info = document.getElementById('pos-info');
+        if (info) info.innerHTML = fw.desc;
+      }
+    });
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ── Animated bar charts ──────────────────────────────────
+function animateBars(sectionId) {
+  const sec = document.getElementById(sectionId);
+  if (!sec) return;
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        sec.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = b.dataset.w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(sec);
+}
+animateBars('s-scale');
+animateBars('s-community');
+</script>
+
+</BaseLayout>
