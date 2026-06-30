@@ -1,0 +1,1157 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="Bifocal dLLMs: Right Context Without Breaking the Cache | Catpuccino.ai"
+  description="R2LM pairs causal KV-cached attention with a reverse Mamba sidecar to supply right-side context — getting 2.4–12.9× the throughput of bidirectional dLLMs while beating both baselines on quality."
+  crumb="Bifocal dLLMs"
+>
+
+<style is:global>
+/* Post base */
+.post-hero{padding:6.5rem 2rem 3rem;max-width:1700px;margin:0 auto}
+.post-hero .tags{margin-bottom:1.25rem}
+.post-hero h1{font-size:clamp(1.75rem,4.5vw,2.75rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:1.1rem;background:linear-gradient(150deg,var(--text) 35%,var(--muted2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.post-hero .lead{font-size:1.05rem;color:var(--muted2);max-width:820px;line-height:1.75;margin-bottom:1.75rem}
+.post-hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem;font-size:.78rem;color:var(--muted);padding-top:1.25rem;border-top:1px solid var(--border)}
+.hero-links{display:flex;flex-wrap:wrap;gap:.625rem;margin-top:1.25rem}
+.hero-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);font-weight:600;text-decoration:none;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s;white-space:nowrap}
+.hero-btn:hover{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.hero-btn svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
+
+/* Three-column layout */
+.post-grid{display:grid;grid-template-columns:var(--toc-w,190px) 1fr var(--code-w,520px);align-items:start;max-width:1700px;margin:0 auto}
+.post-grid.toc-collapsed{--toc-w:32px}
+.post-grid.sidebar-collapsed{--code-w:34px}
+.post-body{padding:1.5rem 2.5rem 6rem 2rem;min-width:0}
+.post-body section{margin-bottom:4.5rem;scroll-margin-top:76px}
+.post-body h2{font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:.875rem}
+.post-body h3{font-size:1rem;font-weight:600;color:var(--text2);margin:1.75rem 0 .625rem}
+.post-body p{font-size:.925rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.75}
+.post-body ul{list-style:none;margin-bottom:.875rem}
+.post-body ul li{font-size:.925rem;color:var(--muted2);padding:.3rem 0 .3rem 1.4rem;position:relative;line-height:1.65}
+.post-body ul li::before{content:'→';position:absolute;left:0;color:var(--purple);font-weight:700}
+.section-no{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem;font-family:var(--ff-mono)}
+
+/* Viz panels */
+.vp{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1.75rem 0}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.vp-title{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2)}
+.vp-hint{font-size:.67rem;color:var(--muted);display:flex;align-items:center;gap:.3rem}
+.vp-hint::before{content:'▶';color:var(--cyan)}
+.vp-body{padding:1.25rem}
+
+/* TOC sidebar */
+.toc-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface)}
+.toc-head{padding:.6rem .75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.toc-label{font-size:.67rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:1;font-family:var(--ff-mono)}
+.toc-toggle{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.75rem;flex-shrink:0;transition:all .15s}
+.toc-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.toc-list{list-style:none;padding:.4rem 0;margin:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.toc-item a{display:flex;align-items:baseline;gap:.5rem;padding:.3rem .75rem;font-size:.71rem;font-family:var(--ff-mono);color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent;line-height:1.45}
+.toc-item a:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.toc-item.toc-active a{color:var(--purple-l);border-left-color:var(--purple);background:var(--purple-dim)}
+.toc-num{font-size:.6rem;color:var(--muted);flex-shrink:0;opacity:.7}
+.toc-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.toc-sidebar.collapsed{overflow:hidden}
+.toc-sidebar.collapsed .toc-label,.toc-sidebar.collapsed .toc-list{display:none}
+.toc-sidebar.collapsed .toc-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .3rem;gap:.4rem}
+.toc-sidebar.collapsed .toc-collapsed-label{display:block}
+
+/* Code sidebar */
+.code-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--code-bg)}
+.cs-head{padding:.75rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;gap:.65rem}
+.cs-head-info{flex:1;min-width:0}
+.cs-toggle{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--border-hi);border-radius:4px;background:none;cursor:pointer;color:var(--muted);font-size:.8rem;flex-shrink:0;transition:all .15s}
+.cs-toggle:hover{color:var(--text2);background:rgba(255,255,255,.06)}
+.cs-collapsed-label{display:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-family:var(--ff-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:.4rem}
+.code-sidebar.collapsed{overflow:hidden}
+.code-sidebar.collapsed .cs-head{flex-direction:column;align-items:center;border-bottom:none;height:100%;padding:.5rem .35rem;gap:.4rem}
+.code-sidebar.collapsed .cs-head-info,.code-sidebar.collapsed .cs-tabs,.code-sidebar.collapsed .cs-body{display:none}
+.code-sidebar.collapsed .cs-collapsed-label{display:block}
+@media(max-width:1100px){.code-sidebar.collapsed{display:none}}
+.cs-file{font-size:.67rem;font-family:var(--ff-mono);color:var(--muted);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.cs-file::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;display:inline-block}
+.cs-section-title{font-size:.78rem;font-weight:600;color:var(--text2)}
+.cs-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);flex-shrink:0;scrollbar-width:none}
+.cs-tabs::-webkit-scrollbar{display:none}
+.cs-tab{font-size:.68rem;font-family:var(--ff-mono);color:var(--muted);padding:.55rem .9rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;background:none;border-top:none;border-left:none;border-right:none}
+.cs-tab:hover{color:var(--text2);background:rgba(255,255,255,.025)}
+.cs-tab.active{color:var(--purple-l);border-bottom-color:var(--purple);background:var(--purple-dim)}
+.cs-body{flex:1;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cs-panel{display:none}
+.cs-panel.active{display:block}
+.cs-pre{font-family:var(--ff-mono);font-size:.72rem;line-height:1.5;padding:.875rem 0;color:#abb2bf;white-space:normal}
+.cs-line{display:block;padding:0 1.25rem;white-space:pre}
+.cs-line.hl-p{background:rgba(139,92,246,.12);border-left:2px solid var(--purple);padding:0 1.1rem}
+.cs-line.hl-c{background:rgba(6,182,212,.1);border-left:2px solid var(--cyan);padding:0 1.1rem}
+.cs-line.hl-g{background:rgba(16,185,129,.1);border-left:2px solid var(--green);padding:0 1.1rem}
+.cs-line.hl-a{background:rgba(245,158,11,.1);border-left:2px solid var(--amber);padding:0 1.1rem}
+.kw{color:#c678dd}.fn{color:#61afef}.cls{color:#e5c07b}.str{color:#98c379}.cmt{color:#5c6370;font-style:italic}.num{color:#d19a66}.op{color:#abb2bf}.attr{color:#e06c75}
+
+/* Results table */
+.results-table{width:100%;border-collapse:collapse;margin:1.5rem 0;border-radius:8px;overflow:hidden}
+.results-table th{background:var(--surface);padding:.5rem .75rem;text-align:left;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.results-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.018)}
+.results-table .mn{font-family:var(--ff-mono);font-size:.75rem;color:var(--text2)}
+.results-table .highlight-row td{background:rgba(139,92,246,.06)}
+.results-table .highlight-row .mn{color:var(--purple-l)}
+.results-table .best{color:var(--cyan);font-weight:700}
+
+/* Math block */
+.math-block{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;font-family:var(--ff-mono);font-size:.82rem;color:var(--text2);line-height:2;overflow-x:auto}
+.math-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff-mono)}
+.math-var{color:var(--cyan);font-style:italic}
+.math-comment{color:var(--muted);font-style:italic;font-size:.7rem}
+
+/* Animated bars */
+.results-bars{margin:1.5rem 0;display:flex;flex-direction:column;gap:.625rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-label{font-size:.72rem;font-family:var(--ff-mono);color:var(--muted2);width:220px;flex-shrink:0;text-align:right;line-height:1.3}
+.bar-track{flex:1;background:var(--card2);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:.5rem;width:0%}
+.bar-fill span{font-size:.65rem;font-weight:700;font-family:var(--ff-mono);color:rgba(255,255,255,.85)}
+
+/* Attention pattern grid */
+.attn-grid-wrap{display:flex;flex-wrap:wrap;gap:1.25rem;margin:1.5rem 0}
+.attn-card{flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.attn-card-title{font-size:.72rem;font-weight:600;font-family:var(--ff-mono);margin-bottom:.75rem;text-align:center}
+.attn-card-title.bidir{color:var(--amber)}
+.attn-card-title.causal{color:var(--cyan)}
+.attn-card-title.bifocal{color:var(--purple)}
+.attn-tag{display:inline-block;font-size:.6rem;padding:.15rem .4rem;border-radius:3px;margin-left:.3rem;font-weight:700}
+.attn-tag.good{background:rgba(16,185,129,.15);color:var(--green)}
+.attn-tag.bad{background:rgba(239,68,68,.15);color:#f87171}
+.attn-desc{font-size:.73rem;color:var(--muted);line-height:1.55;margin-top:.5rem}
+
+/* Step boxes */
+.step-list{display:flex;flex-direction:column;gap:.5rem;margin:1.25rem 0}
+.step-box{display:flex;align-items:flex-start;gap:.875rem;padding:.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);transition:all .35s;opacity:.45}
+.step-box.active{opacity:1;border-color:var(--purple);background:var(--purple-dim)}
+.step-box.done{opacity:.7;border-color:var(--border)}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;font-family:var(--ff-mono);flex-shrink:0;background:var(--border);color:var(--muted);margin-top:.05rem;transition:all .35s}
+.step-box.active .step-num{background:var(--purple);color:#fff}
+.step-box.done .step-num{background:var(--green-dim,rgba(16,185,129,.15));color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.step-body{flex:1;min-width:0}
+.step-title{font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.2rem}
+.step-desc{font-size:.75rem;color:var(--muted);line-height:1.55}
+.step-code{font-family:var(--ff-mono);font-size:.7rem;color:var(--cyan);margin-top:.35rem}
+.step-nav{display:flex;align-items:center;gap:.625rem;margin-top:1rem}
+.step-nav button{padding:.3rem .8rem;border-radius:5px;font-size:.72rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.step-nav button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim,rgba(6,182,212,.08))}
+.step-nav button:disabled{opacity:.35;cursor:default}
+.step-prog{font-size:.7rem;font-family:var(--ff-mono);color:var(--muted)}
+
+/* Throughput chart controls */
+.chart-controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.chart-btn{padding:.25rem .7rem;border-radius:5px;font-size:.7rem;font-family:var(--ff-mono);cursor:pointer;border:1px solid var(--border-hi);background:var(--surface);color:var(--muted2);transition:all .15s}
+.chart-btn.active{border-color:var(--purple);color:var(--purple-l);background:var(--purple-dim)}
+.chart-btn:hover:not(.active){border-color:var(--cyan);color:var(--cyan)}
+
+/* Responsive */
+@media(max-width:1100px){
+  .post-grid{grid-template-columns:1fr}
+  .toc-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .toc-sidebar.collapsed{display:none}
+  .code-sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--border);margin-top:2rem}
+  .cs-body{max-height:460px}
+}
+@media(max-width:680px){.post-hero{padding:5rem 1.25rem 2.5rem}.post-body{padding:1.25rem 1.25rem 4rem}}
+</style>
+
+<!-- HERO -->
+<header class="post-hero">
+  <div class="tags">
+    <span class="tag tag-purple">Diffusion LMs</span>
+    <span class="tag tag-cyan">KV Cache</span>
+    <span class="tag tag-green">Interactive</span>
+  </div>
+  <h1>Bifocal dLLMs: Right Context Without Breaking the Cache</h1>
+  <p class="lead">Discrete diffusion LMs face a brutal trade-off: bidirectional attention gives great quality but no KV cache; causal attention is fast but blind to the right side. R2LM breaks the tie — a reverse Mamba sidecar injects right-context information into a KV-cached causal backbone, achieving 2.4–12.9× the throughput of bidirectional models while beating both baselines on quality.</p>
+  <div class="post-hero-meta">
+    <span>June 30, 2026</span>
+    <span>~9 min read</span>
+    <span>Paper: <code>arXiv:2606.27732</code></span>
+  </div>
+  <div class="hero-links">
+    <a class="hero-btn" href="https://arxiv.org/pdf/2606.27732" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Paper PDF
+    </a>
+  </div>
+</header>
+
+<!-- THREE-COLUMN GRID -->
+<div class="post-grid" id="post-grid">
+
+<!-- LEFT: TOC -->
+<nav class="toc-sidebar" id="toc-sidebar">
+  <div class="toc-head">
+    <span class="toc-label">Contents</span>
+    <button class="toc-toggle" id="toc-toggle" title="Hide contents">‹</button>
+    <span class="toc-collapsed-label">nav</span>
+  </div>
+  <ol class="toc-list">
+    <li class="toc-item" id="toc-s-problem"><a href="#s-problem"><span class="toc-num">01</span> The Dilemma</a></li>
+    <li class="toc-item" id="toc-s-background"><a href="#s-background"><span class="toc-num">02</span> dLLM Background</a></li>
+    <li class="toc-item" id="toc-s-architecture"><a href="#s-architecture"><span class="toc-num">03</span> R2LM Architecture</a></li>
+    <li class="toc-item" id="toc-s-mechanism"><a href="#s-mechanism"><span class="toc-num">04</span> The R2L Stream</a></li>
+    <li class="toc-item" id="toc-s-throughput"><a href="#s-throughput"><span class="toc-num">05</span> Throughput</a></li>
+    <li class="toc-item" id="toc-s-results"><a href="#s-results"><span class="toc-num">06</span> Quality Results</a></li>
+  </ol>
+</nav>
+
+<!-- MIDDLE: ARTICLE -->
+<article class="post-body">
+
+<!-- §01 — The Dilemma -->
+<section id="s-problem" data-code="problem">
+<div class="section-no">01 — The Dilemma</div>
+<h2>Bidirectional attention or KV cache — pick one</h2>
+<p>Discrete diffusion language models (dLLMs) generate text by denoising masked sequences. At each of <em>T</em> steps, every masked position predicts its token based on what it can <em>see</em> — and the architectural choice of what it can see determines everything.</p>
+
+<div class="attn-grid-wrap">
+  <div class="attn-card">
+    <div class="attn-card-title bidir">Bidirectional<span class="attn-tag good">Quality ✓</span><span class="attn-tag bad">Cache ✗</span></div>
+    <canvas id="canvas-bidir" width="160" height="100" style="display:block;margin:0 auto;border-radius:6px"></canvas>
+    <div class="attn-desc">Every position attends to every other. Full context, maximum quality — but each token's KV depends on unresolved masked tokens, so the prefix KV cache is invalid. Every denoising step recomputes the entire attention matrix. Throughput collapses at long prompts: 483 → 53 tok/s as P grows from 512 → 4096.</div>
+  </div>
+  <div class="attn-card">
+    <div class="attn-card-title causal">Causal<span class="attn-tag good">Cache ✓</span><span class="attn-tag bad">Right ctx ✗</span></div>
+    <canvas id="canvas-causal" width="160" height="100" style="display:block;margin:0 auto;border-radius:6px"></canvas>
+    <div class="attn-desc">Each position only sees tokens to its left. Prefix KV is computed once and reused across all T denoising steps. Fast — but structurally blind to the right side. Every masked position loses the information-theoretic "right-context correction" ∆<sup>R2L</sup>.</div>
+  </div>
+  <div class="attn-card">
+    <div class="attn-card-title bifocal">Bifocal (R2LM)<span class="attn-tag good">Cache ✓</span><span class="attn-tag good">Right ctx ✓</span></div>
+    <canvas id="canvas-bifocal" width="160" height="100" style="display:block;margin:0 auto;border-radius:6px"></canvas>
+    <div class="attn-desc">Causal attention (exact left context, KV cached) <em>plus</em> a reverse Mamba sidecar (compressed right context, no cache invalidation). The attention mask stays strictly causal. Right-side information arrives via a non-attention pathway — so the cache stays valid.</div>
+  </div>
+</div>
+
+<p>The key insight from the paper's information-theoretic analysis: the quality gap between causal and bidirectional dLLMs equals the <strong>conditional mutual information of each masked token with the right-side observed tokens</strong>. This gap grows with how many tokens lie to the right and is largest for early positions in a long sequence. You can't recover this information with tricks on the causal side — you need a pathway that actually looks right.</p>
+</section>
+
+<!-- §02 — Background -->
+<section id="s-background" data-code="background">
+<div class="section-no">02 — dLLM Background</div>
+<h2>How masked diffusion works</h2>
+<p>A masked diffusion language model (MDLM) corrupts a sequence by independently replacing each token with a <code>[MASK]</code> at rate <em>1 − α<sub>t</sub></em> for timestep <em>t ∈ [0, 1]</em>. The forward process uses a linear schedule α<sub>t</sub> = 1 − t: at t=0 the sequence is fully clean; at t=1 fully masked.</p>
+
+<div class="math-block">
+<div class="math-label">MDLM Training Objective</div>
+<span class="math-var">L</span>(θ) = E<sub>t,x,z_t</sub> w(t) · Σ<sub>i∈M_t</sub> [−log p<sub>θ</sub>(<span class="math-var">x</span><sub>i</sub> | <span class="math-var">z</span><sub>t</sub>)]
+<br>
+w(t) = 1/(1−t) <span class="math-comment">  ← upweights high-mask-rate steps</span>
+<br><br>
+M<sub>t</sub> = masked positions at time t
+<br>
+O<sub>t</sub> = observed (unmasked) positions at time t
+</div>
+
+<p>At inference, generation starts fully masked and runs T denoising steps (typically T=32). At each step, the model assigns confidence scores to every masked position and unmasks the top fraction — the positions with highest max-softmax probability.</p>
+
+<h3>The right-context gap — a worked example</h3>
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">right-context-gap.canvas</span>
+    <span class="vp-hint">watch a position decode with and without right context</span>
+  </div>
+  <div class="vp-body">
+    <div class="chart-controls">
+      <button class="chart-btn active" id="btn-step-0" onclick="setGapStep(0)">Position 3</button>
+      <button class="chart-btn" id="btn-step-1" onclick="setGapStep(1)">Position 5</button>
+      <button class="chart-btn" id="btn-step-2" onclick="setGapStep(2)">Position 7</button>
+    </div>
+    <canvas id="gap-canvas" width="580" height="160" style="width:100%;max-width:580px;border-radius:8px;display:block"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.5rem">The token <strong>"mat"</strong> (position 3) is being denoised. Causal attention only sees "The cat sat on the" (left). Right context "." provides crucial disambiguation — without it, "mat" competes equally with "chair", "floor", etc.</p>
+  </div>
+</div>
+</section>
+
+<!-- §03 — Architecture -->
+<section id="s-architecture" data-code="architecture">
+<div class="section-no">03 — R2LM Architecture</div>
+<h2>A causal backbone with a reverse sidecar</h2>
+<p>R2LM attaches a reverse Mamba SSM as a residual stream to a pretrained autoregressive Transformer. The key design constraint: <strong>the attention mechanism stays strictly causal</strong>. Right-context information arrives only through the SSM pathway, which does not consume or invalidate causal KV cache entries.</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">r2lm-architecture.svg</span>
+    <span class="vp-hint">components and data flow</span>
+  </div>
+  <div class="vp-body" style="min-width:580px;overflow-x:auto">
+    <svg id="arch-svg" viewBox="0 0 700 340" style="width:100%;max-width:700px;font-family:var(--ff-mono)">
+      <!-- Background -->
+      <rect width="700" height="340" fill="#0d0d14" rx="8"/>
+
+      <!-- Prompt tokens row -->
+      <text x="30" y="30" fill="#6b7280" font-size="10" letter-spacing="1">INPUT SEQUENCE</text>
+      <rect x="30" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="54" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">The</text>
+      <rect x="84" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="108" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">cat</text>
+      <rect x="138" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="162" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">sat</text>
+      <rect x="192" y="40" width="48" height="26" rx="4" fill="#8b5cf6" stroke="#a78bfa"/>
+      <text x="216" y="58" fill="#fff" font-size="9" text-anchor="middle">[MASK]</text>
+      <rect x="246" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="270" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">the</text>
+      <rect x="300" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="324" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">mat</text>
+      <rect x="354" y="40" width="48" height="26" rx="4" fill="#8b5cf6" stroke="#a78bfa"/>
+      <text x="378" y="58" fill="#fff" font-size="9" text-anchor="middle">[MASK]</text>
+      <rect x="408" y="40" width="48" height="26" rx="4" fill="#1a1a2e" stroke="#374151"/>
+      <text x="432" y="58" fill="#e5c07b" font-size="10" text-anchor="middle">.</text>
+
+      <!-- Causal backbone box -->
+      <rect x="30" y="85" width="300" height="60" rx="6" fill="rgba(6,182,212,.08)" stroke="#06b6d4" stroke-width="1.5"/>
+      <text x="42" y="104" fill="#06b6d4" font-size="10" font-weight="bold">CAUSAL TRANSFORMER BACKBONE</text>
+      <text x="42" y="118" fill="#6b7280" font-size="9">Causal attention → KV cached</text>
+      <text x="42" y="130" fill="#6b7280" font-size="9">Left context only: x_1 ... x_i</text>
+
+      <!-- KV cache label -->
+      <rect x="345" y="93" width="90" height="44" rx="5" fill="rgba(6,182,212,.06)" stroke="rgba(6,182,212,.3)" stroke-dasharray="4,3"/>
+      <text x="390" y="111" fill="#06b6d4" font-size="9" text-anchor="middle">KV CACHE</text>
+      <text x="390" y="125" fill="#6b7280" font-size="8" text-anchor="middle">reused across</text>
+      <text x="390" y="136" fill="#6b7280" font-size="8" text-anchor="middle">T=32 steps</text>
+
+      <!-- Flip arrow and R2L Mamba box -->
+      <rect x="30" y="175" width="300" height="70" rx="6" fill="rgba(139,92,246,.08)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="42" y="194" fill="#8b5cf6" font-size="10" font-weight="bold">R2L MAMBA SIDECAR</text>
+      <text x="42" y="208" fill="#6b7280" font-size="9">① flip(h) — expose right tokens</text>
+      <text x="42" y="222" fill="#6b7280" font-size="9">② Mamba scan — aggregate right ctx</text>
+      <text x="42" y="236" fill="#6b7280" font-size="9">③ unflip + LN — restore position order</text>
+
+      <!-- Gated residual -->
+      <rect x="345" y="175" width="90" height="70" rx="5" fill="rgba(139,92,246,.06)" stroke="rgba(139,92,246,.3)"/>
+      <text x="390" y="200" fill="#a78bfa" font-size="9" text-anchor="middle">GATED</text>
+      <text x="390" y="213" fill="#a78bfa" font-size="9" text-anchor="middle">RESIDUAL</text>
+      <text x="390" y="228" fill="#6b7280" font-size="8" text-anchor="middle">h⁺ = h + h_R2L</text>
+      <text x="390" y="241" fill="#6b7280" font-size="8" text-anchor="middle">· tanh(s)</text>
+
+      <!-- Zero-init gate note -->
+      <rect x="455" y="175" width="215" height="70" rx="5" fill="rgba(245,158,11,.05)" stroke="rgba(245,158,11,.25)"/>
+      <text x="562" y="194" fill="#f59e0b" font-size="9" text-anchor="middle" font-weight="bold">ZERO-INIT GATE</text>
+      <text x="562" y="208" fill="#6b7280" font-size="8.5" text-anchor="middle">s = 0 at init → bit-identical</text>
+      <text x="562" y="220" fill="#6b7280" font-size="8.5" text-anchor="middle">to causal baseline at step 0</text>
+      <text x="562" y="234" fill="#6b7280" font-size="8.5" text-anchor="middle">|tanh(s)| ≤ 1 bounds residual</text>
+      <text x="562" y="246" fill="#6b7280" font-size="8.5" text-anchor="middle">185M extra params (10.8%)</text>
+
+      <!-- Output box -->
+      <rect x="30" y="268" width="620" height="40" rx="6" fill="rgba(16,185,129,.06)" stroke="#10b981" stroke-width="1"/>
+      <text x="340" y="285" fill="#10b981" font-size="10" text-anchor="middle" font-weight="bold">OUTPUT: p_θ(x_i | z_t) — uses both left context (causal) and right context (R2L)</text>
+      <text x="340" y="300" fill="#6b7280" font-size="9" text-anchor="middle">Strictly causal attention mask — KV cache stays valid across all T denoising steps</text>
+
+      <!-- Arrows backbone → sidecar -->
+      <line x1="180" y1="145" x2="180" y2="174" stroke="#6b7280" stroke-width="1" marker-end="url(#arr)"/>
+      <line x1="180" y1="245" x2="180" y2="267" stroke="#6b7280" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Arrow from tokens to backbone -->
+      <line x1="216" y1="66" x2="216" y2="84" stroke="#6b7280" stroke-width="1" marker-end="url(#arr)"/>
+
+      <defs>
+        <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+        </marker>
+      </defs>
+
+      <!-- Hook label -->
+      <text x="450" y="120" fill="#6b7280" font-size="8.5">hooks every k=4th layer</text>
+      <text x="450" y="132" fill="#6b7280" font-size="8.5">H=7 hooks total</text>
+    </svg>
+  </div>
+</div>
+
+<h3>Two training modes</h3>
+<ul>
+  <li><strong>Joint mode</strong>: train backbone + R2L stream together from an AR checkpoint. The zero-initialized gate means the model starts identical to the causal dLLM and gradually opens the right-context pathway.</li>
+  <li><strong>Plug-in mode (R2LM-PI)</strong>: freeze the backbone, train only the R2L stream (185M params) on top of an already-trained causal dLLM checkpoint. Just 5B tokens (1/12th of joint training) — and it posts the highest overall average.</li>
+</ul>
+</section>
+
+<!-- §04 — The R2L Stream -->
+<section id="s-mechanism" data-code="mechanism">
+<div class="section-no">04 — The R2L Stream</div>
+<h2>Four steps: flip, scan, unflip, gate</h2>
+<p>The R2L stream is the minimal mechanism that supplies position-aware right context. Every step has a clear purpose — and removing or wrong-directing any step makes things worse (confirmed by ablation).</p>
+
+<div class="step-list" id="r2l-steps">
+  <div class="step-box active" id="step-0">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Sequence Flip</div>
+      <div class="step-desc">Reverse the sequence axis: <code>h_flip = flip(h, dim=1)</code>. After flipping, position L−i−1 in h_flip corresponds to position i in the original sequence. A left-to-right Mamba scan on the flipped sequence now aggregates tokens from position i+1, i+2, … L — the right side.</div>
+      <div class="step-code">h_flip = h.flip(dim=1)  # shape: [B, L, d]</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-1">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Mamba Selective Scan</div>
+      <div class="step-desc">Run a Mamba-1 selective SSM block on the flipped sequence. Mamba's input-dependent transitions let it selectively gate which right-side tokens to retain. Critically, the SSM scan does not consume causal-attention KV entries — the cache stays valid.</div>
+      <div class="step-code">h_mamba = MambaBlock(h_flip)  # linear time O(BLd_ssm)</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-2">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Unflip + LayerNorm</div>
+      <div class="step-desc">Flip back: <code>h_R2L = LN(h_mamba.flip(dim=1))</code>. After unflipping, position i in h_R2L summarizes tokens at j ≥ i — the right-context correction. LayerNorm bounds the magnitude before the residual is added.</div>
+      <div class="step-code">h_r2l = LN(h_mamba.flip(dim=1))  # back to original order</div>
+    </div>
+  </div>
+  <div class="step-box" id="step-3">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Gated Residual Addition</div>
+      <div class="step-desc">Add h_R2L to the backbone hidden state via a per-layer scalar gate: <code>h⁺ = h + h_R2L · tanh(s)</code>. The scalar s is initialised to 0 — the augmented model is bit-identical to the causal baseline at step 0. tanh saturation bounds the residual at |tanh(s)| ≤ 1.</div>
+      <div class="step-code">h_out = h + h_r2l * torch.tanh(self.gate)  # s=0 at init</div>
+    </div>
+  </div>
+</div>
+<div class="step-nav">
+  <button id="step-prev" disabled>← Prev</button>
+  <button id="step-next">Next →</button>
+  <span class="step-prog" id="step-prog">Step 1 of 4</span>
+</div>
+
+<h3>Why direction matters — the ablation</h3>
+<p>The paper tests three parameter-matched controls on 1B tokens to rule out "it's just more parameters":</p>
+<table class="results-table">
+  <thead><tr><th>Variant</th><th>Extra Params</th><th>Train Loss ↓</th><th>WikiText-103 PPL ↓</th></tr></thead>
+  <tbody>
+    <tr><td>Causal dLLM (baseline)</td><td class="mn">0</td><td class="mn">4.66</td><td class="mn">178</td></tr>
+    <tr><td>+ MLP Adapter (no direction)</td><td class="mn">185M</td><td class="mn">4.63</td><td class="mn" style="color:#f87171">356 ↑worse</td></tr>
+    <tr><td>+ L2R Mamba (wrong direction)</td><td class="mn">185M</td><td class="mn">4.84</td><td class="mn" style="color:#f87171">374 ↑worse</td></tr>
+    <tr class="highlight-row"><td>+ R2L Mamba (R2LM, ours)</td><td class="mn">185M</td><td class="mn best">3.18</td><td class="mn best">42</td></tr>
+    <tr><td>Bidirectional dLLM (upper bound)</td><td class="mn">0</td><td class="mn">3.02</td><td class="mn">30</td></tr>
+  </tbody>
+</table>
+<p>The MLP adapter adds parameters without direction — WikiText PPL doubles to 356. The L2R Mamba scans the same direction as causal attention (redundant, not novel) — it actively <em>worsens</em> training loss. Only the reversed scan recovers 90.2% of the causal-to-bidirectional training loss gap and reduces WikiText perplexity by 4.2×.</p>
+</section>
+
+<!-- §05 — Throughput -->
+<section id="s-throughput" data-code="throughput">
+<div class="section-no">05 — Throughput</div>
+<h2>12.9× the throughput of bidirectional dLLMs</h2>
+<p>The throughput advantage of KV caching compounds with prompt length. As <em>P</em> grows, the bidirectional dLLM must recompute the full (P+G)² attention at every denoising step — throughput collapses. R2LM's causal backbone reads from cache; only the R2L scan cost grows (with G, not P).</p>
+
+<div class="vp">
+  <div class="vp-head">
+    <span class="vp-title">throughput-vs-prompt.canvas</span>
+    <span class="vp-hint">click to toggle batch size</span>
+  </div>
+  <div class="vp-body">
+    <div class="chart-controls">
+      <button class="chart-btn active" id="btn-b8" onclick="setThroughputBatch(8)">Batch B=8</button>
+      <button class="chart-btn" id="btn-b1" onclick="setThroughputBatch(1)">Batch B=1</button>
+    </div>
+    <canvas id="tp-canvas" width="580" height="260" style="width:100%;max-width:580px;border-radius:8px;display:block"></canvas>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.5rem">Measured on a single H100-80GB. G=128 generated tokens, T=32 denoising steps. R2LM's 7–16% overhead vs causal shrinks relative to bidir's gap as P increases.</p>
+  </div>
+</div>
+
+<h3>Speedup over bidirectional</h3>
+<table class="results-table">
+  <thead>
+    <tr>
+      <th>Prompt P</th>
+      <th>Bidir tok/s (B=8)</th>
+      <th>R2LM tok/s (B=8)</th>
+      <th>Speedup</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="mn">512</td><td class="mn">483</td><td class="mn">1154</td><td class="mn best">2.4×</td></tr>
+    <tr><td class="mn">1024</td><td class="mn">260</td><td class="mn">1089</td><td class="mn best">4.2×</td></tr>
+    <tr><td class="mn">2048</td><td class="mn">124</td><td class="mn">956</td><td class="mn best">7.7×</td></tr>
+    <tr class="highlight-row"><td class="mn">4096</td><td class="mn">53</td><td class="mn">683</td><td class="mn best">12.9×</td></tr>
+  </tbody>
+</table>
+
+<h3>Memory profile</h3>
+<p>At P=16384 (B=1), R2LM saves 5.9 GB (32%) versus the bidirectional dLLM while staying within 0.4 GB of the causal baseline. Peak memory for the bidirectional model grows near-linearly with P (4.5 → 18.5 GB at P=1024→16384); R2LM stays sublinear (4.5 → 12.7 GB) because the SSM cost is bounded by G.</p>
+</section>
+
+<!-- §06 — Results -->
+<section id="s-results" data-code="results">
+<div class="section-no">06 — Quality Results</div>
+<h2>Better than both baselines on the overall average</h2>
+<p>60B-token continued pretraining of Qwen3-1.7B on 7 multiple-choice benchmarks. The key split: <strong>long-target tasks</strong> (multi-token candidates, 4–20 tokens: ARC-C, HellaSwag, PIQA, WinoGrande, OBQA) vs <strong>short-target tasks</strong> (single token: BoolQ, MMLU).</p>
+
+<div class="results-bars" id="bars-all">
+  <div style="font-size:.7rem;color:var(--muted);font-family:var(--ff-mono);margin-bottom:.5rem">ALL AVERAGE (7 benchmarks)</div>
+  <div class="bar-row">
+    <div class="bar-label">Causal dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="44.60" style="background:rgba(107,114,128,.5)"><span>44.60%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Bidirectional dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="46.74" style="background:rgba(6,182,212,.45)"><span>46.74%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">R2LM (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.71" style="background:var(--purple)"><span>47.71%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--green)">R2LM-PI (plug-in)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.76" style="background:var(--green)"><span>47.76%</span></div></div>
+  </div>
+
+  <div style="font-size:.7rem;color:var(--muted);font-family:var(--ff-mono);margin:1rem 0 .5rem">LONG-TARGET AVERAGE (HellaSwag, PIQA, WinoGrande…)</div>
+  <div class="bar-row">
+    <div class="bar-label">Causal dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="43.90" style="background:rgba(107,114,128,.5)"><span>43.90%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Bidirectional dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="44.78" style="background:rgba(6,182,212,.45)"><span>44.78%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">R2LM (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="47.44" style="background:var(--purple)"><span>47.44% (+3.54 pp vs causal)</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--green)">R2LM-PI (plug-in)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="46.00" style="background:var(--green)"><span>46.00%</span></div></div>
+  </div>
+
+  <div style="font-size:.7rem;color:var(--muted);font-family:var(--ff-mono);margin:1rem 0 .5rem">HELLASWAG SPECIFICALLY (+7.3 pp over causal)</div>
+  <div class="bar-row">
+    <div class="bar-label">Causal dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="39.5" style="background:rgba(107,114,128,.5)"><span>39.5% (39.50 raw)</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">Bidirectional dLLM</div>
+    <div class="bar-track"><div class="bar-fill" data-w="43.4" style="background:rgba(6,182,212,.45)"><span>43.4%</span></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label" style="color:var(--purple-l)">R2LM (ours)</div>
+    <div class="bar-track"><div class="bar-fill" data-w="46.8" style="background:var(--purple)"><span>46.8% (+7.3 pp)</span></div></div>
+  </div>
+</div>
+
+<h3>Plug-in is surprisingly strong</h3>
+<p>R2LM-PI trains on a <em>frozen</em> causal backbone for only 5B tokens (vs 60B for joint) updating only 185M parameters (vs 1.85B for joint). Yet it posts the highest ALL average (47.76%) and the highest Short average (52.15%). This isolates the value of the R2L stream from joint backbone training and provides a recipe for retrofitting any existing causal dLLM with right-context access.</p>
+
+<!-- Listen-friendly content -->
+<div class="listen-friendly-content" style="display:none;" aria-hidden="true">
+  <div lang="en">
+    <h2>Audio Summary: Bifocal dLLMs — Right Context Without Breaking the Cache</h2>
+    <p>Discrete diffusion language models denoise masked sequences in parallel, offering big speedups over autoregressive generation. But they face a hard architectural dilemma: bidirectional attention gives full context but invalidates the KV cache, forcing expensive full recomputation at every denoising step; causal attention keeps the cache but loses all right-side context, hurting quality.</p>
+    <p>R2LM, the Bifocal dLLM instantiation from Meta AI and UNC Chapel Hill, resolves this by keeping causal attention strictly causal while adding a reverse Mamba SSM sidecar that injects compressed right-context information without touching the cache. The four-step R2L stream flips the sequence, runs a Mamba selective scan, unflips it, then adds the result back via a zero-initialized gated residual. At initialization the model is bit-identical to the causal baseline; as training proceeds, the gate opens and the right-context pathway contributes. Ablations confirm the direction matters: an MLP adapter (no direction) doubles perplexity, and an L2R Mamba (wrong direction) makes things worse. Only the reversed scan recovers 90.2% of the causal-to-bidirectional training loss gap. In throughput, R2LM is 2.4 to 12.9 times faster than bidirectional dLLMs (the gap widens with prompt length) while staying within 7 to 16 percent of the causal baseline's speed. On seven multiple-choice benchmarks after 60B tokens of continued pretraining on Qwen3-1.7B, R2LM averages 47.71 percent — exceeding both the causal baseline at 44.60 and the bidirectional dLLM at 46.74. The plug-in variant, trained for only 5B tokens on a frozen backbone, posts the highest overall average at 47.76 percent.</p>
+  </div>
+  <div lang="zh">
+    <h2>语音摘要：Bifocal dLLM——无需破坏缓存获取右侧上下文</h2>
+    <p>离散扩散语言模型通过并行去噪掩码序列来生成文本，相比自回归生成具有显著的速度优势。但这类模型面临一个严峻的架构难题：双向注意力能提供完整上下文，但会使KV缓存失效，导致每次去噪步骤都需要重新计算全部注意力；因果注意力保留了缓存，但失去了所有右侧上下文信息，影响生成质量。</p>
+    <p>来自Meta AI和北卡罗来纳大学教堂山分校的R2LM（Bifocal dLLM实例）通过保持因果注意力严格单向，同时添加一个反向Mamba SSM辅助模块来注入压缩的右侧上下文信息，而不影响缓存的有效性。四步R2L流程包括：翻转序列、运行Mamba选择性扫描、再翻转回来，最后通过零初始化的门控残差连接添加结果。消融实验确认方向至关重要：无方向性的MLP适配器会使困惑度翻倍，而正向Mamba则使情况更糟。只有反向扫描才能恢复90.2%的因果到双向训练损失差距。在吞吐量方面，R2LM比双向dLLM快2.4到12.9倍（差距随提示长度增大），同时与因果基线速度相差不超过7到16%。在7个多项选择基准测试中，R2LM平均得分47.71%，超越因果基线的44.60%和双向dLLM的46.74%。</p>
+  </div>
+</div>
+</section>
+
+</article>
+
+<!-- RIGHT: CODE SIDEBAR -->
+<aside class="code-sidebar" id="code-sidebar">
+  <div class="cs-head">
+    <div class="cs-head-info">
+      <div class="cs-file" id="cs-file-label">r2lm/model.py</div>
+      <div class="cs-section-title" id="cs-section-title">The Dilemma</div>
+    </div>
+    <button class="cs-toggle" id="cs-toggle" title="Hide code">›</button>
+    <span class="cs-collapsed-label">code</span>
+  </div>
+  <div class="cs-tabs" id="cs-tabs">
+    <button class="cs-tab active" data-panel="problem">problem</button>
+    <button class="cs-tab" data-panel="background">background</button>
+    <button class="cs-tab" data-panel="architecture">architecture</button>
+    <button class="cs-tab" data-panel="mechanism">mechanism</button>
+    <button class="cs-tab" data-panel="throughput">throughput</button>
+    <button class="cs-tab" data-panel="results">results</button>
+  </div>
+  <div class="cs-body">
+
+    <div class="cs-panel active" id="panel-problem">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The dLLM attention dilemma</span>
+<span class="cs-line cmt"># Bidirectional: max quality, no KV cache</span>
+<span class="cs-line cmt"># Causal: KV cached, no right context</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-a"><span class="cmt"># Bidirectional dLLM cost per step</span></span>
+<span class="cs-line">attn_cost = B * (P + G)**<span class="num">2</span>  <span class="cmt"># full seq</span></span>
+<span class="cs-line hl-a"><span class="cmt"># every step recomputes everything!</span></span>
+<span class="cs-line"></span>
+<span class="cs-line hl-g"><span class="cmt"># Causal dLLM cost per step (cached)</span></span>
+<span class="cs-line">attn_cost = B * G * (P + G)  <span class="cmt"># G-only</span></span>
+<span class="cs-line hl-g"><span class="cmt"># prefix KV computed once, reused</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Right-context information gap</span>
+<span class="cs-line cmt"># (information theory, Proposition 1)</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">right_context_gap</span>(i, observed):</span>
+<span class="cs-line hl-p">    <span class="cmt"># Δ = I(x_i ; x_right | x_left)</span></span>
+<span class="cs-line hl-p">    right = observed[observed.pos &gt; i]</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> cond_mutual_info(x_i, right)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Gap largest at early positions,</span>
+<span class="cs-line cmt"># vanishes at rightmost masked pos</span>
+<span class="cs-line cmt"># Can't recover via causal tricks</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Throughput collapse: Bidir P=4096</span>
+<span class="cs-line"><span class="cmt">#   483 tok/s (P=512)</span></span>
+<span class="cs-line"><span class="cmt">#    53 tok/s (P=4096)  ← 9× slower!</span></span>
+<span class="cs-line cmt"># R2LM: 1154 → 683 tok/s (stays flat)</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-background">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># MDLM: Masked Diffusion LM</span>
+<span class="cs-line cmt"># Forward: corrupt tokens to [MASK]</span>
+<span class="cs-line cmt"># Reverse: denoise iteratively</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">forward_process</span>(x, t):</span>
+<span class="cs-line hl-c">    alpha_t = <span class="num">1</span> - t  <span class="cmt"># linear schedule</span></span>
+<span class="cs-line hl-c">    mask = torch.rand_like(x.float())</span>
+<span class="cs-line hl-c">    <span class="kw">return</span> torch.where(</span>
+<span class="cs-line hl-c">        mask &lt; alpha_t, x, MASK_ID</span>
+<span class="cs-line hl-c">    )</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># ELBO-weighted cross-entropy loss</span>
+<span class="cs-line hl-g"><span class="kw">def</span> <span class="fn">mdlm_loss</span>(model, x):</span>
+<span class="cs-line hl-g">    t = torch.<span class="fn">rand</span>(B).clamp(<span class="num">1e-4</span>, <span class="num">1-1e-4</span>)</span>
+<span class="cs-line hl-g">    z_t = <span class="fn">forward_process</span>(x, t)</span>
+<span class="cs-line hl-g">    w_t = <span class="num">1</span> / (<span class="num">1</span> - t)   <span class="cmt"># up-weight</span></span>
+<span class="cs-line hl-g">    logits = <span class="fn">model</span>(z_t)</span>
+<span class="cs-line hl-g">    <span class="kw">return</span> (w_t * <span class="fn">ce_loss</span>(logits, x,</span>
+<span class="cs-line hl-g">                         mask=z_t == MASK_ID)).<span class="fn">mean</span>()</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Inference: start fully masked,</span>
+<span class="cs-line cmt"># unmask highest-confidence positions</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">generate</span>(model, prompt, G, T=<span class="num">32</span>):</span>
+<span class="cs-line hl-p">    tokens = prompt + [MASK] * G</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(T):</span>
+<span class="cs-line hl-p">        logits = <span class="fn">model</span>(tokens)</span>
+<span class="cs-line hl-p">        conf = logits.<span class="fn">softmax</span>(-<span class="num">1</span>).<span class="fn">max</span>(-<span class="num">1</span>)</span>
+<span class="cs-line hl-p">        unmask_top_k(tokens, conf, step)</span>
+<span class="cs-line hl-p">    <span class="kw">return</span> tokens[<span class="fn">len</span>(prompt):]</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-architecture">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># R2LM: attach R2L stream to every</span>
+<span class="cs-line cmt"># k-th layer of the causal backbone</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">class</span> <span class="cls">R2LM</span>(nn.Module):</span>
+<span class="cs-line hl-c">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, backbone, k=<span class="num">4</span>):</span>
+<span class="cs-line hl-c">        <span class="kw">super</span>().<span class="fn">__init__</span>()</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.backbone = backbone</span>
+<span class="cs-line hl-c">        H = <span class="fn">len</span>(backbone.layers) // k</span>
+<span class="cs-line hl-c">        <span class="kw">self</span>.r2l_hooks = nn.<span class="fn">ModuleList</span>([</span>
+<span class="cs-line hl-c">            <span class="fn">ReverseMambaLayer</span>(backbone.d)</span>
+<span class="cs-line hl-c">            <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(H)  <span class="cmt"># H=7</span></span>
+<span class="cs-line hl-c">        ])</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Hook: inject after every k-th layer</span>
+<span class="cs-line hl-p"><span class="kw">def</span> <span class="fn">register_hooks</span>(<span class="kw">self</span>):</span>
+<span class="cs-line hl-p">    <span class="kw">for</span> i, layer <span class="kw">in</span> <span class="fn">enumerate</span>(</span>
+<span class="cs-line hl-p">            <span class="kw">self</span>.backbone.layers):</span>
+<span class="cs-line hl-p">        <span class="kw">if</span> (i+<span class="num">1</span>) % <span class="kw">self</span>.k == <span class="num">0</span>:</span>
+<span class="cs-line hl-p">            hook_idx = (i+<span class="num">1</span>)//<span class="kw">self</span>.k - <span class="num">1</span></span>
+<span class="cs-line hl-p">            layer.<span class="fn">register_forward_hook</span>(</span>
+<span class="cs-line hl-p">                <span class="kw">self</span>.<span class="fn">make_hook</span>(hook_idx))</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Zero-init: bit-identical at start</span>
+<span class="cs-line hl-g"><span class="kw">class</span> <span class="cls">ReverseMambaLayer</span>(nn.Module):</span>
+<span class="cs-line hl-g">    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d):</span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.mamba = <span class="fn">MambaBlock</span>(d)</span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.ln = nn.<span class="fn">LayerNorm</span>(d)</span>
+<span class="cs-line hl-g">        <span class="kw">self</span>.gate = nn.<span class="fn">Parameter</span>(</span>
+<span class="cs-line hl-g">            torch.<span class="fn">zeros</span>(<span class="num">1</span>))  <span class="cmt"># ← s=0</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-mechanism">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># The R2L stream: 4 steps</span>
+<span class="cs-line"></span>
+<span class="cs-line hl-c"><span class="kw">def</span> <span class="fn">forward</span>(<span class="kw">self</span>, h):</span>
+<span class="cs-line hl-c">    <span class="cmt"># h shape: [B, L, d]</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ① FLIP — expose right tokens</span>
+<span class="cs-line hl-p">    h_flip = h.<span class="fn">flip</span>(dim=<span class="num">1</span>)</span>
+<span class="cs-line hl-p">    <span class="cmt"># pos L-i-1 in h_flip → right of i</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ② MAMBA SCAN — aggregate</span>
+<span class="cs-line hl-g">    h_mamba = <span class="kw">self</span>.mamba(h_flip)</span>
+<span class="cs-line hl-g">    <span class="cmt"># linear time O(B·L·d_ssm)</span></span>
+<span class="cs-line hl-g">    <span class="cmt"># does NOT touch causal KV cache</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ③ UNFLIP + LN — restore order</span>
+<span class="cs-line hl-a">    h_r2l = <span class="kw">self</span>.ln(h_mamba.<span class="fn">flip</span>(dim=<span class="num">1</span>))</span>
+<span class="cs-line hl-a">    <span class="cmt"># h_r2l[i] summarises j &gt;= i</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt">    # ④ GATED RESIDUAL — add back</span>
+<span class="cs-line hl-p">    h_out = h + h_r2l * torch.<span class="fn">tanh</span>(<span class="kw">self</span>.gate)</span>
+<span class="cs-line hl-p">    <span class="cmt"># gate=0 at init → no-op start</span></span>
+<span class="cs-line hl-p">    <span class="cmt"># |tanh(s)| &lt;= 1 bounds residual</span></span>
+<span class="cs-line hl-p">    <span class="kw">return</span> h_out</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Ablation (1B tokens, WikiText PPL)</span>
+<span class="cs-line cmt"># Causal baseline:    PPL = 178</span>
+<span class="cs-line cmt"># + MLP Adapter:      PPL = 356 ↑worse</span>
+<span class="cs-line cmt"># + L2R Mamba:        PPL = 374 ↑worse</span>
+<span class="cs-line cmt"># + R2L Mamba (ours): PPL =  42 ← 4.2×</span>
+<span class="cs-line cmt"># Bidirectional:      PPL =  30</span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-throughput">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># Throughput on H100-80GB</span>
+<span class="cs-line cmt"># G=128 tokens, T=32 denoising steps</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># B=8 (deployment batch)</span>
+<span class="cs-line"><span class="cmt">#   P      Bidir   R2LM   Speedup</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   512    483     1154   2.4×</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   1024   260     1089   4.2×</span></span>
+<span class="cs-line hl-c"><span class="cmt">#   2048   124      956   7.7×</span></span>
+<span class="cs-line hl-g"><span class="cmt">#   4096    53      683  12.9×</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Why: bidir recomputes full attn</span>
+<span class="cs-line hl-a"><span class="cmt"># each step: O(B(P+G)²) → collapses</span></span>
+<span class="cs-line cmt"># R2LM cached: O(BG(P+G)) → stays flat</span>
+<span class="cs-line cmt"># R2L scan: O(BG·d_ssm·H) → bounded</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># R2LM overhead vs causal: 7–16%</span>
+<span class="cs-line cmt"># (shrinks with P, grows with G)</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Memory at P=16384 (B=1):</span>
+<span class="cs-line hl-p"><span class="cmt"># Bidir:  18.5 GB (linear growth)</span></span>
+<span class="cs-line hl-p"><span class="cmt"># R2LM:  12.7 GB (sublinear)</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Saves: 5.9 GB (32%) vs bidir</span></span>
+<span class="cs-line hl-p"><span class="cmt"># Within 0.4 GB of causal baseline</span></span>
+      </pre>
+    </div>
+
+    <div class="cs-panel" id="panel-results">
+      <pre class="cs-pre">
+<span class="cs-line cmt"># 60B-token CPT of Qwen3-1.7B</span>
+<span class="cs-line cmt"># 7 MC benchmarks, ALL average</span>
+<span class="cs-line"></span>
+<span class="cs-line"><span class="cmt">#  Model         Long   Short   ALL</span></span>
+<span class="cs-line hl-a"><span class="cmt">#  Causal        43.90  46.35  44.60</span></span>
+<span class="cs-line hl-c"><span class="cmt">#  Bidir         44.78  51.65  46.74</span></span>
+<span class="cs-line hl-p"><span class="cmt">#  R2LM          47.44  48.40  47.71 ← best</span></span>
+<span class="cs-line hl-g"><span class="cmt">#  R2LM-PI (PI)  46.00  52.15  47.76 ← best</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># R2LM beats both baselines on ALL avg</span>
+<span class="cs-line cmt"># +3.11 pp vs causal</span>
+<span class="cs-line cmt"># +0.97 pp vs bidirectional</span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># HellaSwag highlight</span>
+<span class="cs-line hl-p"><span class="cmt"># Causal: 39.50  →  R2LM: 46.80 (+7.3)</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Plug-in (R2LM-PI) stats:</span>
+<span class="cs-line hl-g"><span class="cmt"># Only 5B tokens (1/12 of joint)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Only 185M params (1/10 of joint)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># Highest ALL (47.76) + Short (52.15)</span></span>
+<span class="cs-line hl-g"><span class="cmt"># 59% of long-target gain recovered</span></span>
+<span class="cs-line"></span>
+<span class="cs-line cmt"># Combined verdict:</span>
+<span class="cs-line cmt"># KV cache: ✓ (causal attn preserved)</span>
+<span class="cs-line cmt"># Right ctx: ✓ (R2L sidecar)</span>
+<span class="cs-line cmt"># Quality:   ✓ (beats both baselines)</span>
+<span class="cs-line cmt"># Speed:     ✓ (2.4–12.9× vs bidir)</span>
+      </pre>
+    </div>
+
+  </div>
+</aside>
+
+</div><!-- /post-grid -->
+
+<script>
+// ─── TOC + sidebar toggles ───────────────────────────────────────────────────
+const tocSidebar = document.getElementById('toc-sidebar');
+const tocToggle  = document.getElementById('toc-toggle');
+const postGrid   = document.getElementById('post-grid');
+tocToggle?.addEventListener('click', () => {
+  const c = tocSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('toc-collapsed', c);
+  tocToggle.textContent = c ? '›' : '‹';
+});
+const codeSidebar = document.getElementById('code-sidebar');
+const csToggle    = document.getElementById('cs-toggle');
+csToggle?.addEventListener('click', () => {
+  const c = codeSidebar.classList.toggle('collapsed');
+  postGrid.classList.toggle('sidebar-collapsed', c);
+  csToggle.textContent = c ? '‹' : '›';
+});
+
+// ─── Code sidebar tabs ────────────────────────────────────────────────────────
+const tabMeta = {
+  problem:      { file: 'r2lm/dilemma.py',      title: 'The Dilemma' },
+  background:   { file: 'r2lm/mdlm.py',          title: 'dLLM Background' },
+  architecture: { file: 'r2lm/model.py',          title: 'R2LM Architecture' },
+  mechanism:    { file: 'r2lm/r2l_stream.py',     title: 'The R2L Stream' },
+  throughput:   { file: 'r2lm/throughput.py',     title: 'Throughput' },
+  results:      { file: 'r2lm/results.py',        title: 'Quality Results' },
+};
+function activateTab(name) {
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.cs-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  const m = tabMeta[name];
+  if (m) {
+    document.getElementById('cs-file-label').textContent = m.file;
+    document.getElementById('cs-section-title').textContent = m.title;
+  }
+}
+document.querySelectorAll('.cs-tab').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.panel)));
+
+// ─── IntersectionObserver — TOC + sidebar sync ───────────────────────────────
+const sectionMap = {
+  's-problem':      'problem',
+  's-background':   'background',
+  's-architecture': 'architecture',
+  's-mechanism':    'mechanism',
+  's-throughput':   'throughput',
+  's-results':      'results',
+};
+document.querySelectorAll('.post-body section[id]').forEach(s =>
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.toc-item').forEach(li =>
+          li.classList.toggle('toc-active', li.id === 'toc-' + e.target.id));
+        const p = sectionMap[e.target.id];
+        if (p) activateTab(p);
+      }
+    });
+  }, { threshold: 0.3 }).observe(s)
+);
+
+// ─── Attention pattern mini-canvases ──────────────────────────────────────────
+function drawAttentionGrid(canvasId, mode) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const N = 6;
+  const W = canvas.clientWidth || 160;
+  const H = canvas.clientHeight || 100;
+  const DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const cellW = W / (N + 1.5);
+  const cellH = H / (N + 1.5);
+  const pad = cellW * 0.5;
+
+  // draw N×N grid cells
+  for (let row = 0; row < N; row++) {
+    for (let col = 0; col < N; col++) {
+      let fill = 'rgba(255,255,255,0.03)';
+      if (mode === 'bidir') {
+        fill = 'rgba(245,158,11,0.35)';
+      } else if (mode === 'causal') {
+        if (col <= row) fill = 'rgba(6,182,212,0.35)';
+        else fill = 'rgba(255,255,255,0.03)';
+      } else if (mode === 'bifocal') {
+        if (col <= row) fill = 'rgba(6,182,212,0.30)';
+        else fill = 'rgba(139,92,246,0.25)';  // right context via SSM
+      }
+      const x = pad + col * cellW;
+      const y = pad + row * cellH;
+      ctx.fillStyle = fill;
+      ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
+    }
+  }
+  // label
+  const labels = ['T','c','s','_','t','m'];
+  ctx.font = `${Math.round(cellW * 0.45)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < N; i++) {
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText(labels[i], pad + i * cellW + cellW / 2, pad / 2);
+    ctx.fillText(labels[i], pad / 2, pad + i * cellH + cellH / 2);
+  }
+}
+drawAttentionGrid('canvas-bidir', 'bidir');
+drawAttentionGrid('canvas-causal', 'causal');
+drawAttentionGrid('canvas-bifocal', 'bifocal');
+
+// ─── Right-context gap canvas ─────────────────────────────────────────────────
+const SENTENCES = [
+  // [tokens, masked positions, description]
+  { tokens: ['The', 'cat', 'sat', '[M]', 'the', 'mat', '.'], masked: [3], pos: 3, correct: 'on', wrong: 'near/by/...' },
+  { tokens: ['[M]', 'cat', 'sat', 'on', 'the', 'mat', '.'], masked: [0], pos: 0, correct: 'The/A', wrong: 'My/One/...' },
+  { tokens: ['The', 'cat', 'sat', 'on', 'the', '[M]', '.'], masked: [5], pos: 5, correct: 'mat', wrong: '???' },
+];
+let gapStep = 0;
+
+function setGapStep(i) {
+  gapStep = i;
+  ['btn-step-0','btn-step-1','btn-step-2'].forEach((id, j) => {
+    document.getElementById(id)?.classList.toggle('active', j === i);
+  });
+  drawGapCanvas(gapStep);
+}
+
+function drawGapCanvas(stepIdx) {
+  const canvas = document.getElementById('gap-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth || 580;
+  const H = 160;
+  const DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+  ctx.clearRect(0, 0, W, H);
+
+  const s = SENTENCES[stepIdx];
+  const N = s.tokens.length;
+  const tokenW = Math.min(62, (W - 40) / N);
+  const startX = (W - tokenW * N) / 2;
+  const tokenY = 28;
+  const tokenH = 30;
+
+  // Draw tokens
+  s.tokens.forEach((tok, i) => {
+    const x = startX + i * tokenW;
+    const isMasked = s.masked.includes(i);
+    ctx.fillStyle = isMasked ? '#8b5cf6' : '#1a1a2e';
+    ctx.strokeStyle = isMasked ? '#a78bfa' : '#374151';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x + 2, tokenY, tokenW - 4, tokenH, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = isMasked ? '#fff' : '#e5c07b';
+    ctx.font = `${Math.min(11, tokenW * 0.18)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tok, x + tokenW / 2, tokenY + tokenH / 2);
+  });
+
+  // Left context bracket
+  const leftEnd = s.pos - 1;
+  if (leftEnd >= 0) {
+    const lx1 = startX + 2;
+    const lx2 = startX + leftEnd * tokenW + tokenW - 2;
+    ctx.strokeStyle = 'rgba(6,182,212,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(lx1, tokenY + tokenH + 8);
+    ctx.lineTo(lx2, tokenY + tokenH + 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lx1, tokenY + tokenH + 4);
+    ctx.lineTo(lx1, tokenY + tokenH + 12);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lx2, tokenY + tokenH + 4);
+    ctx.lineTo(lx2, tokenY + tokenH + 12);
+    ctx.stroke();
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('causal (left only)', (lx1 + lx2) / 2, tokenY + tokenH + 22);
+  }
+
+  // Right context bracket
+  const rightStart = s.pos + 1;
+  if (rightStart < N) {
+    const rx1 = startX + rightStart * tokenW + 2;
+    const rx2 = startX + (N - 1) * tokenW + tokenW - 2;
+    ctx.strokeStyle = 'rgba(139,92,246,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(rx1, tokenY + tokenH + 8);
+    ctx.lineTo(rx2, tokenY + tokenH + 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(rx1, tokenY + tokenH + 4);
+    ctx.lineTo(rx1, tokenY + tokenH + 12);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(rx2, tokenY + tokenH + 4);
+    ctx.lineTo(rx2, tokenY + tokenH + 12);
+    ctx.stroke();
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('R2L sidecar (right ctx)', (rx1 + rx2) / 2, tokenY + tokenH + 22);
+  }
+
+  // Labels at bottom
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#06b6d4';
+  ctx.fillText('Causal sees: ' + s.tokens.slice(0, s.pos).join(' '), 20, tokenY + tokenH + 45);
+  ctx.fillStyle = '#a78bfa';
+  ctx.fillText('R2L also sees: ' + s.tokens.slice(s.pos + 1).join(' '), 20, tokenY + tokenH + 60);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('Better prediction for position ' + s.pos, 20, tokenY + tokenH + 78);
+}
+drawGapCanvas(0);
+
+// ─── Step navigator ───────────────────────────────────────────────────────────
+let step = 0;
+const boxes   = document.querySelectorAll('.step-box');
+const prevBtn = document.getElementById('step-prev');
+const nextBtn = document.getElementById('step-next');
+const progEl  = document.getElementById('step-prog');
+function updateSteps() {
+  boxes.forEach((b, i) => {
+    b.classList.remove('active', 'done');
+    if (i === step) b.classList.add('active');
+    else if (i < step) b.classList.add('done');
+  });
+  if (prevBtn) prevBtn.disabled = step === 0;
+  if (nextBtn) nextBtn.disabled = step === boxes.length - 1;
+  if (progEl) progEl.textContent = `Step ${step + 1} of ${boxes.length}`;
+  boxes.forEach((b, i) => {
+    const n = b.querySelector('.step-num');
+    if (n) n.textContent = i < step ? '✓' : String(i + 1);
+  });
+}
+prevBtn?.addEventListener('click', () => { if (step > 0) { step--; updateSteps(); } });
+nextBtn?.addEventListener('click', () => { if (step < boxes.length - 1) { step++; updateSteps(); } });
+updateSteps();
+
+// ─── Throughput canvas ────────────────────────────────────────────────────────
+const TP_DATA = {
+  8: {
+    prompts: [512, 1024, 2048, 4096],
+    bidir:   [483, 260, 124, 53],
+    causal:  [1356, 1295, 1050, 732],
+    r2lm:    [1154, 1089, 956, 683],
+  },
+  1: {
+    prompts: [512, 1024, 2048, 4096],
+    bidir:   [246, 187, 106, 51],
+    causal:  [171, 172, 167, 163],
+    r2lm:    [147, 146, 145, 140],
+  },
+};
+let tpBatch = 8;
+
+function setThroughputBatch(b) {
+  tpBatch = b;
+  document.getElementById('btn-b8')?.classList.toggle('active', b === 8);
+  document.getElementById('btn-b1')?.classList.toggle('active', b === 1);
+  drawThroughput();
+}
+
+function drawThroughput() {
+  const canvas = document.getElementById('tp-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth || 580;
+  const H = 260;
+  const DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+  ctx.clearRect(0, 0, W, H);
+
+  const d = TP_DATA[tpBatch];
+  const padL = 56, padR = 20, padT = 18, padB = 40;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxY = tpBatch === 8 ? 1500 : 300;
+
+  // Grid
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + chartH - (i / 5) * chartH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxY * i / 5), padL - 6, y + 4);
+  }
+
+  // X axis labels
+  d.prompts.forEach((p, i) => {
+    const x = padL + (i / (d.prompts.length - 1)) * chartW;
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('P=' + p, x, H - 8);
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#4b5563';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('tok/s', padL - 30, padT + chartH / 2);
+
+  function drawLine(vals, color, label, labelOffsetY) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const x = padL + (i / (vals.length - 1)) * chartW;
+      const y = padT + chartH - (v / maxY) * chartH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // dots
+    vals.forEach((v, i) => {
+      const x = padL + (i / (vals.length - 1)) * chartW;
+      const y = padT + chartH - (v / maxY) * chartH;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    });
+    // end label
+    const lastX = padL + chartW;
+    const lastY = padT + chartH - (vals[vals.length - 1] / maxY) * chartH;
+    ctx.fillStyle = color;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, lastX - 60, lastY + labelOffsetY);
+  }
+
+  drawLine(d.causal, '#06b6d4', 'Causal', -8);
+  drawLine(d.r2lm,   '#8b5cf6', 'R2LM',   2);
+  drawLine(d.bidir,  '#f59e0b', 'Bidir',  10);
+
+  // Speedup annotation at P=4096
+  const bVal = d.bidir[3];
+  const rVal = d.r2lm[3];
+  const bY = padT + chartH - (bVal / maxY) * chartH;
+  const rY = padT + chartH - (rVal / maxY) * chartH;
+  const xAnn = padL + chartW - 80;
+  ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(xAnn, bY); ctx.lineTo(xAnn, rY); ctx.stroke();
+  ctx.setLineDash([]);
+  const speedup = (rVal / bVal).toFixed(1);
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(speedup + '×', xAnn - 4, (bY + rY) / 2 + 4);
+}
+drawThroughput();
+
+// ─── Animated bar chart ───────────────────────────────────────────────────────
+const barsSection = document.getElementById('s-results');
+if (barsSection) {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.bar-fill[data-w]').forEach(b => {
+          b.style.width = (parseFloat(b.dataset.w) / 55 * 100) + '%';
+        });
+      }
+    });
+  }, { threshold: 0.3 }).observe(barsSection);
+}
+</script>
+</BaseLayout>
