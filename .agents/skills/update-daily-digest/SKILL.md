@@ -26,7 +26,6 @@ Map each raw paper to the following structured JSON format:
   "upvotes": number, // upvote count
   "titleEn": "string", // Original English title
   "titleZh": "string", // Chinese translated title
-  "authors": "string", // Commma separated authors
   "problemEn": "string", // Concise problem description in English
   "problemZh": "string", // Concise problem description in Chinese
   "innovationEn": "string", // Tech innovation summary in English
