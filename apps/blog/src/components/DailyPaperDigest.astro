@@ -3151,6 +3151,185 @@
       }
     }
 
+    // World Model state transition visualizer
+    let wmFrame = 0;
+    function drawWorldModelTransition(ctx: CanvasRenderingContext2D, isZh: boolean) {
+      wmFrame = (wmFrame + 1) % 180;
+      
+      // Title
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = "bold 9px monospace";
+      ctx.fillText(isZh ? "世界模型状态迁移 (State Transition)" : "World Model Latent Transition", 20, 25);
+
+      // Draw State s_t box
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.strokeRect(20, 48, 60, 50);
+      ctx.fillStyle = "rgba(255,255,255,0.01)";
+      ctx.fillRect(20, 48, 60, 50);
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "7px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText("State s_t", 24, 43);
+
+      // Draw robot arm in s_t
+      ctx.strokeStyle = "var(--cyan)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(35, 93); ctx.lineTo(35, 73); ctx.lineTo(45, 63);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(45, 63, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = "var(--cyan)";
+      ctx.fill();
+
+      // Action arrow
+      ctx.strokeStyle = "var(--green)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(30, 112); ctx.lineTo(70, 112);
+      ctx.lineTo(65, 108); ctx.moveTo(70, 112); ctx.lineTo(65, 116);
+      ctx.stroke();
+      ctx.fillStyle = "var(--green)";
+      ctx.font = "7px monospace";
+      ctx.fillText(isZh ? "动作 a_t (向右)" : "Action a_t (Right)", 28, 126);
+
+      // Latent space sphere
+      const spherePulse = 16 + Math.sin(wmFrame * 0.1) * 1.5;
+      ctx.beginPath();
+      ctx.arc(150, 73, spherePulse, 0, Math.PI * 2);
+      const sphereGrad = ctx.createRadialGradient(150, 73, 2, 150, 73, spherePulse);
+      sphereGrad.addColorStop(0, "white");
+      sphereGrad.addColorStop(0.3, "var(--purple-l)");
+      sphereGrad.addColorStop(1, "rgba(139, 92, 246, 0)");
+      ctx.fillStyle = sphereGrad;
+      ctx.fill();
+      
+      ctx.fillStyle = "var(--purple-l)";
+      ctx.font = "7.5px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("Latent Space", 150, 102);
+
+      // Draw Predicted state s_t+1 box
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.strokeRect(220, 48, 60, 50);
+      ctx.fillStyle = "rgba(255,255,255,0.01)";
+      ctx.fillRect(220, 48, 60, 50);
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "7px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText("Predicted s_t+1", 220, 43);
+
+      // Animation flow
+      if (wmFrame < 60) {
+        const flowProg = wmFrame / 60;
+        // flow from s_t to latent
+        ctx.beginPath();
+        ctx.arc(50 + (150 - 50) * flowProg, 73, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "var(--cyan)";
+        ctx.fill();
+
+        // flow from action to latent
+        ctx.beginPath();
+        ctx.arc(50 + (150 - 50) * flowProg, 112 + (73 - 112) * flowProg, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "var(--green)";
+        ctx.fill();
+      }
+
+      if (wmFrame > 80) {
+        const opacity = Math.min(1, (wmFrame - 80) / 40);
+        ctx.strokeStyle = `rgba(16, 185, 129, ${opacity})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Robot arm shifted right
+        ctx.moveTo(235, 93); ctx.lineTo(245, 78); ctx.lineTo(265, 73);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(265, 73, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(16, 185, 129, ${opacity})`;
+        ctx.fill();
+      }
+
+      // Description
+      ctx.textAlign = "left";
+      ctx.fillStyle = "var(--muted)";
+      ctx.font = "7.5px monospace";
+      if (wmFrame < 60) {
+        ctx.fillText(isZh ? "输入状态 s_t 与动作 a_t 编码到潜空间..." : "Encoding state and action into latent representation...", 20, 150);
+      } else if (wmFrame < 90) {
+        ctx.fillText(isZh ? "潜空间推演下一状态中..." : "Transitioning state in latent space...", 20, 150);
+      } else {
+        ctx.fillText(isZh ? "成功预测下一状态，指导机器人运动规划" : "State transition predicted. Directing motor actions...", 20, 150);
+      }
+    }
+
+    // Autoregressive generation visualizer
+    let arFrame = 0;
+    const arWords = ["The", "world", "is", "in", "your", "mind"];
+    function drawAutoregressiveGeneration(ctx: CanvasRenderingContext2D, isZh: boolean) {
+      arFrame = (arFrame + 1) % 180;
+      
+      // Title
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = "bold 9px monospace";
+      ctx.fillText(isZh ? "自回归生成与注意力 (Autoregressive Attention)" : "Autoregressive Causal Attention", 20, 25);
+
+      const wordStep = Math.floor(arFrame / 30); // 0 to 5
+      const phase = (arFrame % 30) / 30; // 0 to 1
+
+      const startX = 35;
+      const spacing = 43;
+
+      for (let i = 0; i <= Math.min(wordStep, 5); i++) {
+        const isCurrent = i === wordStep;
+        const xPos = startX + i * spacing;
+        
+        ctx.save();
+        if (isCurrent) {
+          ctx.globalAlpha = phase;
+        }
+
+        ctx.fillStyle = isCurrent ? "var(--purple-l)" : "rgba(255, 255, 255, 0.7)";
+        ctx.font = "bold 9.5px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(arWords[i], xPos, 90);
+        ctx.restore();
+
+        // Draw attention links
+        if (isCurrent && i > 0) {
+          for (let j = 0; j < i; j++) {
+            const prevX = startX + j * spacing;
+            
+            // Curve links representing self-attention
+            ctx.beginPath();
+            ctx.moveTo(xPos, 78);
+            ctx.quadraticCurveTo((xPos + prevX) / 2, 40, prevX, 78);
+            
+            const attn = 0.8 / (i - j); // closer words get stronger weight
+            ctx.strokeStyle = `rgba(6, 182, 212, ${attn * phase * 0.75})`;
+            ctx.lineWidth = 1 + attn * 1.5;
+            ctx.stroke();
+
+            // Attn particles
+            const px = xPos + (prevX - xPos) * (1 - phase);
+            const py = 78 + (40 - 78) * 2 * (1 - phase) * phase;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = "var(--cyan)";
+            ctx.fill();
+          }
+        }
+      }
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "var(--muted)";
+      ctx.font = "7.5px monospace";
+      if (wordStep < 5) {
+        ctx.fillText(isZh ? `自回归预测下一 Token: "${arWords[wordStep]}"` : `Predicting next token: "${arWords[wordStep]}"...`, 20, 150);
+      } else {
+        ctx.fillText(isZh ? "生成完成。自左向右单向因果注意力机制" : "Generation finished. Causal attention loop.", 20, 150);
+      }
+    }
+
     // Force Directed Topology visualizer
     function drawForceDirectedTopology(ctx: CanvasRenderingContext2D, isZh: boolean) {
       // Draw connections from satellites to the center
@@ -3259,6 +3438,10 @@
           drawDenoisingDiffusion(ctx, isZh);
         } else if (hasKeyword(["cache", "kv", "prun", "compress"])) {
           drawKVCachePruning(ctx, isZh);
+        } else if (hasKeyword(["world model", "latent", "next-state", "embodied", "agent", "robot", "vla"])) {
+          drawWorldModelTransition(ctx, isZh);
+        } else if (hasKeyword(["autoregressive", "attention", "llm", "token", "generation", "alignment", "post-training"])) {
+          drawAutoregressiveGeneration(ctx, isZh);
         } else {
           drawForceDirectedTopology(ctx, isZh);
         }
