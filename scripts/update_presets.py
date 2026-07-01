@@ -23,6 +23,10 @@ def main():
     with open(translated_path, 'r') as f:
         data = json.load(f)
         
+    if data.get('already_processed', False):
+        print(f"Notification: Today's papers ({data.get('date')}) have already been processed in presets. Skipping presets update.")
+        sys.exit(0)
+        
     date_str = data.get('date')
     new_papers = data.get('papers', [])
     

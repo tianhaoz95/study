@@ -14,6 +14,10 @@ python3 scripts/fetch_daily_papers.py --date 2026-07-01 --limit 15
 
 This fetches the papers from the Hugging Face API and writes the metadata to `scratch/raw_papers.json`.
 
+> [!IMPORTANT]
+> **Check if Already Processed**:
+> Immediately after running Step 1, open and read `scratch/raw_papers.json`. If the file contains `"already_processed": true`, **STOP the skill execution immediately**, do not proceed with Steps 2, 3, or 4, and notify the user that today's papers have already been processed and there is nothing to do.
+
 ## Step 2: Translate and Structure (LLM Step)
 
 Read the content of `scratch/raw_papers.json`. For each paper in the list, use your own LLM reasoning context to perform translation and summarization.
