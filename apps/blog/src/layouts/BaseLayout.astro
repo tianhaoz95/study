@@ -2610,6 +2610,7 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       link.dataset.dropdownConverted = 'true';
       
       const href = link.getAttribute('href') || '';
+      const { type, title } = getCleanUrlAndType(href, link.textContent || '');
       
       // Create wrapper
       const wrapper = document.createElement('div');
@@ -2667,6 +2668,25 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       
       menu.appendChild(splitBtn);
       menu.appendChild(tabLink);
+
+      // Option 3: Share PDF (System Share, for NotebookLM migration, with clipboard copy fallback)
+      let shareBtn: HTMLButtonElement | null = null;
+      if (type === 'pdf') {
+        shareBtn = document.createElement('button');
+        shareBtn.className = 'dropdown-item share-opt';
+        shareBtn.setAttribute('type', 'button');
+        shareBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share PDF
+        `;
+        menu.appendChild(shareBtn);
+      }
       
       wrapper.appendChild(mainBtn);
       wrapper.appendChild(toggleBtn);
@@ -2707,6 +2727,49 @@ const stars = Array.from({ length: 80 }, (_, i) => ({
       tabLink.addEventListener('click', () => {
         wrapper.classList.remove('is-open');
       });
+
+      if (shareBtn) {
+        shareBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          wrapper.classList.remove('is-open');
+          
+          const shareUrl = new URL(href, window.location.href).href;
+          const shareTitle = title || 'Research Paper';
+          
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: shareTitle,
+                text: `Research paper PDF: ${shareTitle}`,
+                url: shareUrl
+              });
+            } catch (err) {
+              if (err instanceof Error && err.name !== 'AbortError') {
+                console.error('Error sharing:', err);
+              }
+            }
+          } else {
+            // Fallback: Copy link to clipboard
+            try {
+              await navigator.clipboard.writeText(shareUrl);
+              const originalHTML = shareBtn!.innerHTML;
+              shareBtn!.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Link Copied!
+              `;
+              setTimeout(() => {
+                if (shareBtn) {
+                  shareBtn.innerHTML = originalHTML;
+                }
+              }, 2000);
+            } catch (err) {
+              console.error('Failed to copy link:', err);
+            }
+          }
+        });
+      }
     };
 
     // Bind event listeners to PDF & GitHub links
