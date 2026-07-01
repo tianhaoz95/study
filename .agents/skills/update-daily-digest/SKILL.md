@@ -64,3 +64,10 @@ Verify that the project builds successfully after updating:
 cd apps/blog
 npm run build
 ```
+
+## Critical Design & Implementation Constraints
+
+> [!IMPORTANT]
+> **PDF Button Dropdown & Split-Screen Integration**:
+> 1. Any PDF link inside the dynamically rendered paper cards MUST be structured as an anchor (`<a>`) with `class="hero-btn"` and the `.pdf` URL in its `href` attribute.
+> 2. Because the paper cards and PDF buttons are rendered client-side dynamically, they are injected after the initial DOM load. The rendering code inside [DailyPaperDigest.astro](file:///Users/tianhaozhou/github/study/apps/blog/src/components/DailyPaperDigest.astro) MUST invoke `(window as any).bindSplitViewLinks()` immediately after writing to `papersTarget.innerHTML` to initialize the split-screen dropdown controls. Do not remove or bypass this call.
