@@ -68,9 +68,69 @@ cd apps/blog
 npm run build
 ```
 
+## Backfilling Missing Translations
+
+If existing preset papers already have English fields but are missing Chinese translations (empty `titleZh`, `problemZh`, `innovationZh`, `resultZh`, etc.) or have placeholder summaries (empty `problemEn`, `innovationEn`, `resultEn`), you can backfill them without re-fetching:
+
+1. **Identify untranslated papers** — search the preset data in [DailyPaperDigest.astro](file:///Users/tianhaozhou/github/study/apps/blog/src/components/DailyPaperDigest.astro) for papers with empty `""` values in Zh or summary fields.
+2. **Batch translate** — for large numbers of papers (>10), partition into batches of ~10-12 and use parallel subagents to translate simultaneously. Each subagent reads a batch JSON, fills in the fields, and writes the result.
+3. **Merge back** — write a merge script that reads the translated batches and patches the preset data directly in the Astro component file, replacing only the empty fields with the translated values.
+4. **Verify** — run `npm run build` in `apps/blog` to confirm no syntax errors were introduced.
+
+> [!TIP]
+> Use the paper's `abstract` field (if present) as the primary source for generating `problemEn/Zh`, `innovationEn/Zh`, and `resultEn/Zh` summaries. Each should be 1-2 concise sentences.
+
+## Creating Custom Interactive Visualizations
+
+Papers 1-5 (and any explicitly added IDs like `paper-7`) have dedicated interactive visualizations in the right-side "INTERACTIVE PRINCIPLE EXPLAINER" panel. Papers beyond the custom list fall back to the generic topology viz.
+
+### Architecture
+
+- **HTML**: Each custom viz is a `<div class="interactive-viz" id="viz-paper-N">` block placed inside `.digest-viz-panel`, before the `<!-- Generic Fallback Viz -->` comment.
+- **CSS**: Styles go in the `<style is:global>` block in the same component file. Namespace with the viz ID or unique class prefixes.
+- **JS**: Interactive logic (button toggles, animations) goes in the `<script>` block, typically after the existing viz init sections (look for `// --- Viz N:` comments).
+- **Routing**: The `bindPaperTabEvents` function contains an `isCustomPaper` array that controls which paper IDs get routed to `viz-${paperId}` vs the generic fallback.
+
+### Steps to Add a New Custom Viz
+
+1. **Design the viz** based on the paper's core concept. Good patterns include:
+   - Toggle/comparison views (e.g., Docker vs Dockerless pipelines)
+   - Step-by-step animated flows
+   - Interactive SVG diagrams with clickable regions
+   - Metric comparison bars
+
+2. **Add HTML** — insert a new `<div class="interactive-viz" id="viz-paper-N">` block before `<!-- Generic Fallback Viz -->`. Include:
+   - `.viz-title-row` with bilingual `<h4>` and `.viz-status` badge
+   - Interactive content (buttons, pipeline steps, charts, etc.)
+   - `.viz-caption` paragraphs in both `lang-en` and `lang-zh`
+
+3. **Add CSS** — insert styles in the `<style is:global>` block. Use unique class prefixes to avoid collisions.
+
+4. **Update routing** — add the paper ID to the `isCustomPaper` array:
+   ```js
+   // Find this line in bindPaperTabEvents:
+   const isCustomPaper = ['paper-1', 'paper-2', ..., 'paper-N'].includes(paperId);
+   ```
+   For July 1+ presets, the routing uses `viz-${paperId}` directly. For June 30 presets, there is a separate mapping block.
+
+5. **Add JS interactivity** — add event listeners in the `<script>` block, following the pattern:
+   ```js
+   // --- Viz N: Description ---
+   const vizN = document.getElementById('viz-paper-N');
+   if (vizN) {
+     // bind toggle buttons, animations, etc.
+   }
+   ```
+
+> [!WARNING]
+> The `.hide` class (defined globally in the component) controls visibility for toggle-based views. Use it for showing/hiding pipeline alternatives. The `fadeIn` keyframe also exists globally.
+
 ## Critical Design & Implementation Constraints
 
 > [!IMPORTANT]
 > **PDF Button Dropdown & Split-Screen Integration**:
 > 1. Any PDF link inside the dynamically rendered paper cards MUST be structured as an anchor (`<a>`) with `class="hero-btn"` and the `.pdf` URL in its `href` attribute.
 > 2. Because the paper cards and PDF buttons are rendered client-side dynamically, they are injected after the initial DOM load. The rendering code inside [DailyPaperDigest.astro](file:///Users/tianhaozhou/github/study/apps/blog/src/components/DailyPaperDigest.astro) MUST invoke `(window as any).bindSplitViewLinks()` immediately after writing to `papersTarget.innerHTML` to initialize the split-screen dropdown controls. Do not remove or bypass this call.
+
+> [!NOTE]
+> **Card Layout**: Paper cards (`.paper-tab-card`) are rendered dynamically into `#papers-content-target` (a plain div, not a flex container with gap). Vertical spacing between cards is controlled by `margin-bottom: 0.75rem` on `.paper-tab-card`.
