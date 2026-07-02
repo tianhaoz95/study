@@ -185,6 +185,7 @@ interface Feedback {
   rating?: number
   path?: string
   done?: boolean
+  tags?: string[]
   createdAt: Date | null
 }
 
@@ -201,6 +202,7 @@ const todayEl         = document.getElementById('stat-today')!
 const searchEl        = document.getElementById('search') as HTMLInputElement
 const sortEl          = document.getElementById('sort') as HTMLSelectElement
 const ratingFilterEl  = document.getElementById('rating-filter') as HTMLSelectElement
+const tagFilterEl     = document.getElementById('tag-filter') as HTMLSelectElement
 const refreshBtn      = document.getElementById('refresh-btn')!
 const statTotalLabel  = document.getElementById('stat-total-label')!
 const statChipAvg     = document.getElementById('stat-chip-avg')!
@@ -256,7 +258,8 @@ function switchTab(tab: 'suggestions' | 'feedback') {
     
     searchEl.placeholder = 'Filter by topic or email…';
     ratingFilterEl.style.display = 'none';
-    
+    tagFilterEl.style.display = 'none';
+
     sortEl.innerHTML = `
       <option value="newest">Newest first</option>
       <option value="oldest">Oldest first</option>
@@ -282,6 +285,7 @@ function switchTab(tab: 'suggestions' | 'feedback') {
     
     searchEl.placeholder = 'Filter by message, path, or email…';
     ratingFilterEl.style.display = 'block';
+    tagFilterEl.style.display = 'block';
     
     sortEl.innerHTML = `
       <option value="newest">Newest first</option>
@@ -294,6 +298,7 @@ function switchTab(tab: 'suggestions' | 'feedback') {
   
   searchEl.value = '';
   ratingFilterEl.value = 'all';
+  tagFilterEl.value = 'all';
   
   render();
   updateStats();
@@ -362,10 +367,26 @@ function renderSuggestions() {
     </div>`).join('')
 }
 
+function populateTagFilter() {
+  const allTags = new Set<string>()
+  allFeedback.forEach(f => f.tags?.forEach(t => allTags.add(t)))
+  const current = tagFilterEl.value
+  tagFilterEl.innerHTML = '<option value="all">All tags</option>'
+  Array.from(allTags).sort().forEach(tag => {
+    const opt = document.createElement('option')
+    opt.value = tag
+    opt.textContent = tag
+    tagFilterEl.appendChild(opt)
+  })
+  // Restore selected value if it still exists
+  if (current && allTags.has(current)) tagFilterEl.value = current
+}
+
 function renderFeedback() {
   const q = searchEl.value.trim().toLowerCase()
   const sortVal = sortEl.value
   const ratingFilterVal = ratingFilterEl.value
+  const tagFilterVal = tagFilterEl.value
 
   let filtered = [...allFeedback]
 
@@ -386,6 +407,11 @@ function renderFeedback() {
     } else {
       filtered = filtered.filter(f => typeof f.rating === 'number' && f.rating >= minRating)
     }
+  }
+
+  // Filter by tag
+  if (tagFilterVal !== 'all') {
+    filtered = filtered.filter(f => f.tags?.includes(tagFilterVal) ?? false)
   }
 
   // Sorting
@@ -454,6 +480,10 @@ function renderFeedback() {
         </span>`
       : ''
 
+    const tagsBadges = f.tags?.length
+      ? f.tags.map(t => `<span class="feedback-tag">${escapeHtml(t)}</span>`).join('')
+      : ''
+
     return `
       <div class="feedback-card ${f.done ? 'is-done' : ''}" data-id="${escapeHtml(f.id)}">
         <div class="feedback-header">
@@ -467,6 +497,7 @@ function renderFeedback() {
         <div class="feedback-footer">
           <div class="feedback-meta-left">
             ${doneBadge}
+            ${tagsBadges}
             ${emailBadge}
             ${pathBadge}
           </div>
@@ -523,6 +554,7 @@ async function load() {
     allFeedback = feedbackSnap.docs.map(doc => {
       const data = doc.data()
       const ts = data['createdAt'] as Timestamp | null
+      const rawTags = data['tags']
       return {
         id: doc.id,
         message: String(data['message'] ?? ''),
@@ -530,10 +562,12 @@ async function load() {
         rating: typeof data['rating'] === 'number' ? data['rating'] : undefined,
         path: data['path'] ? String(data['path']) : undefined,
         done: data['done'] === true,
+        tags: Array.isArray(rawTags) ? rawTags.map(String) : undefined,
         createdAt: ts instanceof Timestamp ? ts.toDate() : null,
       }
     });
 
+    populateTagFilter();
     updateStats();
     render();
   } catch (err) {
@@ -564,6 +598,13 @@ sortEl.addEventListener('change', () => {
 ratingFilterEl.addEventListener('change', () => {
   if (analytics) {
     logEvent(analytics, 'admin_rating_filter', { rating_filter: ratingFilterEl.value })
+  }
+  render()
+})
+
+tagFilterEl.addEventListener('change', () => {
+  if (analytics) {
+    logEvent(analytics, 'admin_tag_filter', { tag_filter: tagFilterEl.value })
   }
   render()
 })

@@ -57,13 +57,14 @@ service cloud.firestore {
     // Feedback messages: public write-only, validated inputs, only admins can read
     match /feedback/{id} {
       allow create: if request.resource.data.keys().hasAll(['message', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['message', 'createdAt', 'email', 'rating', 'path'])
+        && request.resource.data.keys().hasOnly(['message', 'createdAt', 'email', 'rating', 'path', 'tags'])
         && request.resource.data.message is string
         && request.resource.data.message.size() > 0
         && request.resource.data.message.size() <= 5000
         && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 254))
         && (!('rating' in request.resource.data) || (request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5))
         && (!('path' in request.resource.data) || (request.resource.data.path is string && request.resource.data.path.size() <= 1000))
+        && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 10))
         && request.resource.data.createdAt == request.time;
       allow read: if isAdmin();
       // Admins can mark feedback as done and delete it

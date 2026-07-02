@@ -854,6 +854,12 @@
     cursor: pointer;
   }
 
+  button.hero-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    line-height: 1;
+  }
+
   .hero-btn:hover {
     border-color: var(--purple);
     color: var(--purple-l);
@@ -1705,6 +1711,9 @@
 </style>
 
 <script>
+  import { db } from '../lib/firebase';
+  import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
   // Presets data for July 1 and June 30
   const PRESET_PAPERS = {
   "2026-07-01": [
@@ -4424,6 +4433,13 @@
                   <span class="lang-en">Paper PDF</span>
                   <span class="lang-zh">论文 PDF</span>
                 </a>
+                <button class="hero-btn suggest-post-btn" data-pdf-url="${pdfUrl.replace(/"/g, '&quot;')}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  <span class="lang-en">Suggest Full Post</span>
+                  <span class="lang-zh">建议写详细文章</span>
+                </button>
               </div>
             </div>
           </div>
@@ -4588,6 +4604,64 @@
 
     // --- Initial SSR Render Page Call ---
     renderPage();
+
+    // --- Suggest Full Post button ---
+    const papersContainer = document.getElementById('papers-content-target');
+    papersContainer?.addEventListener('click', async (e) => {
+      const btn = (e.target as Element).closest<HTMLButtonElement>('.suggest-post-btn');
+      if (!btn || btn.disabled) return;
+
+      const pdfUrl = btn.getAttribute('data-pdf-url') ?? '';
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span class="lang-en">Suggesting…</span>
+        <span class="lang-zh">提交中…</span>
+      `;
+
+      try {
+        await addDoc(collection(db, 'feedback'), {
+          message: `paper: ${pdfUrl}`,
+          tags: ['post suggestion'],
+          path: window.location.pathname,
+          createdAt: serverTimestamp(),
+        });
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span class="lang-en">Suggested ✓</span>
+          <span class="lang-zh">已提交 ✓</span>
+        `;
+        btn.style.borderColor = 'var(--green, #22c55e)';
+        btn.style.color = 'var(--green, #22c55e)';
+        // Reset after 3 s so the user can see the confirmation
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.style.borderColor = '';
+          btn.style.color = '';
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span class="lang-en">Suggest Full Post</span>
+            <span class="lang-zh">建议写详细文章</span>
+          `;
+        }, 3000);
+      } catch (err) {
+        console.error('Failed to submit suggestion:', err);
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          <span class="lang-en">Suggest Full Post</span>
+          <span class="lang-zh">建议写详细文章</span>
+        `;
+      }
+    });
 
     // --- Viz 1: Math Strategy vs Phrasing ---
     const mathToggleBtns = document.querySelectorAll('#viz-paper-1 .viz-btn');
