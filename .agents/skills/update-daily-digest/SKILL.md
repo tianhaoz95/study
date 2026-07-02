@@ -43,22 +43,34 @@ Map each raw paper to the following structured JSON format:
 > [!NOTE]
 > If a paper has a highly specific custom interactive visualization (like Goku, MOPD, etc.), make sure to preserve its original `id` (e.g., `paper-1` to `paper-5`) and details so the UI visualization continues to match.
 
+Also write a short **executive summary** (2–3 sentences each) covering the day's overarching themes across all papers. This goes into the top-level `summaryEn` / `summaryZh` fields.
+
 Output the compiled dictionary structure to `scratch/translated_papers.json` with the following wrapper:
 ```json
 {
-  "date": "2026-07-01",
+  "date": "2026-07-02",
+  "summaryEn": "2–3 sentence English overview of the day's dominant themes across all papers.",
+  "summaryZh": "2–3句中文概述当日所有论文的主要研究主题。",
   "papers": [
     // Array of mapped paper objects sorted by upvotes descending
   ]
 }
 ```
 
-## Step 3: Write Back Presets
+## Step 3: Write Back Presets and Update Home Page Date Wiring
 
-Run the presets updating script to inject the translated presets JSON directly into the Astro component [DailyPaperDigest.astro](file:///Users/tianhaozhou/github/study/apps/blog/src/components/DailyPaperDigest.astro):
+Run the presets updating script. It now handles **everything** in one pass — no manual date edits needed:
 ```bash
 python3 scripts/update_presets.py
 ```
+
+The script automatically:
+- Injects the new date's papers into `PRESET_PAPERS`
+- Bumps the **"Today"** chip button to the new date, **"Yesterday"** to the previous today
+- Updates the date input `max` and `value`
+- Updates the JS `currentPapers` and `activePresetDate` initial values
+- Inserts the new date's executive summary (visible), marks the previous today's as hidden
+- Extends `toggleExecutiveSummary()` with a case for the new date
 
 ## Step 4: Verify and Build
 
