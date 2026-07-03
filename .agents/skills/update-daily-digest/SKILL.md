@@ -22,8 +22,8 @@ This fetches papers from the Hugging Face API and writes metadata to `scratch/ra
 > | Flag | Meaning | What to do |
 > |------|---------|------------|
 > | `"already_processed": false` | Fresh run — date not yet in the preset | Continue with Steps 2–4 normally |
-> | `"is_incremental": true` | Date already in preset but HuggingFace has new papers | Continue with **Incremental Mode** in Step 2 |
-> | `"already_processed": true` | Date in preset and nothing new on HuggingFace | **STOP** — notify user that everything is up to date |
+> | `"is_incremental": true` | Date in preset but HuggingFace has new papers and/or upvote changes | Continue with **Incremental Mode** in Step 2 |
+> | `"already_processed": true` | Date in preset, no new papers, upvotes unchanged | **STOP** — notify user that everything is up to date |
 
 ## Step 2: Translate and Structure (LLM Step)
 
@@ -66,12 +66,17 @@ Output the compiled dictionary structure to `scratch/translated_papers.json` wit
 
 ### Incremental Mode (when `is_incremental: true`)
 
-When `raw_papers.json` contains `"is_incremental": true`, the date already has papers in the preset and only new additions need to be processed:
+When `raw_papers.json` contains `"is_incremental": true`, the date already has papers in the preset. The fetch script has already:
+- Refreshed the `upvotes` field on every paper in `existing_papers` from the live HuggingFace data
+- Placed only the net-new papers in `papers`
+- Reported how many upvote changes occurred in `upvote_changes`
 
-1. **Translate only the new papers** in `raw_papers.json["papers"]` using the format above.
+Process as follows:
+
+1. **Translate only the new papers** in `raw_papers.json["papers"]` using the format above. If `papers` is empty (upvote-only refresh), skip this step.
 2. **Assign IDs starting after the existing ones** — check `raw_papers.json["existing_papers"]` to find the highest `id` number already used (e.g. if existing papers go up to `paper-15`, new ones start at `paper-16`).
-3. **Merge** — combine `existing_papers` (unchanged, from `raw_papers.json["existing_papers"]`) with the newly translated papers into one flat array.
-4. **Re-sort the merged array by upvotes descending** — new high-upvote papers may rank above older ones.
+3. **Merge** — combine `existing_papers` (already upvote-refreshed) with the newly translated papers into one flat array. Do **not** re-translate or modify the existing papers — their `upvotes` field is already current.
+4. **Re-sort the merged array by upvotes descending** — upvote refreshes and new high-upvote papers may both change the ranking.
 5. **Update the executive summary** to reflect the full combined set of papers for the day.
 6. **Write the complete merged array** (existing + new) to `scratch/translated_papers.json` — `update_presets.py` will replace the entire date entry, so it must be the full authoritative list.
 

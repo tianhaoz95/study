@@ -115,16 +115,43 @@ def main():
         print("Raw papers successfully written to scratch/raw_papers.json")
         return
 
-    # Date already in preset — check for new papers
+    # Build a lookup from arxivId → fresh upvote count from HuggingFace
+    hf_upvotes: dict[str, int] = {}
+    for p in raw_data:
+        arxiv_id = p.get('paper', {}).get('id') or ''
+        upvotes   = p.get('upvotes') or p.get('paper', {}).get('upvotes') or 0
+        if arxiv_id:
+            hf_upvotes[arxiv_id] = upvotes
+
+    # Refresh upvotes on existing preset papers from the live HuggingFace data
+    upvote_changes: list[str] = []
+    refreshed_existing = []
+    for paper in existing_papers:
+        arxiv_id = paper.get('arxivId', '')
+        new_count = hf_upvotes.get(arxiv_id)
+        updated = dict(paper)
+        if new_count is not None and new_count != paper.get('upvotes'):
+            upvote_changes.append(
+                f"  {paper.get('id')} ({arxiv_id}): {paper.get('upvotes')} → {new_count}"
+            )
+            updated['upvotes'] = new_count
+        refreshed_existing.append(updated)
+
+    if upvote_changes:
+        print(f"Upvote changes on {len(upvote_changes)} existing paper(s):")
+        for line in upvote_changes:
+            print(line)
+
+    # Date already in preset — check for net-new papers
     new_papers = [
         p for p in raw_data
         if (p.get('paper', {}).get('id') or '') not in existing_arxiv_ids
         and (p.get('paper', {}).get('id') or '') != ''
     ]
 
-    if not new_papers:
-        # Case C: nothing new
-        print(f"All {len(existing_papers)} papers for {date_str} are already in the preset. Nothing to do.")
+    if not new_papers and not upvote_changes:
+        # Case C: nothing new, no upvote changes
+        print(f"All {len(existing_papers)} papers for {date_str} are already in the preset and upvotes are current. Nothing to do.")
         with open('scratch/raw_papers.json', 'w') as f:
             json.dump({
                 "date": date_str,
@@ -134,17 +161,21 @@ def main():
         print("Written already_processed=True status flag to scratch/raw_papers.json.")
         return
 
-    # Case B: incremental — new papers found
-    print(f"{len(existing_papers)} papers already in preset; {len(new_papers)} new paper(s) found.")
+    # Case B: incremental — new papers and/or upvote changes
+    print(f"{len(existing_papers)} papers already in preset; "
+          f"{len(new_papers)} new paper(s) found; "
+          f"{len(upvote_changes)} upvote change(s).")
     with open('scratch/raw_papers.json', 'w') as f:
         json.dump({
             "date": date_str,
-            "papers": new_papers,          # only the net-new papers
+            "papers": new_papers,               # only the net-new papers
             "is_incremental": True,
-            "existing_papers": existing_papers,  # current preset list (for merging)
+            "existing_papers": refreshed_existing,  # existing with refreshed upvotes
+            "upvote_changes": len(upvote_changes),
         }, f, indent=2, ensure_ascii=False)
     print(f"Incremental update written to scratch/raw_papers.json "
-          f"({len(new_papers)} new, {len(existing_papers)} existing).")
+          f"({len(new_papers)} new, {len(refreshed_existing)} existing, "
+          f"{len(upvote_changes)} upvote update(s)).")
 
 
 if __name__ == '__main__':
