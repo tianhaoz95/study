@@ -161,7 +161,7 @@ Every post follows this exact structure:
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 ---
 <BaseLayout
-  title="Post Title | Catpuccino.ai"
+  title="Post Title | Heji Study"
   description="One-sentence description for SEO/OG."
   crumb="Short nav breadcrumb"
 >
@@ -849,8 +849,8 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
     <div id="open-glow"></div>
     <div id="open-eyebrow">Today's Deep Dive</div>
     <div id="open-line"></div>
-    <div id="open-brand">Catpuccino.ai</div>
-    <div id="open-url">catpuccino.ai</div>
+    <div id="open-brand">Heji Study</div>
+    <div id="open-url">heji-study-blog.web.app</div>
   </div>
 
   <!-- Scene 1: Title (5–17s) -->
@@ -862,7 +862,7 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
     <div id="title-text">Post Title</div>
     <div id="title-hook">One-line hook: what problem it solves</div>
     <div id="title-sub">One sentence expanding the hook with concrete context.</div>
-    <div id="title-url">catpuccino.ai/posts/POST-SLUG</div>
+    <div id="title-url">heji-study-blog.web.app/posts/POST-SLUG</div>
   </div>
 
   <!-- Scene 2: Core viz — EXPLAINS THE MECHANISM (17–49s) -->
@@ -887,7 +887,7 @@ Create `social-media/posts/<post-id>/index.html` (HyperFrames requires `index.ht
   <!-- Scene 4: CTA (63–72s) -->
   <div class="scene" id="scene-cta">
     <div id="cta-label">Full interactive post</div>
-    <div id="cta-url">catpuccino.ai/posts/POST-SLUG</div>
+    <div id="cta-url">heji-study-blog.web.app/posts/POST-SLUG</div>
     <div id="cta-hint">What you can do interactively →</div>
   </div>
 
