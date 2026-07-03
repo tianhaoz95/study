@@ -9,18 +9,25 @@ This skill guides you through updating the Daily Paper Digest section of the tec
 
 Run the raw paper downloader script. You can specify a date (defaults to today) and a limit of papers (defaults to 15):
 ```bash
-python3 scripts/fetch_daily_papers.py --date 2026-07-01 --limit 15
+python3 scripts/fetch_daily_papers.py --date 2026-07-02 --limit 15
 ```
 
-This fetches the papers from the Hugging Face API and writes the metadata to `scratch/raw_papers.json`.
+This fetches papers from the Hugging Face API and writes metadata to `scratch/raw_papers.json`.
 
 > [!IMPORTANT]
-> **Check if Already Processed**:
-> Immediately after running Step 1, open and read `scratch/raw_papers.json`. If the file contains `"already_processed": true`, **STOP the skill execution immediately**, do not proceed with Steps 2, 3, or 4, and notify the user that today's papers have already been processed and there is nothing to do.
+> **Interpret the output flag before continuing:**
+>
+> Immediately after running Step 1, open and read `scratch/raw_papers.json` and check the flag:
+>
+> | Flag | Meaning | What to do |
+> |------|---------|------------|
+> | `"already_processed": false` | Fresh run — date not yet in the preset | Continue with Steps 2–4 normally |
+> | `"is_incremental": true` | Date already in preset but HuggingFace has new papers | Continue with **Incremental Mode** in Step 2 |
+> | `"already_processed": true` | Date in preset and nothing new on HuggingFace | **STOP** — notify user that everything is up to date |
 
 ## Step 2: Translate and Structure (LLM Step)
 
-Read the content of `scratch/raw_papers.json`. For each paper in the list, use your own LLM reasoning context to perform translation and summarization.
+Read the content of `scratch/raw_papers.json`. For each paper in `"papers"`, use your own LLM reasoning context to perform translation and summarization.
 
 Map each raw paper to the following structured JSON format:
 ```json
@@ -57,6 +64,17 @@ Output the compiled dictionary structure to `scratch/translated_papers.json` wit
 }
 ```
 
+### Incremental Mode (when `is_incremental: true`)
+
+When `raw_papers.json` contains `"is_incremental": true`, the date already has papers in the preset and only new additions need to be processed:
+
+1. **Translate only the new papers** in `raw_papers.json["papers"]` using the format above.
+2. **Assign IDs starting after the existing ones** — check `raw_papers.json["existing_papers"]` to find the highest `id` number already used (e.g. if existing papers go up to `paper-15`, new ones start at `paper-16`).
+3. **Merge** — combine `existing_papers` (unchanged, from `raw_papers.json["existing_papers"]`) with the newly translated papers into one flat array.
+4. **Re-sort the merged array by upvotes descending** — new high-upvote papers may rank above older ones.
+5. **Update the executive summary** to reflect the full combined set of papers for the day.
+6. **Write the complete merged array** (existing + new) to `scratch/translated_papers.json` — `update_presets.py` will replace the entire date entry, so it must be the full authoritative list.
+
 ## Step 3: Write Back Presets and Update Home Page Date Wiring
 
 Run the presets updating script. It now handles **everything** in one pass — no manual date edits needed:
@@ -71,6 +89,9 @@ The script automatically:
 - Updates the JS `currentPapers` and `activePresetDate` initial values
 - Inserts the new date's executive summary (visible), marks the previous today's as hidden
 - Extends `toggleExecutiveSummary()` with a case for the new date
+
+> [!NOTE]
+> For incremental updates, `update_presets.py` behaves identically — it replaces the full date entry with the merged list from `translated_papers.json`. The date-wiring update is skipped automatically (since the date is already the active one), so only the paper data changes.
 
 ## Step 4: Verify and Build
 
