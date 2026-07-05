@@ -122,17 +122,17 @@ GSAP is loaded from the CDN at render time — no local install needed.
 
 ### Scene structure
 
-A **72-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts).
+A **90-second 1080×1920 MP4** (9:16 vertical — Instagram Reels, TikTok, YouTube Shorts).
 
 | Scene | Window | Voiceover | Content |
 |---|---|---|---|
 | **0 — Opening** | 0–5s | ~5 words | "Today's AI Paper Digest" branded card — eyebrow, animated line, brand name |
-| **1 — Overview** | 5–18s | ~30 words | Date + total paper count + 2–3 sentence executive summary of the day's themes |
-| **2 — Papers** | 18–54s | ~85 words | Animated cards for top 5–7 papers, each with upvote count + title + one-line insight, staggered into view |
-| **3 — Highlight** | 54–65s | ~30 words | Spotlight the #1 paper: what makes it stand out — key result or breakthrough in one sentence |
-| **4 — CTA** | 65–72s | ~18 words | "Browse all N papers at heji-study-blog.web.app" |
+| **1 — Overview** | 5–17s | ~30 words | Date + total paper count + 2–3 sentence executive summary of the day's themes |
+| **2 — Papers** | 17–74s | ~140 words | Animated compact cards for top 10 papers, each with upvote count + title + one-line insight, staggered into view at ~5.5s per card |
+| **3 — Highlight** | 74–84s | ~25 words | Spotlight the #1 paper: what makes it stand out — key result or breakthrough in one sentence |
+| **4 — CTA** | 84–90s | ~15 words | "Browse all N papers at catpuccino.ai" |
 
-**Scene 2 is the heart.** Each paper card animates in from the bottom with a brief pause, then the next card overlaps it. Voice narrates the title + one-line insight for each of the top 5 papers.
+**Scene 2 is the heart.** Each paper card animates in from the bottom with a brief pause. Compact card sizing (padding 16px 24px, font-size 17px title / 14px insight) lets all 10 cards fit within the 1920px frame. Voice narrates the title + one-line insight for each of the top 10 papers.
 
 **Also generate a Chinese version** for every digest:
 ```
@@ -142,21 +142,24 @@ social-media/daily-digest/YYYY-MM-DD-zh/
   audio/
     scene-0.mp3  scene-1.mp3  scene-2.mp3  scene-3.mp3  scene-4.mp3
 ```
-Chinese voiceover: `edge-tts --voice zh-CN-XiaoyiNeural --rate="-10%"`. Chinese scene 2 often runs 36–52s — always check actual MP3 durations and patch `data-duration` + GSAP timestamps accordingly.
+Chinese voiceover: `edge-tts --voice zh-CN-XiaoyiNeural --rate="-10%"`. Chinese scene 2 covering 10 papers often runs 55–75s — always check actual MP3 durations and patch `data-duration` + GSAP timestamps accordingly, then adjust the scene window and total video `data-duration`.
 
 ### File locations
 
+> [!IMPORTANT]
+> All paths are **relative to the repo root**, not to `apps/blog/`. Always `cd` to the repo root before running any video commands.
+
 ```
-social-media/daily-digest/YYYY-MM-DD/
+social-media/daily-digest/YYYY-MM-DD/       ← repo root, NOT apps/blog/social-media/
   index.html         ← English HyperFrames composition (must be index.html)
   summary.mp4        ← rendered English output
   audio/
     scene-0.mp3      ← opening voiceover       (0–5s)
-    scene-1.mp3      ← overview voiceover      (5–18s)
-    scene-2.mp3      ← paper list voiceover    (18–54s)
-    scene-3.mp3      ← highlight voiceover     (54–65s)
-    scene-4.mp3      ← CTA voiceover           (65–72s)
-social-media/daily-digest/YYYY-MM-DD-zh/
+    scene-1.mp3      ← overview voiceover      (5–17s)
+    scene-2.mp3      ← paper list voiceover    (17–74s)
+    scene-3.mp3      ← highlight voiceover     (74–84s)
+    scene-4.mp3      ← CTA voiceover           (84–90s)
+social-media/daily-digest/YYYY-MM-DD-zh/    ← repo root
   index.html         ← Chinese composition
   summary-zh.mp4     ← rendered Chinese output
   audio/             ← same structure, Chinese scripts
@@ -214,21 +217,21 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
     #overview-summary { font-size:24px; color:var(--text); line-height:1.55;
                         max-width:880px; text-align:center }
 
-    /* ── Scene 2: Paper list ── */
-    #scene-papers   { justify-content:flex-start; padding:80px 60px; gap:0 }
-    #papers-label   { font-size:14px; font-weight:700; letter-spacing:.12em;
-                      text-transform:uppercase; color:var(--muted); margin-bottom:28px }
+    /* ── Scene 2: Paper list (compact — 10 cards fit in 1920px) ── */
+    #scene-papers   { justify-content:flex-start; padding:60px 60px 40px; gap:0 }
+    #papers-label   { font-size:13px; font-weight:700; letter-spacing:.12em;
+                      text-transform:uppercase; color:var(--muted); margin-bottom:18px }
     .paper-card     { width:100%; background:var(--card);
-                      border:1px solid rgba(139,92,246,.2); border-radius:14px;
-                      padding:28px 32px; margin-bottom:20px; opacity:0 }
-    .pc-top         { display:flex; align-items:center; gap:16px; margin-bottom:10px }
-    .pc-votes       { font-size:13px; font-weight:700; letter-spacing:.06em;
+                      border:1px solid rgba(139,92,246,.2); border-radius:10px;
+                      padding:16px 24px; margin-bottom:12px; opacity:0 }
+    .pc-top         { display:flex; align-items:center; gap:12px; margin-bottom:6px }
+    .pc-votes       { font-size:12px; font-weight:700; letter-spacing:.05em;
                       color:var(--purple); background:rgba(139,92,246,.12);
-                      border:1px solid rgba(139,92,246,.3); border-radius:6px;
-                      padding:4px 10px; flex-shrink:0 }
-    .pc-title       { font-size:20px; font-weight:700; color:var(--text);
-                      line-height:1.3; flex:1 }
-    .pc-insight     { font-size:16px; color:var(--muted); line-height:1.5 }
+                      border:1px solid rgba(139,92,246,.3); border-radius:5px;
+                      padding:3px 8px; flex-shrink:0 }
+    .pc-title       { font-size:17px; font-weight:700; color:var(--text);
+                      line-height:1.25; flex:1 }
+    .pc-insight     { font-size:14px; color:var(--muted); line-height:1.45 }
 
     /* ── Scene 3: Highlight ── */
     #scene-highlight { gap:32px; text-align:center }
@@ -251,11 +254,11 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
 </head>
 <body>
 
-<!-- Total: 72s, 5 scenes, 9:16 vertical -->
+<!-- Total: 90s, 5 scenes, 9:16 vertical -->
 <div id="stage"
      data-composition-id="daily-digest-YYYY-MM-DD"
      data-start="0"
-     data-duration="72"
+     data-duration="90"
      data-width="1080"
      data-height="1920">
 
@@ -264,11 +267,11 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
     <div id="open-glow"></div>
     <div id="open-eyebrow">Today's AI Paper Digest</div>
     <div id="open-line"></div>
-    <div id="open-brand">Heji Study</div>
-    <div id="open-url">heji-study-blog.web.app</div>
+    <div id="open-brand">Catpuccino.ai</div>
+    <div id="open-url">catpuccino.ai</div>
   </div>
 
-  <!-- Scene 1: Overview (5–18s) -->
+  <!-- Scene 1: Overview (5–17s) -->
   <div class="scene" id="scene-overview">
     <div id="overview-date">MONTH DD, YYYY</div>
     <div id="overview-count">N</div>
@@ -276,10 +279,12 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
     <div id="overview-summary">2–3 sentence executive summary of today's dominant themes.</div>
   </div>
 
-  <!-- Scene 2: Paper list (18–54s) — top 5–7 papers, one card per paper -->
+  <!-- Scene 2: Paper list (17–74s) — top 10 papers, one compact card per paper -->
+  <!-- Cards use compact sizing: padding 16px 24px, title font-size 17px, insight font-size 14px -->
+  <!-- All 10 cards fit in the 1920px frame; stagger at ~5.5s intervals -->
   <div class="scene" id="scene-papers">
     <div id="papers-label">Today's Top Papers</div>
-    <!-- Repeat .paper-card for each of the top 5–7 papers -->
+    <!-- Repeat .paper-card for each of the top 10 papers -->
     <div class="paper-card" id="pc-1">
       <div class="pc-top">
         <span class="pc-votes">↑ N upvotes</span>
@@ -294,10 +299,10 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
       </div>
       <div class="pc-insight">One-line insight.</div>
     </div>
-    <!-- ... add up to 7 cards total ... -->
+    <!-- ... 10 cards total (pc-1 through pc-10) ... -->
   </div>
 
-  <!-- Scene 3: #1 paper highlight (54–65s) -->
+  <!-- Scene 3: #1 paper highlight (74–84s) -->
   <div class="scene" id="scene-highlight">
     <div id="hl-eyebrow">⭐ Top Paper</div>
     <div id="hl-title">Title of #1 paper</div>
@@ -305,19 +310,20 @@ Create `social-media/daily-digest/YYYY-MM-DD/index.html`:
     <div id="hl-context">Why this matters — one sentence of context.</div>
   </div>
 
-  <!-- Scene 4: CTA (65–72s) -->
+  <!-- Scene 4: CTA (84–90s) -->
   <div class="scene" id="scene-cta">
     <div id="cta-label">Read all papers</div>
     <div id="cta-count">N papers · MONTH DD, YYYY</div>
-    <div id="cta-url">heji-study-blog.web.app</div>
+    <div id="cta-url">catpuccino.ai</div>
   </div>
 
   <!-- IMPORTANT: every <audio> must have a unique id or the renderer will make it SILENT -->
+  <!-- Patch data-duration values to match actual measured MP3 durations after generation -->
   <audio id="audio-s0" data-start="0"  data-duration="5"  data-track-index="1" data-volume="1.0" src="audio/scene-0.mp3"></audio>
-  <audio id="audio-s1" data-start="5"  data-duration="13" data-track-index="1" data-volume="1.0" src="audio/scene-1.mp3"></audio>
-  <audio id="audio-s2" data-start="18" data-duration="36" data-track-index="1" data-volume="1.0" src="audio/scene-2.mp3"></audio>
-  <audio id="audio-s3" data-start="54" data-duration="11" data-track-index="1" data-volume="1.0" src="audio/scene-3.mp3"></audio>
-  <audio id="audio-s4" data-start="65" data-duration="7"  data-track-index="1" data-volume="1.0" src="audio/scene-4.mp3"></audio>
+  <audio id="audio-s1" data-start="5"  data-duration="12" data-track-index="1" data-volume="1.0" src="audio/scene-1.mp3"></audio>
+  <audio id="audio-s2" data-start="17" data-duration="57" data-track-index="1" data-volume="1.0" src="audio/scene-2.mp3"></audio>
+  <audio id="audio-s3" data-start="74" data-duration="10" data-track-index="1" data-volume="1.0" src="audio/scene-3.mp3"></audio>
+  <audio id="audio-s4" data-start="84" data-duration="6"  data-track-index="1" data-volume="1.0" src="audio/scene-4.mp3"></audio>
 
 </div><!-- /#stage -->
 
@@ -332,38 +338,38 @@ tl.to('#scene-open',   { opacity: 1, duration: 0.01 }, 0)
   .from('#open-url',     { opacity: 0, duration: 0.5 }, 1.8)
   .to('#scene-open',     { opacity: 0, duration: 0.5 }, 4.5);
 
-// Scene 1: Overview (5–18s)
+// Scene 1: Overview (5–17s)
 tl.to('#scene-overview',   { opacity: 1, duration: 0.01 }, 5)
   .from('#overview-date',  { opacity: 0, y: 20, duration: 0.7, ease: 'power2.out' }, 5.3)
   .from('#overview-count', { opacity: 0, y: 40, duration: 1.0, ease: 'power3.out' }, 5.8)
   .from('#overview-unit',  { opacity: 0, duration: 0.6 }, 6.4)
   .from('#overview-summary', { opacity: 0, y: 24, duration: 1.0, ease: 'power2.out' }, 7.2)
-  .to('#scene-overview',   { opacity: 0, duration: 0.5 }, 17.5);
+  .to('#scene-overview',   { opacity: 0, duration: 0.5 }, 16.5);
 
-// Scene 2: Paper list (18–54s)
-// Cards stagger in; adjust timing based on how many cards you have
-tl.to('#scene-papers', { opacity: 1, duration: 0.01 }, 18)
-  .from('#papers-label', { opacity: 0, duration: 0.6 }, 18.3);
+// Scene 2: Paper list (17–74s) — 10 cards, ~5.5s stagger
+// card 1 @ 18.0, card 2 @ 23.5, ..., card 10 @ 67.5; scene exits @ 73.5
+tl.to('#scene-papers', { opacity: 1, duration: 0.01 }, 17)
+  .from('#papers-label', { opacity: 0, duration: 0.6 }, 17.3);
 const cards = document.querySelectorAll('.paper-card');
 cards.forEach((card, i) => {
-  tl.fromTo(card, { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power2.out' }, 19 + i * 5.5);
+  tl.fromTo(card, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, 18 + i * 5.5);
 });
-tl.to('#scene-papers', { opacity: 0, duration: 0.5 }, 53.5);
+tl.to('#scene-papers', { opacity: 0, duration: 0.5 }, 73.5);
 
-// Scene 3: Highlight (54–65s)
-tl.to('#scene-highlight', { opacity: 1, duration: 0.01 }, 54)
-  .from('#hl-eyebrow', { opacity: 0, duration: 0.6, ease: 'power2.out' }, 54.3)
-  .from('#hl-title',   { opacity: 0, y: 30, duration: 0.9, ease: 'power3.out' }, 54.8)
-  .from('#hl-result',  { opacity: 0, y: 20, duration: 0.8, ease: 'power2.out' }, 55.6)
-  .from('#hl-context', { opacity: 0, duration: 0.6 }, 56.5)
-  .to('#scene-highlight', { opacity: 0, duration: 0.5 }, 64.5);
+// Scene 3: Highlight (74–84s)
+tl.to('#scene-highlight', { opacity: 1, duration: 0.01 }, 74)
+  .from('#hl-eyebrow', { opacity: 0, duration: 0.6, ease: 'power2.out' }, 74.3)
+  .from('#hl-title',   { opacity: 0, y: 30, duration: 0.9, ease: 'power3.out' }, 74.8)
+  .from('#hl-result',  { opacity: 0, y: 20, duration: 0.8, ease: 'power2.out' }, 75.6)
+  .from('#hl-context', { opacity: 0, duration: 0.6 }, 76.5)
+  .to('#scene-highlight', { opacity: 0, duration: 0.5 }, 83.5);
 
-// Scene 4: CTA (65–72s)
-tl.to('#scene-cta',   { opacity: 1, duration: 0.01 }, 65)
-  .from('#cta-label', { opacity: 0, duration: 0.6 }, 65.3)
-  .from('#cta-count', { opacity: 0, duration: 0.5 }, 65.9)
-  .from('#cta-url',   { opacity: 0, scale: 0.92, duration: 1.0, ease: 'power2.out' }, 66.3)
-  .to('#scene-cta',   { opacity: 0, duration: 0.8 }, 71.2);
+// Scene 4: CTA (84–90s)
+tl.to('#scene-cta',   { opacity: 1, duration: 0.01 }, 84)
+  .from('#cta-label', { opacity: 0, duration: 0.6 }, 84.3)
+  .from('#cta-count', { opacity: 0, duration: 0.5 }, 84.9)
+  .from('#cta-url',   { opacity: 0, scale: 0.92, duration: 1.0, ease: 'power2.out' }, 85.3)
+  .to('#scene-cta',   { opacity: 0, duration: 0.8 }, 89.2);
 
 window.__timelines = window.__timelines || {};
 window.__timelines['daily-digest-YYYY-MM-DD'] = tl;
@@ -378,20 +384,25 @@ window.__timelines['daily-digest-YYYY-MM-DD'] = tl;
 |---|---|---|
 | 0 — Opening | ~5 words | "Today's A.I. Paper Digest." — short, punchy |
 | 1 — Overview | ~30 words | State the date, paper count, and 2–3 sentence summary of the day's dominant themes |
-| 2 — Papers | ~85 words | For each of the top 5 papers: "[Paper name]: [one-line insight]." Keep each paper to 1–2 short sentences |
-| 3 — Highlight | ~30 words | "#1 paper. [Title]. [Key result in one punchy sentence]. [Why it matters]." |
-| 4 — CTA | ~18 words | "Browse all N papers — on Heji Study, now at heji-study-blog.web.app" |
+| 2 — Papers | ~140 words | For each of the top 10 papers: "[Short title]: [one-line insight]." Keep each paper to ~14 words (1 short sentence) |
+| 3 — Highlight | ~25 words | "#1 paper. [Title]. [Key result in one punchy sentence]. [Why it matters]." |
+| 4 — CTA | ~15 words | "Browse all N papers on Catpuccino dot A.I." |
 
 **Generate English audio (Kokoro — recommended):**
+
+> [!NOTE]
+> Run all commands from the **repo root**. The `mkdir -p` creates relative to repo root; the `cd` moves into the composition dir for subsequent commands.
+
 ```bash
+# From repo root:
 mkdir -p social-media/daily-digest/YYYY-MM-DD/audio
 cd social-media/daily-digest/YYYY-MM-DD
 
 npx hyperframes tts "Today's A.I. Paper Digest." -v af_nova -s 0.95 -o audio/scene-0.wav
 npx hyperframes tts "SCENE 1 SCRIPT" -v af_nova -s 0.95 -o audio/scene-1.wav
-npx hyperframes tts "SCENE 2 SCRIPT" -v af_nova -s 0.95 -o audio/scene-2.wav
+npx hyperframes tts "SCENE 2 SCRIPT (10 papers, ~140 words)" -v af_nova -s 0.95 -o audio/scene-2.wav
 npx hyperframes tts "SCENE 3 SCRIPT" -v af_nova -s 0.95 -o audio/scene-3.wav
-npx hyperframes tts "SCENE 4 SCRIPT" -v af_nova -s 0.95 -o audio/scene-4.wav
+npx hyperframes tts "Browse all N papers on Catpuccino dot A.I." -v af_nova -s 0.95 -o audio/scene-4.wav
 
 for i in 0 1 2 3 4; do
   ffmpeg -y -i audio/scene-${i}.wav -acodec libmp3lame -q:a 2 audio/scene-${i}.mp3 \
